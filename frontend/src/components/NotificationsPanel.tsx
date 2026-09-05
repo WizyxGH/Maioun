@@ -12,6 +12,8 @@
  */
 
 import { useRef, useState } from 'react';
+import { Check } from './icons.js';
+import { Button } from '@/components/ui/button.js';
 import type { ListingView } from '../types.js';
 import {
   formatArea,
@@ -46,6 +48,15 @@ interface NotificationsPanelProps {
    * et les repères disparaîtraient sous les yeux.
    */
   readonly seenAtMs: number;
+  /**
+   * Efface les repères « non lue », sans rien ouvrir ni écarter.
+   *
+   * DISTINCT D'ÉCARTER, et c'est ce qui justifie un bouton séparé du
+   * glissement : écarter range la ligne hors de l'historique, marquer comme lu
+   * la laisse en place. On veut souvent le second sans le premier — douze
+   * alertes qu'on a vues et qu'on garde sous la main.
+   */
+  readonly onMarkAllRead?: () => void;
 }
 
 /**
@@ -150,6 +161,7 @@ export function NotificationsPanel({
   nowMs,
   onOpen,
   seenAtMs,
+  onMarkAllRead,
 }: NotificationsPanelProps): React.JSX.Element {
   // Lignes écartées d'un glissement. Persisté : ranger une alerte ne doit pas
   // se défaire au premier rechargement.
@@ -188,13 +200,28 @@ export function NotificationsPanel({
     else days.push({ label, items: [listing] });
   }
 
+  const unread = history.filter((listing) => isUnreadAlert(listing, seenAtMs)).length;
+
   return (
     <section className="flex flex-col gap-5">
       <h2 className="text-lg font-semibold">Notifications</h2>
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
-          {history.length > 0 ? `Historique (${history.length})` : 'Historique'}
-        </h3>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-muted-foreground text-sm font-semibold">
+            {history.length > 0 ? `Historique (${history.length})` : 'Historique'}
+          </h3>
+          {/* LE BOUTON N'APPARAÎT QUE S'IL A QUELQUE CHOSE À FAIRE. Un
+            « marquer tout comme lu » posé au-dessus d'une liste déjà lue est un
+            contrôle inerte : on le presse, rien ne bouge, et l'on se demande ce
+            qu'on a raté. */}
+          {unread > 0 && onMarkAllRead !== undefined && (
+            <Button variant="ghost" size="sm" onClick={onMarkAllRead}>
+              <Check aria-hidden="true" className="size-4" />
+              Tout marquer comme lu
+              <span className="sr-only"> ({unread} non lues)</span>
+            </Button>
+          )}
+        </div>
         {days.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Aucune alerte sur les {HISTORY_DAYS} derniers jours. Les annonces signalées

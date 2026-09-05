@@ -919,6 +919,26 @@ export function App(): React.JSX.Element {
   );
   useNewListingAlerts({ onFresh: handleFresh, onOpen: openListing });
 
+  /**
+   * Efface les repères « non lue » de l'historique, d'un geste.
+   *
+   * TROIS ÉTATS À ALIGNER, faute de quoi la page se contredit : la mémoire
+   * durable, la pastille de la cloche, et le repère des lignes affichées. Le
+   * dernier vaut l'instant de la visite PRÉCÉDENTE — c'est ce qui laisse les
+   * repères visibles pendant qu'on parcourt la page —, et c'est précisément
+   * celui qu'il faut avancer ici.
+   *
+   * La mémoire durable est réécrite même quand elle vaut déjà « maintenant » :
+   * on peut arriver sur cette page par son adresse directe, sans passer par la
+   * cloche qui la met à jour.
+   */
+  const markAllAlertsRead = (): void => {
+    const now = Date.now();
+    markAlertsSeen(now);
+    setAlertsSeenAt(now);
+    setAlertsViewedFrom(now);
+  };
+
   const dismissToast = useCallback((id: string): void => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
@@ -1313,6 +1333,7 @@ export function App(): React.JSX.Element {
             nowMs={nowMs}
             onOpen={openListing}
             seenAtMs={alertsViewedFrom}
+            onMarkAllRead={markAllAlertsRead}
           />
         </main>
       );
