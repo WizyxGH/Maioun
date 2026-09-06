@@ -1106,7 +1106,16 @@ export function App(): React.JSX.Element {
     }
   };
 
-  const selected = listings.find((listing) => listing.id === selectedId) ?? null;
+  /**
+   * L'annonce affichée par l'écran de fiche — la COMPLÈTE, ou rien.
+   *
+   * Retenir la version allégée de la liste faisait tomber le rendu : elle n'a
+   * ni description ni détail des scores, et l'écran les affiche tous les deux.
+   * Tant que la complète n'est pas arrivée, on montre le squelette — quelques
+   * centaines de millisecondes, contre une page blanche définitive.
+   */
+  const selected =
+    listings.find((listing) => listing.id === selectedId && listing.partial !== true) ?? null;
 
   // DÉCLARÉ ICI, avec les autres actions sur une annonce, et non plus après le
   // rendu de la liste : la vue FICHE sort du composant par un `return` anticipé,

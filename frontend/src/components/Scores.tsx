@@ -81,7 +81,11 @@ export function ScoreDetail({
           )}
 
           <ul className="mt-2 text-sm">
-            {score.reasons.map((reason, index) => (
+            {/* `?? []` : une annonce venue de la LISTE n'a pas le détail des
+              raisons — il est retiré en SQL, avec la description. La fiche
+              redemande la version complète, mais le rendu ne doit pas tomber
+              en attendant. */}
+            {(score.reasons ?? []).map((reason, index) => (
               <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
                 <span aria-hidden="true" className="flex w-4 shrink-0 justify-center pt-0.5">
                   <ReasonIcon delta={reason.delta} invert={invert} />
