@@ -11,7 +11,8 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { App } from './App.js';
+import { App, anyClientFilter } from './App.js';
+import { DEFAULT_QUICK_FILTERS } from './components/QuickFilters.js';
 import { MOCK_LISTINGS } from './api/mock-data.js';
 
 /**
@@ -370,5 +371,42 @@ describe('confidentialité (§26)', () => {
     for (const email of emails) {
       expect(email).toMatch(/example\.invalid$/);
     }
+  });
+});
+
+/**
+ * CE QUI VIDE LA LISTE, ET CE QUE L'ÉCRAN EN DIT.
+ *
+ * Un filtre du navigateur qui ne compte pas ici fait accuser la collecte : la
+ * page annonce « aucune annonce ne correspond à vos critères » pour un mot
+ * resté dans la barre de recherche — et ce mot SURVIT au rechargement.
+ */
+describe('anyClientFilter', () => {
+  const base = {
+    quickFilters: DEFAULT_QUICK_FILTERS,
+    selectedSources: new Set<string>(),
+    search: '',
+    hideUncertain: false,
+  };
+
+  it('ne signale rien quand rien ne filtre', () => {
+    expect(anyClientFilter(base)).toBe(false);
+    // Un espace n'est pas une recherche.
+    expect(anyClientFilter({ ...base, search: '   ' })).toBe(false);
+  });
+
+  it('compte la recherche, oubliée jusqu’ici', () => {
+    expect(anyClientFilter({ ...base, search: 'fabron' })).toBe(true);
+  });
+
+  it('compte « masquer les annonces à vérifier », oubliée aussi', () => {
+    expect(anyClientFilter({ ...base, hideUncertain: true })).toBe(true);
+  });
+
+  it('compte les sources et les filtres rapides', () => {
+    expect(anyClientFilter({ ...base, selectedSources: new Set(['fnaim']) })).toBe(true);
+    expect(
+      anyClientFilter({ ...base, quickFilters: { ...DEFAULT_QUICK_FILTERS, minRooms: 3 } }),
+    ).toBe(true);
   });
 });

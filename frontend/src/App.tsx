@@ -295,6 +295,33 @@ function isDefaultView(view: {
  * la pastille du bouton « Filtres ». Hors du composant : ce n'est
  * qu'un décompte, et l'y laisser alourdissait `App` sans rien apprendre.
  */
+/**
+ * `true` si un réglage DU NAVIGATEUR restreint la liste.
+ *
+ * IL EN MANQUAIT LA MOITIÉ. On ne regardait que les pilules et les sources ; la
+ * recherche et « masquer les annonces à vérifier » vident pourtant la liste
+ * tout autant. L'écran disait alors « aucune annonce ne correspond à vos
+ * critères » — donc accusait la collecte — pour un mot resté dans la barre de
+ * recherche. Et ce mot SURVIT au rechargement : rouvrir le site n'y changeait
+ * rien.
+ *
+ * Hors du composant, comme `countActiveSettings` : ce n'est qu'un calcul, et
+ * l'y laisser poussait `App` au-delà de la complexité tolérée.
+ */
+export function anyClientFilter(view: {
+  readonly quickFilters: QuickFilterValues;
+  readonly selectedSources: ReadonlySet<string>;
+  readonly search: string;
+  readonly hideUncertain: boolean;
+}): boolean {
+  return (
+    hasActiveQuickFilters(view.quickFilters) ||
+    view.selectedSources.size > 0 ||
+    view.search.trim() !== '' ||
+    view.hideUncertain
+  );
+}
+
 function countActiveSettings(view: {
   readonly sort: SortMode;
   readonly sourceCount: number;
@@ -367,6 +394,7 @@ function SearchResults({
   split,
   favoritesOnly,
   emptyBecauseFiltered,
+  onResetFilters,
   nowMs,
   affinity,
   onOpen,
@@ -382,6 +410,8 @@ function SearchResults({
   readonly favoritesOnly: boolean;
   /** `true` si le vide vient d'un filtre, et non d'un inventaire vide. */
   readonly emptyBecauseFiltered: boolean;
+  /** Remet tri, filtres, sources et recherche à zéro. */
+  readonly onResetFilters?: () => void;
   readonly nowMs: number;
   readonly affinity: { active: boolean; scores: ReadonlyMap<string, number> };
   readonly onOpen: (id: string) => void;
@@ -390,13 +420,25 @@ function SearchResults({
   return loading ? (
     <ListingListSkeleton />
   ) : filtered.length === 0 ? (
-    <p className="py-8 text-center text-muted-foreground">
-      {favoritesOnly
-        ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
-        : emptyBecauseFiltered
-          ? 'Aucune annonce ne correspond à ces filtres.'
-          : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
-    </p>
+    <div className="py-8 text-center">
+      <p className="text-muted-foreground">
+        {favoritesOnly
+          ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
+          : emptyBecauseFiltered
+            ? 'Aucune annonce ne correspond à ces filtres.'
+            : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
+      </p>
+      {/* UNE SORTIE, ET IL N'Y EN AVAIT AUCUNE. Un filtre qui vide la liste
+        laissait devant une page vide sans rien à faire : le terme de recherche
+        et la sélection de sources SURVIVENT au rechargement, si bien qu'une
+        lettre tapée par erreur suffisait à condamner l'écran — rouvrir le site
+        n'y changeait rien, et le message accusait les critères. */}
+      {emptyBecauseFiltered && !favoritesOnly && onResetFilters !== undefined && (
+        <Button variant="outline" className="mt-3" onClick={onResetFilters}>
+          Réinitialiser les filtres
+        </Button>
+      )}
+    </div>
   ) : split ? (
     <>
       {/* DEUX COLONNES SUR GRAND ÉCRAN, façon Airbnb : les cartes à
@@ -1817,7 +1859,13 @@ export function App(): React.JSX.Element {
         rest={rest}
         split={displayMode === 'map' || wideScreen}
         favoritesOnly={favoritesOnly}
-        emptyBecauseFiltered={hasActiveQuickFilters(quickFilters) || selectedSources.size > 0}
+        emptyBecauseFiltered={anyClientFilter({
+          quickFilters,
+          selectedSources,
+          search,
+          hideUncertain,
+        })}
+        onResetFilters={resetSortAndFilters}
         nowMs={nowMs}
         affinity={affinity}
         onOpen={openListing}
