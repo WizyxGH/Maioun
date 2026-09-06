@@ -322,6 +322,37 @@ export function anyClientFilter(view: {
   );
 }
 
+/**
+ * Au-delà, on considère que la vérification de session n'aboutira pas.
+ *
+ * Dix secondes : bien plus qu'il n'en faut sur un réseau lent, bien moins que
+ * la patience de quelqu'un devant une page blanche.
+ */
+const SESSION_TIMEOUT_MS = 10_000;
+
+/**
+ * L'attente de la vérification de session.
+ *
+ * RIEN PENDANT UNE SECONDE, puis un mot. Le cas courant se règle en deux
+ * cents millisecondes : y afficher un indicateur le ferait clignoter à chaque
+ * ouverture, ce qui est pire que le silence. Passé une seconde, le silence
+ * devient une page blanche, et une page blanche ne dit pas si l'on attend, si
+ * l'on est déconnecté, ou si tout est cassé.
+ */
+function SessionPending(): React.JSX.Element {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), 1000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!slow) return <></>;
+  return (
+    <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-4">
+      <p className="text-muted-foreground text-center text-sm">Connexion en cours…</p>
+    </main>
+  );
+}
+
 function countActiveSettings(view: {
   readonly sort: SortMode;
   readonly sourceCount: number;
@@ -841,11 +872,34 @@ export function App(): React.JSX.Element {
     }
   }, [sort, includeOutOfCriteria, showArchived, favoritesOnly]);
 
+  /**
+   * QUI EST CONNECTÉ — et une limite de patience.
+   *
+   * Tant que la réponse n'est pas là, l'écran ne montre RIEN : ni connexion, ni
+   * application, parce qu'afficher l'une puis l'autre ferait clignoter la page
+   * chez qui a déjà une session. C'est juste, mais cela veut dire qu'une
+   * requête qui n'aboutit jamais laisse une PAGE BLANCHE définitive, sans un
+   * mot et sans recours — et `fetch` ne rend pas la main tout seul : un réseau
+   * qui accepte la connexion puis se tait fait attendre indéfiniment.
+   *
+   * Au bout de dix secondes, on tranche donc pour « pas connecté ». L'écran de
+   * connexion s'affiche, et une session valide sera retrouvée au premier essai.
+   * Se tromper coûte un mot de passe à ressaisir ; ne rien trancher coûte une
+   * application inutilisable.
+   */
   useEffect(() => {
-    if (!requiresLogin()) return;
+    if (!requiresLogin()) return undefined;
+    let settled = false;
+    const decide = (user: string | null): void => {
+      if (settled) return;
+      settled = true;
+      setCurrentUser(user);
+    };
+    const giveUp = window.setTimeout(() => decide(null), SESSION_TIMEOUT_MS);
     void fetchCurrentUser()
-      .then(setCurrentUser)
-      .catch(() => setCurrentUser(null));
+      .then(decide)
+      .catch(() => decide(null));
+    return () => window.clearTimeout(giveUp);
   }, []);
 
   useEffect(() => {
@@ -1264,8 +1318,9 @@ export function App(): React.JSX.Element {
     }
 
     // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
-    // quelqu'un déjà connecté.
-    if (currentUser === undefined) return <></>;
+    // quelqu'un déjà connecté. Passé une seconde, en revanche, le blanc n'est
+    // plus une transition : il faut dire qu'il se passe quelque chose.
+    if (currentUser === undefined) return <SessionPending />;
 
     if (currentUser === null) {
       if (view === 'forgot') {
