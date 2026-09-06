@@ -765,3 +765,50 @@ describe('parseMaxOccupants — vocabulaire de la colocation', () => {
     expect(parseMaxOccupants('4 personnes maximum')).toBe(4);
   });
 });
+
+/**
+ * UN BAIL DE NEUF MOIS N'EST PAS UN LOGEMENT À L'ANNÉE. Il s'arrête en juin :
+ * qui cherche à se loger durablement doit déménager l'été suivant. C'est un
+ * critère éliminatoire, et le rater fait entrer l'annonce dans une recherche
+ * où elle n'a rien à faire.
+ */
+describe('bail de neuf mois — tournures réelles', () => {
+  /**
+   * Relevé le 2026-09-06 sur « STUDIO MEUBLE AVENUE CALIFORNIE » (Palais
+   * Immobilier). Le motif exigeait que « location » touche « de 9 mois » ; un
+   * seul mot inséré, et l'annonce passait pour une location ordinaire.
+   */
+  it('reconnaît « Location étudiant de 9 mois »', () => {
+    expect(
+      isShortTermStudentLease(
+        'Studio Meublé étudiant Californie - Nice Location étudiant de 9 mois. Studio meuble de 22,9m².',
+      ),
+    ).toBe(true);
+  });
+
+  it('reconnaît les tournures voisines', () => {
+    for (const text of [
+      'Bail de 9 mois',
+      'bail étudiant de neuf mois',
+      'Location meublée de 9 mois',
+      'contrat de location de 9 mois',
+      'Location de septembre à juin',
+      'loué 9 mois de septembre',
+    ]) {
+      expect(isShortTermStudentLease(text), text).toBe(true);
+    }
+  });
+
+  /** Une durée qui n'est pas celle du bail ne doit pas écarter l'annonce (§17). */
+  it('ne se déclenche pas sur une durée qui n’est pas un bail', () => {
+    for (const text of [
+      'Préavis de 3 mois',
+      'Loyer de 900 euros par mois',
+      'Bail de 9 à 12 mois selon profil',
+      'Travaux livrés dans 9 mois',
+      'Appartement lumineux, libre de suite',
+    ]) {
+      expect(isShortTermStudentLease(text), text).toBe(false);
+    }
+  });
+});

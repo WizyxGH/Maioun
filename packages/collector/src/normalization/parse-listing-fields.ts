@@ -365,8 +365,22 @@ export function parseDpe(text: string | null | undefined): string | null {
  *
  * Le texte est comparé en forme `comparable` : minuscules, sans accent.
  */
+/**
+ * Un bail de neuf mois, sous les tournures qu'emploient vraiment les agences.
+ *
+ * IL EXIGEAIT QUE LES MOTS SE TOUCHENT, et c'est ce qui l'a fait passer à côté
+ * d'un cas parfaitement explicite : « Location étudiant de 9 mois. » Le motif
+ * cherchait `location (de )?9 mois` — un seul mot inséré, et plus rien ne
+ * correspondait. L'annonce est entrée dans les critères d'un locataire qui
+ * cherche à l'année, pour un logement qu'il faut quitter en juin.
+ *
+ * On tolère donc jusqu'à deux mots entre le type de contrat et sa durée. Le
+ * risque de fausse alerte reste faible : « neuf mois » accolé à « bail »,
+ * « location » ou « contrat » ne désigne rien d'autre qu'une durée de bail, et
+ * « de 9 à 12 mois » ne correspond pas — la durée doit toucher « mois ».
+ */
 const SHORT_TERM_LEASE =
-  /(?:de |du )?septembre (?:a|au) juin|bail (?:de )?(?:9|neuf) mois|location (?:de )?(?:9|neuf) mois|saisonnier\w* (?:en |de |sur )?(?:juillet|aout)|(?:juillet|aout) en saisonnier/;
+  /(?:de |du )?septembre (?:a|au) juin|(?:bail|location|contrat|louee?)\w*(?:\s+\w+){0,2}\s+(?:de\s+|du\s+)?(?:9|neuf)\s*mois|(?:9|neuf)\s*mois\s+(?:de\s+)?(?:septembre|octobre)|saisonnier\w* (?:en |de |sur )?(?:juillet|aout)|(?:juillet|aout) en saisonnier/;
 
 /** `true` si le texte annonce un bail de neuf mois interrompu par l'été. */
 export function isShortTermStudentLease(text: string | null | undefined): boolean {
