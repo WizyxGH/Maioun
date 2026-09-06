@@ -105,6 +105,20 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
   // `payload_light` n'existe que pour la LISTE, où description et raisons de
   // score ont été retirées en SQL. La fiche, elle, n'a que `payload`.
   const source = row['payload_light'] ?? row['payload'];
+  /**
+   * UNE FICHE ALLÉGÉE DOIT SE DIRE TELLE, et rien ne le disait.
+   *
+   * Le site garde une seule collection d'annonces. Celle qu'il va chercher
+   * pour l'écran de fiche — complète — y était écrasée par la version allégée
+   * de la liste dès que celle-ci arrivait, et l'écran ne redemandait pas la
+   * complète : de son point de vue, l'annonce était déjà là.
+   *
+   * Il affichait alors `description.value` sur une description RETIRÉE en SQL,
+   * ce qui lève, ce qui fait tomber tout le rendu React — page blanche, sans
+   * un mot. La course dépendait de l'ordre d'arrivée des deux requêtes : la
+   * fiche s'ouvrait correctement une fois sur deux.
+   */
+  const partial = row['payload_light'] !== undefined && row['payload_light'] !== null;
   const payload = JSON.parse(String(source ?? '{}')) as Record<string, unknown>;
   return {
     id: String(row['id']),
@@ -118,6 +132,7 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
     archived: Number(row['archived'] ?? 0) === 1,
     favorite: Number(row['favorite'] ?? 0) === 1,
     rented: Number(row['rented'] ?? 0) === 1,
+    ...(partial ? { partial: true } : {}),
     /**
      * LA DATE DE L'ALERTE, ET SON ABSENCE VIDAIT TOUT L'HISTORIQUE.
      *

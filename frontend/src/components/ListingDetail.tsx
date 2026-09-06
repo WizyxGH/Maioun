@@ -437,10 +437,13 @@ export function ListingDetail({
         onConfigureProfile={onConfigureProfile}
       />
 
-      {listing.description.value !== null && (
+      {/* `?.` et non `.` : une annonce venue de la liste n'a PAS de description
+        — elle est retirée en SQL. La version complète arrive juste après, mais
+        le rendu ne doit pas tomber entre les deux. */}
+      {listing.description?.value != null && (
         <section className="mt-4">
           <h3 className="font-semibold">Description</h3>
-          <p className="whitespace-pre-wrap">{listing.description.value}</p>
+          <p className="whitespace-pre-wrap">{listing.description?.value}</p>
         </section>
       )}
 

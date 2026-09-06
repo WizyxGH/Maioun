@@ -98,3 +98,48 @@ describe('rowToListing', () => {
     expect(listing['title']).toEqual({ value: 'Studio' });
   });
 });
+
+/**
+ * LA LISTE ALLÈGE, ET DOIT LE DIRE.
+ *
+ * Description et détail des scores sont retirés en SQL — ils pèsent les quatre
+ * cinquièmes de la charge utile et la liste n'en affiche aucun. Mais le site
+ * garde une seule collection d'annonces : sans marque, il prenait la version
+ * allégée pour la fiche complète, affichait une description absente, et faisait
+ * tomber tout le rendu. Page blanche, sans un mot.
+ */
+describe('fiche allégée', () => {
+  const row = (extra: Record<string, unknown>): Record<string, unknown> => ({
+    id: 'src:1',
+    lifecycle: 'active',
+    tracking: 'new',
+    first_seen_at: '2026-09-01T10:00:00.000Z',
+    last_seen_at: '2026-09-05T10:00:00.000Z',
+    matches_criteria: 1,
+    action_priority: 80,
+    ...extra,
+  });
+
+  it('marque ce qui vient de la liste', () => {
+    const listed = rowToListing(row({ payload_light: '{"title":{"value":"Studio"}}' }));
+    expect(listed['partial']).toBe(true);
+  });
+
+  it('ne marque PAS la fiche entière', () => {
+    const full = rowToListing(row({ payload: '{"title":{"value":"Studio"}}' }));
+    expect(full['partial']).toBeUndefined();
+  });
+
+  /**
+   * L'allègement se voit à ce qui MANQUE : c'est exactement le champ dont
+   * l'absence faisait planter l'écran de fiche.
+   */
+  it('la version allégée n’a effectivement pas de description', () => {
+    const listed = rowToListing(row({ payload_light: '{"title":{"value":"Studio"}}' }));
+    expect(listed['description']).toBeUndefined();
+    const full = rowToListing(
+      row({ payload: '{"title":{"value":"Studio"},"description":{"value":"Texte"}}' }),
+    );
+    expect(full['description']).toEqual({ value: 'Texte' });
+  });
+});

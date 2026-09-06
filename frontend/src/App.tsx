@@ -683,12 +683,23 @@ export function App(): React.JSX.Element {
     // même que l'écran de connexion ait paru, et revenir dessus ne ramenait plus
     // à l'annonce.
     if (currentUser === undefined || currentUser === null) return;
-    if (listings.some((listing) => listing.id === selectedId)) return;
+    // UNE FICHE ALLÉGÉE NE SUFFIT PAS. La liste transporte des annonces sans
+    // description ni détail des scores ; s'en contenter ici affichait une
+    // description absente et faisait tomber tout le rendu — page blanche.
+    if (listings.some((listing) => listing.id === selectedId && listing.partial !== true)) return;
 
     let cancelled = false;
     void fetchListing(selectedId)
       .then((full) => {
-        if (!cancelled) setListings((current) => [...current, full]);
+        if (cancelled) return;
+        // REMPLACER, et non ajouter : la version allégée est déjà là quand la
+        // liste est arrivée la première. Deux entrées de même identifiant, et
+        // c'est la plus pauvre — la première trouvée — qui s'affiche.
+        setListings((current) =>
+          current.some((listing) => listing.id === full.id)
+            ? current.map((listing) => (listing.id === full.id ? full : listing))
+            : [...current, full],
+        );
       })
       .catch(() => {
         // Annonce introuvable ou réseau coupé : on retourne à la liste plutôt

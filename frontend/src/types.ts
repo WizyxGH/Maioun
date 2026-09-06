@@ -96,6 +96,16 @@ export interface ListingView {
    * ne s'invente pas (§17).
    */
   readonly notifiedAt?: string | null;
+  /**
+   * `true` si la fiche vient de la LISTE, donc allégée : sans description ni
+   * détail des scores, retirés en SQL parce qu'ils pèsent les quatre
+   * cinquièmes de la charge utile et que la liste n'en affiche aucun.
+   *
+   * L'écran de fiche doit alors demander la version complète. Sans ce drapeau
+   * il ne pouvait pas faire la différence, affichait une description absente,
+   * et faisait tomber tout le rendu.
+   */
+  readonly partial?: boolean;
 }
 
 export interface ListingsResponse {
