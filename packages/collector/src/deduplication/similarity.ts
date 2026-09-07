@@ -56,6 +56,21 @@ function withinTolerance(a: number, b: number, absolute: number, ratio: number):
   return delta <= Math.max(absolute, Math.max(a, b) * ratio);
 }
 
+/**
+ * La surface porte-t-elle des décimales ?
+ *
+ * La tolérance de 4 millièmes absorbe les flottants : `22.81` peut se ranger en
+ * `22.809999999999999`, et un test d'égalité stricte à l'entier s'y perdrait.
+ */
+function hasDecimals(area: number): boolean {
+  return Math.abs(area - Math.round(area)) > 0.004;
+}
+
+/** Deux surfaces identiques au centimètre carré près. */
+function sameToTheCentimetre(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.005;
+}
+
 /** Indice de Jaccard entre deux ensembles de mots, dans [0, 1]. */
 export function jaccard(a: readonly string[], b: readonly string[]): number {
   if (a.length === 0 || b.length === 0) return 0;
@@ -226,6 +241,48 @@ function collectMediumSignals(
     push({ code: 'area', label: 'surface équivalente', points: 18 });
   }
 
+  /**
+   * UNE SURFACE AU CENTIÈME PRÈS EST PRESQUE UN IDENTIFIANT.
+   *
+   * « 22 m² » est un arrondi que partagent des centaines de studios niçois ;
+   * « 22,81 m² » est un mesurage — la loi Carrez impose de le publier, et les
+   * deux annonces qui l'affichent le tiennent du MÊME métreur. Deux sources
+   * indépendantes n'arrivent pas par hasard à la même deuxième décimale.
+   *
+   * CE QUE ÇA RÉPARE. Les alertes des portails ne portent presque rien : ni
+   * adresse, ni téléphone, ni description, ni photo commune avec le site de
+   * l'agence. Prix, surface et pièces concordants ne font que quarante-deux
+   * points, et il en faut soixante-dix — ces annonces restaient donc seules,
+   * rattachées à un lien SeLoger qui meurt en quelques jours, quand la même
+   * annonce vivait chez l'agence avec une adresse et un téléphone.
+   *
+   * TRENTE POINTS, comme l'opérateur : avec prix, surface et pièces on atteint
+   * soixante-douze. La fusion demande donc que TOUT concorde, pas seulement la
+   * décimale. Les garde-fous restent en place — même commune, loyer à 6 %
+   * près, même nombre de pièces.
+   *
+   * LES SURFACES RONDES NE COMPTENT PAS, et c'est tout l'intérêt : mesuré sur
+   * l'inventaire, ce signal fusionne huit paires, toutes justes, et laisse
+   * intactes les quarante paires « même prix, même surface entière » qui,
+   * elles, sont réellement ambiguës.
+   *
+   * ENTRE SOURCES DIFFÉRENTES SEULEMENT, comme la photo et le téléphone. Deux
+   * annonces d'une MÊME source affichant la même surface au centième ne se
+   * ressemblent pas : elles trahissent un parseur qui recopie. C'est exactement
+   * ce qui s'est produit chez L'Adresse, dont les treize annonces portaient
+   * toutes « 76,25 m² » faute d'un sélecteur limité à la carte. Le bug est
+   * corrigé ; cette règle-ci protège du prochain.
+   */
+  if (
+    a.sourceId !== b.sourceId &&
+    a.area !== null &&
+    b.area !== null &&
+    hasDecimals(a.area) &&
+    sameToTheCentimetre(a.area, b.area)
+  ) {
+    push({ code: 'exactArea', label: `surface identique (${a.area} m²)`, points: 30 });
+  }
+
   if (a.rooms !== null && a.rooms === b.rooms) {
     push({ code: 'rooms', label: 'même nombre de pièces', points: 6 });
   }
@@ -318,18 +375,36 @@ export function similarity(
    * Prix, surface et pièces concordants ne font que quarante-deux points, et il
    * en faut soixante-dix — onze annonces s'affichaient donc en double.
    *
-   * TRENTE POINTS, ET PAS DAVANTAGE. Avec prix, surface et pièces, on atteint
-   * soixante-douze : la fusion demande que TOUT concorde, pas seulement
-   * l'opérateur. Les garde-fous restent en place — même commune, loyer à 6 %
-   * près, surface à 5 %, même nombre de pièces.
+   * IL A FALLU LE RESSERRER, et vite. Adossé aux TOLÉRANCES — loyer à 6 %
+   * près, surface à 5 % —, il rapprochait des logements simplement voisins par
+   * la taille et le prix. Chaque rapprochement en vaut deux, l'union-find étant
+   * transitive : mesuré sur l'inventaire, un groupe réunissait HUIT studios BEP
+   * distincts, de 18 à 23 m² et de 750 à 850 €, enchaînés de proche en proche.
+   * Huit logements affichés comme un seul — bien pire que le doublon qu'on
+   * voulait retirer.
    *
-   * Le risque assumé : deux studios identiques d'une même agence, au même prix
-   * et dans la même ville, fusionneraient. La fusion ne perd rien (§13 : les
-   * occurrences sont conservées) là où le doublon, lui, se voit à chaque
-   * consultation.
+   * IL EXIGE DÉSORMAIS L'ÉGALITÉ EXACTE du loyer ET de la surface. C'est ce que
+   * publient réellement les deux canaux d'une même maison : le même chiffre,
+   * puisque c'est la même fiche à la source. Une tolérance n'apportait rien ici
+   * — elle sert à absorber les divergences ENTRE maisons, et il n'y en a pas
+   * quand l'annonce vient d'un seul système.
+   *
+   * TRENTE POINTS : avec prix, surface et pièces, on atteint soixante-douze. La
+   * fusion demande donc que tout concorde, pas seulement l'opérateur.
    */
   const operator = operatorOf(a.sourceId);
-  if (a.sourceId !== b.sourceId && operator !== null && operator === operatorOf(b.sourceId)) {
+  const sameFigures =
+    a.price !== null &&
+    a.price === b.price &&
+    a.area !== null &&
+    b.area !== null &&
+    sameToTheCentimetre(a.area, b.area);
+  if (
+    a.sourceId !== b.sourceId &&
+    operator !== null &&
+    operator === operatorOf(b.sourceId) &&
+    sameFigures
+  ) {
     push({ code: 'operator', label: `même opérateur (${operator})`, points: 30 });
   }
 

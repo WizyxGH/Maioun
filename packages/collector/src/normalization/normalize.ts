@@ -190,10 +190,27 @@ function resolveLocation(raw: RawListing): {
   longitude: number | null;
 } {
   return {
-    // Adresse : champ dédié, sinon repérée en tête de description (« 22-24
-    // Avenue… » — beaucoup d'agences l'y mettent en première ligne). Nettoyée
-    // des voies saisies en double par certaines sources.
-    address: dedupeStreetAddress(toNull(raw.addressText) ?? extractStreetAddress(raw.description)),
+    /**
+     * Adresse : champ dédié, sinon repérée en tête de description (« 22-24
+     * Avenue… » — beaucoup d'agences l'y mettent en première ligne), sinon dans
+     * le titre. Nettoyée des voies saisies en double par certaines sources.
+     *
+     * LE TITRE EST NOUVEAU, et plusieurs agences n'écrivent la voie que là :
+     * « STUDIO VIDE - 1 BIS AV PATRIMOINE - NICE GORBELLA », « 2 PIÈCES
+     * MEUBLÉ - 71 BD DELFINO ». On ne la cherchait que dans la description :
+     * ces annonces n'avaient donc aucune adresse — ni point sur la carte, ni
+     * les trente points que le dédoublonnage accorde à une adresse commune.
+     *
+     * L'extracteur exige un TYPE DE VOIE (rue, avenue, boulevard, BD, AV) : un
+     * titre qui ne nomme qu'un quartier — « STUDIO SAINT SYLVESTRE » — ne rend
+     * donc rien, ce qui est la bonne réponse. Deux studios du même quartier ne
+     * sont pas le même studio.
+     */
+    address: dedupeStreetAddress(
+      toNull(raw.addressText) ??
+        extractStreetAddress(raw.description) ??
+        extractStreetAddress(raw.title),
+    ),
     // Quartier/secteur si la source le publie (ex. Orpi `extra.quartier`).
     // Champ dédié d'abord — neuf sources sur quarante le remplissent —, puis
     // le texte, où la tournure « quartier X » se désigne elle-même.
@@ -487,7 +504,11 @@ export function rederiveFromText(
 ): NormalizedListing | null {
   const text = `${occurrence.title ?? ''} ${occurrence.description ?? ''}`;
 
-  const fromText = dedupeStreetAddress(extractStreetAddress(occurrence.description));
+  // Le TITRE aussi, comme à la normalisation : c'est là que plusieurs agences
+  // écrivent la voie, et le rejeu doit rattraper celles collectées avant.
+  const fromText = dedupeStreetAddress(
+    extractStreetAddress(occurrence.description) ?? extractStreetAddress(occurrence.title),
+  );
   const address =
     occurrence.address !== null && looksLikeStreet(occurrence.address)
       ? occurrence.address

@@ -23,6 +23,13 @@ const BLOCK_ELEMENTS = 'p, div, li, tr, h1, h2, h3, h4, h5, h6, section, article
  * `target` est soit un sélecteur, soit un fragment déjà en main — les parseurs
  * de pages de résultats travaillent sur une carte, pas sur le document.
  *
+ * UN SÉLECTEUR PORTE SUR LE DOCUMENT ENTIER, jamais sur la carte en cours :
+ * `htmlToText($, '.description')` rend la PREMIÈRE description de la page, quel
+ * que soit l'endroit d'où on l'appelle. C'est exactement ce qui est arrivé au
+ * parseur de L'Adresse, dont les treize annonces ont hérité de la description
+ * de la première — et avec elle de sa surface et de son nombre de pièces. Dans
+ * une boucle sur des cartes, on passe TOUJOURS le fragment.
+ *
  * Le fragment est CLONÉ : le document reste intact pour la suite du parseur.
  *
  * @returns le texte nettoyé, ou une chaîne vide si le fragment est absent.

@@ -90,7 +90,16 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         sourceUrl,
         alt: card.find('img[alt]').attr('alt') ?? '',
         typeText: cleanText(card.find('.bien-type').text()),
-        description: htmlToText($, '.bien-description'),
+        // LA CARTE, PAS LE DOCUMENT. Le sélecteur portait sur `$` tout entier :
+        // `htmlToText` prend alors le PREMIER `.bien-description` de la page, et
+        // les treize annonces héritaient de la description de la première. Sur
+        // la fiche, cela se voyait à peine ; sur les données, c'était grave —
+        // surface et nombre de pièces se lisent dans cette description, si bien
+        // que TOUTES les annonces de la source affichaient « 76,25 m² » et
+        // « 3 pièces ». Le filtre par surface les gardait ou les jetait en bloc,
+        // le score au mètre carré était faux, et le dédoublonnage les prenait
+        // pour le même bien.
+        description: htmlToText($, card.find('.bien-description') as cheerio.Cheerio<never>),
         geo: cleanText(card.find('.bien-geo').text().replace(/\s+/g, ' ')),
         price: cleanText(card.find('.bien-prix').text().replace(/\s+/g, ' ')),
         image: card.find('img[src]').attr('src'),

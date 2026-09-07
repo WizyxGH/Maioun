@@ -46,6 +46,18 @@ describe('parseListPage — L’Adresse', () => {
     expect(normalized.city).toBe('nice');
   });
 
+  it('donne à CHAQUE carte sa propre surface (§17)', () => {
+    // Le sélecteur portait sur le document entier : `htmlToText` prenait la
+    // PREMIÈRE description de la page, et les treize annonces héritaient de sa
+    // surface et de son nombre de pièces — « 76,25 m² », « 3 pièces », partout.
+    // Le test d'origine ne regardait qu'une annonce, justement celle dont ces
+    // valeurs étaient les bonnes : le défaut était invisible.
+    const surfaces = new Set(listings.map((l) => l.areaText));
+    expect(surfaces.size).toBeGreaterThan(3);
+    const pieces = new Set(listings.map((l) => l.roomsText));
+    expect(pieces.size).toBeGreaterThan(1);
+  });
+
   it('conserve les communes voisines (écartées ensuite au scoring)', () => {
     const cannet = listings.find((l) => l.postalCodeText === '06110');
     expect(cannet).toBeDefined();

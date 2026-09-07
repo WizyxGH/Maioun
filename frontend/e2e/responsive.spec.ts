@@ -60,20 +60,38 @@ test('les cibles tactiles restent atteignables au doigt', async ({ page }) => {
     .getByRole('button', { name: 'Recherche' })
     .click();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
-  // La hauteur d'un bouton de texte suit les métriques de sa police : mesurée
-  // avant que la fonte ne soit chargée, elle est celle de la police de repli.
-  // On veut les cibles AU REPOS, pas au milieu du rendu.
-  await page.evaluate(() => document.fonts.ready);
 
-  // 36 px : en deçà, une cible devient difficile à viser sur un écran tactile.
-  // Seuil volontairement indulgent — on cherche les oublis, pas la perfection.
-  const small: string[] = [];
-  for (const button of await page.getByRole('button').all()) {
-    if (!(await button.isVisible())) continue;
-    const box = await button.boundingBox();
-    if (box !== null && box.height < 36) small.push((await button.textContent())?.trim() ?? '?');
-  }
-  expect(small, `cibles trop petites : ${small.join(', ')}`).toEqual([]);
+  /**
+   * LA MESURE EST REPRISE JUSQU'À CE QU'ELLE SE STABILISE, et il a fallu en
+   * arriver là. Une hauteur de bouton dépend de la police chargée, des icônes
+   * dimensionnées en `em` et de la mise en page une fois posée : prise trop
+   * tôt, elle vaut celle de la police de repli. `document.fonts.ready` ne
+   * suffisait pas — le test passait seul et tombait dans la suite complète, où
+   * plusieurs navigateurs se partagent la machine et où le rendu traîne.
+   *
+   * `expect.poll` ne rend pas l'assertion plus indulgente : un bouton
+   * réellement trop petit le reste à chaque reprise, et le test échoue au bout
+   * du délai. Il retire seulement la fenêtre pendant laquelle la page n'est
+   * pas encore la page.
+   */
+  await expect
+    .poll(
+      async () => {
+        const small: string[] = [];
+        for (const button of await page.getByRole('button').all()) {
+          if (!(await button.isVisible())) continue;
+          const box = await button.boundingBox();
+          // 36 px : en deçà, une cible devient difficile à viser au doigt.
+          // Seuil indulgent — on cherche les oublis, pas la perfection.
+          if (box !== null && box.height < 36) {
+            small.push((await button.textContent())?.trim() || '(sans texte)');
+          }
+        }
+        return small.join(', ');
+      },
+      { message: 'cibles tactiles trop petites' },
+    )
+    .toBe('');
 });
 
 test('le bouton de résultats reste visible sans dérouler la modale (§39)', async ({ page }) => {

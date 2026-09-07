@@ -145,6 +145,31 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
     expect(rederiveFromText(stored({ address: '12 Avenue de la Californie' }))).toBeNull();
   });
 
+  it('lit la voie écrite dans le TITRE, faute de description', () => {
+    // Plusieurs agences n'écrivent la voie que là : « STUDIO VIDE - 1 BIS AV
+    // PATRIMOINE - NICE GORBELLA ». On ne la cherchait que dans la description,
+    // et ces annonces n'avaient donc aucune adresse — ni point sur la carte, ni
+    // les trente points d'une adresse commune au dédoublonnage.
+    expect(
+      rederiveFromText(
+        stored({
+          title: 'STUDIO MEUBLE - 71 BD DELFINO - NICE RIQUIER',
+          description: 'Studio agréable, bon état.',
+        }),
+      )?.address,
+    ).toContain('71 BD DELFINO');
+  });
+
+  it('ne prend pas un QUARTIER pour une adresse (§17)', () => {
+    // « STUDIO SAINT SYLVESTRE » nomme un quartier, pas une voie : deux studios
+    // du même quartier ne sont pas le même studio. L'extracteur exige un type
+    // de voie, et c'est ce qui rend cette lecture du titre sûre.
+    expect(
+      rederiveFromText(stored({ title: 'STUDIO SAINT SYLVESTRE', description: 'Studio agréable.' }))
+        ?.address ?? null,
+    ).toBeNull();
+  });
+
   it('ajoute le bail 9 mois sans perdre les atouts venus du scraper', () => {
     // Recalculer la liste entière les perdrait : « 2e étage » et « Ascenseur »
     // viennent d'attributs bruts que la base ne conserve pas.
