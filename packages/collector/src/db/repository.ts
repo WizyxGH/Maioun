@@ -238,6 +238,17 @@ export interface Repository {
   readonly removePushSubscription: (endpoint: string) => Promise<void>;
 
   /**
+   * L'adresse d'un compte, SI ELLE A ÉTÉ VÉRIFIÉE — sinon `null`.
+   *
+   * La vérification n'est pas une formalité ici : une adresse seulement SAISIE
+   * peut être celle de quelqu'un d'autre, par faute de frappe ou à dessein.
+   * Lui envoyer les annonces qu'un compte suit reviendrait à raconter la
+   * recherche de logement d'un inconnu à un inconnu — et à faire de nous
+   * l'outil qui l'a envoyée (§26).
+   */
+  readonly verifiedEmailFor: (userId: string) => Promise<string | null>;
+
+  /**
    * Écrit l'instantané du jour POUR CHAQUE COMPTE (une ligne par jour et par
    * compte, réécrite à chaque passage).
    */
@@ -1297,6 +1308,19 @@ export function createRepository(db: Database): Repository {
         sql: 'DELETE FROM push_subscriptions WHERE endpoint = ?',
         args: [endpoint],
       });
+    },
+
+    async verifiedEmailFor(userId) {
+      const result = await db.execute({
+        // `email_verified = 1` DANS LA REQUÊTE, et non chez l'appelant : c'est
+        // la condition qui protège quelqu'un dont l'adresse a été saisie de
+        // travers. Laissée au dehors, elle finit par être oubliée par le
+        // deuxième appelant.
+        sql: "SELECT email FROM users WHERE id = ? AND email_verified = 1 AND email != ''",
+        args: [userId],
+      });
+      const row = result.rows[0];
+      return row === undefined ? null : String(row['email']);
     },
 
     /**

@@ -12,6 +12,10 @@
     "./server/routes": {
       "types": "./dist/server/routes.d.ts",
       "default": "./dist/server/routes.js"
+    },
+    "./notify/mailer": {
+      "types": "./dist/notify/mailer.d.ts",
+      "default": "./dist/notify/mailer.js"
     }
   },
   "main": "./dist/index.js",

@@ -1,8 +1,14 @@
 /**
- * Envoi d'e-mails transactionnels depuis le Worker (§24, §26).
+ * Envoi d'e-mails transactionnels (§24, §26).
  *
- * UN SEUL USAGE POUR L'INSTANT : le lien de réinitialisation de mot de passe.
- * Rien d'autre ne part d'ici — les messages aux agences restent envoyés par
+ * DEUX APPELANTS, UN SEUL FOURNISSEUR. Le Worker envoie les liens de
+ * réinitialisation et de confirmation d'adresse ; le collecteur envoie les
+ * alertes. Ce fichier vivait dans le Worker : le collecteur aurait dû
+ * réécrire le même appel, et un projet qui parle à Resend à deux endroits en
+ * change à deux endroits. Il est donc ici, exposé par
+ * `@rentfinder/collector/notify/mailer`.
+ *
+ * Rien d'autre ne part d'ici — les messages aux AGENCES restent envoyés par
  * l'utilisateur lui-même, depuis son propre client (§24), et cela ne change
  * pas.
  *
@@ -10,7 +16,11 @@
  * connexion TCP arbitraire : SMTP lui est fermé. Le collecteur, lui, pourrait —
  * mais il ne tourne que sur minuterie, toutes les demi-heures au mieux et en
  * pratique toutes les deux à quatre heures : personne n'attend son mot de passe
- * aussi longtemps. Il faut donc une API appelable en HTTP.
+ * aussi longtemps. Il faut donc une API appelable en HTTP, et une seule suffit
+ * aux deux.
+ *
+ * CE FICHIER N'IMPORTE RIEN DE NODE, et ne doit jamais le faire : le Worker le
+ * charge, et un `node:fs` y romprait le bundle.
  *
  * POURQUOI RESEND. Palier gratuit sans carte bancaire — la contrainte du projet
  * (§30) —, trois mille messages par mois, et une API d'une seule requête. Son

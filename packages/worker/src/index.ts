@@ -26,7 +26,7 @@ import { deleteDocument, listDocuments, readDocument, saveDocument } from './doc
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress } from './alert-address.js';
-import { mailerConfigured, sendEmail } from './mailer.js';
+import { mailerConfigured, sendEmail } from '@rentfinder/collector/notify/mailer';
 import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 import {
   confirmEmail,

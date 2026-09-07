@@ -80,6 +80,13 @@ jobs:
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           SITE_URL: ${{ vars.SITE_URL }}
 
+          # ALERTES PAR E-MAIL (§29), le canal qui double le push. Sans ces
+          # deux valeurs, il reste silencieux et le journal le dit : rien ne
+          # part, et surtout rien ne prétend être parti. Ce sont les mêmes que
+          # celles du Worker — un seul compte Resend sert les deux.
+          EMAIL_API_KEY: ${{ secrets.EMAIL_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+
           # §6 : accès abonné BEP payé par l'utilisateur — optionnel.
           BEP_SUBSCRIBER_USER: ${{ secrets.BEP_SUBSCRIBER_USER }}
           BEP_SUBSCRIBER_PASSWORD: ${{ secrets.BEP_SUBSCRIBER_PASSWORD }}

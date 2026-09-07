@@ -39,7 +39,25 @@ export interface NotificationPreferences {
   readonly applicationReminders: boolean;
   /** Un favori a disparu de sa source — il est probablement loué. */
   readonly favoriteGone: boolean;
-  /** Doubler les alertes par e-mail. PAS ENCORE EN SERVICE (voir ci-dessous). */
+  /**
+   * Doubler les alertes par e-mail.
+   *
+   * IL DOUBLE LE PUSH, il ne le remplace pas. Le push est le canal rapide, mais
+   * il suppose un navigateur qui l'accepte : iOS ne le permet qu'à une
+   * application installée depuis Safari, un ordinateur éteint ne reçoit rien,
+   * et une notification balayée ne se retrouve pas. L'e-mail arrive partout, se
+   * retrouve, se transfère.
+   *
+   * UN SEUL MESSAGE PAR PASSAGE, et non un par annonce : huit e-mails en dix
+   * minutes sont du courrier indésirable, et c'est ainsi qu'on se fait ranger
+   * dans le dossier qui va avec — après quoi plus rien n'arrive.
+   *
+   * IL EXIGE UNE ADRESSE VÉRIFIÉE. Une adresse seulement SAISIE peut être celle
+   * de quelqu'un d'autre, par faute de frappe : lui envoyer les annonces qu'un
+   * compte suit raconterait la recherche d'un inconnu à un inconnu (§26).
+   * Demandé sans adresse vérifiée, le canal se tait et la collecte le
+   * journalise.
+   */
   readonly email: boolean;
   /**
    * À quel rythme les alertes partent.

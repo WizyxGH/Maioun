@@ -12,9 +12,14 @@
  * si les alertes sont allumées, faute de quoi on réglerait finement quelque
  * chose de muet.
  *
- * L'E-MAIL EST MONTRÉ ÉTEINT ET INERTE. Il n'est pas branché : l'afficher
- * réglable promettrait des messages qui n'arriveraient jamais (§17). Le montrer
- * annoncé vaut mieux que le laisser deviner absent.
+ * L'E-MAIL EST DÉSORMAIS BRANCHÉ. Il est resté longtemps montré éteint et
+ * inerte, parce qu'afficher un réglage qui ne produit rien promet des messages
+ * qui n'arriveront jamais (§17). La collecte l'envoie maintenant pour de bon —
+ * un récapitulatif par passage, en plus du push.
+ *
+ * IL EXIGE UNE ADRESSE VÉRIFIÉE, et l'intitulé le dit : sans elle la collecte
+ * se tait, et une case cochée qui ne délivre rien est exactement ce que le
+ * paragraphe précédent cherchait à éviter.
  */
 
 import { NEAR_MATCH_MARGIN } from '@rentfinder/shared';
@@ -39,8 +44,6 @@ interface KindInfo {
   readonly label: string;
   readonly hint: string;
   readonly Icon: IconComponent;
-  /** `true` quand le canal n'est pas encore en service : montré, non réglable. */
-  readonly comingSoon?: boolean;
 }
 
 /**
@@ -107,9 +110,11 @@ const KINDS: readonly KindInfo[] = [
   {
     key: 'email',
     label: 'Doubler par e-mail',
-    hint: 'Bientôt : les mêmes alertes dans votre boîte, en plus du téléphone.',
+    // CE QUE LE CANAL FAIT ET CE QU'IL EXIGE, en une ligne. « Vérifiée » n'est
+    // pas un détail administratif : sans elle, rien ne part, et l'utilisateur
+    // qui a coché la case attendrait des messages qui ne viendront jamais.
+    hint: 'Un récapitulatif dans votre boîte, en plus du téléphone. Demande une adresse vérifiée.',
     Icon: Mail,
-    comingSoon: true,
   },
 ];
 
@@ -269,18 +274,16 @@ export function NotificationSettingsPanel({
 
       {on && (
         <SettingsGroup title="Ce dont vous voulez être prévenu, sur tous vos appareils">
-          {KINDS.map(({ key, label, hint, Icon, comingSoon }) => (
+          {KINDS.map(({ key, label, hint, Icon }) => (
             <SettingsRow
               key={key}
               Icon={Icon}
-              tone={comingSoon !== true && preferences[key] ? 'done' : 'muted'}
+              tone={preferences[key] ? 'done' : 'muted'}
               label={label}
               hint={hint}
-              {...(comingSoon === true ? { badge: 'Bientôt' } : {})}
               trailing={
                 <Switch
-                  checked={comingSoon === true ? false : preferences[key]}
-                  disabled={comingSoon === true}
+                  checked={preferences[key]}
                   onCheckedChange={(value) => toggleKind(key, value)}
                   aria-label={label}
                 />

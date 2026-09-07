@@ -46,7 +46,7 @@ import {
 } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
-import type { NearMatch, Repository } from '../db/repository.js';
+import type { NearMatch, NotifiableListing, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
   goneContentFor,
@@ -57,6 +57,7 @@ import {
   sendWebPush,
 } from '../notify/web-push.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
+import { sendEmailAlert } from '../notify/email-alerts.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
 
@@ -189,6 +190,49 @@ async function notifyOne(deps: {
   /** Ce qui est RÉELLEMENT parti : sans envoi, la fenêtre ne se referme pas. */
   let sentAnything = false;
 
+  /**
+   * L'E-MAIL DOUBLE LE PUSH, il ne le remplace pas.
+   *
+   * L'adresse est lue UNE FOIS pour les quatre familles, et seulement si le
+   * compte a demandé le canal. Elle doit être VÉRIFIÉE : une adresse saisie de
+   * travers appartient à quelqu'un d'autre, et lui envoyer les annonces qu'un
+   * compte suit raconterait la recherche d'un inconnu à un inconnu (§26).
+   */
+  const mailer = {
+    EMAIL_API_KEY: process.env['EMAIL_API_KEY'],
+    EMAIL_FROM: process.env['EMAIL_FROM'],
+  };
+  const emailTo = preferences.email ? await repository.verifiedEmailFor(userId) : null;
+  if (preferences.email && emailTo === null) {
+    // Demandé mais impossible : le dire, sinon le canal reste muet sans raison
+    // visible — et l'écran, lui, affiche que l'e-mail est actif.
+    logger.warn('email.no_verified_address', { userId });
+  }
+
+  /**
+   * Envoie la famille par e-mail et rend les identifiants réellement portés.
+   *
+   * Rend une liste VIDE quand le canal est éteint, sans adresse ou non
+   * configuré : les identifiants servent à marquer « signalée », et marquer ce
+   * qui n'est pas parti ferait taire ces annonces à jamais.
+   */
+  const alsoByEmail = async (
+    listings: readonly NotifiableListing[],
+    heading: string,
+  ): Promise<readonly string[]> => {
+    if (emailTo === null || listings.length === 0) return [];
+    const report = await sendEmailAlert({
+      mailer,
+      to: emailTo,
+      listings,
+      siteUrl,
+      logger,
+      heading,
+    });
+    if (report.notifiedIds.length > 0) sentAnything = true;
+    return report.notifiedIds;
+  };
+
   if (preferences.newListings) {
     // Une alerte e-mail qui décrit le même bien qu'une source directe est tue :
     // la source directe porte un lien vers la vraie fiche, souvent un
@@ -199,7 +243,8 @@ async function notifyOne(deps: {
       await repository.directListingSpecKeys(),
     );
     const report = await sendWebPush({ ...common, listings: pending });
-    await repository.markNotified(userId, report.notifiedIds);
+    const mailed = await alsoByEmail(pending, 'Nouvelles annonces');
+    await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
 
@@ -214,7 +259,8 @@ async function notifyOne(deps: {
     const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
       nearMatchContentFor(listing as NearMatch, url),
     );
-    await repository.markNotified(userId, report.notifiedIds);
+    const mailed = await alsoByEmail(near, 'Proche de vos critères');
+    await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
 
@@ -223,7 +269,8 @@ async function notifyOne(deps: {
   if (preferences.favoriteGone) {
     const gone = await repository.goneFavorites(userId);
     const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
-    await repository.markGoneNotified(userId, report.notifiedIds);
+    const mailed = await alsoByEmail(gone, 'Un favori n’est plus disponible');
+    await repository.markGoneNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
 
@@ -232,7 +279,8 @@ async function notifyOne(deps: {
   if (preferences.applicationReminders) {
     const stale = await repository.staleFavorites(userId, APPLICATION_REMINDER_HOURS);
     const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
-    await repository.markReminded(userId, report.notifiedIds);
+    const mailed = await alsoByEmail(stale, 'Vous n’avez pas encore candidaté');
+    await repository.markReminded(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
 
