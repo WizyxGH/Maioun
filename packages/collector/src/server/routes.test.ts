@@ -30,12 +30,13 @@ describe('ordre de la liste', () => {
     // Même piège qu'avec le prix, dans l'autre sens : SQLite place les valeurs
     // nulles en tête d'un tri décroissant, si bien qu'une annonce qui ne dit
     // pas sa surface serait présentée comme la plus grande.
-    expect(query('?sort=area').orderBy).toBe('area IS NULL, area DESC, action_priority DESC');
+    expect(query('?sort=area').orderBy).toBe('area IS NULL, area DESC, sc.action_priority DESC');
   });
 
   it('départage la priorité par la découverte, pour la même raison', () => {
-    expect(query('').orderBy).toBe('action_priority DESC, first_seen_at DESC');
-    expect(query('?sort=priority').orderBy).toBe('action_priority DESC, first_seen_at DESC');
+    // `sc.` : la priorité vient du score DU COMPTE, pas de la fiche.
+    expect(query('').orderBy).toBe('sc.action_priority DESC, first_seen_at DESC');
+    expect(query('?sort=priority').orderBy).toBe('sc.action_priority DESC, first_seen_at DESC');
   });
 
   it('borne la pagination', () => {
@@ -46,7 +47,9 @@ describe('ordre de la liste', () => {
 
   it('masque par défaut les archivées, les louées et les hors-critères', () => {
     const filter = query('').filter;
-    expect(filter).toContain('matches_criteria = 1');
+    // La pertinence vient du SCORE DU COMPTE depuis le multi-compte : elle
+    // dépend de qui regarde, pas de la fiche.
+    expect(filter).toContain('COALESCE(sc.matches_criteria, 0) = 1');
     expect(filter).toContain('rented = 0');
     expect(filter).toContain('COALESCE(us.archived, 0) = 0');
   });

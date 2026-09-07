@@ -48,7 +48,10 @@ describe('traitConditions', () => {
 
   it('porte le plafond de trajet en argument, et garde les trajets inconnus', () => {
     const { sql, args } = traitConditions({ maxCommuteMinutes: 45 });
-    expect(sql).toEqual(['(commute_minutes IS NULL OR commute_minutes <= ?)']);
+    // `sc.` : le trajet dépend des points de référence DU COMPTE — le domicile
+    // et le travail ne sont pas les mêmes d'un compte à l'autre —, il vit donc
+    // dans son score et non sur la fiche.
+    expect(sql).toEqual(['(sc.commute_minutes IS NULL OR sc.commute_minutes <= ?)']);
     expect(args).toEqual([45]);
   });
 

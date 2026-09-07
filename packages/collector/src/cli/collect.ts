@@ -22,7 +22,6 @@ import { databaseTarget, openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createRegistry } from '../core/registry.js';
-import type { TraitFilters } from '../core/trait-filters.js';
 import { createLogger, narratorSink } from '../core/logger.js';
 import { systemClock } from '../core/clock.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
@@ -35,6 +34,7 @@ import {
   loadTransitConfig,
   loadImapConfig,
   withStoredCriteria,
+  type PublicConfig,
 } from '../config.js';
 import {
   NOTIFICATION_PREFERENCES_SETTING,
@@ -46,7 +46,7 @@ import {
 } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
-import type { NearMatch, NearMatchCriteria, Repository } from '../db/repository.js';
+import type { NearMatch, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
   goneContentFor,
@@ -94,117 +94,161 @@ function jsonOrNull(raw: string | null): unknown {
  * NE LÈVE JAMAIS (§69) : un canal secondaire ne doit pas faire échouer une
  * collecte réussie.
  */
+/**
+ * Toutes les familles d'alertes, POUR CHAQUE COMPTE.
+ *
+ * ELLE N'EN SERVAIT QU'UN. Les critères, les préférences, le rythme et l'état
+ * « déjà signalée » étaient lus pour l'utilisateur par défaut, et les envois
+ * partaient vers tous les abonnements : un second compte recevait des alertes
+ * calculées sur le budget, la surface et les quartiers de quelqu'un d'autre —
+ * et jamais celles qui le concernaient.
+ *
+ * CHAQUE COMPTE A DÉSORMAIS SA PROPRE PASSE, avec ses critères, ses
+ * préférences, son rythme et ses appareils. Un compte sans abonnement ne coûte
+ * qu'une lecture ; c'est le prix de ne pas avoir à se demander lequel est servi.
+ *
+ * NE LÈVE JAMAIS (§69) : un canal secondaire ne doit pas faire échouer une
+ * collecte réussie, et l'échec d'un compte ne doit pas priver les suivants.
+ */
 async function notifyAll(deps: {
   readonly repository: Repository;
   readonly vapid: VapidConfig;
   readonly logger: Logger;
-  /**
-   * Les critères actifs. `NearMatchCriteria` ne portait que ville, loyer et
-   * surface — assez pour juger de la « proximité », mais pas les PRÉFÉRENCES
-   * (colocation, bail étudiant, bailleur, ameublement), qu'il faut appliquer
-   * aux notifications comme à la liste depuis qu'elles ne sont plus figées
-   * dans `matches_criteria`.
-   */
-  readonly criteria: NearMatchCriteria & TraitFilters;
+  /** La configuration de base, sur laquelle se posent les critères de chacun. */
+  readonly config: PublicConfig;
 }): Promise<void> {
-  const { repository, vapid, logger, criteria } = deps;
+  const { repository, vapid, logger, config } = deps;
+  let users: string[];
   try {
-    // CE DONT L'UTILISATEUR VEUT ÊTRE PRÉVENU (§29). Les préférences se
-    // règlent depuis le site et se lisent ICI : filtrer côté navigateur
-    // n'aurait rien filtré, la notification partant d'ici vers le service
-    // de push sans passer par la page.
-    const preferences = parseNotificationPreferences(
-      jsonOrNull(await repository.readSetting(NOTIFICATION_PREFERENCES_SETTING)),
-    );
-    /**
-     * LE RYTHME DEMANDÉ, ET LA FENÊTRE QUI EN DÉCOULE.
-     *
-     * Retenu, rien n'est perdu : les annonces ne sont pas marquées notifiées,
-     * elles s'accumulent et partiront ensemble au prochain passage qui aura le
-     * droit de sonner — les plus prioritaires détaillées, le reste résumé.
-     *
-     * LE RYTHME VAUT POUR TOUTES LES FAMILLES, y compris les rappels et les
-     * favoris disparus. Qui demande une alerte par jour ne s'attend pas à ce
-     * que trois autres canaux l'ignorent : ce serait un réglage qui a l'air de
-     * fonctionner sans le faire, le pire des cas.
-     */
-    const lastSentAt = await repository.readSetting(NOTIFICATIONS_SENT_AT_SETTING);
-    const nowMs = Date.now();
-    if (!canNotifyNow(preferences.frequency, lastSentAt, nowMs)) {
-      logger.info('push.held', { frequency: preferences.frequency, since: lastSentAt });
-      return;
-    }
-
-    const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/';
-    const common = { repository, config: vapid, siteUrl, logger };
-    /** Ce qui est REELLEMENT parti : sans envoi, la fenêtre ne se referme pas. */
-    let sentAnything = false;
-
-    if (preferences.newListings) {
-      // Une alerte e-mail qui décrit le même bien qu'une source directe est
-      // tue : la source directe porte un lien vers la vraie fiche, souvent un
-      // téléphone, et les honoraires. Les deux fiches restent visibles sur le
-      // site — seule la sonnerie en double disparaît (§29).
-      const pending = dropRedundantNotifications(
-        // LES MÊMES PRÉFÉRENCES QUE LA LISTE. Colocation, bail étudiant,
-        // bailleur et ameublement ne sont plus figés dans `matches_criteria` —
-        // ils se décochent, et décocher doit ramener les annonces. Les oublier
-        // ici signalerait des colocations que l'écran n'affiche pas.
-        await repository.pendingNotifications(0, criteria),
-        await repository.directListingSpecKeys(),
-      );
-      const report = await sendWebPush({ ...common, listings: pending });
-      await repository.markNotified(report.notifiedIds);
-      if (report.sent > 0) sentAnything = true;
-    }
-
-    // JUSTE AU-DESSUS DES CRITÈRES, si l'utilisateur l'a demandé. Éteint par
-    // défaut : c'est un élargissement de la recherche, pas un canal de plus.
-    if (preferences.nearMatches) {
-      const near = await repository.nearMatches({
-        cities: [...criteria.cities],
-        maxPrice: criteria.maxPrice,
-        minArea: criteria.minArea,
-      });
-      const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
-        nearMatchContentFor(listing as NearMatch, url),
-      );
-      await repository.markNotified(report.notifiedIds);
-      if (report.sent > 0) sentAnything = true;
-    }
-
-    // UN FAVORI QUI DISPARAÎT. Il quittait la liste sans un mot : on
-    // continuait d'attendre une réponse pour un bien déjà loué.
-    if (preferences.favoriteGone) {
-      const gone = await repository.goneFavorites();
-      const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
-      await repository.markGoneNotified(report.notifiedIds);
-      if (report.sent > 0) sentAnything = true;
-    }
-
-    // UN FAVORI JAMAIS CONTACTÉ. Le marché ne patiente pas : mis de côté
-    // lundi, oublié jusqu'à jeudi, c'est une occasion manquée faute d'un
-    // rappel.
-    if (preferences.applicationReminders) {
-      const stale = await repository.staleFavorites(APPLICATION_REMINDER_HOURS);
-      const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
-      await repository.markReminded(report.notifiedIds);
-      if (report.sent > 0) sentAnything = true;
-    }
-    /**
-     * ON N'HORODATE QUE CE QUI EST PARTI. Écrire à chaque passage rouvrirait la
-     * fenêtre pour rien : un compte réglé sur « une fois par jour », mais dont
-     * la journée n'apporte aucune annonce, verrait sa fenêtre repoussée de
-     * vingt-quatre heures à chaque collecte — et la première annonce du
-     * lendemain attendrait un jour de plus.
-     */
-    if (sentAnything) {
-      await repository.writeSetting(NOTIFICATIONS_SENT_AT_SETTING, new Date(nowMs).toISOString());
-    }
+    users = await repository.scorableUsers();
   } catch (error) {
     logger.warn('push.failed', {
       error: error instanceof Error ? error.message : 'erreur inconnue',
     });
+    return;
+  }
+
+  for (const userId of users) {
+    try {
+      await notifyOne({ repository, vapid, logger, config, userId });
+    } catch (error) {
+      // L'échec d'un compte ne prive pas les suivants.
+      logger.warn('push.failed', {
+        userId,
+        error: error instanceof Error ? error.message : 'erreur inconnue',
+      });
+    }
+  }
+}
+
+/** Les alertes d'UN compte : ses critères, ses préférences, ses appareils. */
+async function notifyOne(deps: {
+  readonly repository: Repository;
+  readonly vapid: VapidConfig;
+  readonly logger: Logger;
+  readonly config: PublicConfig;
+  readonly userId: string;
+}): Promise<void> {
+  const { repository, vapid, logger, config, userId } = deps;
+
+  // CE DONT CE COMPTE VEUT ÊTRE PRÉVENU (§29). Les préférences se règlent
+  // depuis le site et se lisent ICI : filtrer côté navigateur n'aurait rien
+  // filtré, la notification partant d'ici vers le service de push sans passer
+  // par la page.
+  const preferences = parseNotificationPreferences(
+    jsonOrNull(await repository.readSettingFor(userId, NOTIFICATION_PREFERENCES_SETTING)),
+  );
+
+  /**
+   * LES MÊMES CRITÈRES QUE SA LISTE. Colocation, bail étudiant, bailleur,
+   * ameublement, quartier et disponibilité ne sont plus figés dans le score —
+   * ils se décochent, et décocher doit ramener les annonces. Les oublier ici
+   * signalerait ce que l'écran n'affiche pas.
+   */
+  const criteria = withStoredCriteria(
+    config,
+    await repository.readSettingFor(userId, SEARCH_CRITERIA_SETTING),
+  ).criteria;
+
+  /**
+   * LE RYTHME DEMANDÉ, ET LA FENÊTRE QUI EN DÉCOULE.
+   *
+   * Retenu, rien n'est perdu : les annonces ne sont pas marquées notifiées,
+   * elles s'accumulent et partiront ensemble au prochain passage qui aura le
+   * droit de sonner — les plus prioritaires détaillées, le reste résumé.
+   */
+  const lastSentAt = await repository.readSettingFor(userId, NOTIFICATIONS_SENT_AT_SETTING);
+  const nowMs = Date.now();
+  if (!canNotifyNow(preferences.frequency, lastSentAt, nowMs)) {
+    logger.debug('push.held', { userId, frequency: preferences.frequency, since: lastSentAt });
+    return;
+  }
+
+  const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/';
+  const common = { repository, config: vapid, siteUrl, logger, userId };
+  /** Ce qui est RÉELLEMENT parti : sans envoi, la fenêtre ne se referme pas. */
+  let sentAnything = false;
+
+  if (preferences.newListings) {
+    // Une alerte e-mail qui décrit le même bien qu'une source directe est tue :
+    // la source directe porte un lien vers la vraie fiche, souvent un
+    // téléphone, et les honoraires. Les deux fiches restent visibles sur le
+    // site — seule la sonnerie en double disparaît (§29).
+    const pending = dropRedundantNotifications(
+      await repository.pendingNotifications(userId, 0, criteria),
+      await repository.directListingSpecKeys(),
+    );
+    const report = await sendWebPush({ ...common, listings: pending });
+    await repository.markNotified(userId, report.notifiedIds);
+    if (report.sent > 0) sentAnything = true;
+  }
+
+  // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :
+  // c'est un élargissement de la recherche, pas un canal de plus.
+  if (preferences.nearMatches) {
+    const near = await repository.nearMatches(userId, {
+      cities: [...criteria.cities],
+      maxPrice: criteria.maxPrice,
+      minArea: criteria.minArea,
+    });
+    const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
+      nearMatchContentFor(listing as NearMatch, url),
+    );
+    await repository.markNotified(userId, report.notifiedIds);
+    if (report.sent > 0) sentAnything = true;
+  }
+
+  // UN FAVORI QUI DISPARAÎT. Il quittait la liste sans un mot : on continuait
+  // d'attendre une réponse pour un bien déjà loué.
+  if (preferences.favoriteGone) {
+    const gone = await repository.goneFavorites(userId);
+    const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
+    await repository.markGoneNotified(userId, report.notifiedIds);
+    if (report.sent > 0) sentAnything = true;
+  }
+
+  // UN FAVORI JAMAIS CONTACTÉ. Le marché ne patiente pas : mis de côté lundi,
+  // oublié jusqu'à jeudi, c'est une occasion manquée faute d'un rappel.
+  if (preferences.applicationReminders) {
+    const stale = await repository.staleFavorites(userId, APPLICATION_REMINDER_HOURS);
+    const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
+    await repository.markReminded(userId, report.notifiedIds);
+    if (report.sent > 0) sentAnything = true;
+  }
+
+  /**
+   * ON N'HORODATE QUE CE QUI EST PARTI. Écrire à chaque passage rouvrirait la
+   * fenêtre pour rien : un compte réglé sur « une fois par jour », mais dont la
+   * journée n'apporte aucune annonce, verrait sa fenêtre repoussée de
+   * vingt-quatre heures à chaque collecte — et la première annonce du lendemain
+   * attendrait un jour de plus.
+   */
+  if (sentAnything) {
+    await repository.writeSettingFor(
+      userId,
+      NOTIFICATIONS_SENT_AT_SETTING,
+      new Date(nowMs).toISOString(),
+    );
   }
 }
 
@@ -353,7 +397,7 @@ async function main(): Promise<void> {
     // daté resterait vide.
     const vapid = loadVapidConfig();
     if (vapid !== null) {
-      await notifyAll({ repository, vapid, logger, criteria: config.criteria });
+      await notifyAll({ repository, vapid, logger, config });
     }
 
     // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne

@@ -218,6 +218,12 @@ export interface PushDeps {
   readonly listings: readonly NotifiableListing[];
   readonly siteUrl: string;
   readonly logger: Logger;
+  /**
+   * LE COMPTE DESTINATAIRE. Il manquait, et l'envoi prenait donc TOUS les
+   * abonnements : les alertes calculées pour les critères d'un compte
+   * partaient vers les appareils de tout le monde.
+   */
+  readonly userId: string;
 }
 
 /** Ce qu'un envoi a réellement produit. */
@@ -258,7 +264,7 @@ async function deliver(deps: PushDeps, payloads: readonly PushPayload[]): Promis
   const { repository, config, logger } = deps;
   if (payloads.length === 0) return 0;
 
-  const subscriptions = await repository.pushSubscriptions();
+  const subscriptions = await repository.pushSubscriptions(deps.userId);
   if (subscriptions.length === 0) return 0;
 
   webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);

@@ -225,17 +225,25 @@ export interface Repository {
   /** Combien d'occurrences vivantes cette source compte aujourd'hui. */
   readonly activeOccurrenceCount: (sourceId: string) => Promise<number>;
 
-  /** Abonnements Web Push actifs (§29). */
-  readonly pushSubscriptions: () => Promise<
-    readonly { endpoint: string; p256dh: string; auth: string }[]
-  >;
+  /**
+   * Abonnements Web Push d'UN compte (§29).
+   *
+   * Ils étaient rendus tous ensemble : les alertes calculées pour un compte
+   * partaient alors vers les appareils de tout le monde.
+   */
+  readonly pushSubscriptions: (
+    userId: string,
+  ) => Promise<readonly { endpoint: string; p256dh: string; auth: string }[]>;
   /** Retire un abonnement périmé — le service de push l'a déclaré mort. */
   readonly removePushSubscription: (endpoint: string) => Promise<void>;
 
-  /** Écrit l'instantané du jour (une ligne par jour, réécrite à chaque passage). */
+  /**
+   * Écrit l'instantané du jour POUR CHAQUE COMPTE (une ligne par jour et par
+   * compte, réécrite à chaque passage).
+   */
   readonly recordDailyStat: () => Promise<void>;
-  /** Historique de l'inventaire, du plus ancien au plus récent. */
-  readonly dailyStats: (limit?: number) => Promise<readonly DailyStat[]>;
+  /** Historique de l'inventaire d'un compte, du plus ancien au plus récent. */
+  readonly dailyStats: (userId: string, limit?: number) => Promise<readonly DailyStat[]>;
 
   /** Références déjà connues pour une source — alimente l'arrêt anticipé (§9). */
   knownRefs(sourceId: SourceId): Promise<Set<string>>;
@@ -298,6 +306,18 @@ export interface Repository {
    */
   retireDepartedListings(): Promise<number>;
   /**
+   * Range la PERTINENCE d'un lot de fiches pour UN compte.
+   *
+   * La fiche est commune ; la lecture qu'on en fait ne l'est pas. Sans cette
+   * table, la liste d'un second compte serait filtrée sur le budget du
+   * premier, et ses notifications aussi.
+   *
+   * @returns le nombre de lignes réellement écrites.
+   */
+  saveUserScores(userId: string, listings: readonly ScoredListing[]): Promise<number>;
+  /** Les comptes que la collecte doit scorer. */
+  scorableUsers(): Promise<string[]>;
+  /**
    * Marque « loué » les fiches contenant une occurrence `sourceId:ref`.
    * @returns le nombre de fiches effectivement marquées.
    */
@@ -328,7 +348,11 @@ export interface Repository {
    *   donc les appliquer ICI aussi, sans quoi l'on signalerait des colocations
    *   que l'écran n'affiche pas — le pire des deux mondes.
    */
-  pendingNotifications(minPriority: number, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  pendingNotifications(
+    userId: string,
+    minPriority: number,
+    traits?: TraitFilters,
+  ): Promise<NotifiableListing[]>;
   /**
    * Clés `prix|surface|ville|pièces` des annonces actives issues UNIQUEMENT de
    * sources directes (agences), jamais des alertes e-mail. Sert à taire la
@@ -338,7 +362,7 @@ export interface Repository {
    */
   directListingSpecKeys(): Promise<ReadonlySet<string>>;
   /** Marque des annonces comme notifiées, pour ne jamais les re-signaler. */
-  markNotified(ids: readonly string[]): Promise<void>;
+  markNotified(userId: string, ids: readonly string[]): Promise<void>;
 
   /**
    * Annonces JUSTE au-dessus des critères, jamais signalées.
@@ -348,7 +372,7 @@ export interface Repository {
    * dépassement est renvoyé avec chaque annonce : une notification qui ne dirait
    * pas EN QUOI l'annonce sort des critères ferait croire à une erreur.
    */
-  nearMatches(criteria: NearMatchCriteria): Promise<NearMatch[]>;
+  nearMatches(userId: string, criteria: NearMatchCriteria): Promise<NearMatch[]>;
 
   /**
    * Favoris qui ont DISPARU de leur source, et qu'on n'a pas encore signalés.
@@ -357,8 +381,8 @@ export interface Repository {
    * liste sans un mot, et l'on continuait d'attendre une réponse pour un bien
    * déjà loué.
    */
-  goneFavorites(): Promise<NotifiableListing[]>;
-  markGoneNotified(ids: readonly string[]): Promise<void>;
+  goneFavorites(userId: string): Promise<NotifiableListing[]>;
+  markGoneNotified(userId: string, ids: readonly string[]): Promise<void>;
 
   /**
    * Favoris jamais contactés, mis de côté il y a plus de `hours` heures.
@@ -366,23 +390,39 @@ export interface Repository {
    * Le marché ne patiente pas : un favori posé lundi et oublié jusqu'à jeudi
    * est, le plus souvent, une occasion manquée faute d'un rappel.
    */
-  staleFavorites(hours: number): Promise<NotifiableListing[]>;
-  markReminded(ids: readonly string[]): Promise<void>;
+  staleFavorites(userId: string, hours: number): Promise<NotifiableListing[]>;
+  markReminded(userId: string, ids: readonly string[]): Promise<void>;
   /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
    * lesquelles aucun brouillon n'a encore été créé (§22). Triées par priorité.
    */
   pendingDrafts(): Promise<DraftableListing[]>;
   /** Marque des annonces « brouillon créé », pour ne pas en recréer. */
-  markDrafted(ids: readonly string[]): Promise<void>;
+  markDrafted(userId: string, ids: readonly string[]): Promise<void>;
   /**
    * Réglage applicatif partagé avec le site (§66), en JSON. `null` si absent :
    * les défauts du projet font alors seule autorité.
    */
   readSetting(key: string): Promise<string | null>;
+  /**
+   * Le même réglage, pour UN compte donné.
+   *
+   * `readSetting` lit celui du compte servi par défaut : c'est ce qu'il faut
+   * partout où la collecte agit pour elle-même — son cache, ses états de
+   * source. Dès qu'elle agit POUR QUELQU'UN, il lui faut celui-là.
+   */
+  readSettingFor(userId: string, key: string): Promise<string | null>;
   /** Écrit un réglage applicatif, écrasant le précédent. */
   writeSetting(key: string, value: string): Promise<void>;
+  /** Le même réglage, écrit pour UN compte donné. */
+  writeSettingFor(userId: string, key: string, value: string): Promise<void>;
   /** Bascule le favori d'une annonce. */
+  /**
+   * Met une fiche en favori POUR LE COMPTE SERVI par défaut.
+   *
+   * Réservé aux outils en ligne de commande, qui n'agissent que pour lui ;
+   * l'API, elle, passe par `listing_user_state` avec l'identifiant de session.
+   */
   setListingFavorite(listingId: string, favorite: boolean): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
@@ -588,8 +628,25 @@ function toNotifiable(row: Record<string, unknown>): NotifiableListing {
   };
 }
 
+/**
+ * Les comptes à scorer, `CURRENT_USER` en tête.
+ *
+ * Il vient toujours en premier et n'est jamais absent : c'est le sien que la
+ * collecte sert, donc le seul à recevoir les temps de trajet réels, et une base
+ * dont la table `users` n'est pas encore remplie ne doit pas produire une liste
+ * vide — ce serait une collecte qui ne score personne.
+ */
+async function scorableUserIds(db: Database): Promise<string[]> {
+  const result = await db.execute('SELECT id FROM users ORDER BY created_at');
+  const ids = result.rows.map((row) => String(row['id']));
+  return ids.includes(CURRENT_USER)
+    ? [CURRENT_USER, ...ids.filter((id) => id !== CURRENT_USER)]
+    : [CURRENT_USER, ...ids];
+}
+
 async function recordUserState(
   db: Database,
+  userId: string,
   listingIds: readonly string[],
   patch: Readonly<Record<string, string | number | null>>,
 ): Promise<void> {
@@ -611,7 +668,7 @@ async function recordUserState(
       sql: `INSERT INTO listing_user_state (user_id, listing_id, ${columns.join(', ')}, updated_at)
             VALUES (?, ?, ${columns.map(() => '?').join(', ')}, ?)
             ON CONFLICT(user_id, listing_id) DO UPDATE SET ${updates.join(', ')}`,
-      args: [CURRENT_USER, listingId, ...columns.map((column) => patch[column] ?? null), now],
+      args: [userId, listingId, ...columns.map((column) => patch[column] ?? null), now],
     })),
     'write',
   );
@@ -1122,6 +1179,65 @@ export function createRepository(db: Database): Repository {
       return result.rowsAffected ?? 0;
     },
 
+    async saveUserScores(userId, listings) {
+      if (listings.length === 0) return 0;
+
+      const existing = await db.execute({
+        sql: `SELECT listing_id, content_hash FROM listing_user_score WHERE user_id = ?`,
+        args: [userId],
+      });
+      const known = new Map(
+        existing.rows.map((row) => [String(row['listing_id']), String(row['content_hash'])]),
+      );
+
+      const now = new Date().toISOString();
+      const statements: Statement[] = [];
+      for (const listing of listings) {
+        // MÊME EMPREINTE QUE LA FICHE, plus le compte : ce qui n'a pas bougé
+        // n'est pas réécrit. Sans cela, chaque collecte réécrirait toutes les
+        // lignes de tous les comptes (§30).
+        const hash = listingHash(listing);
+        if (known.get(listing.id) === hash) continue;
+        statements.push({
+          sql: `INSERT INTO listing_user_score (
+                  user_id, listing_id, matches_criteria, action_priority,
+                  match_score, opportunity_score, visit_score, risk_score,
+                  commute_minutes, content_hash, updated_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(user_id, listing_id) DO UPDATE SET
+                  matches_criteria = excluded.matches_criteria,
+                  action_priority = excluded.action_priority,
+                  match_score = excluded.match_score,
+                  opportunity_score = excluded.opportunity_score,
+                  visit_score = excluded.visit_score,
+                  risk_score = excluded.risk_score,
+                  commute_minutes = excluded.commute_minutes,
+                  content_hash = excluded.content_hash,
+                  updated_at = excluded.updated_at`,
+          args: [
+            userId,
+            listing.id,
+            listing.matchesCriteria ? 1 : 0,
+            actionPriority(listing.scores),
+            listing.scores.match.value,
+            listing.scores.opportunity.value,
+            listing.scores.visitProbability.value,
+            listing.scores.risk.value,
+            shortestCommuteMinutes(listing),
+            hash,
+            now,
+          ],
+        });
+      }
+
+      if (statements.length > 0) await db.batch(statements, 'write');
+      return statements.length;
+    },
+
+    async scorableUsers() {
+      return scorableUserIds(db);
+    },
+
     async expireByAge(sourceId, thresholds) {
       // `last_seen_at` est la dernière fois que la source l'a MENTIONNÉE : pour
       // une annonce annoncée une seule fois, c'est sa date de parution.
@@ -1153,23 +1269,21 @@ export function createRepository(db: Database): Repository {
     },
 
     /**
-     * LES ABONNEMENTS DU COMPTE QUE LA COLLECTE SERT — et d'aucun autre.
+     * LES ABONNEMENTS D'UN COMPTE — et d'aucun autre.
      *
-     * La collecte est MONO-COMPTE : elle lit les critères, les préférences et
-     * le rythme de `CURRENT_USER`, et `matches_criteria` est calculé pour
-     * lui seul. Sans ce filtre, ses alertes partaient vers TOUS les
-     * abonnements : un second compte recevait des notifications calculées sur
-     * le budget, la surface et les quartiers de quelqu'un d'autre.
+     * Sans ce filtre, l'envoi prenait TOUS les abonnements : un second compte
+     * recevait des notifications calculées sur le budget, la surface et les
+     * quartiers de quelqu'un d'autre.
      *
-     * Ne rien recevoir vaut mieux que recevoir les alertes d'un autre : c'est
-     * visible, cela se signale, et cela ne révèle rien. Rendre la collecte
-     * multi-compte demande de scorer par utilisateur — un chantier à part
-     * entière, pas un filtre.
+     * La collecte n'est plus mono-compte : elle score chaque utilisateur avec
+     * SES critères (`listing_user_score`) et notifie chacun séparément. Ce
+     * filtre n'est donc plus un pis-aller — c'est la clause qui rend l'envoi
+     * personnel.
      */
-    async pushSubscriptions() {
+    async pushSubscriptions(userId) {
       const result = await db.execute({
         sql: 'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ? ORDER BY created_at',
-        args: [CURRENT_USER],
+        args: [userId],
       });
       return result.rows.map((row) => ({
         endpoint: String(row['endpoint']),
@@ -1185,48 +1299,79 @@ export function createRepository(db: Database): Repository {
       });
     },
 
+    /**
+     * L'INSTANTANÉ DU JOUR, UNE LIGNE PAR COMPTE.
+     *
+     * « 42 annonces pertinentes » n'a de sens que pour quelqu'un : c'est un
+     * budget, une surface, des quartiers. Le décompte se lisait sur
+     * `listings.matches_criteria`, calculé pour le seul compte que sert la
+     * collecte ; la page Statistiques d'un second compte affichait donc la
+     * courbe du premier, sans que rien ne le trahisse — une courbe est toujours
+     * vraisemblable.
+     *
+     * `total` et `active_sources` décrivent le marché et la collecte : ils sont
+     * les mêmes pour tout le monde, et recopiés tels quels sur chaque ligne.
+     */
     async recordDailyStat() {
-      const row = (
-        await db.execute(`
-          SELECT
-            SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'active'
-                      AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS matching,
-            SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'possiblyInactive'
-                      AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
-            SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented,
-            COUNT(*) AS total
-          FROM listings
-        `)
-      ).rows[0];
       const sources = (
         await db.execute(
           "SELECT COUNT(DISTINCT source_id) AS n FROM occurrences WHERE lifecycle = 'active'",
         )
       ).rows[0];
+      const day = new Date().toISOString().slice(0, 10);
+      const now = new Date().toISOString();
 
-      await db.execute({
-        sql: `INSERT INTO daily_stats (day, matching, uncertain, rented, total, active_sources, recorded_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(day) DO UPDATE SET
-                matching = excluded.matching, uncertain = excluded.uncertain,
-                rented = excluded.rented, total = excluded.total,
-                active_sources = excluded.active_sources, recorded_at = excluded.recorded_at`,
-        args: [
-          new Date().toISOString().slice(0, 10),
-          Number(row?.['matching'] ?? 0),
-          Number(row?.['uncertain'] ?? 0),
-          Number(row?.['rented'] ?? 0),
-          Number(row?.['total'] ?? 0),
-          Number(sources?.['n'] ?? 0),
-          new Date().toISOString(),
-        ],
-      });
+      const statements: { sql: string; args: (string | number)[] }[] = [];
+      for (const userId of await scorableUserIds(db)) {
+        const row = (
+          await db.execute({
+            sql: `SELECT
+                    SUM(CASE WHEN COALESCE(sc.matches_criteria, 0) = 1 AND lifecycle = 'active'
+                              AND COALESCE(us.archived, 0) = 0 AND rented = 0
+                             THEN 1 ELSE 0 END) AS matching,
+                    SUM(CASE WHEN COALESCE(sc.matches_criteria, 0) = 1
+                              AND lifecycle = 'possiblyInactive'
+                              AND COALESCE(us.archived, 0) = 0 AND rented = 0
+                             THEN 1 ELSE 0 END) AS uncertain,
+                    SUM(CASE WHEN COALESCE(sc.matches_criteria, 0) = 1 AND rented = 1
+                             THEN 1 ELSE 0 END) AS rented,
+                    COUNT(*) AS total
+                  FROM listings
+                  LEFT JOIN listing_user_score sc
+                    ON sc.listing_id = listings.id AND sc.user_id = ?
+                  LEFT JOIN listing_user_state us
+                    ON us.listing_id = listings.id AND us.user_id = ?`,
+            args: [userId, userId],
+          })
+        ).rows[0];
+
+        statements.push({
+          sql: `INSERT INTO daily_stats (user_id, day, matching, uncertain, rented, total, active_sources, recorded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, day) DO UPDATE SET
+                  matching = excluded.matching, uncertain = excluded.uncertain,
+                  rented = excluded.rented, total = excluded.total,
+                  active_sources = excluded.active_sources, recorded_at = excluded.recorded_at`,
+          args: [
+            userId,
+            day,
+            Number(row?.['matching'] ?? 0),
+            Number(row?.['uncertain'] ?? 0),
+            Number(row?.['rented'] ?? 0),
+            Number(row?.['total'] ?? 0),
+            Number(sources?.['n'] ?? 0),
+            now,
+          ],
+        });
+      }
+
+      if (statements.length > 0) await db.batch(statements, 'write');
     },
 
-    async dailyStats(limit = 90) {
+    async dailyStats(userId, limit = 90) {
       const result = await db.execute({
-        sql: 'SELECT * FROM daily_stats ORDER BY day DESC LIMIT ?',
-        args: [limit],
+        sql: 'SELECT * FROM daily_stats WHERE user_id = ? ORDER BY day DESC LIMIT ?',
+        args: [userId, limit],
       });
       return result.rows
         .map((r) => ({
@@ -1371,26 +1516,42 @@ export function createRepository(db: Database): Repository {
       );
     },
 
-    async pendingNotifications(minPriority, traits = {}) {
+    async pendingNotifications(userId, minPriority, traits = {}) {
       const preferences = traitConditions(traits);
       const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
       const result = await db.execute({
-        // `lifecycle = 'active'` (et non « != inactive ») : une annonce
-        // `possiblyInactive` a déjà disparu de sa source lors de plusieurs
-        // passages — la pousser en notification enverrait très probablement vers
-        // une annonce expirée. Elle reste VISIBLE sur le site (décision
-        // utilisateur), mais on ne la notifie pas (§29, §33).
-        sql: `SELECT id, title, price, area, rooms, city, postal_code, action_priority, payload
+        /**
+         * TOUT CE QUI SE DÉCIDE ICI EST PERSONNEL, et rien ne l'était.
+         *
+         * « Correspond aux critères » et la priorité viennent du score DU
+         * COMPTE ; « déjà notifiée » et « archivée » de son état. La requête
+         * lisait les colonnes de `listings` — calculées pour un seul
+         * utilisateur — donc un second compte recevait des alertes filtrées
+         * sur le budget du premier, et taisait celles que le premier avait
+         * déjà vues.
+         *
+         * `lifecycle = 'active'` (et non « != inactive ») : une annonce
+         * `possiblyInactive` a déjà disparu de sa source lors de plusieurs
+         * passages — la pousser en notification enverrait très probablement
+         * vers une annonce expirée. Elle reste VISIBLE sur le site (décision
+         * utilisateur), mais on ne la notifie pas (§29, §33).
+         */
+        sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
+                     listings.city, listings.postal_code, sc.action_priority, listings.payload
               FROM listings
-              WHERE matches_criteria = 1
-                AND notified = 0
-                AND lifecycle = 'active'
-                AND archived = 0
-                AND rented = 0
-                AND COALESCE(action_priority, 0) >= ?
+              JOIN listing_user_score AS sc
+                ON sc.listing_id = listings.id AND sc.user_id = ?
+              LEFT JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              WHERE sc.matches_criteria = 1
+                AND COALESCE(us.notified, 0) = 0
+                AND COALESCE(us.archived, 0) = 0
+                AND listings.lifecycle = 'active'
+                AND listings.rented = 0
+                AND COALESCE(sc.action_priority, 0) >= ?
                 ${extra}
-              ORDER BY action_priority DESC`,
-        args: [minPriority, ...preferences.args],
+              ORDER BY sc.action_priority DESC`,
+        args: [userId, userId, minPriority, ...preferences.args],
       });
 
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
@@ -1442,7 +1603,7 @@ export function createRepository(db: Database): Repository {
       return result.reduce((total, one) => total + one.rowsAffected, 0);
     },
 
-    async nearMatches(criteria) {
+    async nearMatches(userId, criteria) {
       const cities = criteria.cities.filter((city) => city !== '');
       if (cities.length === 0) return [];
       const maxPrice = criteria.maxPrice * (1 + NEAR_MATCH_MARGIN);
@@ -1453,19 +1614,26 @@ export function createRepository(db: Database): Repository {
         // LA VILLE RESTE ÉLIMINATOIRE. Un logement dans une autre commune n'est
         // pas « proche des critères », il est ailleurs — l'élargissement porte
         // sur le budget et la surface, pas sur la géographie.
-        sql: `SELECT id, title, price, area, rooms, city, postal_code, action_priority, payload
+        sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
+                     listings.city, listings.postal_code, sc.action_priority, listings.payload
               FROM listings
-              WHERE matches_criteria = 0
-                AND notified = 0
-                AND lifecycle = 'active'
-                AND archived = 0
-                AND rented = 0
-                AND LOWER(city) IN (${placeholders})
-                AND price IS NOT NULL AND price <= ?
-                AND (area IS NULL OR area >= ?)
-                AND (price > ? OR (area IS NOT NULL AND area < ?))
-              ORDER BY action_priority DESC`,
+              JOIN listing_user_score AS sc
+                ON sc.listing_id = listings.id AND sc.user_id = ?
+              LEFT JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              WHERE sc.matches_criteria = 0
+                AND COALESCE(us.notified, 0) = 0
+                AND listings.lifecycle = 'active'
+                AND COALESCE(us.archived, 0) = 0
+                AND listings.rented = 0
+                AND LOWER(listings.city) IN (${placeholders})
+                AND listings.price IS NOT NULL AND listings.price <= ?
+                AND (listings.area IS NULL OR listings.area >= ?)
+                AND (listings.price > ? OR (listings.area IS NOT NULL AND listings.area < ?))
+              ORDER BY sc.action_priority DESC`,
         args: [
+          userId,
+          userId,
           ...cities.map((city) => city.toLowerCase()),
           maxPrice,
           minArea,
@@ -1487,39 +1655,47 @@ export function createRepository(db: Database): Repository {
       });
     },
 
-    async goneFavorites() {
+    /**
+     * LA PRIORITÉ AFFICHÉE EST CELLE DU DESTINATAIRE. Elle venait de
+     * `listings.action_priority`, calculée pour le compte que sert la
+     * collecte : la notification d'un second compte annonçait « ⭐ Priorité
+     * 82/100 » d'après les critères de quelqu'un d'autre.
+     */
+    async goneFavorites(userId) {
       const result = await db.execute({
         // `possiblyInactive` NE SUFFIT PAS : elle signifie « pas revue au
         // dernier passage », ce qui arrive pour une page momentanément en
         // erreur. On attend `inactive` — plusieurs passages sans la revoir — ou
         // le marquage « loué », qui est une certitude.
         sql: `SELECT l.id, l.title, l.price, l.area, l.rooms, l.city, l.postal_code,
-                     l.action_priority, l.payload
+                     COALESCE(sc.action_priority, 0) AS action_priority, l.payload
               FROM listings l
               JOIN listing_user_state us ON us.listing_id = l.id AND us.user_id = ?
+              LEFT JOIN listing_user_score sc ON sc.listing_id = l.id AND sc.user_id = ?
               WHERE us.favorite = 1
                 AND us.gone_notified_at IS NULL
                 AND (l.lifecycle = 'inactive' OR l.rented = 1)
-              ORDER BY l.action_priority DESC`,
-        args: [CURRENT_USER],
+              ORDER BY COALESCE(sc.action_priority, 0) DESC`,
+        args: [userId, userId],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },
 
-    async markGoneNotified(ids) {
+    async markGoneNotified(userId, ids) {
       if (ids.length === 0) return;
-      await recordUserState(db, ids, { gone_notified_at: new Date().toISOString() });
+      await recordUserState(db, userId, ids, { gone_notified_at: new Date().toISOString() });
     },
 
-    async staleFavorites(hours) {
+    async staleFavorites(userId, hours) {
       const since = new Date(Date.now() - hours * 3_600_000).toISOString();
       const result = await db.execute({
         // Un favori déjà contacté n'a pas besoin de rappel : c'est le silence
         // d'en face qui compte alors, pas le nôtre.
         sql: `SELECT l.id, l.title, l.price, l.area, l.rooms, l.city, l.postal_code,
-                     l.action_priority, l.payload
+                     COALESCE(sc.action_priority, 0) AS action_priority, l.payload
               FROM listings l
               JOIN listing_user_state us ON us.listing_id = l.id AND us.user_id = ?
+              LEFT JOIN listing_user_score sc ON sc.listing_id = l.id AND sc.user_id = ?
               WHERE us.favorite = 1
                 AND us.reminded_at IS NULL
                 AND us.archived = 0
@@ -1527,31 +1703,40 @@ export function createRepository(db: Database): Repository {
                 AND l.lifecycle = 'active'
                 AND l.rented = 0
                 AND COALESCE(us.favorited_at, us.updated_at) <= ?
-              ORDER BY l.action_priority DESC`,
-        args: [CURRENT_USER, since],
+              ORDER BY COALESCE(sc.action_priority, 0) DESC`,
+        args: [userId, userId, since],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },
 
-    async markReminded(ids) {
+    async markReminded(userId, ids) {
       if (ids.length === 0) return;
-      await recordUserState(db, ids, { reminded_at: new Date().toISOString() });
+      await recordUserState(db, userId, ids, { reminded_at: new Date().toISOString() });
     },
 
-    async markNotified(ids) {
+    async markNotified(userId, ids) {
       if (ids.length === 0) return;
-      const placeholders = ids.map(() => '?').join(',');
-      await db.execute({
-        // `COALESCE` : la date retenue est celle de la PREMIÈRE alerte. Une
-        // annonce re-notifiée plus tard ne doit pas remonter l'historique.
-        sql: `UPDATE listings
-              SET notified = 1, notified_at = COALESCE(notified_at, ?)
-              WHERE id IN (${placeholders})`,
-        args: [new Date().toISOString(), ...ids],
+      // SEUL L'ÉTAT DU COMPTE EST ÉCRIT. La colonne `notified` de `listings`
+      // l'était aussi : « signalée » devenait alors vrai pour TOUT LE MONDE,
+      // si bien qu'un second compte ne recevait jamais une annonce que le
+      // premier avait déjà vue. `COALESCE` sur la date garde celle de la
+      // PREMIÈRE alerte : une annonce re-signalée ne remonte pas l'historique.
+      await recordUserState(db, userId, ids, {
+        notified: 1,
+        notified_at: new Date().toISOString(),
       });
-      await recordUserState(db, ids, { notified: 1, notified_at: new Date().toISOString() });
     },
 
+    /**
+     * LES BROUILLONS RESTENT CEUX DE `CURRENT_USER`, à dessein.
+     *
+     * Un brouillon est un message signé : il porte le nom, la situation et le
+     * dossier de qui l'envoie. Il n'y a donc rien à en tirer pour un autre
+     * compte, et cette commande s'exécute à la main, depuis la machine de son
+     * propriétaire. `listings.matches_criteria` — la colonne mono-compte que
+     * `listing_user_score` remplace partout ailleurs — est exactement la bonne
+     * source ici : c'est celle de la collecte, donc la sienne.
+     */
     async pendingDrafts() {
       const result = await db.execute(
         `SELECT id, payload FROM listings
@@ -1607,14 +1792,14 @@ export function createRepository(db: Database): Repository {
       return out;
     },
 
-    async markDrafted(ids) {
+    async markDrafted(userId, ids) {
       if (ids.length === 0) return;
       const placeholders = ids.map(() => '?').join(',');
       await db.execute({
         sql: `UPDATE listings SET drafted = 1 WHERE id IN (${placeholders})`,
         args: [...ids],
       });
-      await recordUserState(db, ids, { drafted: 1 });
+      await recordUserState(db, userId, ids, { drafted: 1 });
     },
 
     async setListingFavorite(listingId, favorite) {
@@ -1627,7 +1812,7 @@ export function createRepository(db: Database): Repository {
       // favori déposé il y a une semaine mais rouvert ce matin paraissait tout
       // neuf. Retirer le favori efface la date ET le rappel : le remettre
       // repart d'une intention neuve.
-      await recordUserState(db, [listingId], {
+      await recordUserState(db, CURRENT_USER, [listingId], {
         favorite: favorite ? 1 : 0,
         favorited_at: favorite ? new Date().toISOString() : null,
         ...(favorite ? {} : { reminded_at: null, gone_notified_at: null }),
@@ -1646,6 +1831,24 @@ export function createRepository(db: Database): Repository {
       });
       const row = result.rows[0];
       return row === undefined ? null : String(row['value']);
+    },
+
+    async readSettingFor(userId, key) {
+      const result = await db.execute({
+        sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
+        args: [userId, key],
+      });
+      const row = result.rows[0];
+      return row === undefined ? null : String(row['value']);
+    },
+
+    async writeSettingFor(userId, key, value) {
+      await db.execute({
+        sql: `INSERT INTO app_settings (user_id, key, value, updated_at) VALUES (?,?,?,?)
+              ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value,
+                                                      updated_at = excluded.updated_at`,
+        args: [userId, key, value, new Date().toISOString()],
+      });
     },
 
     async writeSetting(key, value) {

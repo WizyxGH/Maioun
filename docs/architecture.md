@@ -131,13 +131,30 @@ mail.
 La réponse tient en une ligne : **la collecte est unique et commune, l'usage
 est personnel.**
 
-| Ce qui est COMMUN                 | Ce qui appartient à CHACUN                   |
-| --------------------------------- | -------------------------------------------- |
-| Les annonces et leurs occurrences | Favoris, suivi, archivage, consulté          |
-| L'état de santé des sources       | Critères de recherche (`app_settings`)       |
-| Le journal des collectes          | Recherches enregistrées, adresses de réf.    |
-| Le cache de géocodage             | Préférences d'alertes, abonnements push      |
-|                                   | Pièces du dossier (KV, préfixées par compte) |
+| Ce qui est COMMUN                 | Ce qui appartient à CHACUN                    |
+| --------------------------------- | --------------------------------------------- |
+| Les annonces et leurs occurrences | Favoris, suivi, archivage, consulté           |
+| L'état de santé des sources       | Critères de recherche (`app_settings`)        |
+| Le journal des collectes          | Recherches enregistrées, adresses de réf.     |
+| Le cache de géocodage             | Préférences d'alertes, abonnements push       |
+|                                   | Pièces du dossier (KV, préfixées par compte)  |
+|                                   | Pertinence et priorité (`listing_user_score`) |
+|                                   | Historique d'inventaire (`daily_stats`)       |
+
+**La PERTINENCE est personnelle, et elle ne l'a pas toujours été.**
+« Correspond aux critères » et « priorité » étaient des colonnes de `listings`,
+calculées une fois par la collecte pour les critères d'un seul utilisateur, puis
+lues par tout le monde : la liste du second compte était filtrée sur le budget
+du premier, ses notifications aussi, et sa page Statistiques affichait la courbe
+d'un autre. Elles vivent depuis dans `listing_user_score`, une ligne par compte
+et par annonce, écrite à la fin de chaque collecte.
+
+Une seule chose reste approchée pour les comptes que la collecte ne sert pas :
+le **temps de trajet**. Le routage en transports coûte un appel par annonce et
+par destination ; le refaire par compte épuiserait le quota gratuit (§30).
+Chacun est donc scoré avec SES points de référence, mais à vol d'oiseau — le
+comportement exact du système quand Navitia n'est pas configuré, et le détail du
+score le dit.
 
 ### Pourquoi la collecte reste unique
 

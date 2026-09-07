@@ -174,10 +174,32 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
  * masquées par celles-ci — c'est voulu : elles ne servent plus qu'à la
  * collecte, qui ne connaît qu'un utilisateur.
  */
+/**
+ * L'état PERSONNEL et le SCORE personnel, joints ensemble.
+ *
+ * `listing_user_state` porte les décisions — vu, archivé, favori, suivi.
+ * `listing_user_score` porte la pertinence : « correspond à MES critères »,
+ * « priorité pour MOI », « trajet depuis MON domicile ». Cette seconde table
+ * est née le jour où le multi-compte a cessé d'être théorique : `listings`
+ * portait ces valeurs, calculées pour un seul utilisateur, et les servait à
+ * tout le monde.
+ *
+ * DEUX JOINTURES GAUCHES, ET LE MÊME `user_id` DEUX FOIS : une annonce qu'on
+ * n'a jamais touchée n'a pas de ligne d'état, et une annonce apparue depuis la
+ * dernière collecte n'a pas encore de ligne de score. Ni l'une ni l'autre ne
+ * doit disparaître de la base — elles valent « rien décidé » et « pas encore
+ * évaluée ».
+ */
 const USER_STATE_JOIN = `LEFT JOIN listing_user_state AS us
-   ON us.listing_id = listings.id AND us.user_id = ?`;
+   ON us.listing_id = listings.id AND us.user_id = ?
+ LEFT JOIN listing_user_score AS sc
+   ON sc.listing_id = listings.id AND sc.user_id = ?`;
 
 const USER_STATE_COLUMNS = `listings.*,
+  COALESCE(sc.matches_criteria, 0) AS matches_criteria,
+  COALESCE(sc.action_priority, 0) AS action_priority,
+  sc.match_score AS match_score,
+  sc.commute_minutes AS commute_minutes,
   COALESCE(us.viewed, 0) AS viewed,
   COALESCE(us.archived, 0) AS archived,
   COALESCE(us.favorite, 0) AS favorite,
@@ -247,15 +269,15 @@ interface ListQuery {
  * toute façon mieux à la question qu'on se pose vraiment.
  */
 const ORDER_BY: Readonly<Record<string, string>> = {
-  priority: 'action_priority DESC, first_seen_at DESC',
+  priority: 'sc.action_priority DESC, first_seen_at DESC',
   recent: 'first_seen_at DESC',
   price: 'price IS NULL, price ASC',
-  closest: 'commute_minutes IS NULL, commute_minutes ASC, action_priority DESC',
+  closest: 'sc.commute_minutes IS NULL, sc.commute_minutes ASC, sc.action_priority DESC',
   // LA SURFACE, DE LA PLUS GRANDE À LA PLUS PETITE. `area IS NULL` en tête de
   // clause : sans lui, SQLite place les NULL en premier d'un tri décroissant,
   // et les annonces dont la surface est inconnue coifferaient les plus
   // grandes — le contraire de ce qu'on demande en triant par surface.
-  area: 'area IS NULL, area DESC, action_priority DESC',
+  area: 'area IS NULL, area DESC, sc.action_priority DESC',
 };
 
 export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
@@ -290,7 +312,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
   const filterArgs: Array<string | number> = [];
 
   if (!includeAll) {
-    conditions.push('matches_criteria = 1', "lifecycle != 'inactive'");
+    conditions.push('COALESCE(sc.matches_criteria, 0) = 1', "lifecycle != 'inactive'");
 
     // TOUS les filtres s'appliquent en direct : les changer depuis l'interface
     // se répercute sur la liste immédiatement, sans re-collecter. Un champ NULL
@@ -361,7 +383,7 @@ async function listSignature(
                  MAX(listings.updated_at) AS listing_at,
                  MAX(us.updated_at) AS state_at
           FROM listings ${USER_STATE_JOIN} ${query.filter}`,
-    args: [userId, ...query.filterArgs],
+    args: [userId, userId, ...query.filterArgs],
   });
   const row = (result.rows[0] ?? {}) as Record<string, unknown>;
   const total = Number(row['n'] ?? 0);
@@ -387,7 +409,7 @@ async function listListings(
   const result = await db.execute({
     sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN} ${query.filter}
           ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`,
-    args: [userId, ...query.filterArgs, query.limit, query.offset],
+    args: [userId, userId, ...query.filterArgs, query.limit, query.offset],
   });
 
   return {
@@ -401,7 +423,7 @@ async function listListings(
 async function getListing(db: Client, id: string, userId: string): Promise<unknown | null> {
   const result = await db.execute({
     sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN} WHERE listings.id = ?`,
-    args: [userId, id],
+    args: [userId, userId, id],
   });
   const row = result.rows[0];
   if (row === undefined) return null;
@@ -499,9 +521,9 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
             SELECT group_id FROM occurrences WHERE contact_agency = ?
           )
           AND listings.lifecycle != 'inactive' AND listings.rented = 0
-          ORDER BY listings.action_priority DESC, listings.last_seen_at DESC
+          ORDER BY COALESCE(sc.action_priority, 0) DESC, listings.last_seen_at DESC
           LIMIT 200`,
-    args: [userId, name],
+    args: [userId, userId, name],
   });
 
   const contact = await db.execute({
@@ -547,7 +569,7 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
     sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN}
           WHERE us.notified_at IS NOT NULL
           ORDER BY us.notified_at DESC LIMIT 200`,
-    args: [userId],
+    args: [userId, userId],
   });
   return { listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)) };
 }
@@ -580,36 +602,48 @@ async function listSources(db: Client): Promise<unknown> {
  *   additionnait les gestes de tous les comptes — un compte y lisait l'activité
  *   des autres, et ses propres chiffres étaient faux.
  *
- *   L'INVENTAIRE, LUI, EST COMMUN : le nombre d'annonces actives, louées ou
- *   pertinentes décrit le marché, pas une personne. `matches_criteria` reste
- *   toutefois calculé par la collecte pour SES critères — c'est la limite
- *   connue du collecteur mono-compte, notée dans `docs/`.
+ *   LE MARCHÉ EST COMMUN, LA PERTINENCE NE L'EST PAS. Le nombre d'annonces
+ *   actives ou louées décrit le marché ; « pertinentes » décrit un budget, une
+ *   surface, des quartiers — donc quelqu'un. Ces chiffres se lisaient sur
+ *   `listings.matches_criteria`, calculé par la collecte pour un seul compte :
+ *   le second lisait le décompte du premier. Ils viennent désormais de
+ *   `listing_user_score`, comme la liste et les alertes.
  */
 async function getStats(db: Client, userId: string): Promise<unknown> {
   // §33 : statistiques simples pour commencer, pas de modèle complexe.
   const [listings, engagement, contacts, outcomes, byTracking, bySource] = await Promise.all([
-    db.execute(`
+    db.execute({
+      sql: `
       SELECT COUNT(*) AS total,
              -- « Pertinentes » ne compte QUE les annonces encore ACTIVES.
              -- Auparavant ce total incluait aussi les « possiblement
              -- inactives » — disparues de leur source depuis plusieurs
              -- collectes, donc probablement louées : le chiffre annonçait
              -- près du double d'opportunités réelles (§33, §17).
-             SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'active' AND archived = 0
+             SUM(CASE WHEN COALESCE(sc.matches_criteria, 0) = 1 AND lifecycle = 'active'
+                      AND COALESCE(us.archived, 0) = 0
                       AND rented = 0 THEN 1 ELSE 0 END) AS matching,
              -- Comptées à part : toujours affichées et consultables, mais à
              -- vérifier avant de s'en réjouir.
-             SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'possiblyInactive'
-                      AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
+             SUM(CASE WHEN COALESCE(sc.matches_criteria, 0) = 1 AND lifecycle = 'possiblyInactive'
+                      AND COALESCE(us.archived, 0) = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
              SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active,
-             SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented
+             SUM(CASE WHEN COALESCE(sc.matches_criteria, 0) = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented
+      -- La colonne listings.archived était lue ici : celle du temps où
+      -- l'archivage était un fait sur la fiche. Ce qu'UN compte a rangé ne
+      -- doit pas disparaître du décompte des autres.
       FROM listings
-    `),
+      LEFT JOIN listing_user_score sc ON sc.listing_id = listings.id AND sc.user_id = ?
+      LEFT JOIN listing_user_state us ON us.listing_id = listings.id AND us.user_id = ?
+    `,
+      args: [userId, userId],
+    }),
     db.execute({
       sql: `SELECT SUM(us.viewed) AS viewed, SUM(us.archived) AS archived
             FROM listing_user_state us
             JOIN listings l ON l.id = us.listing_id
-            WHERE us.user_id = ? AND l.matches_criteria = 1`,
+            JOIN listing_user_score sc ON sc.listing_id = l.id AND sc.user_id = us.user_id
+            WHERE us.user_id = ? AND sc.matches_criteria = 1`,
       args: [userId],
     }),
     db.execute({
@@ -634,9 +668,10 @@ async function getStats(db: Client, userId: string): Promise<unknown> {
       sql: `SELECT COALESCE(us.tracking, 'new') AS tracking, COUNT(*) AS n
             FROM listings l
             LEFT JOIN listing_user_state us ON us.listing_id = l.id AND us.user_id = ?
-            WHERE l.matches_criteria = 1
+            JOIN listing_user_score sc ON sc.listing_id = l.id AND sc.user_id = ?
+            WHERE sc.matches_criteria = 1
             GROUP BY COALESCE(us.tracking, 'new')`,
-      args: [userId],
+      args: [userId, userId],
     }),
     db.execute(`
       SELECT source_id, COUNT(*) AS n FROM occurrences
@@ -650,8 +685,13 @@ async function getStats(db: Client, userId: string): Promise<unknown> {
     return map;
   };
 
-  // Historique de l'inventaire, du plus ancien au plus récent (§33).
-  const history = await db.execute('SELECT * FROM daily_stats ORDER BY day DESC LIMIT 90');
+  // Historique de l'inventaire DE CE COMPTE, du plus ancien au plus récent
+  // (§33). « Pertinentes » est un décompte personnel : la table en garde une
+  // ligne par compte et par jour depuis la migration 0029.
+  const history = await db.execute({
+    sql: 'SELECT * FROM daily_stats WHERE user_id = ? ORDER BY day DESC LIMIT 90',
+    args: [userId],
+  });
 
   return {
     history: history.rows

@@ -41,6 +41,13 @@ import type { Coordinates } from './core/geo.js';
 import type { AggregatedListing } from '@rentfinder/shared';
 import type { Repository, UpsertReport } from './db/repository.js';
 import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
+import { withStoredCriteria } from './config.js';
+import { resolveReferencePoints } from './core/reference-points.js';
+import {
+  CURRENT_USER,
+  REFERENCE_POINTS_SETTING,
+  SEARCH_CRITERIA_SETTING,
+} from '@rentfinder/shared';
 
 /** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
 const GEOCODE_NETWORK_BUDGET = 80;
@@ -432,6 +439,82 @@ export interface RegroupReport {
  * celles du run : une annonce collectée aujourd'hui peut être le doublon d'une
  * annonce vue la semaine dernière sur une autre source (§13).
  */
+
+/**
+ * La PERTINENCE, calculée pour chaque compte.
+ *
+ * L'annonce est commune ; la lecture qu'on en fait ne l'est pas. Tant qu'il n'y
+ * avait qu'un utilisateur, `matches_criteria` pouvait vivre sur la fiche. Dès
+ * qu'il y en a deux, cette colonne ment au second : sa liste est filtrée sur le
+ * budget du premier, et ses notifications aussi.
+ *
+ * ON RÉUTILISE `scoreListing`, sans rien réécrire. « Correspond aux critères »
+ * n'est pas une comparaison : c'est la ville et ses variantes, le loyer et son
+ * plancher anti-parking, la surface, le trajet, le type de bien, et la règle
+ * qui veut qu'une donnée absente n'élimine jamais (§17). Une seconde définition
+ * — en SQL, par exemple — diverge toujours de la première.
+ *
+ * LE COMPTE SERVI PAR LA COLLECTE GARDE SON SCORE TEL QUEL : il vient d'être
+ * calculé avec les temps de trajet réels, il serait absurde de le refaire.
+ *
+ * LES AUTRES SONT SCORÉS AVEC LEURS PROPRES points de référence, mais SANS
+ * routage : un appel Navitia par annonce et par destination, multiplié par le
+ * nombre de comptes, épuiserait le quota gratuit (§30). Ils obtiennent donc
+ * l'estimation à vol d'oiseau — exactement ce que fait le système quand Navitia
+ * n'est pas configuré, et le détail du score le dit.
+ *
+ * LA BAISSE DE PRIX, ELLE, EST COMMUNE. Qu'une annonce ait baissé est un fait
+ * sur le marché, pas sur une personne : la liste est déjà calculée une fois
+ * pour le run, et la partager ne coûte pas une requête de plus. Elle était
+ * remplacée ici par un ensemble vide, si bien que les autres comptes seuls
+ * ignoraient la remontée de priorité que ce signal vaut.
+ */
+async function scoreForEachUser(deps: {
+  readonly options: PipelineOptions;
+  readonly merged: readonly AggregatedListing[];
+  readonly scored: readonly ScoredListing[];
+  readonly geocoded: ReadonlyMap<string, Coordinates | null>;
+  readonly nowMs: number;
+  readonly priceDroppedIds: ReadonlySet<string>;
+}): Promise<void> {
+  const { options, merged, scored, geocoded, nowMs, priceDroppedIds } = deps;
+  const { repository, logger, config } = options;
+
+  const users = await repository.scorableUsers();
+  for (const userId of users) {
+    if (userId === CURRENT_USER) {
+      const written = await repository.saveUserScores(userId, scored);
+      if (written > 0) logger.info('pipeline.user_scored', { userId, written });
+      continue;
+    }
+
+    const criteria = withStoredCriteria(
+      config,
+      await repository.readSettingFor(userId, SEARCH_CRITERIA_SETTING),
+    ).criteria;
+    const referencePoints = await resolveReferencePoints({
+      cache: repository.geocodeCache(),
+      nowMs,
+      logger,
+      stored: await repository.readSettingFor(userId, REFERENCE_POINTS_SETTING),
+    });
+
+    const theirs = merged.map((listing) => {
+      const coords = geocoded.get(listing.id) ?? null;
+      return scoreListing(listing, {
+        criteria,
+        nowMs,
+        referencePricePerSqm: config.referencePricePerSqm,
+        referencePoints,
+        priceDroppedIds,
+        resolvedCoordinates: coords,
+      });
+    });
+    const written = await repository.saveUserScores(userId, theirs);
+    if (written > 0) logger.info('pipeline.user_scored', { userId, written });
+  }
+}
+
 export async function regroupAndScore(
   options: PipelineOptions,
   nowMs: number,
@@ -516,6 +599,8 @@ export async function regroupAndScore(
   // passage, elles restent affichées indéfiniment.
   const retired = await repository.retireDepartedListings();
   if (retired > 0) logger.info('pipeline.listings_retired', { retired });
+
+  await scoreForEachUser({ options, merged, scored, geocoded, nowMs, priceDroppedIds });
 
   return { groups, comparisonCount, listingReport };
 }

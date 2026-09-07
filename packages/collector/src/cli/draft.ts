@@ -13,7 +13,7 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { prepareMessage } from '@rentfinder/shared';
+import { prepareMessage, CURRENT_USER } from '@rentfinder/shared';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
@@ -67,7 +67,9 @@ async function main(): Promise<void> {
       drafts,
       log: (event, fields) => logger.info(event, fields),
     });
-    await repository.markDrafted(created);
+    // Le brouillon est une décision PERSONNELLE : cet outil agit pour le
+    // compte servi par défaut, et le dit.
+    await repository.markDrafted(CURRENT_USER, created);
 
     console.log(`📝 ${created.length} brouillon(s) créé(s) dans « Brouillons » (${imap.user}).`);
     console.log('   Relis-les et envoie-les toi-même — rien n’est parti automatiquement (§22).');

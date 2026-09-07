@@ -75,6 +75,12 @@ describe('cloisonnement entre comptes (§26)', () => {
       ],
       'write',
     );
+    // La PERTINENCE se range par compte, comme le fait la collecte : sans
+    // cela, la liste de chacun serait vide — et c'est le bon comportement,
+    // puisque personne n'a encore évalué ces annonces pour eux.
+    for (const userId of ['alice', 'bob']) {
+      await repository.saveUserScores(userId, [scored('orpi:1')]);
+    }
   });
 
   it('ne montre pas à l’un les DÉMARCHES de l’autre', async () => {
@@ -144,9 +150,96 @@ describe('cloisonnement entre comptes (§26)', () => {
     expect(Number(chezBob.listings.archived ?? 0)).toBe(0);
   });
 
+  it('filtre la liste sur les critères DE CHACUN', async () => {
+    /**
+     * LE CŒUR DU MULTI-COMPTE. « Correspond aux critères » vivait sur la
+     * fiche, calculé une fois pour un seul utilisateur : la liste du second
+     * était filtrée sur le budget du premier. Le score est désormais rangé par
+     * compte, et c'est lui que la requête lit.
+     */
+    await db.execute({
+      sql: 'UPDATE listing_user_score SET matches_criteria = 0 WHERE user_id = ?',
+      args: ['bob'],
+    });
+
+    const chezAlice = (await call(db, 'alice', 'GET', '/api/listings')) as { listings: unknown[] };
+    const chezBob = (await call(db, 'bob', 'GET', '/api/listings')) as { listings: unknown[] };
+
+    expect(chezAlice.listings.length).toBeGreaterThan(0);
+    expect(chezBob.listings).toHaveLength(0);
+  });
+
+  it('ne signale à l’un que ce qui correspond à SES critères', async () => {
+    const repository = createRepository(db);
+    // Hors des critères de Bob, dans ceux d'Alice.
+    await db.execute({
+      sql: 'UPDATE listing_user_score SET matches_criteria = 0 WHERE user_id = ?',
+      args: ['bob'],
+    });
+
+    expect(await repository.pendingNotifications('alice', 0)).toHaveLength(1);
+    expect(await repository.pendingNotifications('bob', 0)).toHaveLength(0);
+  });
+
+  it('ne tait pas à l’un ce que l’autre a DÉJÀ reçu', async () => {
+    // « Signalée » était une colonne de la fiche : dès que le premier compte
+    // recevait une annonce, le second ne la recevait jamais.
+    const repository = createRepository(db);
+    await repository.markNotified('alice', ['orpi:1']);
+
+    expect(await repository.pendingNotifications('alice', 0)).toHaveLength(0);
+    expect(await repository.pendingNotifications('bob', 0)).toHaveLength(1);
+  });
+
   it('garde l’INVENTAIRE commun : une annonce est à tout le monde', async () => {
     // Ce qui est personnel, c'est la décision ; l'annonce, elle, est publique.
     const chezBob = (await call(db, 'bob', 'GET', '/api/listings')) as { listings: unknown[] };
     expect(chezBob.listings.length).toBeGreaterThan(0);
+  });
+
+  it('ne compte comme PERTINENTES que celles qui le sont pour ce compte', async () => {
+    /**
+     * La page Statistiques lisait `listings.matches_criteria` : « 42 annonces
+     * pertinentes » était le décompte du compte que sert la collecte, servi à
+     * tout le monde. C'est le défaut le plus discret de la série — un nombre
+     * faux reste un nombre, et rien dans la page ne dit à qui il appartient.
+     *
+     * Ce qui décrit le MARCHÉ, lui, reste commun : `active` compte les annonces
+     * en ligne, et ne bouge pas d'un compte à l'autre.
+     */
+    await db.execute({
+      sql: 'UPDATE listing_user_score SET matches_criteria = 0 WHERE user_id = ?',
+      args: ['bob'],
+    });
+
+    const chezAlice = (await call(db, 'alice', 'GET', '/api/stats')) as {
+      listings: { matching: number; active: number };
+    };
+    const chezBob = (await call(db, 'bob', 'GET', '/api/stats')) as {
+      listings: { matching: number; active: number };
+    };
+
+    expect(chezAlice.listings.matching).toBe(1);
+    expect(chezBob.listings.matching).toBe(0);
+    expect(chezBob.listings.active).toBe(chezAlice.listings.active);
+  });
+
+  it('garde à chaque compte SON historique d’inventaire', async () => {
+    // `daily_stats` avait le jour pour clé primaire : une seule courbe, celle
+    // du compte que sert la collecte, affichée à tous (migration 0029).
+    const repository = createRepository(db);
+    await db.execute({
+      sql: 'UPDATE listing_user_score SET matches_criteria = 0 WHERE user_id = ?',
+      args: ['bob'],
+    });
+    await repository.recordDailyStat();
+
+    const chezAlice = await repository.dailyStats('alice');
+    const chezBob = await repository.dailyStats('bob');
+
+    expect(chezAlice.at(-1)?.matching).toBe(1);
+    expect(chezBob.at(-1)?.matching).toBe(0);
+    // L'inventaire total, lui, est le même pour les deux.
+    expect(chezBob.at(-1)?.total).toBe(chezAlice.at(-1)?.total);
   });
 });

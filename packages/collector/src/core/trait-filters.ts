@@ -57,8 +57,15 @@ export interface TraitConditions {
 /**
  * Traduit les préférences en conditions SQL.
  *
- * Les colonnes visées sont celles de `listings`, sans préfixe de table : les
- * deux requêtes qui s'en servent lisent `listings` directement.
+ * LES COLONNES SANS PRÉFIXE SONT CELLES DE `listings` — colocation, bail
+ * étudiant, ameublement, bailleur, quartier, disponibilité : ce sont des faits
+ * sur le logement, communs à tous.
+ *
+ * `sc.` DÉSIGNE LE SCORE DU COMPTE (`listing_user_score`), et une seule
+ * colonne en relève : le TRAJET. Il dépend des points de référence de chacun —
+ * le domicile et le travail ne sont pas les mêmes d'un compte à l'autre — donc
+ * il ne peut pas vivre sur la fiche. Les deux requêtes qui appellent cette
+ * fonction doivent joindre cette table sous cet alias.
  */
 export function traitConditions(filters: TraitFilters): TraitConditions {
   const sql: string[] = [];
@@ -81,7 +88,7 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
   // Les écarter reviendrait à masquer la liste entière dès qu'on règle un
   // plafond, ce que personne n'attend d'un curseur de durée.
   if (typeof filters.maxCommuteMinutes === 'number') {
-    sql.push('(commute_minutes IS NULL OR commute_minutes <= ?)');
+    sql.push('(sc.commute_minutes IS NULL OR sc.commute_minutes <= ?)');
     args.push(filters.maxCommuteMinutes);
   }
 
