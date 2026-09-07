@@ -33,7 +33,7 @@ import {
   type NotificationPreferences,
 } from '@rentfinder/shared';
 import { fetchNotificationPreferences, saveNotificationPreferences } from '../api/client.js';
-import { disablePush, enablePush, pushEnabled, pushSupported } from '../push.js';
+import { disablePush, enablePush, pushEnabled, pushSupported, resyncPush } from '../push.js';
 import { readOptIn, requestNotificationPermission, writeOptIn } from '../notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Switch } from '@/components/ui/switch.js';
@@ -135,6 +135,15 @@ export function NotificationSettingsPanel({
   useEffect(() => {
     void pushEnabled().then((subscribed) => {
       if (subscribed) setOn(true);
+      /**
+       * ON REDÉPOSE L'ABONNEMENT, SANS RIEN DEMANDER. Le service de push révoque
+       * parfois un abonnement (`410 Gone`) : la collecte retire alors la ligne
+       * de la base, ce qui est juste, mais le navigateur en a un NOUVEAU que
+       * personne ne lui redemande. L'écran affichait « activé », l'utilisateur
+       * se croyait abonné, et plus rien n'arrivait — sans le moindre signe.
+       * Deux appareils perdus ainsi en une collecte, le 2026-09-07.
+       */
+      if (subscribed) void resyncPush();
     });
     void fetchNotificationPreferences().then(setPreferences);
   }, []);

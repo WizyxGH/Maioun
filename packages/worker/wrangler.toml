@@ -67,3 +67,29 @@ EMAIL_FROM = ""
 [[kv_namespaces]]
 binding = "DOCUMENTS"
 id = "de510f7eb71d40c9814b440d0e2b202e"
+
+# --- Réveil de la collecte (§30) ---------------------------------------------
+#
+# LE CRON DE GITHUB NE TIENT PAS L'HEURE. Le workflow demande `7,37 * * * *`,
+# soit quarante-huit passages par jour ; le 2026-09-07 il en a exécuté TROIS
+# — 00:55, 06:00, 12:20. GitHub met les déclenchements `schedule` en file et les
+# écarte quand elle est chargée, sans le dire. Sans collecte, aucune annonce
+# n'entre et aucune alerte ne part, alors que tout paraît fonctionner : la
+# dernière collecte a réussi, elle date simplement.
+#
+# Les Cron Triggers de Cloudflare, eux, sont fiables et compris dans le plan
+# gratuit. Le Worker ne collecte pas — il n'a ni Node ni le temps qu'il
+# faudrait — il demande à GitHub d'exécuter le workflow, ce qui compte comme un
+# déclenchement MANUEL et échappe donc à la file des `schedule`.
+#
+# Le `schedule` du workflow reste en place : il ne coûte rien et sert de filet.
+#
+# IL FAUT UN JETON, à déposer une fois :
+#
+#   npx wrangler secret put GITHUB_DISPATCH_TOKEN
+#
+# Un jeton FIN (fine-grained), sur ce seul dépôt, avec la permission
+# « Actions: Read and write » et rien d'autre. Sans lui, le réveil se tait et
+# l'écrit dans le journal (`npx wrangler tail`).
+[triggers]
+crons = ["7,37 * * * *"]

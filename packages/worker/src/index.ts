@@ -28,6 +28,7 @@ import { forbiddenOrigin } from './origin.js';
 import { alertAddress } from './alert-address.js';
 import { mailerConfigured, sendEmail } from '@rentfinder/collector/notify/mailer';
 import { relayPhoto } from './photo-relay.js';
+import { triggerCollect } from './collect-trigger.js';
 import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 import {
   confirmEmail,
@@ -76,6 +77,17 @@ export interface Env {
   readonly EMAIL_API_KEY?: string;
   /** Expéditeur des messages, ex. `Maïoun <compte@example.invalid>`. */
   readonly EMAIL_FROM?: string;
+  /**
+   * Jeton GitHub qui permet au réveil planifié de demander une collecte.
+   *
+   * Portée MINIMALE : `actions: write` sur ce seul dépôt. Le Worker n'a besoin
+   * que d'appuyer sur un bouton ; un jeton classique lui donnerait le dépôt
+   * entier. Absent, le réveil se tait et le dit plutôt que de laisser croire
+   * que la collecte repart (§17).
+   */
+  readonly GITHUB_DISPATCH_TOKEN?: string;
+  /** `proprietaire/depot`. Absent : le dépôt du projet. */
+  readonly GITHUB_REPOSITORY?: string;
 }
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
@@ -486,6 +498,25 @@ async function publicRoute(
 }
 
 export default {
+  /**
+   * LE RÉVEIL DE LA COLLECTE (§30).
+   *
+   * Le `schedule` de GitHub n'exécutait plus que trois passages par jour sur
+   * quarante-huit demandés : il met les réveils planifiés en file et les écarte
+   * sans le dire. Les Cron Triggers de Cloudflare, eux, tiennent l'heure. Ce
+   * Worker ne collecte pas — il n'en a ni le temps ni les moyens — il demande à
+   * GitHub d'exécuter le workflow, ce qui compte comme un déclenchement manuel
+   * et échappe donc à la file des `schedule`.
+   */
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    const result = await triggerCollect(env);
+    // Le journal du Worker est le seul endroit où cela se lit : `wrangler tail`
+    // pour le suivre en direct.
+    console.log(
+      result.triggered ? 'collecte demandée à GitHub' : `collecte NON demandée : ${result.reason}`,
+    );
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });

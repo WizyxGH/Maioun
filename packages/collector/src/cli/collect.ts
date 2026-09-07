@@ -191,6 +191,26 @@ async function notifyOne(deps: {
   let sentAnything = false;
 
   /**
+   * UN COMPTE SANS AUCUN APPAREIL EST UN COMPTE QUI NE RECEVRA RIEN, et cela ne
+   * se voyait nulle part.
+   *
+   * Le service de push révoque un abonnement (`410 Gone`) quand le navigateur
+   * l'a régénéré — mise à jour, nettoyage des données du site, péremption. On
+   * retire alors la ligne, ce qui est juste. Mais si c'était la dernière, le
+   * compte devient silencieux : la collecte continue de réussir, l'écran
+   * continue d'afficher « activé », et plus rien n'arrive. Deux appareils
+   * perdus ainsi en une seule collecte le 2026-09-07, sans un mot.
+   *
+   * Un avertissement dans le journal ne prévient pas l'utilisateur — l'écran
+   * s'en charge en redéposant l'abonnement à son ouverture —, mais il rend la
+   * panne DIAGNOSTICABLE : c'est la première chose qu'on cherchera la prochaine
+   * fois qu'une journée sera trop calme.
+   */
+  if (preferences.newListings && (await repository.pushSubscriptions(userId)).length === 0) {
+    logger.warn('push.no_subscription', { userId });
+  }
+
+  /**
    * L'E-MAIL DOUBLE LE PUSH, il ne le remplace pas.
    *
    * L'adresse est lue UNE FOIS pour les quatre familles, et seulement si le

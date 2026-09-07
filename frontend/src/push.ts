@@ -50,6 +50,47 @@ async function registration(): Promise<ServiceWorkerRegistration> {
   return navigator.serviceWorker.ready;
 }
 
+/**
+ * REDÉPOSE L'ABONNEMENT DU NAVIGATEUR, au cas où le serveur l'aurait perdu.
+ *
+ * LE DÉFAUT QU'ELLE RÉPARE, ET QUI ÉTAIT PARFAITEMENT SILENCIEUX. Le service de
+ * push répond parfois `410 Gone` : l'abonnement a été révoqué — le navigateur
+ * l'a régénéré après une mise à jour, un nettoyage des données du site, ou une
+ * péremption. La collecte retire alors la ligne de la base, ce qu'il faut
+ * faire. Mais LE NAVIGATEUR, LUI, EN A UN NOUVEAU, et personne ne le lui
+ * demande : l'écran continue d'afficher « activé », l'utilisateur croit être
+ * abonné, et plus aucune notification n'arrive. Rien, nulle part, ne le dit.
+ *
+ * Constaté le 2026-09-07 : deux appareils retirés en une seule collecte.
+ *
+ * L'écriture est un `INSERT … ON CONFLICT` côté serveur : redéposer un
+ * abonnement déjà connu ne coûte qu'une écriture sans effet, et redéposer celui
+ * que la base a perdu le rétablit. On l'appelle donc à l'ouverture de l'écran
+ * des notifications, sans rien demander à l'utilisateur.
+ *
+ * NE DEMANDE AUCUNE PERMISSION et ne crée aucun abonnement : s'il n'y en a pas
+ * dans ce navigateur, il n'y a rien à redéposer, et c'est à l'interrupteur d'en
+ * créer un.
+ */
+export async function resyncPush(): Promise<void> {
+  if (!pushSupported()) return;
+  try {
+    const existing = await (
+      await navigator.serviceWorker.getRegistration()
+    )?.pushManager.getSubscription();
+    if (existing == null) return;
+
+    const raw = existing.toJSON();
+    const p256dh = raw.keys?.['p256dh'];
+    const auth = raw.keys?.['auth'];
+    if (p256dh === undefined || auth === undefined) return;
+    await subscribePush({ endpoint: existing.endpoint, p256dh, auth });
+  } catch {
+    // Hors ligne, stockage refusé : ce n'est qu'une remise en état d'appoint,
+    // et l'écran ne doit pas s'en trouver dégradé (§69).
+  }
+}
+
 /** `true` si un abonnement est déjà actif dans ce navigateur. */
 export async function pushEnabled(): Promise<boolean> {
   if (!pushSupported()) return false;
