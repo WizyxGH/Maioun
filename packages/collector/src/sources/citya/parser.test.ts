@@ -65,3 +65,47 @@ describe('parseDetailPage', () => {
     expect(normalized.propertyType).toBe('apartment');
   });
 });
+
+/**
+ * UNE FICHE CITYA SE TERMINE PAR SES VOISINES. Le bloc « annonces similaires »
+ * range ses vignettes dans le même dossier que les vraies photos — parfois
+ * celui d'une AUTRE agence. La moitié des photos enregistrées appartenaient à
+ * d'autres logements : une même vignette se retrouvait dans neuf annonces, et
+ * chacune en affichait exactement dix, plafond atteint avant d'avoir fini les
+ * siennes.
+ */
+describe('photos : les voisines ne sont pas les siennes', () => {
+  const page = (ref: string): string => `<!DOCTYPE html><html><body>
+    <h1>Appartement à louer 3 pièces 64.4 m² - Nice (06)</h1>
+    <div class="prix">1 300 €</div>
+    <div class="carousel">
+      <img src="/media/images/agences/biens/149/location/image00001.webp" />
+      <img src="/media/images/agences/biens/149/location/image00002.webp" />
+    </div>
+    <section class="similaires">
+      <article data-itemId="${ref}">
+        <img src="/media/images/agences/biens/148/location/voisine.webp" />
+      </article>
+    </section>
+  </body></html>`;
+
+  const URL = 'https://www.citya.com/annonces/location/appartement/nice-06088/GES84760006-53';
+
+  it('ne garde que les photos du logement affiché', () => {
+    const { listing } = parseDetailPage(page('GES84870328-53'), URL, 'Citya Immobilier');
+    expect(listing?.imageUrls).toEqual([
+      'https://www.citya.com/media/images/agences/biens/149/location/image00001.webp',
+      'https://www.citya.com/media/images/agences/biens/149/location/image00002.webp',
+    ]);
+  });
+
+  /**
+   * Le critère est la RÉFÉRENCE, pas la présence de l'attribut : si la page
+   * enveloppait un jour ses propres photos dans un bloc marqué, elles doivent
+   * rester.
+   */
+  it('garde une photo marquée de SA propre référence', () => {
+    const { listing } = parseDetailPage(page('GES84760006-53'), URL, 'Citya Immobilier');
+    expect(listing?.imageUrls).toHaveLength(3);
+  });
+});

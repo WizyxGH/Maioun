@@ -15,6 +15,9 @@ export const bepScraper = makeApimoScraper({
   id: 'bep',
   name: 'BEP Logement',
   domain: 'bep-logement.com',
+  // MÊME MAISON QUE `bep-abonnes` : le bulletin abonnés publie le même stock,
+  // avec d'autres références et d'autres photos (§14).
+  operator: 'bep-logement',
   sitemapUrl: 'https://bep-logement.com/sitemap.xml',
   citySlugs: [
     'nice',

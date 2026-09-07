@@ -130,6 +130,23 @@ export interface SourceDescriptor {
   readonly relaysListings?: boolean;
 
   /**
+   * L'OPÉRATEUR derrière la source, quand plusieurs sources sont deux canaux
+   * d'une même maison.
+   *
+   * BEP Logement en est le cas d'école : son site public et son bulletin
+   * abonnés publient le MÊME stock, avec des références, des titres et des
+   * photos entièrement différents. Onze annonces se retrouvaient en double dans
+   * la liste, et rien ne pouvait les rapprocher — prix, surface et pièces
+   * concordants ne pèsent que quarante-deux points sur les soixante-dix
+   * exigés, faute de photo commune, de téléphone ou d'adresse.
+   *
+   * Ce n'est pas une supposition sur une annonce : c'est un fait sur la source,
+   * comme `relaysListings` à côté. Deux sources qui partagent cet identifiant
+   * décrivent le même inventaire.
+   */
+  readonly operator?: string;
+
+  /**
    * Contact GÉNÉRAL de l'agence, tel qu'elle le publie sur son propre site.
    *
    * Beaucoup d'agences ne mettent aucune coordonnée sur leurs annonces — elles

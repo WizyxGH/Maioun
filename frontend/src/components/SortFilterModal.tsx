@@ -78,6 +78,11 @@ export interface SortFilterModalProps {
 
   /** Remet tri, filtres, bascules et sources à leur état d'origine. */
   readonly onReset: () => void;
+  /**
+   * Recharge la liste après un changement de CRITÈRE, qui s'applique côté
+   * serveur. Sans lui, le compteur du pied resterait celui d'avant.
+   */
+  readonly onCriteriaSaved?: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
   readonly dirty: boolean;
 }
@@ -100,6 +105,7 @@ export function SortFilterModal({
   onClearSources,
   resultCount,
   onReset,
+  onCriteriaSaved,
   dirty,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
@@ -327,7 +333,9 @@ export function SortFilterModal({
               ci-dessus, dans la même liste. Ils étaient dans un encadré à part,
               sous un titre qui promettait de changer « ce qui est collecté » —
               or on collecte tout, et ils ne font que trier. */}
-            <FiltersPanel />
+            <FiltersPanel
+              {...(onCriteriaSaved !== undefined ? { onSaved: onCriteriaSaved } : {})}
+            />
           </div>
         </div>
 

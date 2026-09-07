@@ -129,6 +129,12 @@ export interface DedupeOptions {
    * relaie —, celle qui fusionne le moins.
    */
   readonly relaysListings?: (sourceId: string) => boolean;
+  /**
+   * L'opérateur d'une source, quand plusieurs sources sont deux canaux d'une
+   * même maison (`SourceDescriptor.operator`). Sans lui, l'hypothèse prudente :
+   * chaque source est indépendante, et l'on fusionne moins.
+   */
+  readonly operatorOf?: (sourceId: string) => string | null;
 }
 
 export interface DedupeResult {
@@ -145,6 +151,7 @@ interface CompareContext {
   readonly ambiguousByRoot: Map<string, AmbiguousPair[]>;
   readonly mergeAmbiguous: boolean;
   readonly relaysListings: (sourceId: string) => boolean;
+  readonly operatorOf: (sourceId: string) => string | null;
 }
 
 /**
@@ -161,7 +168,7 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
   const right = ctx.byId.get(rightId);
   if (left === undefined || right === undefined) return 0;
 
-  const result = similarity(left, right, ctx.relaysListings);
+  const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf);
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
     ctx.unionFind.union(leftId, rightId);
   } else if (result.verdict === 'ambiguous') {
@@ -214,6 +221,7 @@ export function dedupe(
     ambiguousByRoot: new Map<string, AmbiguousPair[]>(),
     mergeAmbiguous: options.mergeAmbiguous ?? false,
     relaysListings: options.relaysListings ?? ((): boolean => false),
+    operatorOf: options.operatorOf ?? ((): string | null => null),
   };
   let comparisonCount = 0;
   for (const bucket of buckets.values()) {

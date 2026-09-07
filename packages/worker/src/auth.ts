@@ -199,7 +199,30 @@ export async function readSession(
  * `index.ts`. C'est un contrôle plus sûr que `SameSite` : il ne dépend ni de la
  * version du navigateur, ni de son interprétation.
  */
-const COOKIE_FLAGS = 'HttpOnly; Secure; SameSite=None; Path=/';
+/**
+ * LES DRAPEAUX DU COOKIE, ET POURQUOI `Partitioned` A ÉTÉ AJOUTÉ.
+ *
+ * Le site vit sur `github.io`, l'API sur `workers.dev` : pour le navigateur, ce
+ * cookie est un cookie TIERS. `SameSite=None` est ce qui lui permet d'être
+ * renvoyé malgré tout — sans quoi rien ne fonctionnerait du tout.
+ *
+ * Mais les navigateurs SUPPRIMENT les cookies tiers. Safari efface ceux d'un
+ * domaine avec lequel on n'a pas interagi au bout de quelques jours ; Chrome
+ * les bloque à mesure de leur retrait. La session durait trente jours sur le
+ * papier et quelques jours en pratique : il fallait se reconnecter sans cesse,
+ * sans que rien n'explique pourquoi.
+ *
+ * `Partitioned` dit au navigateur ce que ce cookie est VRAIMENT : un cookie de
+ * ce site-ci, rangé sous lui, jamais partagé avec un autre. Ainsi déclaré, il
+ * est conservé au lieu d'être balayé avec les cookies de pistage. Les
+ * navigateurs qui l'ignorent se comportent comme avant.
+ *
+ * LA VRAIE RÉPONSE RESTE UN DOMAINE COMMUN — l'application sur `maioun.fr`,
+ * l'API sur `api.maioun.fr` : le cookie cesse alors d'être tiers, et la
+ * question ne se pose plus. Tant que ce domaine n'existe pas, ceci est le
+ * meilleur qu'on puisse faire.
+ */
+const COOKIE_FLAGS = 'HttpOnly; Secure; SameSite=None; Partitioned; Path=/';
 
 /** Le cookie de session, avec les garde-fous qui le rendent inutilisable ailleurs. */
 export function sessionCookie(token: string): string {

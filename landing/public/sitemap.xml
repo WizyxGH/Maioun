@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  La page de présentation, et elle seule.
+
+  UNE SEULE ADRESSE, PARCE QU'IL N'Y EN A QU'UNE. Un plan de site qui
+  énumérerait les écrans de l'application serait faux à deux titres : ils sont
+  derrière une connexion, et ils sont interdits aux robots. Y lister des
+  adresses d'annonces le serait plus encore — elles expirent en quelques jours,
+  et un plan de site rempli de liens morts dessert le référencement qu'il
+  prétend servir.
+
+  `lastmod` reste à la main : cette page change quelques fois par an, et une
+  date engendrée à chaque publication ferait croire à une fraîcheur qu'elle n'a
+  pas.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://maioun.fr/</loc>
+    <lastmod>2026-09-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

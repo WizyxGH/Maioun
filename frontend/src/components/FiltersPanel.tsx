@@ -98,7 +98,17 @@ function Segmented<T extends string>({
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-export function FiltersPanel(): React.JSX.Element {
+/**
+ * @param onSaved Appelé après chaque enregistrement réussi.
+ *
+ * IL MANQUAIT, ET LE COMPTEUR MENTAIT. Ces réglages s'écrivent côté SERVEUR —
+ * c'est lui qui filtre la liste. Le site, lui, ne redemandait rien : le nombre
+ * affiché sur « Voir N annonces » restait celui d'avant, et la liste derrière
+ * la modale ne bougeait pas non plus. Les pilules, qui filtrent dans le
+ * navigateur, se répercutaient immédiatement — d'où l'impression que « certains
+ * filtres ne comptent pas ».
+ */
+export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): React.JSX.Element {
   const [filters, setFilters] = useState<FilterConfig | null>(null);
   const [status, setStatus] = useState<SaveStatus>('idle');
 
@@ -132,6 +142,9 @@ export function FiltersPanel(): React.JSX.Element {
       await saveFilters(next);
       unsaved.current = null;
       setStatus('saved');
+      // La liste vient du serveur, et c'est lui qu'on vient de changer : sans
+      // ce rappel, l'écran garde la liste d'avant et le compteur avec elle.
+      onSaved?.();
     } catch {
       setStatus('error');
     }

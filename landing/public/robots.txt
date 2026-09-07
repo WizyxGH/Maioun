@@ -1,0 +1,11 @@
+# Maïoun — la page de présentation.
+#
+# CELLE-CI, AU CONTRAIRE DE L'APPLICATION, a vocation à être trouvée : c'est
+# elle qu'un moteur doit montrer à qui cherche un service d'alertes de location
+# à Nice. L'application, derrière la connexion, reste interdite par son propre
+# `robots.txt` et par sa balise `noindex`.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://maioun.fr/sitemap.xml

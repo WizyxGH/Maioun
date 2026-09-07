@@ -135,13 +135,31 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // Code postal réel : dans la description/titre (« 06100 ») — l'URL a l'INSEE.
   const postalCode = `${name} ${description}`.match(/\b(06\d{3})\b/)?.[1];
 
-  // Photos du bien : elles sont sous `/media/images/agences/biens/…/location/`.
-  // On exige `/biens/` pour écarter l'habillage de marque (ex.
-  // `/assets/media/images/vesta-….webp`), qui matcherait sinon et serait envoyé
-  // à tort comme photo d'annonce dans une alerte (§29).
+  /**
+   * Photos du bien : sous `/media/images/agences/biens/…/location/`.
+   *
+   * On exige `/biens/` pour écarter l'habillage de marque (ex.
+   * `/assets/media/images/vesta-….webp`), qui matcherait sinon et serait envoyé
+   * à tort comme photo d'annonce dans une alerte (§29).
+   *
+   * MAIS CELA NE SUFFISAIT PAS, et de loin. Une fiche Citya se termine par un
+   * bloc « annonces similaires » dont les vignettes sont rangées dans le MÊME
+   * dossier — parfois même celui d'une autre agence. La moitié des photos
+   * enregistrées appartenaient donc à d'autres logements : une même vignette se
+   * retrouvait dans neuf annonces, et chacune en affichait exactement dix,
+   * plafond atteint avant d'avoir fini les siennes.
+   *
+   * Ces cartes portent un `data-itemId`, celui du bien qu'elles annoncent. Une
+   * image dont un ancêtre en porte un DIFFÉRENT de la référence de la page
+   * n'est pas une photo de ce logement. C'est structurel, donc indépendant des
+   * classes de mise en forme, qui changent à chaque refonte.
+   */
+  const ownReference = pageUrl.split('/').pop()?.split('?')[0] ?? '';
   const imageUrls: string[] = [];
   $('img[src], img[data-src]').each((_i, el) => {
     const src = $(el).attr('src') ?? $(el).attr('data-src') ?? '';
+    const owner = $(el).closest('[data-itemid]').attr('data-itemid');
+    if (owner !== undefined && owner !== ownReference) return;
     if (/\/biens\//i.test(src) && /\.(jpe?g|webp|png)/i.test(src)) {
       try {
         const absolute = new URL(src, pageUrl).toString();

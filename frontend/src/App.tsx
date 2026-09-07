@@ -1913,6 +1913,7 @@ export function App(): React.JSX.Element {
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
+            onCriteriaSaved={() => void load()}
           />
 
           {/* Rangée des filtres rapides. */}

@@ -36,6 +36,11 @@ export const BEP_ABONNES_DESCRIPTOR: SourceDescriptor = {
   name: 'BEP Logement (abonné)',
   domain: 'abonnes.beplogement.com',
   kind: 'agencyNetwork',
+  // MÊME MAISON QUE `bep`. Le site public et le bulletin abonnés publient le
+  // même stock, avec des références, des titres et des photos entièrement
+  // différents : onze annonces s'affichaient en double, et rien ne pouvait les
+  // rapprocher. Le dédoublonnage s'appuie sur ce lien (§14).
+  operator: 'bep-logement',
   method: 'html',
   // Priorité haute : source payée, riche et exclusive.
   priority: 1,

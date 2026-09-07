@@ -28,6 +28,16 @@ describe('sessionCookie', () => {
     // sont deux sites. En `Lax`, le cookie n'accompagne aucun appel de l'un
     // vers l'autre — on se connectait, puis l'écran de connexion revenait.
     expect(cookie).toContain('SameSite=None');
+    /**
+     * `Partitioned` EST CE QUI FAIT DURER LA SESSION. Le site vit sur
+     * `github.io`, l'API sur `workers.dev` : ce cookie est un cookie TIERS, et
+     * les navigateurs les suppriment — Safari au bout de quelques jours. La
+     * session tenait trente jours sur le papier et quelques-uns en pratique.
+     * L'attribut le range sous ce site-ci, où il est conservé au lieu d'être
+     * balayé avec les cookies de pistage.
+     */
+    expect(cookie).toContain('Partitioned');
+
     expect(cookie).not.toContain('SameSite=Lax');
     expect(cookie).not.toContain('SameSite=Strict');
   });
@@ -45,7 +55,7 @@ describe('clearedCookie', () => {
     // coïncident : des attributs différents laisseraient la session en place et
     // la déconnexion n'aurait aucun effet.
     const cleared = clearedCookie();
-    for (const flag of ['HttpOnly', 'Secure', 'SameSite=None', 'Path=/']) {
+    for (const flag of ['HttpOnly', 'Secure', 'SameSite=None', 'Partitioned', 'Path=/']) {
       expect(cleared, `« ${flag} » manque au cookie de déconnexion`).toContain(flag);
     }
   });

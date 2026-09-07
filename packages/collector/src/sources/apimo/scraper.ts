@@ -37,6 +37,11 @@ export interface ApimoConfig {
    * Une entrée SANS `lastmod` n'est jamais écartée (§17). Défaut : 365 jours.
    */
   readonly maxEntryAgeDays?: number;
+  /**
+   * L'opérateur, quand cette agence publie AUSSI ailleurs (`SourceDescriptor.
+   * operator`). BEP Logement double son site public d'un bulletin abonnés.
+   */
+  readonly operator?: string;
 }
 
 export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
@@ -54,6 +59,7 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
       maxListingsPerRun: maxBackfill,
     }),
     enabled: true,
+    ...(config.operator !== undefined ? { operator: config.operator } : {}),
     // Petite structure : premier contact téléphonique/formulaire (§23).
     manualOnly: true,
     allowedPaths: ['/sitemap*.xml', '/fr/propriete/location*'],

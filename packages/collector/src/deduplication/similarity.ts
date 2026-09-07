@@ -286,6 +286,7 @@ export function similarity(
   a: NormalizedListing,
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean = () => false,
+  operatorOf: (sourceId: string) => string | null = () => null,
 ): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
@@ -309,6 +310,28 @@ export function similarity(
 
   collectStrongSignals(a, b, push, relaysListings);
   collectMediumSignals(a, b, push);
+
+  /**
+   * DEUX CANAUX D'UNE MÊME MAISON. BEP Logement publie le même stock sur son
+   * site public et dans son bulletin abonnés, avec des références, des titres
+   * et des photos entièrement différents : rien ne pouvait les rapprocher.
+   * Prix, surface et pièces concordants ne font que quarante-deux points, et il
+   * en faut soixante-dix — onze annonces s'affichaient donc en double.
+   *
+   * TRENTE POINTS, ET PAS DAVANTAGE. Avec prix, surface et pièces, on atteint
+   * soixante-douze : la fusion demande que TOUT concorde, pas seulement
+   * l'opérateur. Les garde-fous restent en place — même commune, loyer à 6 %
+   * près, surface à 5 %, même nombre de pièces.
+   *
+   * Le risque assumé : deux studios identiques d'une même agence, au même prix
+   * et dans la même ville, fusionneraient. La fusion ne perd rien (§13 : les
+   * occurrences sont conservées) là où le doublon, lui, se voit à chaque
+   * consultation.
+   */
+  const operator = operatorOf(a.sourceId);
+  if (a.sourceId !== b.sourceId && operator !== null && operator === operatorOf(b.sourceId)) {
+    push({ code: 'operator', label: `même opérateur (${operator})`, points: 30 });
+  }
 
   const score = Math.min(
     100,

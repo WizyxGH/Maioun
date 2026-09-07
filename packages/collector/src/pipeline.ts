@@ -444,6 +444,10 @@ export async function regroupAndScore(
   const { groups, comparisonCount } = dedupe(corpus, {
     relaysListings: (sourceId) =>
       options.registry.get(sourceId)?.descriptor.relaysListings === true,
+    // Deux canaux d'une même maison publient le même stock : BEP Logement le
+    // fait sur son site public et dans son bulletin abonnés, avec des
+    // références et des photos qui ne se ressemblent en rien.
+    operatorOf: (sourceId) => options.registry.get(sourceId)?.descriptor.operator ?? null,
   });
   logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
 

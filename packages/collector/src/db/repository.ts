@@ -619,6 +619,16 @@ function shortestCommuteMinutes(listing: ScoredListing): number | null {
   return durations.length === 0 ? null : Math.min(...durations);
 }
 
+/**
+ * Combien de fiches SANS PHOTO sont proposées à une seconde visite, par source
+ * et par cycle.
+ *
+ * Cinq : assez pour rattraper un retard en quelques jours, assez peu pour qu'une
+ * annonce réellement dépourvue de photo ne coûte qu'une poignée de requêtes par
+ * passage — le budget d'une agence locale est de deux pages hors découverte.
+ */
+const REVISIT_PHOTOLESS_PER_RUN = 5;
+
 export function createRepository(db: Database): Repository {
   return {
     async knownRefs(sourceId) {
@@ -626,7 +636,40 @@ export function createRepository(db: Database): Repository {
         sql: 'SELECT source_ref FROM occurrences WHERE source_id = ?',
         args: [sourceId],
       });
-      return new Set(result.rows.map((row) => String(row['source_ref'])));
+      const known = new Set(result.rows.map((row) => String(row['source_ref'])));
+
+      /**
+       * UNE FICHE SANS PHOTO N'EST PAS « CONNUE » : elle mérite une seconde
+       * visite.
+       *
+       * Les scrapers ne visitent que ce qu'ils ne connaissent pas — c'est ce qui
+       * les rend économes (§30). Mais cela fige aussi les fiches dans l'état où
+       * l'extraction se trouvait le jour de leur collecte : quand un parseur
+       * s'améliore, le passé ne le voit jamais.
+       *
+       * Relevé le 2026-09-07 sur Giletta : la fiche en base n'avait AUCUNE
+       * photo, alors que la page en publie vingt-huit et que le parseur les lit
+       * toutes aujourd'hui. Le correctif — lire `data-src`, la plateforme
+       * différant le chargement — était arrivé après la collecte, et rien ne
+       * pouvait le rattraper : ni le rejeu, qui ne retélécharge rien, ni la
+       * collecte, qui saute les références connues.
+       *
+       * LE NOMBRE EST BORNÉ, et il le faut : une annonce que la source publie
+       * réellement sans photo serait sinon revisitée à chaque passage, pour
+       * rien, indéfiniment. Cinq par source et par cycle rattrapent un retard en
+       * quelques jours sans peser sur le budget.
+       */
+      const photoless = await db.execute({
+        sql: `SELECT source_ref FROM occurrences
+              WHERE source_id = ? AND lifecycle != 'inactive'
+                AND json_array_length(COALESCE(json_extract(payload, '$.imageUrls'), '[]')) = 0
+              ORDER BY last_seen_at DESC
+              LIMIT ?`,
+        args: [sourceId, REVISIT_PHOTOLESS_PER_RUN],
+      });
+      for (const row of photoless.rows) known.delete(String(row['source_ref']));
+
+      return known;
     },
 
     async upsertOccurrences(listings) {
