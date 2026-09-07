@@ -229,6 +229,11 @@ function sortMock(listings: readonly ListingView[], sort: SortMode): ListingView
   if (sort === 'price') {
     return copy.sort((a, b) => (a.price.value ?? Infinity) - (b.price.value ?? Infinity));
   }
+  if (sort === 'area') {
+    // Surface inconnue en dernier, quel que soit le sens du tri : une annonce
+    // qui ne dit pas sa surface n'est pas la plus grande.
+    return copy.sort((a, b) => (b.area.value ?? -Infinity) - (a.area.value ?? -Infinity));
+  }
   // §36 : par défaut, on classe par priorité d'action, pas par prix.
   return copy.sort((a, b) => b.actionPriority - a.actionPriority);
 }

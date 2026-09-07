@@ -26,6 +26,13 @@ describe('ordre de la liste', () => {
     expect(query('?sort=price').orderBy).toBe('price IS NULL, price ASC');
   });
 
+  it('relègue les annonces SANS SURFACE en fin de tri par surface', () => {
+    // Même piège qu'avec le prix, dans l'autre sens : SQLite place les valeurs
+    // nulles en tête d'un tri décroissant, si bien qu'une annonce qui ne dit
+    // pas sa surface serait présentée comme la plus grande.
+    expect(query('?sort=area').orderBy).toBe('area IS NULL, area DESC, action_priority DESC');
+  });
+
   it('départage la priorité par la découverte, pour la même raison', () => {
     expect(query('').orderBy).toBe('action_priority DESC, first_seen_at DESC');
     expect(query('?sort=priority').orderBy).toBe('action_priority DESC, first_seen_at DESC');

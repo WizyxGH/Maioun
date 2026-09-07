@@ -286,6 +286,12 @@ export interface Repository {
   recentPriceDropIds(sinceIso: string): Promise<Set<string>>;
   saveListings(listings: readonly ScoredListing[]): Promise<UpsertReport>;
   /**
+   * Retire les fiches dont plus AUCUNE occurrence n'est vivante.
+   *
+   * @returns le nombre de fiches retirées.
+   */
+  retireDepartedListings(): Promise<number>;
+  /**
    * Marque « loué » les fiches contenant une occurrence `sourceId:ref`.
    * @returns le nombre de fiches effectivement marquées.
    */
@@ -1055,6 +1061,45 @@ export function createRepository(db: Database): Repository {
       const removed = orphans.rowsAffected ?? 0;
 
       return { inserted, updated, unchanged, ...(removed > 0 ? { removed } : {}) };
+    },
+
+    /**
+     * LA FICHE SURVIVAIT À SES OCCURRENCES, et se montrait après leur mort.
+     *
+     * Le cycle de vie d'une fiche se déduit de celui de ses occurrences —
+     * `mergeGroup` le fait, et bien : toutes inactives, la fiche l'est aussi.
+     * Mais le regroupement ne travaille que sur le corpus VIVANT
+     * (`allActiveOccurrences`). Une fiche dont la dernière occurrence vient de
+     * s'éteindre n'est donc plus jamais revisitée : sa ligne garde le cycle de
+     * vie qu'on lui a donné la dernière fois qu'elle avait encore une
+     * occurrence active — `active`, le plus souvent. Plus rien ne la retire.
+     *
+     * MESURÉ LE 2026-09-07 : soixante-quatorze fiches dans ce cas, dont onze
+     * passaient les critères et s'affichaient donc dans la liste. Parmi elles,
+     * les deux canaux BEP d'un même studio à 650 € — deux lignes pour un
+     * logement qui n'était plus à louer depuis six jours. Le doublon se voyait ;
+     * la cause était ailleurs.
+     *
+     * L'ORPHELINAGE NE COUVRAIT PAS CE CAS : il vise les fiches que plus aucune
+     * occurrence ne DÉSIGNE, après une fusion. Ici les occurrences désignent
+     * toujours leur fiche — elles sont simplement toutes mortes.
+     *
+     * ON RETIRE, ON N'EFFACE PAS. La fiche garde ses photos, son historique de
+     * prix et les décisions prises dessus ; elle sort seulement de la liste,
+     * comme n'importe quelle annonce expirée (§32).
+     */
+    async retireDepartedListings() {
+      const result = await db.execute({
+        sql: `UPDATE listings SET lifecycle = 'inactive', updated_at = ?
+              WHERE lifecycle != 'inactive'
+                AND NOT EXISTS (
+                  SELECT 1 FROM occurrences
+                  WHERE occurrences.group_id = listings.id
+                    AND occurrences.lifecycle != 'inactive'
+                )`,
+        args: [new Date().toISOString()],
+      });
+      return result.rowsAffected ?? 0;
     },
 
     async expireByAge(sourceId, thresholds) {

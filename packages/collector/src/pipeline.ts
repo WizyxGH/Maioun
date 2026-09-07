@@ -510,6 +510,13 @@ export async function regroupAndScore(
   const listingReport = await repository.saveListings(scored);
   logger.info('pipeline.listings_written', { ...listingReport });
 
+  // APRÈS L'ÉCRITURE, ET PAS AVANT : le regroupement ne voit que les
+  // occurrences vivantes, donc les fiches dont la dernière vient de s'éteindre
+  // ne figurent pas dans `scored` et gardent leur cycle de vie d'hier. Sans ce
+  // passage, elles restent affichées indéfiniment.
+  const retired = await repository.retireDepartedListings();
+  if (retired > 0) logger.info('pipeline.listings_retired', { retired });
+
   return { groups, comparisonCount, listingReport };
 }
 

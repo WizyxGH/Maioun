@@ -247,6 +247,11 @@ const ORDER_BY: Readonly<Record<string, string>> = {
   recent: 'first_seen_at DESC',
   price: 'price IS NULL, price ASC',
   closest: 'commute_minutes IS NULL, commute_minutes ASC, action_priority DESC',
+  // LA SURFACE, DE LA PLUS GRANDE À LA PLUS PETITE. `area IS NULL` en tête de
+  // clause : sans lui, SQLite place les NULL en premier d'un tri décroissant,
+  // et les annonces dont la surface est inconnue coifferaient les plus
+  // grandes — le contraire de ce qu'on demande en triant par surface.
+  area: 'area IS NULL, area DESC, action_priority DESC',
 };
 
 export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {

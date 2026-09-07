@@ -143,6 +143,7 @@ const SORT_OPTIONS: readonly { value: SortMode; label: string }[] = [
   { value: 'recent', label: 'Plus récentes' },
   { value: 'price', label: 'Loyer croissant' },
   { value: 'closest', label: 'Le plus proche' },
+  { value: 'area', label: 'Surface décroissante' },
 ];
 
 /**
