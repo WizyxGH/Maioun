@@ -44,15 +44,29 @@ const LISTINGS = [
 const SEEN_AT = Date.parse('2026-09-04T12:00:00.000Z');
 
 describe('tout marquer comme lu', () => {
-  it('n’apparaît que s’il y a quelque chose à marquer', () => {
-    // Rien de non lu : un bouton qui ne ferait rien vaut mieux absent — on le
-    // presse, rien ne bouge, et l'on se demande ce qu'on a raté.
+  it('reste à sa place, éteint, quand tout est déjà lu', () => {
+    // Il DISPARAISSAIT, et on le cherchait en vain : ouvrir la page marque les
+    // alertes vues, donc au rechargement suivant il n'était plus là. Éteint
+    // plutôt qu'absent — l'absence laisse croire à un oubli.
     render(
       <NotificationsPanel
         listings={LISTINGS}
         nowMs={NOW}
         onOpen={() => {}}
         seenAtMs={NOW}
+        onMarkAllRead={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /tout marquer comme lu/i })).toBeDisabled();
+  });
+
+  it('ne s’affiche pas au-dessus d’un historique vide', () => {
+    render(
+      <NotificationsPanel
+        listings={[]}
+        nowMs={NOW}
+        onOpen={() => {}}
+        seenAtMs={SEEN_AT}
         onMarkAllRead={() => {}}
       />,
     );

@@ -210,15 +210,23 @@ export function NotificationsPanel({
           <h3 className="text-muted-foreground text-sm font-semibold">
             {history.length > 0 ? `Historique (${history.length})` : 'Historique'}
           </h3>
-          {/* LE BOUTON N'APPARAÎT QUE S'IL A QUELQUE CHOSE À FAIRE. Un
-            « marquer tout comme lu » posé au-dessus d'une liste déjà lue est un
-            contrôle inerte : on le presse, rien ne bouge, et l'on se demande ce
-            qu'on a raté. */}
-          {unread > 0 && onMarkAllRead !== undefined && (
-            <Button variant="ghost" size="sm" onClick={onMarkAllRead}>
+          {/* LE BOUTON RESTE À SA PLACE, ÉTEINT QUAND IL N'A RIEN À FAIRE.
+            Il ne s'affichait auparavant qu'en présence d'alertes non lues — et
+            disparaissait donc au rechargement de la page, puisque l'ouvrir
+            marque déjà les alertes vues. On le cherchait sans le trouver, et
+            rien ne disait qu'il avait existé.
+
+            Éteint plutôt qu'absent : un bouton grisé annonce qu'il n'y a rien à
+            marquer, là où l'absence laisse croire à un oubli. Il ne paraît que
+            s'il y a un historique — au-dessus du vide, il n'aurait aucun
+            sens. */}
+          {history.length > 0 && onMarkAllRead !== undefined && (
+            <Button variant="ghost" size="sm" onClick={onMarkAllRead} disabled={unread === 0}>
               <Check aria-hidden="true" className="size-4" />
               Tout marquer comme lu
-              <span className="sr-only"> ({unread} non lues)</span>
+              <span className="sr-only">
+                {unread > 0 ? ` (${unread} non lues)` : ' (tout est déjà lu)'}
+              </span>
             </Button>
           )}
         </div>

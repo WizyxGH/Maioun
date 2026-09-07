@@ -937,6 +937,28 @@ export function App(): React.JSX.Element {
       .catch(() => undefined);
   }, [view, currentUser]);
 
+  /**
+   * Consulter l'historique, c'est avoir vu les alertes : la pastille tombe.
+   * Les LIGNES, elles, gardent leur repère « non lue » — d'où l'instant
+   * précédent, mis de côté avant d'être écrasé.
+   *
+   * CECI VIVAIT DANS `navigate`, et n'attrapait donc que le clic sur la
+   * cloche. Arriver par l'adresse directe — un lien reçu, un onglet rouvert,
+   * un simple rechargement — laissait la pastille allumée sur une page qu'on
+   * était pourtant en train de lire. La VUE est ce qui compte, pas le chemin
+   * emprunté pour l'atteindre.
+   *
+   * `alertsSeenAt` est délibérément hors des dépendances : cet effet l'écrit,
+   * et le relire le relancerait sans fin.
+   */
+  useEffect(() => {
+    if (view !== 'alerts') return;
+    setAlertsViewedFrom(alertsSeenAt);
+    const seenAt = Date.now();
+    markAlertsSeen(seenAt);
+    setAlertsSeenAt(seenAt);
+  }, [view]);
+
   useEffect(() => {
     if (currentUser === undefined || currentUser === null) return;
     void fetchOnboardingDone()
@@ -1051,15 +1073,6 @@ export function App(): React.JSX.Element {
   }, []);
 
   const navigate = (next: NavTarget): void => {
-    if (next === 'alerts') {
-      // Consulter l'historique, c'est avoir vu les alertes : la pastille tombe.
-      // Les LIGNES, elles, gardent leur repère « non lue » — d'où l'instant
-      // précédent, mis de côté avant d'être écrasé.
-      const seenAt = Date.now();
-      setAlertsViewedFrom(alertsSeenAt);
-      markAlertsSeen(seenAt);
-      setAlertsSeenAt(seenAt);
-    }
     if (next === 'favorites') {
       setFavoritesOnly(true);
       setSelectedId(null);
