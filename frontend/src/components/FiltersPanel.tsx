@@ -38,6 +38,8 @@ import { Input } from '@/components/ui/input.js';
  */
 const FIELD = 'w-28 text-right';
 const ROW = 'flex items-center justify-between gap-3 py-2';
+/** Intitulé au-dessus, contrôle en dessous — pour les choix à libellés longs. */
+const STACKED = 'flex flex-col gap-1.5 py-2.5';
 
 /**
  * Délai avant écriture. Assez long pour qu'un nombre à deux chiffres ne compte
@@ -101,7 +103,7 @@ function PillGroup<T extends string>({
   readonly ariaLabel: string;
 }): React.JSX.Element {
   return (
-    <div role="group" aria-label={ariaLabel} className="flex flex-wrap justify-end gap-1.5">
+    <div role="group" aria-label={ariaLabel} className="flex flex-wrap gap-1.5">
       {options.map((opt) => (
         <PillButton
           key={opt.value}
@@ -286,10 +288,22 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
             onChange={(e) => set({ excludeStudent: e.target.checked })}
           />
         </div>
-        <div className={ROW}>
+        {/* L'INTITULÉ AU-DESSUS, LES PILULES EN DESSOUS — et non l'un à gauche,
+          les autres à droite. Ces deux réglages portent des libellés longs
+          (« Particuliers seuls », « Agences uniquement ») : poussés à droite,
+          ils revenaient à la ligne en escalier, et chaque rangée s'alignait
+          différemment de la précédente. La colonne de droite bougeait d'une
+          ligne à l'autre, ce qui est exactement ce qu'on remarque sans savoir
+          le nommer.
+
+          C'est aussi la forme que prennent déjà « Pièces » et « Type de bien »
+          quelques centimètres plus haut, dans la même modale. Les lignes
+          courtes — trajet, date, cases à cocher — gardent le format
+          intitulé/valeur, qui leur va. */}
+        <div className={STACKED}>
           {/* Les intitulés disent eux-mêmes ce qu'ils font : « seuls » et
             « uniquement » rendent la note explicative inutile. */}
-          <span>Bailleur</span>
+          <span className="font-medium">Bailleur</span>
           <PillGroup
             ariaLabel="Nature du bailleur"
             options={LANDLORD_OPTIONS}
@@ -297,10 +311,12 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
             onChange={(landlordFilter) => set({ landlordFilter })}
           />
         </div>
-        <div className={ROW}>
-          <span>
+        <div className={STACKED}>
+          <span className="font-medium">
             Meublé
-            <span className="ml-1 text-xs text-muted-foreground">(inconnus conservés)</span>
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              (inconnus conservés)
+            </span>
           </span>
           <PillGroup
             ariaLabel="Caractère meublé"
