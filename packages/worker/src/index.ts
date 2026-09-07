@@ -27,6 +27,7 @@ import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress } from './alert-address.js';
 import { mailerConfigured, sendEmail } from '@rentfinder/collector/notify/mailer';
+import { relayPhoto } from './photo-relay.js';
 import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 import {
   confirmEmail,
@@ -427,6 +428,23 @@ async function publicRoute(
   cors: Record<string, string>,
   segments: readonly string[],
 ): Promise<Response | null> {
+  /**
+   * LES PHOTOS EN CLAIR, RELAYÉES EN HTTPS. Publique à dessein : une balise
+   * `<img>` vers un autre domaine n'envoie pas le cookie de session, donc
+   * exiger une session rendrait la route inutilisable par le navigateur. Ce
+   * n'est pas une fuite — voir `photo-relay.ts`, dont la liste blanche de deux
+   * hôtes est la seule ligne de défense.
+   */
+  if (segments[1] === 'photo' && request.method === 'GET') {
+    return relayPhoto(
+      new URL(request.url).searchParams.get('url'),
+      // On annonce qui l'on est, toujours (§10) — même en allant chercher une
+      // image.
+      'RentFinderBot/0.1 (+https://github.com/WizyxGH/RentFinder)',
+      cors,
+    );
+  }
+
   if (segments[1] === 'login' && request.method === 'POST') {
     // CENT MILLE TOURS DE PBKDF2 PAR TENTATIVE : c'est ce qui protège les
     // mots de passe, et c'est aussi ce qui rend cette route coûteuse à

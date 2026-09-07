@@ -10,16 +10,31 @@
  * retirait une à une, l'annonce finissait sans image, sans que rien ne dise
  * pourquoi.
  *
- * CE QU'ON EN FAIT. On ne proxifie pas (§11 : jamais de téléchargement ni de
- * réhébergement), on ne bricole pas le protocole — on distingue simplement ce
- * que la page peut MONTRER de ce qu'elle ne peut qu'OUVRIR, et on propose le
- * lien pour le second. Une photo qu'on ne peut pas afficher reste une photo
- * qu'on peut aller voir.
+ * CE QU'ON EN FAISAIT, ET POURQUOI ÇA A CHANGÉ. On se contentait de distinguer
+ * ce que la page peut MONTRER de ce qu'elle ne peut qu'OUVRIR, en proposant un
+ * lien pour le second : pas de proxy, au nom du §11. Mais un lien n'est pas une
+ * photo. Sur une liste, on regarde des images ; ouvrir un onglet par cliché
+ * pour juger d'un logement, personne ne le fait. Les 325 photos du bulletin
+ * restaient donc invisibles en pratique, et les annonces BEP — celles d'un
+ * accès PAYÉ — s'affichaient sans une image quand les autres en avaient dix.
+ *
+ * Elles passent désormais par le RELAIS du Worker (`photo-relay.ts`), qui va
+ * les chercher en http côté serveur et les rend en https. Cela ne contrevient
+ * pas au §11 : rien n'est téléchargé ni réhébergé, l'octet traverse et n'est
+ * conservé nulle part — seul le cache de Cloudflare, devant l'origine, en garde
+ * une copie temporaire.
+ *
+ * C'EST LE WORKER QUI DÉCIDE, PAS CE FICHIER. On relaie toute URL http sans
+ * tenir ici une seconde liste d'hôtes autorisés : deux listes divergent, et
+ * celle du navigateur ne protège personne puisqu'elle est modifiable. Le Worker
+ * refuse ce qui n'est pas sur la sienne, l'image échoue, et le `onError` la
+ * retire — exactement le comportement d'avant pour ces cas-là.
  *
  * Le partage dépend de la page elle-même : servie en http (mode auto-hébergé
- * local), elle affiche parfaitement une image http. C'est donc le protocole
- * courant qui tranche, pas une liste de domaines.
+ * local), elle affiche parfaitement une image http, et le relais est inutile.
  */
+
+import { API_URL } from './api/client.js';
 
 /** Photos d'une annonce, réparties selon ce que la page peut en faire. */
 export interface PhotoSplit {
@@ -47,7 +62,29 @@ export function splitPhotos(urls: readonly string[]): PhotoSplit {
   const embeddable: string[] = [];
   const linkOnly: string[] = [];
   for (const url of urls) {
-    (url.startsWith('http://') ? linkOnly : embeddable).push(url);
+    if (!url.startsWith('http://')) {
+      embeddable.push(url);
+      continue;
+    }
+    const relayed = relayedPhoto(url);
+    // Sans Worker configuré (démo, développement sans API), il n'y a personne
+    // pour relayer : la photo reste seulement ouvrable, comme avant.
+    if (relayed === null) linkOnly.push(url);
+    else embeddable.push(relayed);
   }
   return { embeddable, linkOnly };
+}
+
+/**
+ * L'URL de la même photo, servie en https par le Worker.
+ *
+ * `null` quand aucune API n'est configurée — il n'y a alors rien pour relayer,
+ * et prétendre le contraire produirait une image qui ne charge jamais.
+ *
+ * L'URL d'origine part en paramètre, encodée : c'est le Worker qui vérifie
+ * qu'elle est relayable, et lui seul.
+ */
+export function relayedPhoto(url: string): string | null {
+  if (API_URL === '') return null;
+  return `${API_URL.replace(/\/$/, '')}/api/photo?url=${encodeURIComponent(url)}`;
 }
