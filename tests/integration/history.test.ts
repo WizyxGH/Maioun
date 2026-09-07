@@ -18,8 +18,25 @@ import {
   type Repository,
 } from '@rentfinder/collector';
 import { makeOccurrence } from '../helpers/factories.js';
+// Chemin direct vers la source : le paquet expose `./server/routes`, mais vers
+// `dist`. Les tests d'intégration travaillent sur les sources.
+import { route } from '../../packages/collector/src/server/routes.js';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');
+
+/** Appelle l'API comme le ferait le Worker, pour le compte indiqué. */
+async function call(
+  db: Database,
+  userId: string,
+  method: string,
+  path: string,
+): Promise<Record<string, unknown>> {
+  const url = new URL(`https://exemple.invalid${path}`);
+  const segments = url.pathname.split('/').filter((part) => part !== '');
+  const response = await route(db, new Request(url, { method }), url, segments, {}, userId);
+  const text = await response.text();
+  return text === '' ? {} : (JSON.parse(text) as Record<string, unknown>);
+}
 
 async function history(db: Database): Promise<Array<Record<string, unknown>>> {
   const result = await db.execute('SELECT * FROM listing_history ORDER BY recorded_at, change');
@@ -76,5 +93,49 @@ describe('collecte de l’historique (§31)', () => {
     ]);
     const rows = await history(db);
     expect(rows.some((r) => r['change'] === 'multiple')).toBe(true);
+  });
+
+  /**
+   * DURÉE DE VIE DES ANNONCES (§31, §17).
+   *
+   * Le SQL est court mais il porte tout le sens : une annonce éteinte a vécu
+   * de sa découverte à sa DERNIÈRE observation ; une annonce encore en ligne a
+   * vécu jusqu'à MAINTENANT et n'a pas fini. Confondre les deux — prendre
+   * `last_seen_at` pour tout le monde — ferait entrer les vivantes dans la
+   * mesure comme des mortes précoces, et effondrerait la médiane.
+   */
+  it('mesure la durée de vie sans compter les vivantes comme des mortes', async () => {
+    const jours = (n: number): string => new Date(Date.now() - n * 86_400_000).toISOString();
+
+    await db.batch(
+      [
+        // Éteinte : découverte il y a 30 jours, vue pour la dernière fois il y
+        // a 20 — elle a donc vécu 10 jours.
+        {
+          sql: `INSERT INTO listings (id, first_seen_at, last_seen_at, lifecycle, rented, payload, content_hash, updated_at)
+                VALUES ('morte', ?, ?, 'inactive', 0, '{}', 'h1', datetime('now'))`,
+          args: [jours(30), jours(20)],
+        },
+        // Vivante depuis 30 jours : elle ne doit PAS compter pour 0 jour, ni
+        // faire descendre la courbe.
+        {
+          sql: `INSERT INTO listings (id, first_seen_at, last_seen_at, lifecycle, rented, payload, content_hash, updated_at)
+                VALUES ('vivante', ?, ?, 'active', 0, '{}', 'h2', datetime('now'))`,
+          args: [jours(30), jours(1)],
+        },
+      ],
+      'write',
+    );
+
+    const stats = (await call(db, 'moi', 'GET', '/api/stats')) as {
+      survival: { medianDays: number | null; completed: number; censored: number };
+    };
+
+    expect(stats.survival.completed).toBe(1);
+    expect(stats.survival.censored).toBe(1);
+    // L'unique extinction survient à 10 jours, sur deux annonces observées
+    // jusque-là : la survie tombe à 0,5 et la médiane vaut 10 jours. Si la
+    // vivante était comptée comme éteinte à 1 jour, on lirait 1.
+    expect(stats.survival.medianDays).toBeCloseTo(10, 0);
   });
 });

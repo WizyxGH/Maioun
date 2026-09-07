@@ -140,9 +140,27 @@ export interface DailyStat {
 }
 
 /** Statistiques de suivi (§33). */
+/**
+ * Durée de vie des annonces, mesurée sur l'inventaire (§31).
+ *
+ * `medianDays` vaut `null` tant que la moitié des annonces observées ne s'est
+ * pas éteinte : la médiane est alors au-delà de ce qu'on a vu, et l'afficher
+ * serait l'inventer (§17). `censored` compte celles encore en ligne, qui
+ * pèsent dans la mesure sans compter comme des disparitions.
+ */
+export interface SurvivalData {
+  readonly medianDays: number | null;
+  readonly completed: number;
+  readonly censored: number;
+  readonly horizonDays: number;
+  readonly aliveAfter: readonly { readonly day: number; readonly share: number | null }[];
+}
+
 export interface StatsData {
   /** Évolution jour par jour — absente des API anciennes. */
   readonly history?: readonly DailyStat[];
+  /** Absente des API anciennes, comme `history`. */
+  readonly survival?: SurvivalData;
   readonly listings: {
     readonly total: number;
     /** Annonces dans les critères et ENCORE ACTIVES : le vrai gisement. */

@@ -15,6 +15,68 @@ import type { TrackingStatus } from '../types.js';
 import { HistoryChart } from './HistoryChart.js';
 import { PanelSkeleton } from './Skeletons.js';
 
+/**
+ * COMBIEN DE TEMPS UNE ANNONCE RESTE DISPONIBLE.
+ *
+ * Le chiffre qui manquait pour savoir s'il faut se précipiter : sur un marché
+ * où la moitié des annonces disparaît en trois jours, une annonce d'un jour est
+ * déjà à mi-vie.
+ *
+ * IL PEUT REFUSER DE RÉPONDRE, et c'est le point important. Tant que la moitié
+ * des annonces observées ne s'est pas éteinte, la médiane est au-delà de ce
+ * qu'on a vu : le bloc dit alors ce qu'il sait — « plus de N jours » — plutôt
+ * que d'avancer un nombre qu'aucune observation ne soutient (§17).
+ */
+function SurvivalBlock({
+  survival,
+}: {
+  readonly survival: StatsData['survival'];
+}): React.JSX.Element | null {
+  // API ancienne, ou pas une seule annonce éteinte : rien d'honnête à dire.
+  if (survival === undefined || survival.completed === 0) return null;
+
+  const share = (value: number | null): string =>
+    value === null ? '—' : `${Math.round(value * 100)} %`;
+
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
+        Durée de vie des annonces
+      </h3>
+      <div className="rounded-xl border border-border bg-card px-3 py-3">
+        <p className="text-2xl font-bold">
+          {survival.medianDays === null
+            ? `plus de ${survival.horizonDays} j`
+            : `${Math.round(survival.medianDays)} j`}
+        </p>
+        <p className="text-[0.78rem] text-muted-foreground">
+          {survival.medianDays === null
+            ? 'avant que la moitié des annonces disparaisse — la moitié n’a pas encore disparu, c’est donc un plancher'
+            : 'avant que la moitié des annonces disparaisse (médiane)'}
+        </p>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {survival.aliveAfter.map((point) => (
+            <div key={point.day} className="text-center">
+              <div className="font-semibold">{share(point.share)}</div>
+              <div className="text-[0.72rem] text-muted-foreground">encore là à J+{point.day}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* CE QUI FONDE LE CHIFFRE, dit à côté de lui. Une médiane tirée de
+            douze observations et une médiane tirée de mille ne se lisent pas
+            de la même façon, et rien d'autre sur cet écran ne le dirait. */}
+        <p className="mt-3 border-t border-border pt-2 text-[0.72rem] text-muted-foreground">
+          {survival.completed} annonce{survival.completed > 1 ? 's' : ''} éteinte
+          {survival.completed > 1 ? 's' : ''} observée{survival.completed > 1 ? 's' : ''},{' '}
+          {survival.censored} encore en ligne · au plus {survival.horizonDays} jours de recul
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** Tuile compteur. */
 function Stat({
   label,
@@ -107,6 +169,8 @@ export function StatsPanel(): React.JSX.Element {
           <Stat label="collectées" value={listings.total} />
         </div>
       </div>
+
+      <SurvivalBlock survival={stats.survival} />
 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Contacts et résultats</h3>

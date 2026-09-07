@@ -31,6 +31,7 @@
 
 import type { Client } from '@libsql/client';
 import { traitConditions } from '../core/trait-filters.js';
+import { shareAlive, survivalCurve } from '../core/survival.js';
 import {
   CURRENT_USER,
   MVP_CRITERIA,
@@ -693,7 +694,41 @@ async function getStats(db: Client, userId: string): Promise<unknown> {
     args: [userId],
   });
 
+  /**
+   * COMBIEN DE TEMPS UNE ANNONCE RESTE DISPONIBLE — mesuré, pas supposé.
+   *
+   * Une annonce éteinte a vécu de sa découverte à sa dernière observation. Une
+   * annonce ENCORE EN LIGNE n'a pas fini de vivre : elle compte pour « au moins
+   * n jours » et non pour une disparition, faute de quoi la mesure ne compterait
+   * que les mortes et sous-estimerait toujours (voir `core/survival.ts`).
+   *
+   * C'est un fait sur le MARCHÉ, pas sur une personne : aucune jointure de
+   * compte ici, le chiffre est le même pour tout le monde.
+   */
+  const lifetimes = await db.execute(`
+    SELECT CASE WHEN lifecycle = 'inactive' OR rented = 1 THEN 1 ELSE 0 END AS ended,
+           CASE WHEN lifecycle = 'inactive' OR rented = 1
+                THEN julianday(last_seen_at) - julianday(first_seen_at)
+                ELSE julianday('now') - julianday(first_seen_at)
+           END AS days
+    FROM listings
+  `);
+  const curve = survivalCurve(
+    lifetimes.rows.map((row) => ({
+      days: Number(row['days']),
+      ended: Number(row['ended']) === 1,
+    })),
+  );
+
   return {
+    survival: {
+      medianDays: curve.medianDays,
+      completed: curve.completed,
+      censored: curve.censored,
+      horizonDays: Math.round(curve.horizonDays),
+      // Part encore en ligne à J+1, J+3, J+7. `null` au-delà de l'horizon.
+      aliveAfter: [1, 3, 7].map((day) => ({ day, share: shareAlive(curve, day) })),
+    },
     history: history.rows
       .map((r) => ({
         day: String(r['day']),
