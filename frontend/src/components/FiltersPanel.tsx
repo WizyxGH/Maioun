@@ -24,8 +24,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { FilterConfig } from '../types.js';
-import { fetchFilters, saveFilters } from '../api/client.js';
+import { fetchDistricts, fetchFilters, saveFilters, type DistrictOption } from '../api/client.js';
 import { PanelSkeleton } from './Skeletons.js';
+import { MultiSelect } from '@/components/ui/multi-select.js';
 
 const FIELD = 'w-28 rounded-lg border border-input bg-card px-2 py-1.5 text-right';
 const ROW = 'flex items-center justify-between gap-3 py-2';
@@ -111,6 +112,8 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): React.JSX.Element {
   const [filters, setFilters] = useState<FilterConfig | null>(null);
   const [status, setStatus] = useState<SaveStatus>('idle');
+  /** Les quartiers de l'inventaire. Vide = le bloc « Zone de recherche » se tait. */
+  const [districts, setDistricts] = useState<readonly DistrictOption[]>([]);
 
   /**
    * La minuterie d'écriture différée, et ce qui reste à écrire tant qu'elle
@@ -122,6 +125,9 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
 
   useEffect(() => {
     void fetchFilters().then(setFilters);
+    // Chargé à PART des critères : c'est un inventaire, pas un réglage, et il
+    // ne doit pas retarder l'affichage du reste si l'API le refuse.
+    void fetchDistricts().then(setDistricts);
   }, []);
 
   // Refermer la modale démonte ce panneau. Sans ce filet, une valeur saisie
@@ -187,6 +193,49 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
           `date` et non trois champs : le sélecteur natif du navigateur est
           celui que l'utilisateur connaît déjà, et il est correct au clavier
           comme au doigt. */}
+        {/* ZONE DE RECHERCHE. La commune était le seul réglage de lieu : on
+          cherchait « à Nice », toute la ville, du Vieux Nice à l'Ariane. Le
+          quartier est ce qui manquait le plus — c'est lui qui décide du trajet,
+          du voisinage et du prix au mètre.
+
+          LE MENU NE PROPOSE QUE CE QUI EXISTE, avec le nombre d'annonces : la
+          table en compte une soixantaine, l'inventaire n'en couvre qu'une
+          partie, et offrir un quartier vide ferait cocher un filtre qui vide la
+          liste sans dire pourquoi. */}
+        {districts.length > 0 && (
+          <div className="py-2">
+            <div className="mb-1.5 flex items-baseline justify-between gap-3">
+              <span className="font-medium">Zone de recherche</span>
+              <span className="text-muted-foreground text-[0.8rem]">Nice</span>
+            </div>
+            <MultiSelect
+              label="Quartiers"
+              searchable
+              emptyLabel="Tous les quartiers"
+              summarize={(count) => `${count} quartier${count > 1 ? 's' : ''}`}
+              options={districts.map((district) => ({
+                value: district.slug,
+                label: `${district.label} (${district.count})`,
+              }))}
+              selected={new Set(filters.districts ?? [])}
+              onToggle={(slug) => {
+                const current = filters.districts ?? [];
+                set({
+                  districts: current.includes(slug)
+                    ? current.filter((one) => one !== slug)
+                    : [...current, slug],
+                });
+              }}
+              onClear={() => set({ districts: [] })}
+            />
+            {(filters.districts?.length ?? 0) > 0 && (
+              <p className="text-muted-foreground mt-1.5 text-[0.78rem]">
+                Les annonces dont le quartier n’est pas indiqué ne s’affichent plus : nommer des
+                quartiers, c’est en exclure le reste.
+              </p>
+            )}
+          </div>
+        )}
         <div className={ROW}>
           <label htmlFor="availableBy">Disponible au plus tard le</label>
           <input

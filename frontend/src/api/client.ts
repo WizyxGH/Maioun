@@ -503,6 +503,31 @@ export async function resetPassword(
   }
 }
 
+/**
+ * Les quartiers PRÉSENTS dans l'inventaire, avec leur nombre d'annonces.
+ *
+ * ON NE PROPOSE PAS LA TABLE ENTIÈRE : elle compte une soixantaine d'entrées,
+ * l'inventaire n'en couvre qu'une partie, et offrir un quartier vide ferait
+ * cocher un filtre qui vide la liste sans dire pourquoi. Un échec rend une
+ * liste vide — le bloc « Zone de recherche » disparaît alors, ce qui vaut mieux
+ * qu'un menu inerte.
+ */
+export async function fetchDistricts(): Promise<readonly DistrictOption[]> {
+  if (DEMO || API_URL === '') return [];
+  try {
+    const response = await request<{ districts: readonly DistrictOption[] }>('/api/districts');
+    return response.districts;
+  } catch {
+    return [];
+  }
+}
+
+export interface DistrictOption {
+  readonly slug: string;
+  readonly label: string;
+  readonly count: number;
+}
+
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();

@@ -20,7 +20,7 @@ import type {
   SourceId,
   SourceRuntimeState,
 } from '@rentfinder/shared';
-import { CURRENT_USER, NEAR_MATCH_MARGIN } from '@rentfinder/shared';
+import { canonicalDistrict, CURRENT_USER, NEAR_MATCH_MARGIN } from '@rentfinder/shared';
 import { traitConditions, type TraitFilters } from '../core/trait-filters.js';
 import { actionPriority } from '@rentfinder/shared';
 import type { InValue } from '@libsql/client';
@@ -167,6 +167,12 @@ export function listingHash(listing: ScoredListing): string {
     listing.studentOnly,
     listing.contact.kind,
     listing.district.value,
+    // LA FORME CANONIQUE EN PLUS DE LA BRUTE, et ce n'est pas une redondance :
+    // elle a sa propre colonne, sur laquelle la liste filtre. Le jour ou une
+    // graphie s'ajoute a la table des quartiers — « OUEST MADELEINE » range
+    // sous Madeleine —, le texte de la source, lui, n'a pas bouge : sans cette
+    // ligne, la fiche serait jugee inchangee et la colonne resterait fausse.
+    canonicalDistrict(listing.district.value),
     listing.availableAt.value,
     listing.contact.phone,
     // Coordonnées : sans elles dans le hash, une fiche enfin géocodée ne serait
@@ -974,8 +980,8 @@ export function createRepository(db: Database): Repository {
               lifecycle, tracking, match_score, opportunity_score, visit_score,
               risk_score, action_priority, matches_criteria, payload, content_hash, updated_at,
               flat_share, student_only, furnished, landlord_kind, commute_minutes,
-              available_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              available_at, district
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title, price = excluded.price, area = excluded.area,
               rooms = excluded.rooms, property_type = excluded.property_type,
@@ -999,7 +1005,12 @@ export function createRepository(db: Database): Repository {
               -- Même raison que les précédentes : on filtre dessus, donc c'est
               -- une colonne. La disponibilité vivait sur l'occurrence et dans
               -- le JSON de la fiche, mais nulle part où une requête la lise.
-              available_at = excluded.available_at
+              available_at = excluded.available_at,
+              -- Le SLUG canonique, pas le texte de la source : « PORT » et
+              -- « Le Port » désignent le même quartier, et un menu ne peut pas
+              -- proposer les deux. Le texte d'origine reste dans la charge
+              -- utile, intact (§15).
+              district = excluded.district
           `,
           args: [
             listing.id,
@@ -1032,6 +1043,7 @@ export function createRepository(db: Database): Repository {
             listing.contact.kind === 'unknown' ? null : listing.contact.kind,
             shortestCommuteMinutes(listing),
             listing.availableAt.value,
+            canonicalDistrict(listing.district.value),
           ],
         });
 

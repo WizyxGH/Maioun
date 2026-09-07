@@ -36,6 +36,8 @@ import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
   CHANGELOG_SETTING,
+  districtBySlug,
+  districtLabel,
   TENANT_PROFILE_SETTING,
   ONBOARDING_SETTING,
   REFERENCE_POINTS_SETTING,
@@ -67,6 +69,7 @@ export interface LiveFilters {
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
   readonly maxCommuteMinutes?: number;
   readonly availableBy?: string;
+  readonly districts?: readonly string[];
 }
 
 /** Statuts de suivi acceptés par l'API (§35). */
@@ -1020,6 +1023,18 @@ async function liveFilters(db: Client, userId: string): Promise<LiveFilters | un
       ...(typeof parsed.availableBy === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.availableBy)
         ? { availableBy: parsed.availableBy }
         : {}),
+      // ON NE GARDE QUE DES QUARTIERS CONNUS. Ces valeurs partent dans un `IN`
+      // paramétré, donc rien ne s'injecte ; mais un slug inventé produirait un
+      // filtre qui ne rend jamais rien, et l'écran n'aurait aucun moyen de le
+      // dire. Mieux vaut l'ignorer que filtrer sur du vide.
+      ...(Array.isArray(parsed.districts)
+        ? {
+            districts: parsed.districts.filter(
+              (slug): slug is string =>
+                typeof slug === 'string' && districtBySlug(slug) !== undefined,
+            ),
+          }
+        : {}),
     };
   } catch {
     return undefined;
@@ -1094,6 +1109,41 @@ async function handleListingsRoute(
  * Aiguillage des routes. La clé de routage combine méthode et forme du chemin.
  * Les segments sont validés par le transport avant d'arriver ici (§75).
  */
+/**
+ * Les quartiers PRÉSENTS dans l'inventaire, avec le nombre d'annonces.
+ *
+ * ON NE PROPOSE PAS LA TABLE ENTIÈRE. Elle compte une soixantaine d'entrées ;
+ * l'inventaire n'en couvre qu'une partie, et proposer « Bon Voyage » quand
+ * aucune annonce n'y est ferait cocher un filtre qui vide la liste sans
+ * expliquer pourquoi. Le compte, lui, dit d'un coup d'œil où il y a quelque
+ * chose à voir.
+ *
+ * SUR LE MÊME PÉRIMÈTRE QUE LA LISTE — actives, non louées, dans les
+ * critères — sans quoi les nombres annoncés ne correspondraient pas à ce qu'on
+ * obtient en cochant.
+ */
+async function listDistricts(db: Client): Promise<{ districts: DistrictCount[] }> {
+  const result = await db.execute(`
+    SELECT district, COUNT(*) AS n FROM listings
+    WHERE district IS NOT NULL
+      AND lifecycle != 'inactive' AND rented = 0 AND matches_criteria = 1
+    GROUP BY district ORDER BY n DESC
+  `);
+  return {
+    districts: result.rows.map((row) => ({
+      slug: String(row['district']),
+      label: districtLabel(String(row['district'])),
+      count: Number(row['n'] ?? 0),
+    })),
+  };
+}
+
+interface DistrictCount {
+  readonly slug: string;
+  readonly label: string;
+  readonly count: number;
+}
+
 export async function route(
   db: Client,
   request: Request,
@@ -1137,6 +1187,7 @@ export async function route(
   if (resource === 'alerts' && method === 'GET') {
     return json(await listAlerts(db, userId), cors);
   }
+  if (resource === 'districts' && method === 'GET') return json(await listDistricts(db), cors);
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);
   if (resource === 'listings') {

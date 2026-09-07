@@ -70,6 +70,20 @@ describe('traitConditions', () => {
     expect(traitConditions({ availableBy: '' }).sql).toEqual([]);
   });
 
+  it('n’accepte QUE les quartiers nommés, contrairement aux autres filtres', () => {
+    // Seul filtre qui écarte les inconnus : nommer des quartiers est une liste
+    // blanche, pas une exclusion. « Je veux Riquier » ne veut pas dire
+    // « Riquier et tout ce dont je ne sais rien ».
+    const { sql, args } = traitConditions({ districts: ['riquier', 'port'] });
+    expect(sql).toEqual(['district IN (?,?)']);
+    expect(args).toEqual(['riquier', 'port']);
+    expect(sql[0]).not.toContain('IS NULL');
+  });
+
+  it('ignore une liste de quartiers VIDE', () => {
+    expect(traitConditions({ districts: [] }).sql).toEqual([]);
+  });
+
   it('cumule les préférences dans l’ordre, arguments compris', () => {
     const { sql, args } = traitConditions({
       excludeFlatShare: true,

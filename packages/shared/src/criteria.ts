@@ -44,6 +44,19 @@ export interface SearchCriteria {
    * une donnée absente, §17).
    */
   readonly excludeFlatShare?: boolean;
+  /**
+   * Quartiers retenus, par leur slug canonique (voir `districts.ts`). Vide ou
+   * absent = toute la commune.
+   *
+   * IL EXISTAIT SANS RIEN FAIRE : le champ était déclaré, personne ne le
+   * lisait, et aucun écran ne permettait de le remplir. Il porte désormais la
+   * « zone de recherche » — c'est le quartier qui décide du trajet, du
+   * voisinage et du prix au mètre, pas la commune.
+   *
+   * SEUL FILTRE QUI ÉCARTE LES INCONNUS : nommer des quartiers est une liste
+   * blanche, pas une exclusion. « Je veux Riquier » ne veut pas dire « Riquier
+   * et tout ce dont je ne sais rien ». Voir `trait-filters.ts`.
+   */
   readonly districts?: readonly string[];
   /**
    * Filtre sur la NATURE DU BAILLEUR (décision utilisateur) :

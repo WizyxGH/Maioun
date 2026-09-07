@@ -40,6 +40,11 @@ export interface TraitFilters {
    * logements disponibles AU PLUS TARD ce jour-la.
    */
   readonly availableBy?: string;
+  /**
+   * Quartiers retenus, par leur slug canonique. Vide ou absent = toute la
+   * commune.
+   */
+  readonly districts?: readonly string[];
 }
 
 export interface TraitConditions {
@@ -93,6 +98,24 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
   if (typeof filters.availableBy === 'string' && filters.availableBy !== '') {
     sql.push('(available_at IS NULL OR available_at <= ?)');
     args.push(`${filters.availableBy}T23:59:59.999Z`);
+  }
+
+  /**
+   * LE QUARTIER EST LE SEUL FILTRE QUI ÉCARTE LES INCONNUS, et c'est voulu.
+   *
+   * Partout ailleurs ici, une donnée absente ne disqualifie pas : « exclure les
+   * colocations » écarte ce qui EST une colocation, pas ce dont on ignore si
+   * c'en est une. La règle s'inverse quand on NOMME des quartiers, parce que la
+   * demande n'est plus une exclusion mais une liste blanche : « je veux
+   * Riquier » ne veut pas dire « Riquier et tout ce dont je ne sais rien ».
+   *
+   * La moitié des annonces ne nomment aucun quartier. Les garder rendrait le
+   * filtre décoratif — on cocherait, la liste ne bougerait presque pas, et
+   * l'on ne saurait pas pourquoi. L'écran le dit franchement.
+   */
+  if (filters.districts !== undefined && filters.districts.length > 0) {
+    sql.push(`district IN (${filters.districts.map(() => '?').join(',')})`);
+    args.push(...filters.districts);
   }
 
   return { sql, args };
