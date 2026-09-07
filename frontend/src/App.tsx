@@ -1346,6 +1346,39 @@ export function App(): React.JSX.Element {
     }
   };
 
+  /**
+   * Remplace les réglages d'une recherche par CEUX DE L'ÉCRAN, son nom gardé.
+   *
+   * IL N'Y AVAIT AUCUN MOYEN DE CORRIGER UNE RECHERCHE. Créer, rappeler,
+   * renommer, supprimer existaient ; modifier, non. Il fallait la rejouer,
+   * changer les filtres, réenregistrer — ce qui créait une SECONDE carte,
+   * `saveCurrentSearch` posant toujours un identifiant neuf même à nom égal —,
+   * puis supprimer l'ancienne en la distinguant de la nouvelle par un nom
+   * identique. On s'y trompe, et on supprime la mauvaise.
+   *
+   * La date de création NE BOUGE PAS : « Enregistrée il y a trois semaines »
+   * dit depuis quand cette recherche accompagne, pas quand on a corrigé une
+   * borne de loyer.
+   */
+  const updateSavedSearch = async (id: string): Promise<void> => {
+    try {
+      const criteria = await fetchFilters();
+      const next = savedSearches.map((saved) =>
+        saved.id === id
+          ? {
+              ...saved,
+              criteria,
+              view: toSavedView(quickFilters, { sources: selectedSources, sort, search }),
+            }
+          : saved,
+      );
+      setSavedSearches(next);
+      await saveSavedSearches(next);
+    } catch {
+      setError('La recherche n’a pas pu être mise à jour');
+    }
+  };
+
   const deleteSavedSearch = async (id: string): Promise<void> => {
     const next = savedSearches.filter((saved) => saved.id !== id);
     setSavedSearches(next);
@@ -1726,6 +1759,7 @@ export function App(): React.JSX.Element {
             onApply={(saved) => void applySavedSearch(saved)}
             onDelete={(id) => void deleteSavedSearch(id)}
             onRename={(id, name) => void renameSavedSearch(id, name)}
+            onUpdate={(id) => void updateSavedSearch(id)}
             onSaveCurrent={(name) => void saveCurrentSearch(name)}
             suggestion={suggestName(
               {

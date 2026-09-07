@@ -18,7 +18,7 @@
  */
 
 import { useState } from 'react';
-import { ArrowLeft, Check, Copy, Pencil, Play, Plus, Search, Trash2 } from './icons.js';
+import { ArrowLeft, Check, Copy, Pencil, Play, Plus, Search, Trash2, Upload } from './icons.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge } from '../format.js';
@@ -36,6 +36,14 @@ interface SavedSearchesPanelProps {
   readonly onApply: (search: SavedSearch) => void;
   readonly onDelete: (id: string) => void;
   readonly onRename: (id: string, name: string) => void;
+  /**
+   * Remplace les réglages de la recherche par ceux de l'écran, nom gardé.
+   *
+   * C'est le geste qui manquait : sans lui, corriger une borne de loyer
+   * imposait de réenregistrer — donc d'obtenir deux cartes du même nom — puis
+   * de supprimer la bonne des deux.
+   */
+  readonly onUpdate: (id: string) => void;
   /** Enregistre l'état courant de la recherche sous le nom donné. */
   readonly onSaveCurrent: (name: string) => void;
   /** Nom proposé pour l'état courant, calculé à partir des réglages actifs. */
@@ -102,6 +110,7 @@ export function SavedSearchesPanel({
   onApply,
   onDelete,
   onRename,
+  onUpdate,
   onSaveCurrent,
   suggestion,
   available,
@@ -109,6 +118,12 @@ export function SavedSearchesPanel({
   // Suppression en deux temps : une recherche patiemment réglée ne doit pas
   // disparaître sur un doigt qui glisse.
   const [confirming, setConfirming] = useState<string | null>(null);
+  /**
+   * Mise à jour en deux temps, POUR LA MÊME RAISON QUE LA SUPPRESSION : elle
+   * écrase des réglages qu'on ne retrouvera pas. La différence est qu'elle n'en
+   * a pas l'air — un bouton qui « met à jour » se clique sans y penser.
+   */
+  const [replacing, setReplacing] = useState<string | null>(null);
   /**
    * La recherche dont le lien vient d'être copié, le temps d'un accusé.
    *
@@ -254,8 +269,37 @@ export function SavedSearchesPanel({
                               Annuler
                             </Button>
                           </>
+                        ) : replacing === search.id ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                onUpdate(search.id);
+                                setReplacing(null);
+                              }}
+                            >
+                              Remplacer les réglages
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setReplacing(null)}>
+                              Annuler
+                            </Button>
+                          </>
                         ) : (
                           <>
+                            {/* METTRE À JOUR AVEC L'ÉCRAN COURANT. Le nom et la
+                              date de création restent : ce qu'on corrige, c'est
+                              un budget ou une surface, pas l'identité de la
+                              recherche. */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-auto"
+                              aria-label={`Mettre à jour « ${search.name} » avec les filtres actuels`}
+                              onClick={() => setReplacing(search.id)}
+                            >
+                              <Upload aria-hidden="true" className="size-4" />
+                            </Button>
                             {/* PARTAGER, C'EST COPIER UN LIEN. Le lien porte la
                               recherche elle-même, encodée : rien n'est écrit
                               en base, et il continue de fonctionner sans
@@ -263,7 +307,6 @@ export function SavedSearchesPanel({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="ml-auto"
                               aria-label={`Partager « ${search.name} »`}
                               onClick={() => void share(search)}
                             >
