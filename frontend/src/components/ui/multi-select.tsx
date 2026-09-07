@@ -20,10 +20,17 @@
  * recherche reçoit le focus à l'ouverture, et le déclencheur porte
  * `aria-expanded`. Le panneau lui-même est une liste de cases à cocher : la
  * navigation au clavier vient alors du navigateur, sans code.
+ *
+ * IL EMPRUNTE SES CLASSES À `Select`. Fermé, ce déclencheur joue le rôle d'un
+ * menu déroulant ; il n'y a aucune raison qu'il ait une autre bordure, un autre
+ * arrondi ou une autre hauteur que celui d'à côté — c'est pourtant ce qui
+ * arrivait, et ce qui arrivera encore si on le restyle ici plutôt que là-bas.
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from '../icons.js';
+import { cn } from '@/lib/utils.js';
+import { selectVariants } from './select.js';
 
 export interface MultiSelectOption {
   readonly value: string;
@@ -113,7 +120,7 @@ export function MultiSelect({
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="border-input bg-card hover:bg-accent flex w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors"
+        className={cn(selectVariants(), 'flex w-full items-center gap-2 text-left text-sm')}
       >
         <span className="text-muted-foreground shrink-0">{label}</span>
         <span className="min-w-0 flex-1 truncate text-right font-medium">{summary}</span>
@@ -150,7 +157,7 @@ export function MultiSelect({
               const checked = selected.has(option.value);
               return (
                 <li key={option.value}>
-                  <label className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
                     <input
                       type="checkbox"
                       checked={checked}

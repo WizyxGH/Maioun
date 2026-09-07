@@ -50,6 +50,7 @@ import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { formatSourceName } from './format.js';
 import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
+import { Select } from '@/components/ui/select.js';
 import { DocumentsSection } from './components/DocumentsSection.js';
 import { ForwardingPanel } from './components/ForwardingPanel.js';
 import { ReferencePointsSection } from './components/ReferencePointsSection.js';
@@ -2001,18 +2002,19 @@ export function App(): React.JSX.Element {
             <label htmlFor="sort-select" className="sr-only">
               Trier par
             </label>
-            <select
+            <Select
               id="sort-select"
+              size="sm"
               value={sort}
               onChange={(event) => setSort(event.target.value as SortMode)}
-              className="min-h-9 shrink-0 py-1 text-sm"
+              className="shrink-0"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Select>
 
             {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
               1024 px les deux s'affichent côte à côte : il n'y a plus rien à

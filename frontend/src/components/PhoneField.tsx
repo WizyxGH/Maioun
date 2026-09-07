@@ -15,6 +15,7 @@
  */
 
 import { COUNTRIES, DEFAULT_COUNTRY, formatPhone, parsePhone } from '../phone.js';
+import { Select } from '@/components/ui/select.js';
 
 export function PhoneField({
   value,
@@ -30,7 +31,7 @@ export function PhoneField({
 
   return (
     <div className="flex gap-2">
-      <select
+      <Select
         aria-label="Indicatif du pays"
         className="w-[7.5rem] shrink-0"
         value={parsed.country}
@@ -43,7 +44,7 @@ export function PhoneField({
             {country.flag} +{country.dial}
           </option>
         ))}
-      </select>
+      </Select>
       <input
         id={id}
         type="tel"

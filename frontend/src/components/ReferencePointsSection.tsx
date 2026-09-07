@@ -25,6 +25,7 @@ import {
 } from '../api/client.js';
 import { REFERENCE_TRAVEL_MODES, type ReferenceTravelMode } from '@rentfinder/shared';
 import { Button } from '@/components/ui/button.js';
+import { Select } from '@/components/ui/select.js';
 
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
@@ -143,7 +144,8 @@ export function ReferencePointsSection(): React.JSX.Element | null {
                   placeholder="12 rue de la République, 06300 Nice"
                   onChange={(address) => update(index, { address })}
                 />
-                <select
+                <Select
+                  size="sm"
                   className={FIELD}
                   value={draft.mode}
                   aria-label={`Mode de déplacement pour ${draft.label === '' ? `repère ${index + 1}` : draft.label}`}
@@ -156,7 +158,7 @@ export function ReferencePointsSection(): React.JSX.Element | null {
                       {MODE_LABELS[mode]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <Button
                 type="button"

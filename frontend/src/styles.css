@@ -31,6 +31,19 @@
   --color-card-foreground: light-dark(#1a1a2e, #f1f2f6);
   --color-primary: light-dark(#e00034, #ff4d6d);
   --color-primary-foreground: #ffffff;
+
+  /* LA SURFACE DISCRÈTE — et elle n'existait pas. `bg-muted` était écrit dans
+     douze fichiers : le fond des squelettes de chargement, la vignette d'une
+     annonce sans photo, le survol de toutes les lignes cliquables des
+     Paramètres, de l'Accueil, des agences. Seul `--color-muted-foreground`
+     était déclaré ; Tailwind n'émet aucune règle pour une couleur qu'il ne
+     connaît pas, si bien que ces douze fichiers demandaient un fond que
+     personne ne peignait. Rien ne pouvait le signaler : un squelette sans fond
+     est invisible, et un survol qui ne fait rien passe pour un choix.
+
+     Elle se place entre le fond de page et la bordure : assez pour se détacher
+     d'une carte blanche, trop peu pour se lire comme un bloc. */
+  --color-muted: light-dark(#eceef3, #2a2a3d);
   --color-muted-foreground: light-dark(#63637a, #9c9cb0);
   --color-border: light-dark(#e6e6ee, #34344a);
   --color-input: light-dark(#dcdce6, #34344a);

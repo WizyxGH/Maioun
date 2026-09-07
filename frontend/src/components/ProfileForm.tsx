@@ -11,6 +11,7 @@ import { MAX_GUARANTORS, TENANT_SITUATIONS } from '@rentfinder/shared';
 import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
+import { Select } from '@/components/ui/select.js';
 import { PhoneField } from './PhoneField.js';
 
 interface ProfileFormProps {
@@ -122,19 +123,18 @@ export function ProfileForm({
             les situations que bailleurs et organismes de caution distinguent. */}
         <label className={FIELD}>
           Situation professionnelle
-          <select
+          <Select
             value={knownSituation ? profile.situation : 'other'}
             onChange={(event) =>
               update('situation', event.target.value === 'other' ? '' : event.target.value)
             }
-            className="border-border bg-card text-foreground rounded-lg border px-2.5 py-2 text-[0.9rem]"
           >
             {TENANT_SITUATIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         {!knownSituation && (
@@ -195,20 +195,20 @@ export function ProfileForm({
               return (
                 <li key={index} className="border-border rounded-xl border p-2.5">
                   <div className="flex items-start gap-2">
-                    <select
+                    <Select
                       aria-label={`Garantie ${index + 1}`}
                       value={guarantor.kind}
                       onChange={(event) =>
                         setGuarantor(index, { kind: event.target.value as GuarantorKind })
                       }
-                      className="border-border bg-card text-foreground min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[0.9rem]"
+                      className="min-w-0 flex-1"
                     >
                       {GUARANTOR_OPTIONS.map((one) => (
                         <option key={one.kind} value={one.kind}>
                           {one.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <Button
                       type="button"
                       variant="ghost"

@@ -29,6 +29,7 @@ import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
+import { Select } from '@/components/ui/select.js';
 import {
   Archive,
   ArchiveRestore,
@@ -106,18 +107,17 @@ function TrackingSelect({
       <label htmlFor="tracking-select" className="text-muted-foreground">
         Statut
       </label>
-      <select
+      <Select
         id="tracking-select"
         value={listing.tracking}
         onChange={(event) => onChange(event.target.value as TrackingStatus)}
-        className="rounded-lg border border-input bg-card px-2 py-1.5"
       >
         {TRACKING_ORDER.map((status) => (
           <option key={status} value={status}>
             {formatTracking(status)}
           </option>
         ))}
-      </select>
+      </Select>
     </section>
   );
 }
@@ -214,7 +214,7 @@ function LinkOnlyPhotos({ urls }: { readonly urls: readonly string[] }): React.J
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="bg-background hover:bg-accent inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[0.8rem] transition-colors"
+              className="bg-background hover:bg-muted inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[0.8rem] transition-colors"
             >
               Photo {position + 1}
               <ExternalLink aria-hidden="true" className="size-3" />
