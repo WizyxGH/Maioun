@@ -41,6 +41,8 @@ import {
   REFERENCE_POINTS_SETTING,
   SEARCH_CRITERIA_SETTING,
   parseNotificationPreferences,
+  canNotifyNow,
+  NOTIFICATIONS_SENT_AT_SETTING,
 } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
@@ -114,8 +116,29 @@ async function notifyAll(deps: {
     const preferences = parseNotificationPreferences(
       jsonOrNull(await repository.readSetting(NOTIFICATION_PREFERENCES_SETTING)),
     );
+    /**
+     * LE RYTHME DEMANDÉ, ET LA FENÊTRE QUI EN DÉCOULE.
+     *
+     * Retenu, rien n'est perdu : les annonces ne sont pas marquées notifiées,
+     * elles s'accumulent et partiront ensemble au prochain passage qui aura le
+     * droit de sonner — les plus prioritaires détaillées, le reste résumé.
+     *
+     * LE RYTHME VAUT POUR TOUTES LES FAMILLES, y compris les rappels et les
+     * favoris disparus. Qui demande une alerte par jour ne s'attend pas à ce
+     * que trois autres canaux l'ignorent : ce serait un réglage qui a l'air de
+     * fonctionner sans le faire, le pire des cas.
+     */
+    const lastSentAt = await repository.readSetting(NOTIFICATIONS_SENT_AT_SETTING);
+    const nowMs = Date.now();
+    if (!canNotifyNow(preferences.frequency, lastSentAt, nowMs)) {
+      logger.info('push.held', { frequency: preferences.frequency, since: lastSentAt });
+      return;
+    }
+
     const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/';
     const common = { repository, config: vapid, siteUrl, logger };
+    /** Ce qui est REELLEMENT parti : sans envoi, la fenêtre ne se referme pas. */
+    let sentAnything = false;
 
     if (preferences.newListings) {
       // Une alerte e-mail qui décrit le même bien qu'une source directe est
@@ -132,6 +155,7 @@ async function notifyAll(deps: {
       );
       const report = await sendWebPush({ ...common, listings: pending });
       await repository.markNotified(report.notifiedIds);
+      if (report.sent > 0) sentAnything = true;
     }
 
     // JUSTE AU-DESSUS DES CRITÈRES, si l'utilisateur l'a demandé. Éteint par
@@ -146,6 +170,7 @@ async function notifyAll(deps: {
         nearMatchContentFor(listing as NearMatch, url),
       );
       await repository.markNotified(report.notifiedIds);
+      if (report.sent > 0) sentAnything = true;
     }
 
     // UN FAVORI QUI DISPARAÎT. Il quittait la liste sans un mot : on
@@ -154,6 +179,7 @@ async function notifyAll(deps: {
       const gone = await repository.goneFavorites();
       const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
       await repository.markGoneNotified(report.notifiedIds);
+      if (report.sent > 0) sentAnything = true;
     }
 
     // UN FAVORI JAMAIS CONTACTÉ. Le marché ne patiente pas : mis de côté
@@ -163,6 +189,17 @@ async function notifyAll(deps: {
       const stale = await repository.staleFavorites(APPLICATION_REMINDER_HOURS);
       const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
       await repository.markReminded(report.notifiedIds);
+      if (report.sent > 0) sentAnything = true;
+    }
+    /**
+     * ON N'HORODATE QUE CE QUI EST PARTI. Écrire à chaque passage rouvrirait la
+     * fenêtre pour rien : un compte réglé sur « une fois par jour », mais dont
+     * la journée n'apporte aucune annonce, verrait sa fenêtre repoussée de
+     * vingt-quatre heures à chaque collecte — et la première annonce du
+     * lendemain attendrait un jour de plus.
+     */
+    if (sentAnything) {
+      await repository.writeSetting(NOTIFICATIONS_SENT_AT_SETTING, new Date(nowMs).toISOString());
     }
   } catch (error) {
     logger.warn('push.failed', {

@@ -41,7 +41,81 @@ export interface NotificationPreferences {
   readonly favoriteGone: boolean;
   /** Doubler les alertes par e-mail. PAS ENCORE EN SERVICE (voir ci-dessous). */
   readonly email: boolean;
+  /**
+   * À quel rythme les alertes partent.
+   *
+   * Voir `NotificationFrequency` : ce réglage ne décide pas de CE dont on est
+   * prévenu — les cases au-dessus s'en chargent — mais de la fréquence à
+   * laquelle le téléphone sonne.
+   */
+  readonly frequency: NotificationFrequency;
 }
+
+/**
+ * Le rythme des alertes (§29).
+ *
+ * POURQUOI CE RÉGLAGE. Une recherche active sur Nice fait entrer une dizaine
+ * d'annonces par jour, à n'importe quelle heure. C'est exactement ce qu'on veut
+ * quand on cherche activement, et c'est insupportable quand on cherche
+ * tranquillement : on finit par couper les notifications, donc par ne plus rien
+ * recevoir du tout. Un rythme se règle ; un interrupteur ne se rallume pas.
+ *
+ * `each-run` N'EST PAS « TEMPS RÉEL », ET L'ÉCRAN NE LE DIT PAS. La collecte
+ * tourne deux fois par heure ; une annonce parue à 10 h 10 est signalée à
+ * 10 h 37. Annoncer du temps réel promettrait une immédiateté qu'on n'a pas, et
+ * ferait douter du reste (§17). C'est néanmoins le réglage le plus rapide
+ * possible, et il reste celui par défaut : sur ce marché, une heure d'avance
+ * décide d'une visite.
+ *
+ * LES DEUX AUTRES RETIENNENT, PUIS GROUPENT. Rien n'est perdu : les annonces
+ * s'accumulent et partent ensemble à la fin de la fenêtre, les plus
+ * prioritaires détaillées, le reste résumé en une ligne.
+ */
+export type NotificationFrequency = 'each-run' | 'hourly' | 'daily';
+
+/** Durée d'attente de chaque rythme, en millisecondes. */
+const FREQUENCY_WINDOW: Readonly<Record<NotificationFrequency, number>> = {
+  'each-run': 0,
+  hourly: 3_600_000,
+  daily: 24 * 3_600_000,
+};
+
+/**
+ * Peut-on sonner maintenant ?
+ *
+ * @param lastSentAt Instant du dernier envoi (ISO), ou `null` s'il n'y en a
+ *   jamais eu — auquel cas on sonne, quel que soit le rythme : faire attendre
+ *   vingt-quatre heures un compte qui vient de régler ses alertes lui ferait
+ *   croire qu'elles ne marchent pas.
+ *
+ * LA FENÊTRE EST COMPTÉE DEPUIS LE DERNIER ENVOI, et non calée sur une heure
+ * fixe. « Une fois par jour » veut alors dire « au plus une fois par
+ * vingt-quatre heures », ce qui se tient sans connaître le fuseau de personne
+ * ni décider à sa place qu'il faut sonner à 8 h.
+ */
+export function canNotifyNow(
+  frequency: NotificationFrequency,
+  lastSentAt: string | null,
+  nowMs: number,
+): boolean {
+  const window = FREQUENCY_WINDOW[frequency];
+  if (window === 0 || lastSentAt === null) return true;
+  const last = Date.parse(lastSentAt);
+  // Date illisible : on sonne. Un horodatage abîmé ne doit pas faire taire les
+  // alertes indéfiniment (§69).
+  if (!Number.isFinite(last)) return true;
+  return nowMs - last >= window;
+}
+
+/**
+ * Clé de l'instant du dernier envoi, dans `app_settings`.
+ *
+ * À PART DES PRÉFÉRENCES, délibérément : celles-ci sont écrites par
+ * l'utilisateur depuis le site, celui-là par la collecte. Les mêler ferait
+ * qu'un enregistrement depuis l'écran écraserait l'horodatage — et rouvrirait
+ * la fenêtre à chaque visite des réglages.
+ */
+export const NOTIFICATIONS_SENT_AT_SETTING = 'notificationsSentAt';
 
 /**
  * Tout allumé — sauf l'e-mail.
@@ -58,6 +132,9 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   applicationReminders: true,
   favoriteGone: true,
   email: false,
+  // Le plus rapide par défaut : sur ce marché, une heure d'avance décide d'une
+  // visite. Qui trouve cela trop bavard le règle en deux clics.
+  frequency: 'each-run',
 };
 
 /**
@@ -89,5 +166,12 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
     // L'e-mail reste éteint tant qu'il n'est pas branché, même si la base dit
     // l'inverse : une préférence enregistrée ne fait pas exister un envoi.
     email: false,
+    frequency: isFrequency(stored['frequency'])
+      ? stored['frequency']
+      : DEFAULT_NOTIFICATION_PREFERENCES.frequency,
   };
+}
+
+function isFrequency(value: unknown): value is NotificationFrequency {
+  return value === 'each-run' || value === 'hourly' || value === 'daily';
 }

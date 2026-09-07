@@ -18,6 +18,7 @@
  */
 
 import { NEAR_MATCH_MARGIN } from '@rentfinder/shared';
+import type { NotificationFrequency } from '@rentfinder/shared';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
@@ -41,6 +42,40 @@ interface KindInfo {
   /** `true` quand le canal n'est pas encore en service : montré, non réglable. */
   readonly comingSoon?: boolean;
 }
+
+/**
+ * Les rythmes proposés.
+ *
+ * « EN TEMPS RÉEL » AURAIT ÉTÉ UN MENSONGE. La collecte tourne deux fois par
+ * heure : une annonce parue à 10 h 10 est signalée à 10 h 37. C'est bien le
+ * réglage le plus rapide possible, et il reste celui par défaut — sur ce
+ * marché, une heure d'avance décide d'une visite —, mais l'intitulé dit ce
+ * qu'il fait plutôt que ce qui sonnerait bien (§17).
+ *
+ * CHAQUE LIGNE DIT CE QU'ON Y GAGNE ET CE QU'ON Y PERD, parce que c'est un
+ * arbitrage et non une préférence : plus vite prévenu, plus souvent dérangé.
+ */
+const FREQUENCIES: readonly {
+  readonly value: NotificationFrequency;
+  readonly label: string;
+  readonly hint: string;
+}[] = [
+  {
+    value: 'each-run',
+    label: 'Dès que possible',
+    hint: 'À chaque collecte, soit environ toutes les 30 minutes. Le plus rapide.',
+  },
+  {
+    value: 'hourly',
+    label: 'Une fois par heure',
+    hint: 'Les annonces de l’heure écoulée arrivent groupées.',
+  },
+  {
+    value: 'daily',
+    label: 'Une fois par jour',
+    hint: 'Une seule salve par 24 heures. Rien n’est perdu, tout est regroupé.',
+  },
+];
 
 const KINDS: readonly KindInfo[] = [
   {
@@ -130,6 +165,20 @@ export function NotificationSettingsPanel({
     setBusy(false);
   };
 
+  /**
+   * Le rythme s'enregistre comme les bascules : tout de suite, sans bouton.
+   *
+   * Il part vers la BASE et non vers ce navigateur : c'est la collecte qui
+   * décide d'envoyer, et elle ne voit que la base.
+   */
+  const setFrequency = (frequency: NotificationFrequency): void => {
+    const next = { ...preferences, frequency };
+    setPreferences(next);
+    void saveNotificationPreferences(next).catch(() =>
+      setError('Le rythme n’a pas pu être enregistré.'),
+    );
+  };
+
   const toggleKind = (key: NotificationKind, value: boolean): void => {
     const next = { ...preferences, [key]: value };
     setPreferences(next);
@@ -187,6 +236,35 @@ export function NotificationSettingsPanel({
         >
           {error}
         </p>
+      )}
+
+      {on && (
+        <SettingsGroup title="À quel rythme">
+          {/* UN CHOIX EXCLUSIF, donc des boutons radio et non des bascules : on
+            ne peut pas être prévenu à deux rythmes à la fois, et trois
+            interrupteurs dont deux s'éteignent tout seuls se lisent mal. */}
+          <fieldset className="border-border rounded-xl border p-3">
+            <legend className="sr-only">Fréquence des notifications</legend>
+            {FREQUENCIES.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-start gap-3 py-2 first:pt-0 last:pb-0"
+              >
+                <input
+                  type="radio"
+                  name="notification-frequency"
+                  className="mt-1 size-4 shrink-0"
+                  checked={preferences.frequency === option.value}
+                  onChange={() => setFrequency(option.value)}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{option.label}</span>
+                  <span className="text-muted-foreground block text-[0.82rem]">{option.hint}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        </SettingsGroup>
       )}
 
       {on && (
