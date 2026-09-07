@@ -410,6 +410,63 @@ async function deleteAccountRoute(
   });
 }
 
+/**
+ * Les routes qui n'exigent AUCUNE session, réunies.
+ *
+ * Elles étaient en ligne dans `fetch`, qui a fini par dépasser le seuil de
+ * complexité toléré : sept branches avant même de savoir qui demande. Les
+ * réunir dit aussi quelque chose d'utile — voici la surface joignable sans
+ * compte, et il n'y en a pas d'autre.
+ *
+ * @returns la réponse, ou `null` si la requête ne relève d'aucune de ces routes.
+ */
+async function publicRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  segments: readonly string[],
+): Promise<Response | null> {
+  if (segments[1] === 'login' && request.method === 'POST') {
+    // CENT MILLE TOURS DE PBKDF2 PAR TENTATIVE : c'est ce qui protège les
+    // mots de passe, et c'est aussi ce qui rend cette route coûteuse à
+    // marteler. Dix essais ratés par heure laissent largement de quoi se
+    // tromper, et ne laissent rien pour deviner.
+    const bucket = await bucketFor('login', callerKey(request));
+    if (!(await allow(db, bucket, LIMITS.login, Date.now()))) {
+      return json({ error: 'Trop de tentatives. Réessayez dans une heure.' }, cors, 429);
+    }
+    return login(db, request, env, cors);
+  }
+  if (segments[1] === 'signup' && request.method === 'POST' && segments[2] === undefined) {
+    return signup(db, request, env, cors);
+  }
+  // La confirmation d'adresse : avant la lecture de session, car on peut
+  // suivre le lien depuis un autre appareil que celui de l'inscription.
+  if (segments[1] === 'signup' && segments[2] === 'confirm' && request.method === 'POST') {
+    const body = (await request.json().catch(() => ({}))) as { token?: unknown };
+    const token = typeof body.token === 'string' ? body.token : '';
+    if (token === '') return json({ error: 'invalid' }, cors, 400);
+    const outcome = await confirmEmail(db, token, Date.now());
+    return outcome === 'ok'
+      ? new Response(null, { status: 204, headers: cors })
+      : json({ error: 'invalid' }, cors, 400);
+  }
+  if (segments[1] === 'logout') {
+    return new Response(null, {
+      status: 204,
+      headers: { 'Set-Cookie': clearedCookie(), ...cors },
+    });
+  }
+
+  // MOT DE PASSE OUBLIÉ. Avant la lecture de session, forcément : celui qui
+  // l'a oublié n'en a pas.
+  if (segments[1] === 'password' && request.method === 'POST') {
+    return passwordRoute(db, request, env, cors, segments[2]);
+  }
+  return null;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
@@ -429,43 +486,10 @@ export default {
       authToken: env.TURSO_AUTH_TOKEN,
     });
 
-    if (segments[1] === 'login' && request.method === 'POST') {
-      // CENT MILLE TOURS DE PBKDF2 PAR TENTATIVE : c'est ce qui protège les
-      // mots de passe, et c'est aussi ce qui rend cette route coûteuse à
-      // marteler. Dix essais ratés par heure laissent largement de quoi se
-      // tromper, et ne laissent rien pour deviner.
-      const bucket = await bucketFor('login', callerKey(request));
-      if (!(await allow(db, bucket, LIMITS.login, Date.now()))) {
-        return json({ error: 'Trop de tentatives. Réessayez dans une heure.' }, cors, 429);
-      }
-      return login(db, request, env, cors);
-    }
-    if (segments[1] === 'signup' && request.method === 'POST' && segments[2] === undefined) {
-      return signup(db, request, env, cors);
-    }
-    // La confirmation d'adresse : avant la lecture de session, car on peut
-    // suivre le lien depuis un autre appareil que celui de l'inscription.
-    if (segments[1] === 'signup' && segments[2] === 'confirm' && request.method === 'POST') {
-      const body = (await request.json().catch(() => ({}))) as { token?: unknown };
-      const token = typeof body.token === 'string' ? body.token : '';
-      if (token === '') return json({ error: 'invalid' }, cors, 400);
-      const outcome = await confirmEmail(db, token, Date.now());
-      return outcome === 'ok'
-        ? new Response(null, { status: 204, headers: cors })
-        : json({ error: 'invalid' }, cors, 400);
-    }
-    if (segments[1] === 'logout') {
-      return new Response(null, {
-        status: 204,
-        headers: { 'Set-Cookie': clearedCookie(), ...cors },
-      });
-    }
-
-    // MOT DE PASSE OUBLIÉ. Avant la lecture de session, forcément : celui qui
-    // l'a oublié n'en a pas.
-    if (segments[1] === 'password' && request.method === 'POST') {
-      return passwordRoute(db, request, env, cors, segments[2]);
-    }
+    // LES ROUTES OUVERTES D'ABORD, toutes ensemble : elles s'adressent à qui
+    // n'a pas — ou pas encore — de session.
+    const open = await publicRoute(db, request, env, cors, segments);
+    if (open !== null) return open;
 
     const userId = await readSession(
       readCookie(request.headers.get('Cookie')),

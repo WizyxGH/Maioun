@@ -46,6 +46,7 @@ export type View =
   | 'reset'
   | 'signup'
   | 'confirm'
+  | 'shared'
   | 'account'
   | 'onboarding';
 
@@ -84,6 +85,7 @@ const VIEW_PRESENCE: Record<View, true> = {
   reset: true,
   signup: true,
   confirm: true,
+  shared: true,
   account: true,
   onboarding: true,
 };
@@ -91,7 +93,14 @@ const VIEW_PRESENCE: Record<View, true> = {
 export const ALL_VIEWS: readonly View[] = Object.keys(VIEW_PRESENCE) as View[];
 
 /** Les écrans qui regardent quelque chose : leur adresse porte un identifiant. */
-export const VIEWS_WITH_ID: readonly View[] = ['detail', 'source', 'agency', 'reset', 'confirm'];
+export const VIEWS_WITH_ID: readonly View[] = [
+  'detail',
+  'source',
+  'agency',
+  'reset',
+  'confirm',
+  'shared',
+];
 
 /** Où l'on se trouve : un écran, et ce qu'il regarde. */
 export interface Route {
@@ -194,6 +203,9 @@ export function routeFromPath(pathname: string): Route {
   // Même raison que pour `reset` : le jeton arrive d'un lien reçu par e-mail,
   // et le site n'a rien d'autre pour savoir quelle adresse il confirme.
   if (first === 'confirm' && second !== undefined) return { view: 'confirm', id: second };
+  // Une recherche partagée voyage ENTIÈREMENT dans son adresse : le segment
+  // porte la recherche elle-même, encodée, et non une clé vers une table.
+  if (first === 'shared' && second !== undefined) return { view: 'shared', id: second };
   if (first === 'sources' && second !== undefined) return { view: 'source', id: second };
 
   if (first === 'settings') {
@@ -217,6 +229,7 @@ export function pathFromRoute(route: Route): string {
   if (view === 'agency') return `/agency/${encodeURIComponent(id ?? '')}`;
   if (view === 'reset') return `/reset/${encodeURIComponent(id ?? '')}`;
   if (view === 'confirm') return `/confirm/${encodeURIComponent(id ?? '')}`;
+  if (view === 'shared') return `/shared/${encodeURIComponent(id ?? '')}`;
   if (view === 'source') return `/sources/${encodeURIComponent(id ?? '')}`;
   if (view === 'profile') return '/settings';
 

@@ -220,19 +220,18 @@ function collectStrongSignals(
 }
 
 /** Signaux forts : concordants, ils ne suffisent pas seuls mais s'additionnent. */
-function collectMediumSignals(
+/**
+ * Les deux lectures d'une surface : la même à peu près, et la même exactement.
+ *
+ * SÉPARÉ DU RESTE parce que `collectMediumSignals` passait le seuil de
+ * complexité toléré en accueillant la seconde — et parce que ces deux signaux
+ * disent une seule chose, à deux échelles.
+ */
+function collectAreaSignals(
   a: NormalizedListing,
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
 ): void {
-  if (
-    a.price !== null &&
-    b.price !== null &&
-    withinTolerance(a.price, b.price, PRICE_TOLERANCE_EUR, PRICE_TOLERANCE_RATIO)
-  ) {
-    push({ code: 'price', label: 'loyer équivalent', points: 18 });
-  }
-
   if (
     a.area !== null &&
     b.area !== null &&
@@ -282,6 +281,22 @@ function collectMediumSignals(
   ) {
     push({ code: 'exactArea', label: `surface identique (${a.area} m²)`, points: 30 });
   }
+}
+
+function collectMediumSignals(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  push: (signal: SimilaritySignal) => void,
+): void {
+  if (
+    a.price !== null &&
+    b.price !== null &&
+    withinTolerance(a.price, b.price, PRICE_TOLERANCE_EUR, PRICE_TOLERANCE_RATIO)
+  ) {
+    push({ code: 'price', label: 'loyer équivalent', points: 18 });
+  }
+
+  collectAreaSignals(a, b, push);
 
   if (a.rooms !== null && a.rooms === b.rooms) {
     push({ code: 'rooms', label: 'même nombre de pièces', points: 6 });

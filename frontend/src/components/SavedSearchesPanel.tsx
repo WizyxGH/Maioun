@@ -18,10 +18,12 @@
  */
 
 import { useState } from 'react';
-import { ArrowLeft, Pencil, Play, Plus, Search, Trash2 } from './icons.js';
+import { ArrowLeft, Check, Copy, Pencil, Play, Plus, Search, Trash2 } from './icons.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge } from '../format.js';
+import { hrefOf } from '../router.js';
+import { encodeSearch } from '../share-search.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 
@@ -107,6 +109,37 @@ export function SavedSearchesPanel({
   // Suppression en deux temps : une recherche patiemment réglée ne doit pas
   // disparaître sur un doigt qui glisse.
   const [confirming, setConfirming] = useState<string | null>(null);
+  /**
+   * La recherche dont le lien vient d'être copié, le temps d'un accusé.
+   *
+   * SANS RETOUR VISIBLE, un « copier » ne se distingue pas d'un bouton mort :
+   * rien ne bouge à l'écran, et l'on reclique.
+   */
+  const [copied, setCopied] = useState<string | null>(null);
+
+  /**
+   * Copie le lien de partage dans le presse-papiers.
+   *
+   * `navigator.share` EST PRÉFÉRÉ QUAND IL EXISTE — sur téléphone, il ouvre le
+   * partage du système, d'où le lien part vers un message en un geste. Ailleurs
+   * on retombe sur le presse-papiers, et l'accusé dit que c'est fait.
+   */
+  const share = async (search: SavedSearch): Promise<void> => {
+    const url = `${window.location.origin}${hrefOf({ view: 'shared', id: encodeSearch(search) })}`;
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: search.name, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopied(search.id);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {
+      // Partage annulé, presse-papiers refusé : rien à signaler, l'utilisateur
+      // vient de fermer la fenêtre qu'il a ouverte (§69).
+    }
+  };
+
   const [renaming, setRenaming] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -223,10 +256,26 @@ export function SavedSearchesPanel({
                           </>
                         ) : (
                           <>
+                            {/* PARTAGER, C'EST COPIER UN LIEN. Le lien porte la
+                              recherche elle-même, encodée : rien n'est écrit
+                              en base, et il continue de fonctionner sans
+                              nous. */}
                             <Button
                               variant="ghost"
                               size="sm"
                               className="ml-auto"
+                              aria-label={`Partager « ${search.name} »`}
+                              onClick={() => void share(search)}
+                            >
+                              {copied === search.id ? (
+                                <Check aria-hidden="true" className="size-4" />
+                              ) : (
+                                <Copy aria-hidden="true" className="size-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               aria-label={`Renommer « ${search.name} »`}
                               onClick={() => setRenaming(search.id)}
                             >

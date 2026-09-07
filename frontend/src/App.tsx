@@ -68,6 +68,7 @@ import { ResetPassword } from './components/ResetPassword.js';
 import { SignupScreen } from './components/SignupScreen.js';
 import { ConfirmEmail } from './components/ConfirmEmail.js';
 import { AccountPanel } from './components/AccountPanel.js';
+import { SharedSearch } from './components/SharedSearch.js';
 import { UnconfiguredScreen } from './components/UnconfiguredScreen.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
@@ -1298,6 +1299,22 @@ export function App(): React.JSX.Element {
     }
   };
 
+  /**
+   * Range une recherche REÇUE parmi les siennes, sans rien appliquer.
+   *
+   * Le bon geste quand le lien arrive au milieu de sa propre recherche : on ne
+   * veut pas perdre ses critères, mais on ne veut pas non plus perdre le lien.
+   */
+  const storeSharedSearch = async (shared: SavedSearch): Promise<void> => {
+    const next = [shared, ...savedSearches];
+    setSavedSearches(next);
+    try {
+      await saveSavedSearches(next);
+    } catch {
+      setError('La recherche partagée n’a pas pu être enregistrée');
+    }
+  };
+
   /** Enregistre l'état courant de la recherche sous un nom. */
   const saveCurrentSearch = async (name: string): Promise<void> => {
     try {
@@ -1428,6 +1445,30 @@ export function App(): React.JSX.Element {
       return <ConfirmEmail token={route.id ?? ''} onDone={() => replace({ view: 'home' })} />;
     }
 
+    /**
+     * UNE RECHERCHE PARTAGÉE PASSE APRÈS LA SESSION, contrairement aux deux
+     * écrans ci-dessus. Ceux-là existent précisément pour qui ne peut pas se
+     * connecter ; celle-ci, au contraire, ÉCRIT dans un compte — il faut donc
+     * savoir lequel. Reçue déconnecté, on voit d'abord l'écran de connexion,
+     * et l'adresse est retrouvée ensuite : le lien n'est pas perdu.
+     */
+    if (view === 'shared' && currentUser !== null && currentUser !== undefined) {
+      return (
+        <SharedSearch
+          token={route.id ?? ''}
+          onApply={(shared) => {
+            replace({ view: 'list' });
+            void applySavedSearch(shared);
+          }}
+          onSave={(shared) => {
+            replace({ view: 'saved' });
+            void storeSharedSearch(shared);
+          }}
+          onCancel={() => replace({ view: 'home' })}
+        />
+      );
+    }
+
     // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
     // quelqu'un déjà connecté. Passé une seconde, en revanche, le blanc n'est
     // plus une transition : il faut dire qu'il se passe quelque chose.
@@ -1505,55 +1546,14 @@ export function App(): React.JSX.Element {
     onBottomSelect: selectBottomTab,
   };
 
-  // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
-  // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
-  const secondaryView = (): React.JSX.Element | null => {
-    if (view === 'home') {
-      return (
-        <Shell {...shell}>
-          <HomePanel
-            listings={listings}
-            sources={sources}
-            savedSearches={savedSearches}
-            nowMs={nowMs}
-            seenAtMs={alertsViewedFrom}
-            profileComplete={profile !== null}
-            onOpenListing={openListing}
-            onOpenSearch={() => {
-              setFavoritesOnly(false);
-              setView('list');
-            }}
-            onOpenFavorites={() => {
-              setFavoritesOnly(true);
-              setView('list');
-            }}
-            onOpenAlerts={() => navigate('alerts')}
-            onOpenSavedSearches={() => setView('saved')}
-            onOpenProfile={() => {
-              setEditingProfile(true);
-              setView('tenant');
-            }}
-            onApplySearch={(saved) => void applySavedSearch(saved)}
-          />
-        </Shell>
-      );
-    }
-    if (view === 'alerts') {
-      return (
-        <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
-          <Button variant="ghost" className="mb-2" onClick={() => setView('home')}>
-            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
-          </Button>
-          <NotificationsPanel
-            listings={alerts}
-            nowMs={nowMs}
-            onOpen={openListing}
-            seenAtMs={alertsViewedFrom}
-            onMarkAllRead={markAllAlertsRead}
-          />
-        </main>
-      );
-    }
+  /**
+   * Les sous-écrans des PARAMÈTRES, sortis de `secondaryView`.
+   *
+   * Celle-ci passait le seuil de complexité toléré : vingt branches, dont
+   * six qui font toutes la même chose — une coquille, un panneau, un retour
+   * vers la liste des réglages. Les réunir dit ce qu'elles ont en commun.
+   */
+  const settingsView = (): React.JSX.Element | null => {
     // PARAMÈTRES : rien que des chemins. Le profil locataire et les pièces du
     // dossier occupaient tout le premier écran — huit champs et une liste de
     // fichiers pour deux réglages qu'on touche une fois. Ils ont maintenant
@@ -1563,11 +1563,11 @@ export function App(): React.JSX.Element {
         <Shell {...shell}>
           <h1 className="mb-4 text-xl font-bold">Paramètres</h1>
           {/* L'INTERRUPTEUR DES ALERTES VIVAIT ICI, seul de son espèce au
-            milieu de liens. Il est passé derrière « Notifications », qui porte
-            aussi le détail par famille d'alertes.
+              milieu de liens. Il est passé derrière « Notifications », qui porte
+              aussi le détail par famille d'alertes.
 
-            `navigate` et non `setView` : certaines vues doivent CHARGER leurs
-            données avant d'apparaître (les sources, notamment). */}
+              `navigate` et non `setView` : certaines vues doivent CHARGER leurs
+              données avant d'apparaître (les sources, notamment). */}
           <SettingsLinks onNavigate={(key) => navigate(key as View)} />
         </Shell>
       );
@@ -1617,6 +1617,61 @@ export function App(): React.JSX.Element {
         </Shell>
       );
     }
+    return null;
+  };
+
+  // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
+  // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
+  const secondaryView = (): React.JSX.Element | null => {
+    if (view === 'home') {
+      return (
+        <Shell {...shell}>
+          <HomePanel
+            listings={listings}
+            sources={sources}
+            savedSearches={savedSearches}
+            nowMs={nowMs}
+            seenAtMs={alertsViewedFrom}
+            profileComplete={profile !== null}
+            onOpenListing={openListing}
+            onOpenSearch={() => {
+              setFavoritesOnly(false);
+              setView('list');
+            }}
+            onOpenFavorites={() => {
+              setFavoritesOnly(true);
+              setView('list');
+            }}
+            onOpenAlerts={() => navigate('alerts')}
+            onOpenSavedSearches={() => setView('saved')}
+            onOpenProfile={() => {
+              setEditingProfile(true);
+              setView('tenant');
+            }}
+            onApplySearch={(saved) => void applySavedSearch(saved)}
+          />
+        </Shell>
+      );
+    }
+    if (view === 'alerts') {
+      return (
+        <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+          <Button variant="ghost" className="mb-2" onClick={() => setView('home')}>
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
+          <NotificationsPanel
+            listings={alerts}
+            nowMs={nowMs}
+            onOpen={openListing}
+            seenAtMs={alertsViewedFrom}
+            onMarkAllRead={markAllAlertsRead}
+          />
+        </main>
+      );
+    }
+    const settings = settingsView();
+    if (settings !== null) return settings;
+
     if (view === 'agencies') {
       return (
         <Shell {...shell}>
