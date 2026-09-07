@@ -920,3 +920,56 @@ describe('bail de neuf mois — tournures réelles', () => {
     }
   });
 });
+describe('atouts : ce qui appartient au bien, et ce qui est à côté', () => {
+  const atouts = (text: string): string[] => extractFeatures(text);
+
+  it('N’ANNONCE PAS un atout que l’annonce NIE', () => {
+    // Le pire des cas : la fiche affichait exactement l'inverse du texte.
+    // « Sans ascenseur » est des plus courants dans le parc ancien niçois, et
+    // c'est décisif au 5e étage.
+    expect(atouts('Appartement 5e étage sans ascenseur')).not.toContain('Ascenseur');
+    expect(atouts('Studio non meublé, refait à neuf')).not.toContain('Meublé');
+    expect(atouts('Deux pièces, pas de balcon')).not.toContain('Balcon');
+    expect(atouts('Logement sans aucun parking')).not.toContain('Parking');
+  });
+
+  it('N’ANNONCE PAS un jardin qui est celui de la ville', () => {
+    // Le Jardin Albert Ier est l'un des lieux les plus cités des annonces
+    // niçoises. Il n'appartient à aucun des logements qui le mentionnent.
+    expect(atouts('Charmant studio à deux pas du Jardin Albert Ier')).not.toContain('Jardin');
+    expect(atouts('Proche jardin public et commerces')).not.toContain('Jardin');
+    expect(atouts('Vue sur le jardin exotique')).not.toContain('Jardin');
+  });
+
+  it('N’ANNONCE PAS un stationnement qui est dans la rue', () => {
+    expect(atouts('Parking public à proximité immédiate')).not.toContain('Parking');
+    expect(atouts('Studio proche garage et transports')).not.toContain('Garage');
+    expect(atouts('Appartement, stationnement municipal en bas')).not.toContain('Parking');
+  });
+
+  it('reconnaît toujours un atout RÉEL', () => {
+    // La prudence ne doit pas devenir de la surdité : ce sont ces annonces-là
+    // qu'on cherche.
+    expect(atouts('Deux pièces avec balcon et vue mer')).toContain('Balcon');
+    expect(atouts('Villa avec jardin privatif de 200 m²')).toContain('Jardin');
+    expect(atouts('Appartement avec garage fermé')).toContain('Garage');
+    expect(atouts('T2 meublé avec ascenseur')).toEqual(
+      expect.arrayContaining(['Ascenseur', 'Meublé']),
+    );
+    expect(atouts('Résidence avec piscine, terrasse de 15 m²')).toEqual(
+      expect.arrayContaining(['Piscine', 'Terrasse']),
+    );
+  });
+
+  it('retient le VRAI atout même quand le voisinage est cité d’abord', () => {
+    // Une phrase de voisinage ne doit pas éteindre l'atout mentionné plus loin :
+    // c'est l'erreur inverse, et elle ferait disparaître des annonces exactes.
+    expect(atouts('Proche du jardin public. Jardin privatif de 20 m².')).toContain('Jardin');
+  });
+
+  it('croit l’attribut structuré plutôt que la phrase', () => {
+    // `nbBalcons` est une déclaration de la source, sans tournure à
+    // interpréter : elle l'emporte.
+    expect(extractFeatures('Studio proche du jardin', { nbBalcons: '1' })).toContain('Balcon');
+  });
+});

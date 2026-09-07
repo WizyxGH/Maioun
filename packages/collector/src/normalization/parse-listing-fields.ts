@@ -388,6 +388,72 @@ export function isShortTermStudentLease(text: string | null | undefined): boolea
 }
 
 /**
+ * UN MOT N'EST PAS UN ATOUT. Ce qui entoure le mot décide.
+ *
+ * Les atouts se cherchaient par simple présence du mot — `/\bjardin/` sur le
+ * texte entier. À Nice, cela donnait « Jardin » pour « à deux pas du Jardin
+ * Albert Ier », « Parking » pour « parking public à proximité », « Garage »
+ * pour « proche garage ». Et surtout, la négation passait à travers : « SANS
+ * ascenseur » — mention des plus courantes dans le parc ancien niçois —
+ * affichait l'atout « Ascenseur », et « non meublé » affichait « Meublé ».
+ * L'annonce disait exactement l'inverse de la fiche.
+ *
+ * Ces erreurs sont invisibles : rien, sur la fiche, ne distingue un atout réel
+ * d'un mot attrapé dans une phrase de voisinage. On croit l'annonce.
+ *
+ * TROIS FAMILLES SUFFISENT à écarter l'essentiel, et chacune se lit dans une
+ * fenêtre courte autour du mot :
+ *
+ * 1. LA NÉGATION qui précède — « sans », « non », « pas de », « aucun » ;
+ * 2. LA PROXIMITÉ qui précède ou suit — « proche de », « à deux pas de »,
+ *    « vue sur », « à proximité » : le bien est PRÈS de la chose, il ne l'a
+ *    pas ;
+ * 3. LE CARACTÈRE COLLECTIF qui suit — « public », « municipal », « commun ».
+ *    Un parking public dans la rue n'est pas une place de stationnement.
+ *
+ * CE QUE ÇA NE RATTRAPE PAS, et il faut le savoir : un nom propre sans
+ * tournure de proximité — « le Jardin Albert Ier est à 200 m » — passe encore.
+ * Les jardins publics niçois les plus cités sont donc nommés, faute de mieux :
+ * une liste courte et locale vaut mieux qu'une règle générale qui écarterait
+ * de vrais jardins.
+ */
+const NEGATION_BEFORE = /(?:sans|non|pas d[eu']?|aucune?|ni)\s+(?:\w+\s+){0,1}$/;
+
+const NEARBY_BEFORE =
+  /(?:a proximite(?: immediate)?(?: de| du| des| d')?|a deux pas(?: de| du| des| d')?|proches?(?: de| du| des| d')?|pres(?: de| du| des| d')?|face(?: a| au| aux)?|a cote(?: de| du| des| d')?|vue(?: imprenable)?(?: sur| sur le| sur la)?|donnant sur(?: le| la)?|acces(?: au| a| aux)?|non loin(?: de| du| des)?|situe(?:e)? pres(?: de| du)?)\s+(?:le |la |les |l'|du |des |au |aux )?$/;
+
+const NEARBY_AFTER = /^\s*(?:a proximite|a deux pas|dans le quartier|a \d+\s*m(?:etres)?\b)/;
+
+const COLLECTIVE_AFTER =
+  /^\s*(?:public|publique|publics|publiques|municipale?|collectif|collective|commune?s?|de la ville|d'?\s?enfants|albert|exotique|botanique|masséna|massena|des arenes)/;
+
+/** Combien de caractères regarder de part et d'autre. Une phrase courte. */
+const WINDOW = 42;
+
+/**
+ * `true` si le texte mentionne l'équipement COMME APPARTENANT AU BIEN.
+ *
+ * Chaque occurrence est examinée : il suffit qu'une seule soit propre pour que
+ * l'atout compte. « Proche du jardin public. Jardin privatif de 20 m² » doit
+ * rendre `true` — la seconde phrase l'emporte, et c'est l'ordre inverse qui
+ * serait faux.
+ */
+export function mentionsOwnFeature(lower: string, pattern: RegExp): boolean {
+  const global = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`);
+  for (const match of lower.matchAll(global)) {
+    const at = match.index;
+    const before = lower.slice(Math.max(0, at - WINDOW), at);
+    const after = lower.slice(at + match[0].length, at + match[0].length + WINDOW);
+    if (NEGATION_BEFORE.test(before)) continue;
+    if (NEARBY_BEFORE.test(before)) continue;
+    if (NEARBY_AFTER.test(after)) continue;
+    if (COLLECTIVE_AFTER.test(after)) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
  * Construit la liste d'atouts affichables à partir du texte de l'annonce et
  * d'attributs déjà extraits. Chaque atout n'est ajouté que s'il est mentionné
  * (§17). Résultat dédoublonné, ordre stable.
@@ -417,21 +483,29 @@ export function extractFeatures(
     else if (/rez.de.chaussee|\brdc\b/.test(lower)) add('Rez-de-chaussée');
   }
 
+  /**
+   * L'ATTRIBUT STRUCTURÉ L'EMPORTE SUR LE TEXTE, quand la source en publie un.
+   * `nbBalcons = 2` est une déclaration, pas une tournure de phrase : elle n'a
+   * ni négation ni voisinage à interpréter.
+   */
   const flags: Array<[boolean, string]> = [
-    [extra?.['ascenseur'] === '1' || /\bascenseur\b/.test(lower), 'Ascenseur'],
-    [/\bbalcon/.test(lower) || numericAttr(extra?.['nbBalcons']) > 0, 'Balcon'],
-    [/\bterrasse/.test(lower) || numericAttr(extra?.['nbTerrasses']) > 0, 'Terrasse'],
-    [/\bjardin/.test(lower), 'Jardin'],
+    [extra?.['ascenseur'] === '1' || mentionsOwnFeature(lower, /\bascenseur\b/), 'Ascenseur'],
+    [numericAttr(extra?.['nbBalcons']) > 0 || mentionsOwnFeature(lower, /\bbalcon/), 'Balcon'],
     [
-      /\bparking|stationnement|place de parking/.test(lower) ||
-        numericAttr(extra?.['nbParking']) > 0,
+      numericAttr(extra?.['nbTerrasses']) > 0 || mentionsOwnFeature(lower, /\bterrasse/),
+      'Terrasse',
+    ],
+    [mentionsOwnFeature(lower, /\bjardin/), 'Jardin'],
+    [
+      numericAttr(extra?.['nbParking']) > 0 ||
+        mentionsOwnFeature(lower, /\bparking|\bstationnement|place de parking/),
       'Parking',
     ],
-    [/\bgarage/.test(lower), 'Garage'],
-    [/\bcave\b/.test(lower), 'Cave'],
-    [/\bpiscine/.test(lower), 'Piscine'],
-    [/\bclimatisation|\bclim\b|climatise/.test(lower), 'Climatisation'],
-    [/\bmeuble/.test(lower), 'Meublé'],
+    [mentionsOwnFeature(lower, /\bgarage/), 'Garage'],
+    [mentionsOwnFeature(lower, /\bcave\b/), 'Cave'],
+    [mentionsOwnFeature(lower, /\bpiscine/), 'Piscine'],
+    [mentionsOwnFeature(lower, /\bclimatisation|\bclim\b|climatise/), 'Climatisation'],
+    [mentionsOwnFeature(lower, /\bmeuble/), 'Meublé'],
     [/\bneuf\b|\brenove|refait a neuf/.test(lower), 'Rénové / neuf'],
     // Contrainte de DURÉE plutôt qu'agrément — mais c'est le fait le plus
     // décisif à voir quand il s'applique : le bien n'est pas louable l'été.
