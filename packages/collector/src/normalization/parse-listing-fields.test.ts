@@ -13,6 +13,7 @@ import {
   parseDistrictOf,
   parseDpe,
   extractFeatures,
+  staleTextFeatures,
   extractStreetAddress,
   isShortTermStudentLease,
   isStudentOnlyHousing,
@@ -971,5 +972,39 @@ describe('atouts : ce qui appartient au bien, et ce qui est à côté', () => {
     // `nbBalcons` est une déclaration de la source, sans tournure à
     // interpréter : elle l'emporte.
     expect(extractFeatures('Studio proche du jardin', { nbBalcons: '1' })).toContain('Balcon');
+  });
+});
+
+describe('staleTextFeatures — nettoyer ce que l’ancienne détection a posé à tort', () => {
+  it('retire un atout que le texte NIE', () => {
+    expect(staleTextFeatures(['Ascenseur'], 'Beau 5e étage sans ascenseur')).toEqual(['Ascenseur']);
+  });
+
+  it('retire un atout qui n’est que du voisinage', () => {
+    expect(staleTextFeatures(['Jardin'], 'À deux pas du Jardin Albert Ier')).toEqual(['Jardin']);
+    expect(staleTextFeatures(['Parking'], 'Parking public à proximité')).toEqual(['Parking']);
+  });
+
+  it('NE TOUCHE PAS un atout venu d’un attribut de la source', () => {
+    // LE POINT DÉLICAT. « Balcon » posé par `nbBalcons=1` ne se relit pas dans
+    // le texte : le mot en est absent. Le supprimer parce qu'on ne le retrouve
+    // pas ferait perdre une donnée déclarée par la source.
+    expect(staleTextFeatures(['Balcon'], 'Studio lumineux au calme')).toEqual([]);
+  });
+
+  it('NE TOUCHE PAS un atout que le texte confirme', () => {
+    expect(staleTextFeatures(['Jardin', 'Balcon'], 'Villa avec jardin privatif et balcon')).toEqual(
+      [],
+    );
+  });
+
+  it('ignore les atouts qui ne relèvent pas de cette table', () => {
+    // L'étage, le bail 9 mois, « Rénové / neuf » ne se nettoient pas ainsi.
+    expect(staleTextFeatures(['3e étage', 'Rénové / neuf'], 'Appartement rénové')).toEqual([]);
+  });
+
+  it('ne fait rien sans texte à relire', () => {
+    expect(staleTextFeatures(['Jardin'], null)).toEqual([]);
+    expect(staleTextFeatures(['Jardin'], '')).toEqual([]);
   });
 });

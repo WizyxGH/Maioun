@@ -37,6 +37,7 @@ import {
   parseFurnished,
   parseMaxOccupants,
   extractFeatures,
+  staleTextFeatures,
   extractStreetAddress,
   parseAvailabilityInText,
   parseAvailableAt,
@@ -170,6 +171,44 @@ function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKi
  * d'un type de voie. « Rue de la Paix 12 » n'est pas deux adresses, et reste
  * intacte (§17).
  */
+/**
+ * Les atouts après rejeu : ce qui s'ajoute, et ce qu'il faut retirer.
+ *
+ * CE QU'ON AJOUTE : seulement les deux atouts qui se lisent ENTIÈREMENT dans le
+ * texte conservé en base — bail de neuf mois, logement étudiant. Les autres
+ * viennent d'attributs bruts que la base n'a pas gardés, et les recalculer les
+ * perdrait.
+ *
+ * CE QU'ON RETIRE : les erreurs de l'ancienne détection, qui se contentait de
+ * chercher le mot. « SANS ascenseur » posait « Ascenseur », « à deux pas du
+ * Jardin Albert Ier » posait « Jardin ». Les fiches déjà en base gardent ces
+ * erreurs — une occurrence que sa source ne modifie plus n'est jamais
+ * renormalisée, donc elles ne partiraient jamais d'elles-mêmes.
+ *
+ * `staleTextFeatures` ne retire QUE ce dont le mot figure dans le texte : un
+ * atout venu d'un attribut absent de la base n'est pas touché. C'est ce qui
+ * permet de nettoyer sans rien perdre.
+ *
+ * Extraite de `rederiveFromText`, que ces deux listes poussaient au-delà du
+ * seuil de complexité du dépôt (§75).
+ */
+function reconcileFeatures(
+  current: readonly string[],
+  text: string,
+): { features: readonly string[]; changed: boolean } {
+  const gained = [
+    ...(isShortTermStudentLease(text) ? [SHORT_TERM_LEASE_FEATURE] : []),
+    ...(isStudentOnlyHousing(text) ? [STUDENT_HOUSING_FEATURE] : []),
+  ].filter((feature) => !current.includes(feature));
+  const lost = staleTextFeatures(current, text);
+
+  if (gained.length === 0 && lost.length === 0) return { features: current, changed: false };
+  return {
+    features: [...current.filter((one) => !lost.includes(one)), ...gained],
+    changed: true,
+  };
+}
+
 export function dedupeStreetAddress(address: string | null): string | null {
   if (address === null) return null;
   const clean = address.replace(/\s+/g, ' ').trim();
@@ -527,14 +566,7 @@ export function rederiveFromText(
       ? rescued
       : occurrence.propertyType;
 
-  // Atouts : on n'ajoute que ceux qui se lisent entièrement dans le texte
-  // conservé en base — les autres viennent d'attributs bruts que la base n'a
-  // pas gardés, et les recalculer les perdrait.
-  const gained = [
-    ...(isShortTermStudentLease(text) ? [SHORT_TERM_LEASE_FEATURE] : []),
-    ...(isStudentOnlyHousing(text) ? [STUDENT_HOUSING_FEATURE] : []),
-  ].filter((feature) => !occurrence.features.includes(feature));
-  const features = gained.length > 0 ? [...occurrence.features, ...gained] : occurrence.features;
+  const { features, changed: featuresChanged } = reconcileFeatures(occurrence.features, text);
 
   const filled = fillGaps(occurrence, text, nowMs);
   const { flatShare, charges, rooms, dpe, district, maxOccupants, furnished, availableAt } = filled;
@@ -542,7 +574,7 @@ export function rederiveFromText(
   if (
     address === occurrence.address &&
     propertyType === occurrence.propertyType &&
-    gained.length === 0 &&
+    !featuresChanged &&
     flatShare === occurrence.flatShare &&
     charges === occurrence.charges &&
     rooms === occurrence.rooms &&

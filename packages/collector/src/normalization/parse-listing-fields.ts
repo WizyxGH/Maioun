@@ -438,6 +438,67 @@ const WINDOW = 42;
  * rendre `true` — la seconde phrase l'emporte, et c'est l'ordre inverse qui
  * serait faux.
  */
+/**
+ * Le mot qui désigne chaque atout, en un seul endroit.
+ *
+ * La même table sert à les POSER et à retirer ceux que l'ancienne détection
+ * avait posés à tort : sans elle, les deux motifs divergeraient, et un atout
+ * cesserait d'être nettoyable sans que personne ne s'en aperçoive.
+ */
+const PATTERNS = {
+  Ascenseur: /\bascenseur\b/,
+  Balcon: /\bbalcon/,
+  Terrasse: /\bterrasse/,
+  Jardin: /\bjardin/,
+  Parking: /\bparking|\bstationnement|place de parking/,
+  Garage: /\bgarage/,
+  Cave: /\bcave\b/,
+  Piscine: /\bpiscine/,
+  Climatisation: /\bclimatisation|\bclim\b|climatise/,
+  Meublé: /\bmeuble/,
+} as const;
+
+/**
+ * La même table, pour une recherche par nom d'atout.
+ *
+ * Une Map plutôt qu'un accès indexé : le dépôt compile en
+ * `noUncheckedIndexedAccess`, qui rend tout index par une chaîne quelconque
+ * possiblement `undefined` — ce qui est exact, et qu'il vaut mieux traiter que
+ * masquer par une assertion.
+ */
+const PATTERN_BY_FEATURE: ReadonlyMap<string, RegExp> = new Map(Object.entries(PATTERNS));
+
+/**
+ * Les atouts déjà enregistrés que le texte NE JUSTIFIE PLUS.
+ *
+ * POURQUOI IL NE SUFFIT PAS DE TOUT RECALCULER. Les atouts d'une fiche
+ * viennent de deux sources : le texte, et des attributs bruts que la base ne
+ * conserve pas (`nbBalcons`, `ascenseur`). Recalculer depuis le seul texte
+ * effacerait les seconds — un balcon déclaré par la source disparaîtrait
+ * parce que la description n'en parle pas.
+ *
+ * LA RÈGLE QUI DISTINGUE LES DEUX : on ne retire un atout que si le mot EST
+ * dans le texte — donc l'ancienne détection, qui ne regardait que ça, l'a bien
+ * posé de là — et que la nouvelle, elle, le refuse. Si le mot est absent,
+ * l'atout vient d'un attribut : on n'y touche pas.
+ *
+ * Ce qu'on nettoie ainsi : « Ascenseur » sur une annonce qui dit « SANS
+ * ascenseur », « Jardin » sur « à deux pas du Jardin Albert Ier », « Parking »
+ * sur « parking public à proximité ».
+ */
+export function staleTextFeatures(
+  features: readonly string[],
+  text: string | null | undefined,
+): string[] {
+  const lower = comparable(text);
+  if (lower === '') return [];
+  return features.filter((feature) => {
+    const pattern = PATTERN_BY_FEATURE.get(feature);
+    if (pattern === undefined) return false;
+    return pattern.test(lower) && !mentionsOwnFeature(lower, pattern);
+  });
+}
+
 export function mentionsOwnFeature(lower: string, pattern: RegExp): boolean {
   const global = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`);
   for (const match of lower.matchAll(global)) {
@@ -489,23 +550,25 @@ export function extractFeatures(
    * ni négation ni voisinage à interpréter.
    */
   const flags: Array<[boolean, string]> = [
-    [extra?.['ascenseur'] === '1' || mentionsOwnFeature(lower, /\bascenseur\b/), 'Ascenseur'],
-    [numericAttr(extra?.['nbBalcons']) > 0 || mentionsOwnFeature(lower, /\bbalcon/), 'Balcon'],
+    [extra?.['ascenseur'] === '1' || mentionsOwnFeature(lower, PATTERNS['Ascenseur']), 'Ascenseur'],
     [
-      numericAttr(extra?.['nbTerrasses']) > 0 || mentionsOwnFeature(lower, /\bterrasse/),
+      numericAttr(extra?.['nbBalcons']) > 0 || mentionsOwnFeature(lower, PATTERNS['Balcon']),
+      'Balcon',
+    ],
+    [
+      numericAttr(extra?.['nbTerrasses']) > 0 || mentionsOwnFeature(lower, PATTERNS['Terrasse']),
       'Terrasse',
     ],
-    [mentionsOwnFeature(lower, /\bjardin/), 'Jardin'],
+    [mentionsOwnFeature(lower, PATTERNS['Jardin']), 'Jardin'],
     [
-      numericAttr(extra?.['nbParking']) > 0 ||
-        mentionsOwnFeature(lower, /\bparking|\bstationnement|place de parking/),
+      numericAttr(extra?.['nbParking']) > 0 || mentionsOwnFeature(lower, PATTERNS['Parking']),
       'Parking',
     ],
-    [mentionsOwnFeature(lower, /\bgarage/), 'Garage'],
-    [mentionsOwnFeature(lower, /\bcave\b/), 'Cave'],
-    [mentionsOwnFeature(lower, /\bpiscine/), 'Piscine'],
-    [mentionsOwnFeature(lower, /\bclimatisation|\bclim\b|climatise/), 'Climatisation'],
-    [mentionsOwnFeature(lower, /\bmeuble/), 'Meublé'],
+    [mentionsOwnFeature(lower, PATTERNS['Garage']), 'Garage'],
+    [mentionsOwnFeature(lower, PATTERNS['Cave']), 'Cave'],
+    [mentionsOwnFeature(lower, PATTERNS['Piscine']), 'Piscine'],
+    [mentionsOwnFeature(lower, PATTERNS['Climatisation']), 'Climatisation'],
+    [mentionsOwnFeature(lower, PATTERNS['Meublé']), 'Meublé'],
     [/\bneuf\b|\brenove|refait a neuf/.test(lower), 'Rénové / neuf'],
     // Contrainte de DURÉE plutôt qu'agrément — mais c'est le fait le plus
     // décisif à voir quand il s'applique : le bien n'est pas louable l'été.
