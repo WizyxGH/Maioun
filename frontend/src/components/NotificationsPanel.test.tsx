@@ -44,10 +44,11 @@ const LISTINGS = [
 const SEEN_AT = Date.parse('2026-09-04T12:00:00.000Z');
 
 describe('tout marquer comme lu', () => {
-  it('reste à sa place, éteint, quand tout est déjà lu', () => {
-    // Il DISPARAISSAIT, et on le cherchait en vain : ouvrir la page marque les
-    // alertes vues, donc au rechargement suivant il n'était plus là. Éteint
-    // plutôt qu'absent — l'absence laisse croire à un oubli.
+  it('disparaît quand tout est déjà lu', () => {
+    // Il est resté un temps grisé, pour qu'on sache qu'il existe. Mais un
+    // bouton éteint occupe la place et l'œil sans rien offrir : on le lit, on
+    // comprend qu'il ne sert pas, et on recommence à chaque visite. L'en-tête
+    // dit déjà combien d'alertes sont en attente (décision du 2026-09-07).
     render(
       <NotificationsPanel
         listings={LISTINGS}
@@ -57,7 +58,20 @@ describe('tout marquer comme lu', () => {
         onMarkAllRead={() => {}}
       />,
     );
-    expect(screen.getByRole('button', { name: /tout marquer comme lu/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /tout marquer comme lu/i })).toBeNull();
+  });
+
+  it('s’affiche dès qu’une alerte est non lue', () => {
+    render(
+      <NotificationsPanel
+        listings={LISTINGS}
+        nowMs={NOW}
+        onOpen={() => {}}
+        seenAtMs={SEEN_AT}
+        onMarkAllRead={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /tout marquer comme lu/i })).toBeEnabled();
   });
 
   it('ne s’affiche pas au-dessus d’un historique vide', () => {
