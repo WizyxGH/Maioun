@@ -1,27 +1,17 @@
 /**
  * LES ALERTES PAR E-MAIL (§29).
  *
- * POURQUOI EN PLUS DU PUSH, ET NON À SA PLACE. Le push est le canal rapide,
- * mais il suppose un navigateur qui l'accepte : iOS ne le permet que pour une
- * application installée depuis Safari, un ordinateur éteint ne reçoit rien, et
- * une notification balayée ne se retrouve pas. L'e-mail arrive partout, se
- * retrouve, se transfère — et reste lisible quand on cherche à deux.
+ * EN PLUS DU PUSH, PAS À SA PLACE : le push suppose un navigateur qui
+ * l'accepte, un appareil allumé, et une notification qu'on n'a pas balayée.
+ * L'e-mail arrive partout, se retrouve et se transfère.
  *
- * UN SEUL MESSAGE PAR PASSAGE, ET C'EST LA DIFFÉRENCE DE FOND AVEC LE PUSH.
- * Une notification par annonce se glisse dans une journée ; huit e-mails en dix
- * minutes sont du courrier indésirable, et c'est ainsi qu'on se fait ranger
- * dans le dossier qui va avec — après quoi plus rien n'arrive, sans que rien ne
- * le dise. Les annonces sont donc réunies en un seul message, les plus
- * prioritaires en tête.
+ * UN SEUL MESSAGE PAR PASSAGE, et c'est la différence de fond avec le push :
+ * huit e-mails en dix minutes sont du courrier indésirable, et c'est ainsi
+ * qu'on se fait ranger dans le dossier qui va avec — après quoi plus rien
+ * n'arrive. En texte brut, ce qui se lit partout.
  *
- * EN TEXTE BRUT. `sendEmail` n'envoie que cela, et c'est bien : un e-mail dont
- * la mise en forme dépend d'images distantes se lit mal dans la moitié des
- * clients, et se charge encore moins vite. Ce qu'on veut d'une alerte tient en
- * quelques lignes et un lien.
- *
- * NON CONFIGURÉ = SILENCIEUX, ET DIT. Sans clé d'API ni expéditeur, on ne
- * prétend pas avoir envoyé : le rapport le déclare, et la collecte le
- * journalise. C'est la même règle que le push sans clés VAPID.
+ * Sans clé d'API ni expéditeur, on ne prétend pas avoir envoyé : le rapport le
+ * déclare (§17), comme le push sans clés VAPID.
  */
 
 import type { NotifiableListing } from '../db/repository.js';

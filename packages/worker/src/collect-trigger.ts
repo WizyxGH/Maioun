@@ -1,33 +1,18 @@
 /**
  * RÉVEILLER LA COLLECTE, PARCE QUE LE CRON DE GITHUB NE LE FAIT PLUS (§30).
  *
- * CE QU'ON A CONSTATÉ. Le workflow est réglé sur `7,37 * * * *`, soit quarante-
- * huit passages par jour. Le 2026-09-07, il en a fait TROIS : 00:55, 06:00,
- * 12:20 — cinq à six heures d'écart. GitHub met les déclenchements `schedule`
- * en file d'attente et les écarte quand la file est chargée, sans aucune
- * garantie ni le moindre signalement. Le workflow le savait déjà à moitié : ses
- * minutes avaient été décalées des demi-heures rondes vers `7,37` pour fuir
- * les minutes encombrées. Cela n'a pas suffi.
+ * Le workflow demande `7,37 * * * *`, soit quarante-huit passages par jour ; le
+ * 2026-09-07 il en a exécuté TROIS. GitHub met les déclenchements `schedule` en
+ * file et les écarte quand elle est chargée, sans le dire. Sans collecte, rien
+ * n'entre et aucune alerte ne part — alors que la dernière collecte a réussi.
  *
- * Sans collecte, rien n'entre : ni les annonces des sites, ni les alertes des
- * portails qui attendent dans la boîte. L'utilisateur ne reçoit alors aucune
- * notification, et RIEN NE LUI DIT POURQUOI — la dernière collecte réussie
- * date, mais elle a réussi.
+ * Les Cron Triggers de Cloudflare, eux, tiennent l'heure. Le Worker demande à
+ * GitHub d'exécuter le workflow : un déclenchement MANUEL, que la file ne
+ * dégrade pas. Le `schedule` reste en place comme filet.
  *
- * CE QU'ON FAIT. Les Cron Triggers de Cloudflare, eux, sont fiables et compris
- * dans le plan gratuit. Le Worker se réveille et demande à GitHub d'exécuter le
- * workflow par `workflow_dispatch` — un déclenchement MANUEL, que la file ne
- * dégrade pas comme un `schedule`. Le `schedule` du workflow reste en place :
- * il ne coûte rien et sert de filet si le Worker se tait.
- *
- * IL NE COLLECTE PAS LUI-MÊME, et ne le pourra jamais : la collecte lit une
- * soixantaine de sites, ouvre une boîte IMAP et écrit en base pendant plusieurs
- * minutes. Un Worker a quelques dizaines de secondes et pas de Node. Il
- * n'appuie que sur le bouton.
- *
- * SANS JETON, IL SE TAIT ET LE DIT. Le jeton `GITHUB_DISPATCH_TOKEN` est un
- * secret à déposer à part ; absent, on ne prétend pas avoir déclenché quoi que
- * ce soit (§17).
+ * Il ne collecte pas lui-même — soixante sites et une boîte IMAP demandent
+ * plusieurs minutes et Node. Il n'appuie que sur le bouton, et se tait en le
+ * disant si le jeton manque (§17).
  */
 
 export interface CollectTriggerEnv {

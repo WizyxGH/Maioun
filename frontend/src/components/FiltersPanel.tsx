@@ -57,8 +57,8 @@ const LANDLORD_OPTIONS: readonly {
   readonly label: string;
 }[] = [
   { value: 'all', label: 'Tous' },
-  { value: 'private', label: 'Particuliers seuls' },
-  { value: 'agency', label: 'Agences uniquement' },
+  { value: 'private', label: 'Particuliers' },
+  { value: 'agency', label: 'Agences' },
 ];
 
 /** Choix « meublé » présentés dans l'ordre Tous / Meublé / Non meublé. */

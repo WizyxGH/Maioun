@@ -1,33 +1,20 @@
 /**
- * RELAIS DE PHOTOS EN CLAIR (§11, §26).
+ * Relais des photos servies en clair (§11, §26).
  *
- * POURQUOI IL EXISTE. Le bulletin abonné BEP publie ses photos sur
- * `www.beptransaction.com`, un hôte qui NE FAIT PAS DE TLS — pas « mal
- * configuré » : `https://` n'y répond pas du tout. Le site, lui, est servi en
- * HTTPS par GitHub Pages, et un navigateur bloque une image `http://` sur une
- * page `https://` (contenu mixte). Ces photos ne s'affichaient donc jamais, et
- * le gestionnaire d'erreur du carrousel les masquait : rien à l'écran ne disait
- * pourquoi. Réécrire l'URL en `https://` ne peut pas marcher — il n'y a rien à
- * joindre en face. Le seul chemin est de récupérer l'image côté serveur, où le
- * HTTP est permis, et de la rendre en HTTPS.
+ * Le bulletin abonné BEP publie ses photos sur un hôte SANS TLS — `https://`
+ * n'y répond pas du tout. Le site étant servi en HTTPS, le navigateur bloque
+ * ces images (contenu mixte) et le carrousel les masque sans rien dire. Les
+ * réécrire en `https://` ne peut pas marcher : il n'y a rien à joindre. On les
+ * récupère donc côté serveur, où le HTTP est permis.
  *
- * ═══ CE N'EST PAS UN PROXY OUVERT, ET C'EST L'ESSENTIEL ═══
+ * CE N'EST PAS UN PROXY OUVERT. Un relais qui va chercher l'URL qu'on lui donne
+ * est une faille (SSRF). La défense est une LISTE BLANCHE — pas un filtre sur
+ * ce qui est interdit, toujours incomplet.
  *
- * Un relais qui va chercher l'URL qu'on lui donne est une faille (SSRF) : on
- * s'en sert pour joindre des services internes, pour scanner, ou simplement
- * pour faire porter à notre infrastructure le trafic de quelqu'un d'autre. La
- * défense n'est pas un filtre sur ce qui est interdit — cette liste est
- * toujours incomplète — mais une LISTE BLANCHE de ce qui est permis : deux
- * noms d'hôtes, et rien d'autre ne passe.
- *
- * ELLE EST PUBLIQUE, à dessein. Une balise `<img>` vers un autre domaine
- * n'envoie pas le cookie de session : exiger une session rendrait la route
- * inutilisable par le navigateur. Ce n'est pas une fuite — le relais ne sert
- * que des photos d'annonces déjà publiques sur un hôte fixe, et ne révèle rien
- * de qui regarde. Il ne relaie NI l'adresse du visiteur NI ses en-têtes.
- *
- * CE QU'IL NE FAIT PAS : il ne stocke rien (§11 — on garde l'URL, jamais une
- * copie). Le cache est celui de Cloudflare, devant l'origine.
+ * La route est PUBLIQUE : une balise `<img>` vers un autre domaine n'envoie pas
+ * le cookie de session. Elle ne sert que des photos déjà publiques, et ne
+ * relaie ni l'adresse du visiteur ni ses en-têtes. Rien n'est stocké (§11) ;
+ * le cache est celui de Cloudflare.
  */
 
 /**

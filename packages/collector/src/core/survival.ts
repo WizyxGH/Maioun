@@ -1,33 +1,22 @@
 /**
  * COMBIEN DE TEMPS UNE ANNONCE RESTE-T-ELLE DISPONIBLE ? (§31, §17)
  *
- * La question décide de l'urgence : sur un marché où la moitié des annonces
- * disparaît en trois jours, une annonce d'un jour est déjà à mi-vie. Le score
- * d'opportunité repose aujourd'hui sur des paliers ÉCRITS À LA MAIN — 15 min,
- * 1 h, 6 h, 1 jour, 3 jours, 7 jours —, identiques pour toutes les sources et
- * jamais confrontés au marché. Ce module fournit la mesure qui leur manque.
+ * La question décide de l'urgence : là où la moitié des annonces disparaît en
+ * trois jours, une annonce d'un jour est déjà à mi-vie. Les paliers du score
+ * d'opportunité sont écrits à la main et n'ont jamais été confrontés au marché.
  *
- * CE QU'ON MESURE, ET CE QU'ON NE PEUT PAS MESURER. Une annonce éteinte a vécu
- * `last_seen_at − first_seen_at` : de la première fois qu'on l'a vue à la
- * dernière. C'est une borne INFÉRIEURE — elle est peut-être restée en ligne
- * entre notre dernier passage et son retrait —, et l'écart est celui de
- * l'intervalle de la source. `listing_history` ne peut pas répondre : il
- * n'enregistre que les changements de prix, de surface et de disponibilité,
- * jamais les bascules de cycle de vie.
+ * On mesure `last_seen_at − first_seen_at`, une borne inférieure : l'annonce
+ * est peut-être restée en ligne entre notre dernier passage et son retrait.
+ * `listing_history` ne peut pas répondre — il n'enregistre que les changements
+ * de prix, de surface et de disponibilité.
  *
- * LE PIÈGE, ET LA RAISON D'ÊTRE DE CE FICHIER : LA CENSURE. Les annonces
- * ENCORE EN LIGNE n'ont pas fini de vivre. Faire la moyenne des seules vies
- * achevées revient à ne compter que ceux qui sont déjà morts — cela sous-estime
- * toujours, et d'autant plus que la base est jeune : on ne peut pas observer
- * une vie de soixante jours dans une base qui en a vingt. Une moyenne simple
- * aurait donc l'air juste et serait fausse, sans que rien ne le dise.
- *
- * Kaplan-Meier répond exactement à cela : chaque annonce encore en ligne compte
- * comme « a vécu AU MOINS n jours » et reste dans l'effectif à risque jusque-là,
- * au lieu d'être ignorée ou comptée comme morte. Trente lignes, aucune
- * dépendance, et une médiane qui vaut `null` tant que la courbe n'est pas
- * descendue à la moitié — parce qu'alors la réponse honnête est « on ne sait
- * pas encore », et non un nombre.
+ * LE PIÈGE EST LA CENSURE. Les annonces encore en ligne n'ont pas fini de
+ * vivre : moyenner les seules vies achevées revient à ne compter que les morts,
+ * ce qui sous-estime toujours — on n'observe pas une vie de soixante jours dans
+ * une base qui en a vingt. Kaplan-Meier les compte comme « au moins n jours »
+ * et les garde dans l'effectif à risque. La médiane vaut `null` tant que la
+ * courbe n'est pas descendue à la moitié : la réponse honnête est alors « on ne
+ * sait pas encore » (§17).
  */
 
 /** Une vie observée : sa durée, et si elle est achevée. */
