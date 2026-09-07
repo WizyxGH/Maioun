@@ -73,6 +73,43 @@ export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
   );
 }
 
+/**
+ * `true` si un filtre est RÉELLEMENT POSÉ — indépendamment des valeurs par
+ * défaut.
+ *
+ * DEUX QUESTIONS, ET UN SEUL PRÉDICAT LES SERVAIT. « L'état s'écarte-t-il de
+ * l'ouverture ? » commande le bouton « Réinitialiser » et le court-circuit du
+ * filtrage ; « y a-t-il un filtre à montrer ? » commande la barre de puces.
+ * Les deux réponses diffèrent parce que l'état d'ouverture n'est PAS « aucun
+ * filtre » : il porte déjà 250–700 € et ≥ 20 m².
+ *
+ * Ce que la confusion produisait, et qui se voyait à l'écran :
+ *
+ * - à l'ouverture, la liste était filtrée sur le budget et la surface SANS
+ *   qu'aucune puce ne le dise, et sans moyen de les retirer ;
+ * - « Effacer tout » posait des valeurs nulles — lesquelles S'ÉCARTENT des
+ *   valeurs par défaut : la barre restait donc affichée, réduite au seul lien
+ *   « Effacer tout », sur lequel on pouvait recliquer indéfiniment sans que
+ *   rien ne bouge.
+ */
+/** L'intitulé de la puce « budget », selon les bornes réellement posées. */
+export function priceLabel(min: number | null, max: number | null): string {
+  if (min !== null && max !== null) return `${min} – ${max} €`;
+  if (max !== null) return `≤ ${max} €`;
+  return `≥ ${min ?? 0} €`;
+}
+
+export function hasAppliedQuickFilters(v: QuickFilterValues): boolean {
+  return (
+    v.minPrice !== null ||
+    v.maxPrice !== null ||
+    v.minArea !== null ||
+    v.minRooms !== null ||
+    v.minOccupants !== null ||
+    v.types.size > 0
+  );
+}
+
 /** Champs d'une annonce que les filtres rapides inspectent (§17). */
 export interface QuickFilterable {
   readonly price: { readonly value: number | null };
@@ -131,13 +168,23 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Puces des filtres actifs, retirables. */}
-      {hasActiveQuickFilters(values) && (
+      {/* Puces des filtres POSÉS, retirables. Le prédicat n'est pas celui du
+        bouton « Réinitialiser » : on montre ce qui filtre la liste, y compris
+        le budget et la surface d'ouverture, et non ce qui s'écarte de
+        l'ouverture. Voir `hasAppliedQuickFilters`. */}
+      {hasAppliedQuickFilters(values) && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {values.maxPrice !== null && (
+          {/* UNE SEULE PUCE POUR LE BUDGET, parce que c'est une fourchette.
+            `minPrice` n'en avait aucune — le plancher anti-parking à 250 €
+            filtrait la liste sans jamais se montrer, et la barre pouvait donc
+            s'afficher sans contenir la moindre puce à retirer. Deux puces
+            « ≥ 250 € » et « ≤ 700 € » côte à côte diraient la même chose en
+            deux fois plus de place : on les réunit, et les retirer va de
+            pair. */}
+          {(values.minPrice !== null || values.maxPrice !== null) && (
             <FilterChip
-              label={`≤ ${values.maxPrice} €`}
-              onRemove={() => patch({ maxPrice: null })}
+              label={priceLabel(values.minPrice, values.maxPrice)}
+              onRemove={() => patch({ minPrice: null, maxPrice: null })}
             />
           )}
           {values.minArea !== null && (

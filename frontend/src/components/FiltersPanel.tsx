@@ -27,8 +27,16 @@ import type { FilterConfig } from '../types.js';
 import { fetchDistricts, fetchFilters, saveFilters, type DistrictOption } from '../api/client.js';
 import { PanelSkeleton } from './Skeletons.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
+import { PillButton } from './QuickFilters.js';
+import { Input } from '@/components/ui/input.js';
 
-const FIELD = 'w-28 rounded-lg border border-input bg-card px-2 py-1.5 text-right';
+/**
+ * La largeur, et rien d'autre : bordure, fond, hauteur et anneau de focus
+ * viennent de `Input`. Cette constante portait tout le style du champ, et
+ * l'autre famille de la modale — le budget, la surface — portait le sien,
+ * différent. Une seule des deux pouvait être la bonne ; aucune ne l'était.
+ */
+const FIELD = 'w-28 text-right';
 const ROW = 'flex items-center justify-between gap-3 py-2';
 
 /**
@@ -61,8 +69,27 @@ const FURNISHED_OPTIONS: readonly {
   { value: 'unfurnished', label: 'Non meublé' },
 ];
 
-/** Bouton segmenté générique (choix exclusif parmi quelques options courtes). */
-function Segmented<T extends string>({
+/**
+ * Choix exclusif parmi quelques options courtes — en PILULES.
+ *
+ * C'ÉTAIT UN BOUTON SEGMENTÉ, un bloc joint dont l'option retenue s'affichait
+ * en aplat plein. « Pièces », « Nombre de personnes » et « Type de bien », dans
+ * la même modale et à quelques centimètres, posent exactement la même question
+ * — choisir une valeur parmi quelques-unes — avec des pilules séparées et une
+ * sélection en teinte pâle. Deux réponses graphiques à une seule question, sans
+ * qu'aucune règle ne distingue les cas : la seule chose que les deux familles
+ * ne partageaient pas, c'était la date à laquelle elles ont été écrites.
+ *
+ * `role="group"` et son intitulé restent : ils venaient du bouton segmenté, et
+ * sans eux un lecteur d'écran annoncerait quatre boutons sans dire de quel
+ * réglage ils relèvent. Les pilules de l'autre famille tiennent cela d'un
+ * `fieldset` et de sa `legend` ; ici les lignes n'en ont pas.
+ *
+ * `flex-wrap` : « Particuliers seuls » et « Agences uniquement » sont bien plus
+ * longs que « 2+ ». Sur un téléphone étroit, elles passent à la ligne au lieu
+ * de pousser la rangée hors de l'écran.
+ */
+function PillGroup<T extends string>({
   value,
   options,
   onChange,
@@ -74,25 +101,16 @@ function Segmented<T extends string>({
   readonly ariaLabel: string;
 }): React.JSX.Element {
   return (
-    <div
-      role="group"
-      aria-label={ariaLabel}
-      className="inline-flex overflow-hidden rounded-lg border border-input text-sm"
-    >
-      {options.map((opt) => {
-        const active = value === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(opt.value)}
-            className={`px-3 py-1.5 ${active ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-muted'}`}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
+    <div role="group" aria-label={ariaLabel} className="flex flex-wrap justify-end gap-1.5">
+      {options.map((opt) => (
+        <PillButton
+          key={opt.value}
+          selected={value === opt.value}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </PillButton>
+      ))}
     </div>
   );
 }
@@ -175,8 +193,9 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
           recherche » qui reporte les valeurs des filtres sur les critères. */}
         <div className={ROW}>
           <label htmlFor="maxCommuteMinutes">Trajet max domicile→travail (min)</label>
-          <input
+          <Input
             id="maxCommuteMinutes"
+            size="sm"
             type="number"
             min={0}
             className={FIELD}
@@ -238,8 +257,9 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
         )}
         <div className={ROW}>
           <label htmlFor="availableBy">Disponible au plus tard le</label>
-          <input
+          <Input
             id="availableBy"
+            size="sm"
             type="date"
             className={FIELD}
             value={filters.availableBy ?? ''}
@@ -270,7 +290,7 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
           {/* Les intitulés disent eux-mêmes ce qu'ils font : « seuls » et
             « uniquement » rendent la note explicative inutile. */}
           <span>Bailleur</span>
-          <Segmented
+          <PillGroup
             ariaLabel="Nature du bailleur"
             options={LANDLORD_OPTIONS}
             value={filters.landlordFilter ?? 'all'}
@@ -282,7 +302,7 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
             Meublé
             <span className="ml-1 text-xs text-muted-foreground">(inconnus conservés)</span>
           </span>
-          <Segmented
+          <PillGroup
             ariaLabel="Caractère meublé"
             options={FURNISHED_OPTIONS}
             value={filters.furnishedFilter ?? 'all'}

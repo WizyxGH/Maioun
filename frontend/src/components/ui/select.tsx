@@ -7,8 +7,9 @@
  * quatre remplissages (`py-1`, `py-1.5`, `py-2`, les 8 px de la feuille de
  * style), deux tailles de texte, et un anneau de focus sur un seul d'entre eux.
  * Rien de tout cela n'était un choix : c'était la trace de l'ordre dans lequel
- * les écrans ont été écrits. Les classes vivent désormais ici, en un seul
- * endroit, comme pour Button et Badge (§39, §65).
+ * les écrans ont été écrits. Les classes viennent désormais de `ui/field.ts`,
+ * socle partagé avec `Input` — un menu et un champ se posent dans les mêmes
+ * lignes et doivent s'y ressembler (§39, §65).
  *
  * IL RESTE NATIF, et ce n'est pas un compromis. Le contrôle du système ouvre le
  * sélecteur du téléphone — la roue iOS, la liste plein écran d'Android —, se
@@ -25,27 +26,14 @@
 
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils.js';
+import { FIELD_BASE, FIELD_SIZES } from './field.js';
 
-const selectVariants = cva(
-  // `hover:border-primary` est l'affordance du bouton `outline`, le contrôle
-  // dont un menu fermé est visuellement le plus proche.
-  'cursor-pointer rounded-lg border border-input bg-card text-foreground transition-colors hover:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-  {
-    variants: {
-      size: {
-        // 44 px : la cible tactile du projet (§36), celle de Button. La taille
-        // du texte n'est pas fixée — elle reste le 1 rem de la règle de base,
-        // pour qu'un menu placé à côté d'un `input` ait la même hauteur de
-        // caractères que lui. C'est ce qui manquait au formulaire de profil.
-        default: 'min-h-11 px-2.5 py-2',
-        // Rangées denses — la barre d'outils de la liste, où le menu voisine
-        // des boutons `min-h-9` et doit s'aligner sur eux.
-        sm: 'min-h-9 px-2 py-1 text-sm',
-      },
-    },
-    defaultVariants: { size: 'default' },
-  },
-);
+// `cursor-pointer` s'ajoute au socle commun : un menu s'ouvre d'un clic, là où
+// un champ de saisie reçoit le curseur en I.
+const selectVariants = cva(`cursor-pointer ${FIELD_BASE}`, {
+  variants: { size: FIELD_SIZES },
+  defaultVariants: { size: 'default' },
+});
 
 /**
  * `size` est OMIS des attributs HTML à dessein. Sur un `select`, l'attribut

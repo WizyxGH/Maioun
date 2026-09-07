@@ -47,6 +47,7 @@ import {
 import { FiltersPanel } from './FiltersPanel.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
 import { Button } from '@/components/ui/button.js';
+import { Input } from '@/components/ui/input.js';
 
 export interface SortFilterModalProps {
   readonly open: boolean;
@@ -381,7 +382,11 @@ function NumberField({
   return (
     <label className="flex items-center gap-1.5 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <input
+      {/* ALIGNÉ À DROITE : le nombre se retrouve ainsi collé à son unité —
+        « 700 € » plutôt que « 700      € ». C'est aussi ce que faisait déjà
+        l'autre famille de champs de cette modale, sans que celle-ci suive. */}
+      <Input
+        size="sm"
         type="number"
         inputMode="numeric"
         min={0}
@@ -390,7 +395,7 @@ function NumberField({
           const next = event.target.value.trim();
           onChange(next === '' ? null : Number(next));
         }}
-        className="w-24 rounded-lg border border-border px-2 py-1.5"
+        className="w-24 text-right"
       />
       <span className="text-muted-foreground">{suffix}</span>
     </label>
