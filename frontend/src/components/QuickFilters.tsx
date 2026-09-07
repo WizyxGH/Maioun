@@ -260,15 +260,23 @@ function FilterChip({
   readonly onRemove: () => void;
 }): React.JSX.Element {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-1 pr-1 pl-2.5 text-sm font-medium text-primary">
+    // LA CIBLE DU « × » FAIT 36 px, PAS 20. Elle est restée petite tant que les
+    // puces ne s'affichaient qu'après avoir posé un filtre : on ne la
+    // rencontrait qu'en connaissance de cause. Depuis qu'elles montrent aussi le
+    // budget et la surface d'ouverture, elle est là dès l'arrivée — et un
+    // bouton de 20 px se rate au doigt (§36). Le rond coloré du survol garde sa
+    // taille : c'est la ZONE SENSIBLE qui grandit, pas le dessin.
+    <span className="inline-flex min-h-9 items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 pr-0.5 pl-2.5 text-sm font-medium text-primary">
       {label}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Retirer le filtre ${label}`}
-        className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full hover:bg-primary/20"
+        className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full"
       >
-        ×
+        <span className="inline-flex size-5 items-center justify-center rounded-full hover:bg-primary/20">
+          ×
+        </span>
       </button>
     </span>
   );

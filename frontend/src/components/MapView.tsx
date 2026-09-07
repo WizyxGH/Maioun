@@ -178,15 +178,24 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
         la fenêtre BARRE D'ADRESSE MASQUÉE — donc plus grande qu'elle ne l'est
         vraiment. `dvh` suit la fenêtre réellement visible, et l'on retire ce
         que le reste de l'écran occupe — en-tête, barre de filtres et barre de
-        navigation basse, mesurés : environ vingt rem. Le plancher évite qu'une
-        carte devienne inutilisable sur un écran très bas (téléphone en
+        navigation basse, mesurés : environ vingt-trois rem. Le plancher évite
+        qu'une carte devienne inutilisable sur un écran très bas (téléphone en
         paysage).
+
+        VINGT REM NE SUFFISAIENT PLUS. La barre de puces s'affiche désormais dès
+        l'arrivée — elle montre le budget et la surface d'ouverture, qui
+        filtraient sans se montrer —, et cette rangée prend une trentaine de
+        pixels de plus. La carte dépassait alors le bas de l'écran de vingt et un
+        pixels sur un 390×740 : assez peu pour tenir de justesse sur un rendu et
+        déborder sur un autre, ce qui est exactement le genre de marge qu'il ne
+        faut pas laisser.
+
         Au-delà de `lg`, la carte est à côté de la liste et colle au haut de
         l'écran : elle n'a plus que l'en-tête au-dessus d'elle. */}
       <div
         ref={containerRef}
         data-testid="map-view"
-        className="border-border h-[max(260px,calc(100dvh-20rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-14rem))] lg:h-[calc(100dvh-7rem)]"
+        className="border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-[calc(100dvh-7rem)]"
       />
       {/* §17 : les annonces non localisables sont dites, pas placées au hasard. */}
       {located.length < listings.length && (
