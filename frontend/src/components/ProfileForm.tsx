@@ -11,6 +11,7 @@ import { MAX_GUARANTORS, TENANT_SITUATIONS } from '@rentfinder/shared';
 import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
+import { PhoneField } from './PhoneField.js';
 
 interface ProfileFormProps {
   readonly initial: TenantProfile | null;
@@ -104,13 +105,14 @@ export function ProfileForm({
           />
         </label>
 
+        {/* L'INDICATIF DU PAYS MANQUAIT. Le champ était un `type="tel"` nu : on
+            y tapait « 06 00 00 00 12 », ce qui convient tant qu'on écrit à une
+            agence niçoise depuis la France — et ne dit plus rien dès qu'on
+            candidate depuis l'étranger, ce qui est le cas de beaucoup de gens
+            qui cherchent à Nice. Le numéro partait tel quel dans le message. */}
         <label className={FIELD}>
           Téléphone
-          <input
-            type="tel"
-            value={profile.phone}
-            onChange={(event) => update('phone', event.target.value)}
-          />
+          <PhoneField value={profile.phone} onChange={(next) => update('phone', next)} />
         </label>
 
         {/* UN MENU, ET NON UN CHAMP LIBRE. Le message dit « Je suis {situation} » :
