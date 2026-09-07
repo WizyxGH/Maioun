@@ -1152,10 +1152,25 @@ export function createRepository(db: Database): Repository {
       return Number(result.rows[0]?.['n'] ?? 0);
     },
 
+    /**
+     * LES ABONNEMENTS DU COMPTE QUE LA COLLECTE SERT — et d'aucun autre.
+     *
+     * La collecte est MONO-COMPTE : elle lit les critères, les préférences et
+     * le rythme de `CURRENT_USER`, et `matches_criteria` est calculé pour
+     * lui seul. Sans ce filtre, ses alertes partaient vers TOUS les
+     * abonnements : un second compte recevait des notifications calculées sur
+     * le budget, la surface et les quartiers de quelqu'un d'autre.
+     *
+     * Ne rien recevoir vaut mieux que recevoir les alertes d'un autre : c'est
+     * visible, cela se signale, et cela ne révèle rien. Rendre la collecte
+     * multi-compte demande de scorer par utilisateur — un chantier à part
+     * entière, pas un filtre.
+     */
     async pushSubscriptions() {
-      const result = await db.execute(
-        'SELECT endpoint, p256dh, auth FROM push_subscriptions ORDER BY created_at',
-      );
+      const result = await db.execute({
+        sql: 'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ? ORDER BY created_at',
+        args: [CURRENT_USER],
+      });
       return result.rows.map((row) => ({
         endpoint: String(row['endpoint']),
         p256dh: String(row['p256dh']),

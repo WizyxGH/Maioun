@@ -16,7 +16,7 @@
 
 import { fileURLToPath } from 'node:url';
 import type { Guarantor, GuarantorKind, SearchCriteria, TenantProfile } from '@rentfinder/shared';
-import { MVP_CRITERIA } from '@rentfinder/shared';
+import { MVP_CRITERIA, districtBySlug } from '@rentfinder/shared';
 import type { TravelMode } from './core/geo.js';
 
 // Le profil locataire est défini dans `shared` : le frontend l'utilise aussi
@@ -86,6 +86,10 @@ export interface EditableFilters {
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   /** Meublé : tous, meublés seulement, ou non meublés seulement. */
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
+  /** Date d'emménagement souhaitée (`AAAA-MM-JJ`). */
+  readonly availableBy?: string;
+  /** Quartiers retenus, par leur slug canonique. */
+  readonly districts?: readonly string[];
 }
 
 /**
@@ -142,6 +146,29 @@ function validateFilters(input: unknown): EditableFilters {
       o['furnishedFilter'] === 'furnished' || o['furnishedFilter'] === 'unfurnished'
         ? o['furnishedFilter']
         : 'all',
+    /**
+     * CES DEUX-LÀ TOMBAIENT ICI, et le symptôme était sournois : la LISTE les
+     * appliquait — elle lit les critères directement depuis la base — mais les
+     * ALERTES non, parce qu'elles passent par cette validation, qui ne les
+     * connaissait pas. On voyait donc une liste correctement filtrée par
+     * quartier, et l'on recevait des notifications pour des quartiers qu'on
+     * avait exclus.
+     *
+     * La règle est simple et vaut pour la suite : tout ce que `traitConditions`
+     * sait filtrer doit survivre à cette fonction. Un test le vérifie
+     * désormais, pour que le prochain filtre ajouté ne se perde pas ici.
+     */
+    ...(typeof o['availableBy'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o['availableBy'])
+      ? { availableBy: o['availableBy'] }
+      : {}),
+    ...(Array.isArray(o['districts'])
+      ? {
+          districts: o['districts'].filter(
+            (slug): slug is string =>
+              typeof slug === 'string' && districtBySlug(slug) !== undefined,
+          ),
+        }
+      : {}),
   };
 }
 

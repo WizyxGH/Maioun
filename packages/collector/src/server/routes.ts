@@ -406,9 +406,13 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
   const row = result.rows[0];
   if (row === undefined) return null;
 
+  // LE JOURNAL EST PERSONNEL. Sans le filtre par compte, la fiche montrait les
+  // démarches de TOUS les comptes : qui avait écrit, quand, et le texte du
+  // message. La colonne existait depuis le passage au multi-compte, personne ne
+  // s'en servait ici.
   const attempts = await db.execute({
-    sql: 'SELECT * FROM contact_attempts WHERE listing_id = ? ORDER BY sent_at DESC',
-    args: [id],
+    sql: 'SELECT * FROM contact_attempts WHERE listing_id = ? AND user_id = ? ORDER BY sent_at DESC',
+    args: [id, userId],
   });
 
   /** Relit la liste JSON des pièces jointes, tolérante aux valeurs anciennes. */
@@ -570,7 +574,18 @@ async function listSources(db: Client): Promise<unknown> {
   };
 }
 
-async function getStats(db: Client): Promise<unknown> {
+/**
+ * @param userId Les chiffres d'ENGAGEMENT lui appartiennent : ce qu'il a vu,
+ *   archivé, suivi, et les messages qu'il a envoyés. Sans lui, la page
+ *   additionnait les gestes de tous les comptes — un compte y lisait l'activité
+ *   des autres, et ses propres chiffres étaient faux.
+ *
+ *   L'INVENTAIRE, LUI, EST COMMUN : le nombre d'annonces actives, louées ou
+ *   pertinentes décrit le marché, pas une personne. `matches_criteria` reste
+ *   toutefois calculé par la collecte pour SES critères — c'est la limite
+ *   connue du collecteur mono-compte, notée dans `docs/`.
+ */
+async function getStats(db: Client, userId: string): Promise<unknown> {
   // §33 : statistiques simples pour commencer, pas de modèle complexe.
   const [listings, engagement, contacts, outcomes, byTracking, bySource] = await Promise.all([
     db.execute(`
@@ -590,14 +605,39 @@ async function getStats(db: Client): Promise<unknown> {
              SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented
       FROM listings
     `),
-    db.execute(
-      'SELECT SUM(viewed) AS viewed, SUM(archived) AS archived FROM listings WHERE matches_criteria = 1',
-    ),
-    db.execute('SELECT COUNT(*) AS total FROM contact_attempts'),
-    db.execute('SELECT outcome, COUNT(*) AS n FROM contact_attempts GROUP BY outcome'),
-    db.execute(
-      'SELECT tracking, COUNT(*) AS n FROM listings WHERE matches_criteria = 1 GROUP BY tracking',
-    ),
+    db.execute({
+      sql: `SELECT SUM(us.viewed) AS viewed, SUM(us.archived) AS archived
+            FROM listing_user_state us
+            JOIN listings l ON l.id = us.listing_id
+            WHERE us.user_id = ? AND l.matches_criteria = 1`,
+      args: [userId],
+    }),
+    db.execute({
+      sql: 'SELECT COUNT(*) AS total FROM contact_attempts WHERE user_id = ?',
+      args: [userId],
+    }),
+    db.execute({
+      sql: 'SELECT outcome, COUNT(*) AS n FROM contact_attempts WHERE user_id = ? GROUP BY outcome',
+      args: [userId],
+    }),
+    /**
+     * LE SUIVI VIENT DE `listing_user_state`, et non plus de la colonne
+     * `tracking` de `listings`. Celle-ci est le vestige du temps où il n'y
+     * avait qu'un utilisateur : elle vaut « new » pour tout le monde, si bien
+     * que la répartition affichée était celle d'un seul compte — le premier à
+     * avoir touché la fiche.
+     *
+     * Les annonces sur lesquelles personne n'a rien fait n'ont PAS de ligne :
+     * elles comptent pour « new », qui est bien leur état.
+     */
+    db.execute({
+      sql: `SELECT COALESCE(us.tracking, 'new') AS tracking, COUNT(*) AS n
+            FROM listings l
+            LEFT JOIN listing_user_state us ON us.listing_id = l.id AND us.user_id = ?
+            WHERE l.matches_criteria = 1
+            GROUP BY COALESCE(us.tracking, 'new')`,
+      args: [userId],
+    }),
     db.execute(`
       SELECT source_id, COUNT(*) AS n FROM occurrences
       WHERE lifecycle IN ('active', 'possiblyInactive') GROUP BY source_id ORDER BY n DESC
@@ -774,19 +814,26 @@ async function recordContact(
     ? body.documents.filter((name): name is string => typeof name === 'string')
     : [];
 
+  // « Deuxième relance » se compte sur SES propres messages : le compte d'à
+  // côté ayant écrit deux fois, on annonçait une troisième relance à qui
+  // n'avait rien envoyé.
   const previous = await db.execute({
-    sql: 'SELECT COUNT(*) AS n FROM contact_attempts WHERE listing_id = ?',
-    args: [id],
+    sql: 'SELECT COUNT(*) AS n FROM contact_attempts WHERE listing_id = ? AND user_id = ?',
+    args: [id, userId],
   });
   const followUpIndex = Number(previous.rows[0]?.['n'] ?? 0);
 
   await db.execute({
+    // `user_id` MANQUAIT : la colonne retombait sur sa valeur par défaut, et
+    // toutes les démarches de tous les comptes s'enregistraient sous le même
+    // nom. Les lire correctement supposait d'abord de les écrire correctement.
     sql: `INSERT INTO contact_attempts
-            (id, listing_id, source_id, channel, trigger, sent_at, message, follow_up_index, outcome, documents, updated_at)
-          VALUES (?,?,?,?,'manual',?,?,?, 'pending', ?, ?)`,
+            (id, listing_id, user_id, source_id, channel, trigger, sent_at, message, follow_up_index, outcome, documents, updated_at)
+          VALUES (?,?,?,?,?,'manual',?,?,?, 'pending', ?, ?)`,
     args: [
       crypto.randomUUID(),
       id,
+      userId,
       body?.sourceId ?? 'unknown',
       channel,
       now,
@@ -1189,7 +1236,7 @@ export async function route(
   }
   if (resource === 'districts' && method === 'GET') return json(await listDistricts(db), cors);
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
-  if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);
+  if (resource === 'stats' && method === 'GET') return json(await getStats(db, userId), cors);
   if (resource === 'listings') {
     return handleListingsRoute(db, method, id, segments[3], url, request, cors, userId);
   }
