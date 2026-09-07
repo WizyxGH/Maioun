@@ -125,6 +125,17 @@ export function SavedSearchesPanel({
    */
   const [replacing, setReplacing] = useState<string | null>(null);
   /**
+   * La recherche qui vient d'être mise à jour, le temps d'un accusé.
+   *
+   * SANS LUI, LE BOUTON PASSE POUR MORT — et c'est ce qui a été signalé. Rien
+   * ne bouge après un remplacement : ni le nom, ni le compteur, et la
+   * description ne change que si les filtres courants diffèrent de ceux
+   * enregistrés. Or on met souvent à jour juste après avoir rejoué la
+   * recherche, donc sans écart visible. Le geste est le même que pour le
+   * partage, qui souffrait du même mal.
+   */
+  const [replaced, setReplaced] = useState<string | null>(null);
+  /**
    * La recherche dont le lien vient d'être copié, le temps d'un accusé.
    *
    * SANS RETOUR VISIBLE, un « copier » ne se distingue pas d'un bouton mort :
@@ -269,6 +280,11 @@ export function SavedSearchesPanel({
                               Annuler
                             </Button>
                           </>
+                        ) : replaced === search.id ? (
+                          <span className="text-good inline-flex items-center gap-1.5 text-[0.85rem] font-medium">
+                            <Check aria-hidden="true" className="size-4" />
+                            Réglages remplacés
+                          </span>
                         ) : replacing === search.id ? (
                           <>
                             <Button
@@ -277,6 +293,8 @@ export function SavedSearchesPanel({
                               onClick={() => {
                                 onUpdate(search.id);
                                 setReplacing(null);
+                                setReplaced(search.id);
+                                window.setTimeout(() => setReplaced(null), 2500);
                               }}
                             >
                               Remplacer les réglages
