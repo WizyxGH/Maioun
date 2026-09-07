@@ -370,6 +370,30 @@ export const ONBOARDING_SETTING = 'onboarding';
  * comme le reste : un utilisateur qui a lu les nouveautés sur son ordinateur
  * n'a pas à les relire sur son téléphone.
  */
+/**
+ * Clé du PROFIL LOCATAIRE dans `app_settings`.
+ *
+ * IL NE VIVAIT QUE DANS LE NAVIGATEUR, et c'était un choix assumé : « un dépôt
+ * public ne peut pas divulguer une donnée qu'aucun de ses composants ne
+ * reçoit ». Ce raisonnement tenait du temps où le site parlait directement à
+ * Turso, avec un jeton dans la page et un seul utilisateur.
+ *
+ * IL NE TIENT PLUS, pour deux raisons. La première est que le compte est
+ * devenu la mesure de tout : on s'inscrit sur l'ordinateur, on cherche sur le
+ * téléphone, et un profil qui ne suit pas le compte se ressaisit à chaque
+ * appareil — quand il ne disparaît pas au premier nettoyage du navigateur. La
+ * seconde est que les PIÈCES du dossier — fiche de paie, pièce d'identité —
+ * sont déjà déposées côté serveur, et qu'elles sont incomparablement plus
+ * sensibles qu'un nom et un revenu. Garder le profil au chaud dans le
+ * navigateur ne protégeait donc plus rien : cela faisait seulement perdre le
+ * profil.
+ *
+ * CE QUI NE CHANGE PAS : rien n'est envoyé à une agence automatiquement (§24).
+ * Les messages restent composés sur l'appareil, et c'est l'utilisateur qui les
+ * envoie.
+ */
+export const TENANT_PROFILE_SETTING = 'tenantProfile';
+
 export const CHANGELOG_SETTING = 'changelogSeen';
 
 /**

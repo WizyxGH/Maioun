@@ -53,17 +53,17 @@ EMAIL_FROM = ""
 # R2 aurait été le choix naturel pour des fichiers, mais il exige d'enregistrer
 # une carte AVANT de créer le moindre seau, y compris pour son palier gratuit.
 #
-# Le bloc reste commenté parce qu'un binding KV a besoin de l'IDENTIFIANT d'un
-# espace qui doit déjà exister — sans quoi le déploiement échoue. Deux gestes,
-# dans cet ordre :
+# L'ESPACE EXISTE DEPUIS LE 2026-09-07, et il a manqué longtemps. Le bloc était
+# resté commenté — un binding KV exige l'IDENTIFIANT d'un espace déjà créé, sans
+# quoi le déploiement échoue — si bien que /api/documents répondait 501 : l'écran
+# du dossier acceptait des fichiers que rien ne conservait. On croyait déposer
+# ses pièces ; elles ne quittaient jamais le navigateur.
 #
-#   npx wrangler kv namespace create DOCUMENTS
-#   puis recopier l'`id` affiché ci-dessous, décommenter, et redéployer.
+# L'identifiant n'est PAS un secret : il ne désigne qu'un espace, et seul le
+# Worker qui le déclare peut y écrire.
 #
-# Sans ce binding, l'API répond 501 sur /api/documents et l'écran du dossier ne
-# s'affiche pas — plutôt que d'accepter des fichiers pour les perdre. Tout le
-# reste du site fonctionne à l'identique.
-#
-# [[kv_namespaces]]
-# binding = "DOCUMENTS"
-# id = "à remplacer par l'identifiant affiché"
+#   npx wrangler kv namespace create DOCUMENTS   (si l'espace doit être recréé)
+
+[[kv_namespaces]]
+binding = "DOCUMENTS"
+id = "de510f7eb71d40c9814b440d0e2b202e"

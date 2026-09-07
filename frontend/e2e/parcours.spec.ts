@@ -264,7 +264,7 @@ test('les alertes se règlent depuis leur propre écran (§29)', async ({ page }
   await ouvrirReglage(page, 'Notifications');
   await expect(page).toHaveURL(/\/settings\/notifications$/);
 
-  const alertes = page.getByRole('switch', { name: 'Recevoir des alertes' });
+  const alertes = page.getByRole('switch', { name: 'Alertes sur cet appareil' });
   await expect(alertes).toBeVisible();
   // Rien ne sonne sans consentement explicite.
   await expect(alertes).toHaveAttribute('aria-checked', 'false');

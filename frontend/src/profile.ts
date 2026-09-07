@@ -1,14 +1,24 @@
 /**
  * Profil locataire côté navigateur (§25, §26).
  *
- * CHOIX DE CONCEPTION. Le profil est stocké dans le `localStorage` du
- * navigateur, et nulle part ailleurs. Il ne transite ni par l'API, ni par la
- * base. Le message de contact est composé localement, sur l'appareil de
- * l'utilisateur.
+ * CE FICHIER NE FAIT PLUS AUTORITÉ. Le profil vivait ici et NULLE PART
+ * ailleurs — ni API, ni base —, au nom d'une garantie simple à vérifier : un
+ * dépôt public ne peut pas divulguer une donnée qu'aucun de ses composants ne
+ * reçoit.
  *
- * Conséquence assumée : le profil doit être ressaisi sur chaque appareil.
- * C'est le prix d'une garantie simple à vérifier — un dépôt public ne peut pas
- * divulguer une donnée qu'aucun de ses composants ne reçoit.
+ * DEUX CHOSES ONT CHANGÉ. Le compte est devenu la mesure de tout : on
+ * s'inscrit sur l'ordinateur, on cherche sur le téléphone, et un profil qui ne
+ * suit pas le compte se ressaisit à chaque appareil — quand il ne disparaît
+ * pas au premier nettoyage du navigateur. Et les PIÈCES du dossier — fiche de
+ * paie, pièce d'identité — sont déjà déposées côté serveur, incomparablement
+ * plus sensibles qu'un nom et un revenu. Garder le profil au chaud ici ne
+ * protégeait donc plus rien ; cela faisait seulement le perdre.
+ *
+ * IL RESTE UN CACHE, et c'est utile : le profil s'affiche sans attendre le
+ * réseau, et survit à une API muette. La base tranche dès qu'elle répond.
+ *
+ * CE QUI NE CHANGE PAS : le message de contact est composé sur l'appareil, et
+ * rien n'est envoyé à une agence automatiquement (§24).
  */
 
 import type { Guarantor, GuarantorKind, TenantProfile } from '@rentfinder/shared';

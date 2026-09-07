@@ -39,6 +39,8 @@ import {
   CHANGELOG_SETTING,
   ONBOARDING_SETTING,
   REFERENCE_POINTS_SETTING,
+  TENANT_PROFILE_SETTING,
+  type TenantProfile,
   parseNotificationPreferences,
   type NotificationPreferences,
   SAVED_SEARCHES_SETTING,
@@ -778,6 +780,32 @@ export async function saveSavedSearches(searches: readonly SavedSearch[]): Promi
 /** `true` si cet accès sait conserver une recherche enregistrée. */
 export function savedSearchesAvailable(): boolean {
   return settingsAvailable();
+}
+
+/**
+ * Le profil locataire, ATTACHÉ AU COMPTE.
+ *
+ * IL NE VIVAIT QUE DANS LE NAVIGATEUR. On s'inscrivait sur l'ordinateur, on
+ * cherchait sur le téléphone, et il fallait tout ressaisir — quand un simple
+ * nettoyage du navigateur ne l'avait pas déjà emporté. Le stockage local reste
+ * en place, mais comme CACHE : il fait apparaître le profil sans attendre le
+ * réseau, et tient lieu de secours quand l'API ne répond pas.
+ *
+ * `null` VEUT DIRE « RIEN EN BASE », et non « erreur » : c'est ce qui permet à
+ * l'appelant de garder ce que le navigateur avait, plutôt que d'effacer un
+ * profil parce qu'une requête a échoué.
+ */
+export async function fetchTenantProfile(): Promise<TenantProfile | null> {
+  return readSetting<TenantProfile>(TENANT_PROFILE_SETTING);
+}
+
+export async function saveTenantProfile(profile: TenantProfile): Promise<void> {
+  await writeSetting(TENANT_PROFILE_SETTING, profile);
+}
+
+/** Efface le profil côté compte. Le navigateur est vidé à part. */
+export async function clearTenantProfile(): Promise<void> {
+  await writeSetting(TENANT_PROFILE_SETTING, null);
 }
 
 /**

@@ -153,23 +153,30 @@ export function NotificationSettingsPanel({
       {/* LE GESTE UNIQUE D'ABORD. Sous le capot il y a deux mécanismes — la
         préférence de ce navigateur pour le bandeau, et l'abonnement que le
         navigateur conserve pour le site fermé. Ils s'allumaient séparément, ce
-        qui demandait de comprendre la plomberie pour être prévenu. */}
+        qui demandait de comprendre la plomberie pour être prévenu.
+
+        IL S'APPELAIT « RECEVOIR DES ALERTES », et on le prenait pour un doublon
+        de « Nouvelles annonces », juste en dessous. Les deux ne règlent pourtant
+        pas la même chose : celui-ci décide du CANAL sur cet appareil-ci — il
+        n'existe que dans ce navigateur —, ceux d'en dessous décident des SUJETS,
+        et suivent le compte partout. Deux intitulés qui commençaient pareil
+        cachaient cette différence : le titre dit maintenant de quoi il parle. */}
       <div className="border-border flex items-center gap-3 rounded-xl border p-3">
         <span className="min-w-0 flex-1">
-          <span className="block font-medium">Recevoir des alertes</span>
+          <span className="block font-medium">Alertes sur cet appareil</span>
           <span className="text-muted-foreground block text-sm">
             {busy
               ? 'Un instant…'
               : on
                 ? 'Bandeau dans la page, et notification même site fermé.'
-                : 'Aucune alerte ne vous parviendra.'}
+                : 'Aucune alerte ne vous parviendra sur cet appareil.'}
           </span>
         </span>
         <Switch
           checked={on}
           disabled={busy}
           onCheckedChange={() => void toggleMaster()}
-          aria-label="Recevoir des alertes"
+          aria-label="Alertes sur cet appareil"
         />
       </div>
 
@@ -183,7 +190,7 @@ export function NotificationSettingsPanel({
       )}
 
       {on && (
-        <SettingsGroup title="Ce dont vous voulez être prévenu">
+        <SettingsGroup title="Ce dont vous voulez être prévenu, sur tous vos appareils">
           {KINDS.map(({ key, label, hint, Icon, comingSoon }) => (
             <SettingsRow
               key={key}

@@ -41,6 +41,9 @@ import {
   savedSearchesAvailable,
   setFavorite,
   updateTracking,
+  fetchTenantProfile,
+  saveTenantProfile,
+  clearTenantProfile,
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
@@ -655,6 +658,28 @@ export function App(): React.JSX.Element {
   // partagée s'impose, et la bascule n'a plus lieu d'être.
   const wideScreen = useWideScreen();
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
+
+  /**
+   * Enregistre le profil DES DEUX CÔTÉS : le navigateur pour l'afficher tout
+   * de suite, le compte pour le retrouver ailleurs.
+   *
+   * IL NE VIVAIT QUE DANS LE NAVIGATEUR, et se perdait donc à chaque
+   * changement d'appareil — ou au premier nettoyage. L'échec réseau n'est PAS
+   * remonté : le profil est déjà écrit localement, il n'est pas perdu, et une
+   * erreur rouge sur un formulaire qu'on vient de valider ferait croire le
+   * contraire. La prochaine sauvegarde rattrapera.
+   */
+  const rememberProfile = (next: TenantProfile): void => {
+    saveProfile(next);
+    setProfile(next);
+    void saveTenantProfile(next).catch(() => undefined);
+  };
+
+  const forgetProfile = (): void => {
+    clearProfile();
+    setProfile(null);
+    void clearTenantProfile().catch(() => undefined);
+  };
   const [onboardingDone, setOnboardingDone] = useState<boolean | undefined>(undefined);
   /** Nouveautés publiées depuis la dernière visite. Vide = rien à annoncer. */
   const [news, setNews] = useState<readonly ChangelogEntry[]>([]);
@@ -961,6 +986,32 @@ export function App(): React.JSX.Element {
     markAlertsSeen(seenAt);
     setAlertsSeenAt(seenAt);
   }, [view]);
+
+  /**
+   * Le profil locataire suit le COMPTE, et non l'appareil.
+   *
+   * Trois cas, et le troisième est celui qui compte : la base a un profil, on
+   * le prend ; elle n'en a pas mais le navigateur si, on le lui donne — c'est
+   * la reprise silencieuse des profils saisis avant que cette synchronisation
+   * n'existe ; ni l'un ni l'autre, il n'y a rien à faire.
+   *
+   * UN ÉCHEC NE VIDE RIEN. Rendre `null` sur une requête ratée effacerait à
+   * l'écran un profil parfaitement valide, resté dans le navigateur.
+   */
+  useEffect(() => {
+    if (currentUser === undefined || currentUser === null) return;
+    void fetchTenantProfile()
+      .then((stored) => {
+        if (stored !== null) {
+          saveProfile(stored);
+          setProfile(stored);
+          return;
+        }
+        const local = loadProfile();
+        if (local !== null) void saveTenantProfile(local).catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser === undefined || currentUser === null) return;
@@ -1413,10 +1464,7 @@ export function App(): React.JSX.Element {
       return (
         <OnboardingPanel
           profile={profile}
-          onSaveProfile={(next) => {
-            saveProfile(next);
-            setProfile(next);
-          }}
+          onSaveProfile={rememberProfile}
           onFinish={() => {
             setOnboardingDone(true);
             // L'écran se referme tout de suite ; la marque part en base
@@ -1660,8 +1708,7 @@ export function App(): React.JSX.Element {
             <ProfileForm
               initial={profile}
               onSave={(next) => {
-                saveProfile(next);
-                setProfile(next);
+                rememberProfile(next);
                 setEditingProfile(false);
                 // On revient d'où l'on venait : le profil n'est presque jamais
                 // une fin en soi, il sert à écrire un message.
@@ -1672,8 +1719,7 @@ export function App(): React.JSX.Element {
                 back();
               }}
               onClear={() => {
-                clearProfile();
-                setProfile(null);
+                forgetProfile();
                 setEditingProfile(false);
               }}
             />
