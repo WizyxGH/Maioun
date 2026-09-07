@@ -16,6 +16,12 @@ const buttonVariants = cva(
         default: 'bg-primary font-semibold text-primary-foreground hover:bg-primary/90',
         outline: 'border border-border bg-card text-foreground hover:border-primary',
         ghost: 'text-primary hover:bg-primary/10',
+        // UN GESTE SANS RETOUR NE DOIT PAS RESSEMBLER AUX AUTRES. Elle
+        // n'existait pas : la suppression d'un compte se serait présentée
+        // comme un enregistrement de préférences. `--color-bad` est le rouge
+        // que le projet emploie déjà pour ce qui va mal — pas l'accent de la
+        // marque, qui est celui des actions qu'on souhaite voir cliquer.
+        destructive: 'bg-bad font-semibold text-white hover:opacity-90',
       },
       size: {
         default: 'px-3.5 py-2',

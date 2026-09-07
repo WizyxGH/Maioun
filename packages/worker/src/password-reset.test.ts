@@ -24,7 +24,10 @@ function fakeDb(users: Row[]): Client & { resets: Row[]; passwords: Row[] } {
 
   const run = (sql: string, args: unknown[]): Row[] => {
     if (sql.includes('SELECT id, email FROM users')) {
-      return users.filter((user) => user['login'] === args[0]);
+      // `email_verified = 1` FAIT PARTIE DE LA REQUÊTE : le double doit
+      // refuser ce que la vraie base refuse, sinon le test valide une règle
+      // qui n'existe pas.
+      return users.filter((user) => user['login'] === args[0] && user['email_verified'] === 1);
     }
     if (sql.includes('SELECT user_id, expires_at, used_at FROM password_resets')) {
       return resets.filter((reset) => reset['token_hash'] === args[0]);
@@ -72,8 +75,10 @@ function fakeDb(users: Row[]): Client & { resets: Row[]; passwords: Row[] } {
 
 const NOW = Date.parse('2026-09-05T12:00:00.000Z');
 const USERS: Row[] = [
-  { id: 'moi', login: 'florian', email: 'florian@example.invalid' },
-  { id: 'sans-adresse', login: 'muet', email: null },
+  { id: 'moi', login: 'florian', email: 'florian@example.invalid', email_verified: 1 },
+  { id: 'sans-adresse', login: 'muet', email: null, email_verified: 1 },
+  // Inscrit, mais n'a jamais suivi le lien de confirmation.
+  { id: 'non-prouve', login: 'douteux', email: 'quelquun@example.invalid', email_verified: 0 },
 ];
 
 describe('jetons', () => {
@@ -119,6 +124,15 @@ describe('openReset', () => {
     const db = fakeDb(USERS);
     expect(await openReset(db, 'personne', NOW)).toBeNull();
     expect(await openReset(db, 'muet', NOW)).toBeNull();
+    expect(db.resets).toHaveLength(0);
+  });
+
+  it('n’écrit pas à une adresse NON CONFIRMÉE', async () => {
+    // Une adresse saisie à l'inscription n'est qu'une chaîne : rien ne dit
+    // qu'elle appartient à celui qui l'a tapée. Y envoyer un lien de
+    // réinitialisation offrirait le compte à qui a saisi l'adresse d'un autre.
+    const db = fakeDb(USERS);
+    expect(await openReset(db, 'douteux', NOW)).toBeNull();
     expect(db.resets).toHaveLength(0);
   });
 

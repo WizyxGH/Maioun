@@ -366,6 +366,93 @@ export async function fetchAlertAddress(): Promise<string | null> {
 }
 
 /**
+ * Inscription.
+ *
+ * LE MESSAGE DU SERVEUR EST REPRIS TEL QUEL, contrairement à toutes les autres
+ * routes. Ailleurs, « la requête a échoué (400) » suffit : l'utilisateur n'a
+ * rien à corriger. Ici, le 400 dit précisément ce qui coince — identifiant
+ * pris, adresse jetable, mot de passe trop court — et c'est la seule chose qui
+ * permette de s'inscrire au deuxième essai plutôt qu'au dixième.
+ *
+ * `confirmationSent` DIT LA VÉRITÉ SUR L'ENVOI. Le compte existe dans les deux
+ * cas ; ce qui change, c'est si un message est parti. Annoncer « vérifiez vos
+ * e-mails » quand l'envoi n'est pas configuré ferait attendre indéfiniment un
+ * message qui ne viendra jamais (§17).
+ */
+export async function signup(input: {
+  readonly login: string;
+  readonly email: string;
+  readonly password: string;
+}): Promise<{ ok: true; confirmationSent: boolean } | { ok: false; error: string }> {
+  if (DEMO || API_URL === '') {
+    return { ok: false, error: "Cette installation n'accepte pas d'inscription." };
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/api/signup`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return { ok: false, error: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.' };
+  }
+
+  if (response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { confirmationSent?: unknown };
+    return { ok: true, confirmationSent: body.confirmationSent === true };
+  }
+  const body = (await response.json().catch(() => ({}))) as { error?: unknown };
+  const message = typeof body.error === 'string' ? body.error : null;
+  return {
+    ok: false,
+    error: message ?? "L'inscription n'a pas abouti. Réessayez dans un instant.",
+  };
+}
+
+/**
+ * Confirme une adresse à partir du jeton reçu par e-mail.
+ *
+ * `invalid` couvre jeton inconnu, expiré ou déjà servi : le serveur ne les
+ * distingue pas — le faire apprendrait à qui essaie au hasard qu'un jeton a
+ * existé — et l'écran n'a de toute façon qu'une chose à proposer.
+ */
+export async function confirmEmailAddress(token: string): Promise<'done' | 'invalid' | 'error'> {
+  if (DEMO || API_URL === '') return 'error';
+  try {
+    await request('/api/signup/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    return 'done';
+  } catch (caught) {
+    return caught instanceof ApiError && caught.status === 400 ? 'invalid' : 'error';
+  }
+}
+
+/**
+ * Supprime le compte et tout ce qui s'y rattache (RGPD, article 17).
+ *
+ * LE MOT DE PASSE EST REDEMANDÉ alors qu'on est déjà connecté : un ordinateur
+ * laissé ouvert ne doit pas suffire à effacer un compte entier.
+ */
+export async function deleteAccount(
+  password: string,
+): Promise<'done' | 'wrong-password' | 'error'> {
+  if (DEMO || API_URL === '') return 'error';
+  try {
+    await request('/api/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    });
+    return 'done';
+  } catch (caught) {
+    return caught instanceof ApiError && caught.status === 401 ? 'wrong-password' : 'error';
+  }
+}
+
+/**
  * Demande un lien de réinitialisation.
  *
  * `sent` QUOI QU'IL ARRIVE quand la fonctionnalité est configurée, même pour un

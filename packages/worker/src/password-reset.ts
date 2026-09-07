@@ -110,8 +110,12 @@ export async function openReset(
   login: string,
   nowMs: number,
 ): Promise<PendingReset | null> {
+  // `email_verified` EST DANS LA CONDITION, et c'est le cœur du garde-fou.
+  // Une adresse saisie à l'inscription n'est qu'une chaîne : rien ne dit
+  // qu'elle appartient à celui qui l'a tapée. Écrire à une adresse non prouvée,
+  // c'est offrir le compte à qui a saisi l'adresse d'un autre.
   const found = await db.execute({
-    sql: 'SELECT id, email FROM users WHERE login = ? LIMIT 1',
+    sql: 'SELECT id, email FROM users WHERE login = ? AND email_verified = 1 LIMIT 1',
     args: [login.trim()],
   });
   const row = found.rows[0];

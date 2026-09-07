@@ -29,6 +29,7 @@ import {
   MapPin,
   Palette,
   Radio,
+  ShieldCheck,
   User,
   type IconComponent,
 } from './icons.js';
@@ -60,6 +61,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Dossier de candidature',
         hint: 'Déposez vos pièces une fois, joignez-les partout.',
         Icon: FileText,
+      },
+      {
+        // IL N'Y AVAIT AUCUNE PORTE DE SORTIE : pas un bouton de déconnexion
+        // dans toute l'interface, et supprimer son compte demandait quelqu'un
+        // ayant accès à la base. Le RGPD en fait un droit, pas une option.
+        key: 'account',
+        label: 'Votre compte',
+        hint: 'Se déconnecter, ou supprimer définitivement votre compte.',
+        Icon: ShieldCheck,
       },
     ],
   },

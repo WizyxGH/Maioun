@@ -44,6 +44,9 @@ export type View =
   | 'alerts'
   | 'forgot'
   | 'reset'
+  | 'signup'
+  | 'confirm'
+  | 'account'
   | 'onboarding';
 
 /**
@@ -79,13 +82,16 @@ const VIEW_PRESENCE: Record<View, true> = {
   alerts: true,
   forgot: true,
   reset: true,
+  signup: true,
+  confirm: true,
+  account: true,
   onboarding: true,
 };
 
 export const ALL_VIEWS: readonly View[] = Object.keys(VIEW_PRESENCE) as View[];
 
 /** Les écrans qui regardent quelque chose : leur adresse porte un identifiant. */
-export const VIEWS_WITH_ID: readonly View[] = ['detail', 'source', 'agency', 'reset'];
+export const VIEWS_WITH_ID: readonly View[] = ['detail', 'source', 'agency', 'reset', 'confirm'];
 
 /** Où l'on se trouve : un écran, et ce qu'il regarde. */
 export interface Route {
@@ -113,6 +119,7 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   agencies: 'agencies',
   welcome: 'onboarding',
   forgot: 'forgot',
+  signup: 'signup',
 };
 
 /** Sous-écrans des paramètres : `/settings/<clé>`. */
@@ -124,6 +131,7 @@ const SETTINGS_ROUTES: Readonly<Record<string, View>> = {
   notifications: 'notifications',
   forwarding: 'forwarding',
   theme: 'theme',
+  account: 'account',
 };
 
 const SETTINGS_PATHS: Readonly<Partial<Record<View, string>>> = Object.fromEntries(
@@ -183,6 +191,9 @@ export function routeFromPath(pathname: string): Route {
   // Le jeton de réinitialisation voyage dans le chemin : il arrive d'un lien
   // reçu par e-mail, et le site n'a rien d'autre pour savoir qui le présente.
   if (first === 'reset' && second !== undefined) return { view: 'reset', id: second };
+  // Même raison que pour `reset` : le jeton arrive d'un lien reçu par e-mail,
+  // et le site n'a rien d'autre pour savoir quelle adresse il confirme.
+  if (first === 'confirm' && second !== undefined) return { view: 'confirm', id: second };
   if (first === 'sources' && second !== undefined) return { view: 'source', id: second };
 
   if (first === 'settings') {
@@ -205,6 +216,7 @@ export function pathFromRoute(route: Route): string {
   if (view === 'detail') return listingPath(id ?? '');
   if (view === 'agency') return `/agency/${encodeURIComponent(id ?? '')}`;
   if (view === 'reset') return `/reset/${encodeURIComponent(id ?? '')}`;
+  if (view === 'confirm') return `/confirm/${encodeURIComponent(id ?? '')}`;
   if (view === 'source') return `/sources/${encodeURIComponent(id ?? '')}`;
   if (view === 'profile') return '/settings';
 

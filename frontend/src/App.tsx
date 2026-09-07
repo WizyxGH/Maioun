@@ -62,6 +62,9 @@ import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
 import { ForgotPassword } from './components/ForgotPassword.js';
 import { ResetPassword } from './components/ResetPassword.js';
+import { SignupScreen } from './components/SignupScreen.js';
+import { ConfirmEmail } from './components/ConfirmEmail.js';
+import { AccountPanel } from './components/AccountPanel.js';
 import { UnconfiguredScreen } from './components/UnconfiguredScreen.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
@@ -1335,6 +1338,20 @@ export function App(): React.JSX.Element {
    * dépassait sinon le seuil de complexité, et ces trois-là forment une seule
    * question — « peut-on afficher l'application ? ».
    */
+  /**
+   * Ce qu'il se passe une fois la session ouverte, quel qu'en soit le chemin.
+   *
+   * `'inconnu'` est posé AVANT la relecture pour que l'application apparaisse
+   * tout de suite : attendre `/api/me` laisserait l'écran de connexion à
+   * l'image un instant de plus, juste après l'avoir validé.
+   */
+  const enterSession = (): void => {
+    setCurrentUser('inconnu');
+    void fetchCurrentUser()
+      .then(setCurrentUser)
+      .catch(() => setCurrentUser(null));
+  };
+
   const entranceScreen = (): React.JSX.Element | null => {
     // AVANT TOUT LE RESTE : sans adresse d'API, il n'y a rien à charger et rien
     // à connecter. L'application se croyait connectée et affichait une liste
@@ -1350,6 +1367,15 @@ export function App(): React.JSX.Element {
       return <ResetPassword token={route.id ?? ''} onDone={() => replace({ view: 'home' })} />;
     }
 
+    // MÊME RAISON POUR LA CONFIRMATION D'ADRESSE : on suit ce lien depuis sa
+    // boîte, souvent sur un autre appareil que celui de l'inscription. Exiger
+    // une session ici bloquerait la moitié des gens sur l'écran de connexion,
+    // pour un geste qui n'en a pas besoin — le jeton suffit à dire quelle
+    // adresse est confirmée.
+    if (view === 'confirm') {
+      return <ConfirmEmail token={route.id ?? ''} onDone={() => replace({ view: 'home' })} />;
+    }
+
     // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
     // quelqu'un déjà connecté. Passé une seconde, en revanche, le blanc n'est
     // plus une transition : il faut dire qu'il se passe quelque chose.
@@ -1359,15 +1385,26 @@ export function App(): React.JSX.Element {
       if (view === 'forgot') {
         return <ForgotPassword onBack={() => replace({ view: 'home' })} />;
       }
+      // L'INSCRIPTION OUVRE DÉJÀ LA SESSION : le serveur pose le cookie avec
+      // le compte. On relit donc `/api/me` exactement comme après une
+      // connexion, plutôt que de renvoyer vers l'écran de connexion pour y
+      // retaper ce qu'on vient de saisir.
+      if (view === 'signup') {
+        return (
+          <SignupScreen
+            onBack={() => replace({ view: 'home' })}
+            onSignedIn={() => {
+              replace({ view: 'home' });
+              enterSession();
+            }}
+          />
+        );
+      }
       return (
         <LoginScreen
           onForgot={() => go({ view: 'forgot' })}
-          onSignedIn={() => {
-            setCurrentUser('inconnu');
-            void fetchCurrentUser()
-              .then(setCurrentUser)
-              .catch(() => setCurrentUser(null));
-          }}
+          onSignup={() => go({ view: 'signup' })}
+          onSignedIn={enterSession}
         />
       );
     }
@@ -1491,6 +1528,21 @@ export function App(): React.JSX.Element {
         <Shell {...shell}>
           <BackToSettings onBack={() => setView('profile')} />
           <DocumentsSection profile={profile} />
+        </Shell>
+      );
+    }
+    if (view === 'account') {
+      return (
+        <Shell {...shell}>
+          <AccountPanel
+            onBack={() => setView('profile')}
+            onSignedOut={() => {
+              // La session n'existe plus : on repart de l'accueil, et
+              // `currentUser` à `null` ramène l'écran de connexion.
+              setCurrentUser(null);
+              replace({ view: 'home' });
+            }}
+          />
         </Shell>
       );
     }

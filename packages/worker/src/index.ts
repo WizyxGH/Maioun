@@ -28,6 +28,15 @@ import { forbiddenOrigin } from './origin.js';
 import { alertAddress } from './alert-address.js';
 import { mailerConfigured, sendEmail } from './mailer.js';
 import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
+import {
+  confirmEmail,
+  confirmEmailBody,
+  confirmLink,
+  createAccount,
+  deleteAccount,
+  signupProblemMessage,
+} from './signup.js';
+import { allow, bucketFor, callerKey, LIMITS } from './rate-limit.js';
 
 export interface Env {
   /** URL `libsql://…` de la base. Secret de la plateforme, jamais publié. */
@@ -241,6 +250,16 @@ async function passwordRoute(
     if (!mailerConfigured(env) || siteUrl === '') {
       return json({ error: 'unconfigured' }, cors, 501);
     }
+    // LA PLUS VICIEUSE DES TROIS ROUTES : elle n'attaque pas le service, elle
+    // attaque QUELQU'UN. Connaître un identifiant suffirait à noyer la boîte de
+    // son propriétaire — et les messages partant de chez nous, c'est notre
+    // expéditeur qui finirait signalé comme indésirable.
+    const bucket = await bucketFor('forgot', callerKey(request));
+    if (!(await allow(db, bucket, LIMITS.forgot, Date.now()))) {
+      // 204 comme toujours : dire « trop de demandes » apprendrait déjà
+      // quelque chose. Le silence est la même réponse que d'habitude.
+      return new Response(null, { status: 204, headers: cors });
+    }
     const body = (await request.json().catch(() => ({}))) as { login?: unknown };
     const login = typeof body.login === 'string' ? body.login : '';
     if (login.trim() !== '') {
@@ -273,6 +292,124 @@ async function passwordRoute(
   return json({ error: 'Route inconnue' }, cors, 404);
 }
 
+/**
+ * Inscription (§26).
+ *
+ * TROIS BARRIÈRES, ET AUCUNE N'EST DE TROP :
+ *
+ *   1. LE DÉBIT. Trois inscriptions par heure et par origine. Sans cela, un
+ *      script en crée mille en une minute et épuise le palier gratuit de la
+ *      base — le service s'arrête alors pour tout le monde, ce qui est
+ *      exactement le but recherché par qui s'y essaie.
+ *
+ *   2. L'ADRESSE. Forme réelle, domaine qui existe, pas de boîte jetable — un
+ *      compte adossé à une adresse de dix minutes n'a pas de propriétaire.
+ *
+ *   3. LA CONFIRMATION. La seule preuve qui vaille. Le compte est utilisable
+ *      tout de suite, mais son adresse ne sert à rien tant qu'elle n'est pas
+ *      confirmée : la réinitialisation de mot de passe la refuse.
+ *
+ * ON CONNECTE IMMÉDIATEMENT. Renvoyer vers l'écran de connexion après une
+ * inscription réussie fait retaper ce qu'on vient de saisir, sans rien
+ * protéger : on vient de prouver qu'on connaît ce mot de passe.
+ */
+async function signup(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const bucket = await bucketFor('signup', callerKey(request));
+  if (!(await allow(db, bucket, LIMITS.signup, Date.now()))) {
+    return json({ error: 'Trop de tentatives. Réessayez dans une heure.' }, cors, 429);
+  }
+
+  const body = (await request.json().catch(() => ({}))) as {
+    login?: unknown;
+    email?: unknown;
+    password?: unknown;
+  };
+  const login = typeof body.login === 'string' ? body.login : '';
+  const email = typeof body.email === 'string' ? body.email : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  const created = await createAccount(db, { login, email, password }, Date.now());
+  if (!created.ok) return json({ error: signupProblemMessage(created.problem) }, cors, 400);
+
+  // LE MESSAGE EST SECONDAIRE, le compte existe déjà. Un envoi impossible —
+  // pas encore configuré, fournisseur en panne — ne doit pas transformer une
+  // inscription réussie en échec : l'adresse restera simplement à confirmer.
+  const siteUrl = env.SITE_URL ?? '';
+  let confirmationSent = false;
+  if (mailerConfigured(env) && siteUrl !== '') {
+    confirmationSent = await sendEmail(env, {
+      to: created.account.email,
+      subject: 'Confirmez votre adresse Maïoun',
+      text: confirmEmailBody(confirmLink(siteUrl, created.account.token)),
+    });
+  }
+
+  const token = await issueSession(created.account.userId, env.SESSION_SECRET, Date.now());
+  return new Response(JSON.stringify({ userId: created.account.userId, confirmationSent }), {
+    status: 201,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Set-Cookie': sessionCookie(token),
+      ...cors,
+    },
+  });
+}
+
+/**
+ * Suppression du compte (RGPD, article 17 — « droit à l'effacement »).
+ *
+ * LE MOT DE PASSE EST REDEMANDÉ, alors qu'on est déjà connecté. Ce n'est pas
+ * une formalité : un ordinateur laissé ouvert, un lien piégé, et un compte
+ * entier disparaît sans retour. Redemander le mot de passe est la seule chose
+ * qui distingue le propriétaire de quiconque a la main sur son écran.
+ *
+ * ELLE EST IMMÉDIATE ET SANS RETOUR. Pas de corbeille, pas de délai de grâce :
+ * effacer veut dire effacer. Ce que l'écran doit dire clairement AVANT, parce
+ * qu'après il n'y a plus personne à qui le dire.
+ */
+async function deleteAccountRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response> {
+  const { verifyPassword } = await import('./auth.js');
+  const body = (await request.json().catch(() => ({}))) as { password?: unknown };
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  const found = await db.execute({
+    sql: 'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
+    args: [userId],
+  });
+  const stored = found.rows[0]?.['password_hash'];
+  if (typeof stored !== 'string' || !(await verifyPassword(password, stored))) {
+    return json({ error: 'Mot de passe incorrect.' }, cors, 401);
+  }
+
+  // Les pièces du dossier vivent dans le stockage clé-valeur, hors de la base :
+  // les oublier laisserait des fiches de paie et des pièces d'identité derrière
+  // un compte supprimé — précisément ce que l'article 17 interdit.
+  const namespace = env.DOCUMENTS;
+  if (namespace !== undefined) {
+    const store = kvDocumentStore(namespace as unknown as KeyValueNamespace);
+    for (const document of await listDocuments(store, userId)) {
+      await deleteDocument(store, userId, document.name);
+    }
+  }
+
+  await deleteAccount(db, userId);
+  return new Response(null, {
+    status: 204,
+    headers: { 'Set-Cookie': clearedCookie(), ...cors },
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
@@ -293,7 +430,29 @@ export default {
     });
 
     if (segments[1] === 'login' && request.method === 'POST') {
+      // CENT MILLE TOURS DE PBKDF2 PAR TENTATIVE : c'est ce qui protège les
+      // mots de passe, et c'est aussi ce qui rend cette route coûteuse à
+      // marteler. Dix essais ratés par heure laissent largement de quoi se
+      // tromper, et ne laissent rien pour deviner.
+      const bucket = await bucketFor('login', callerKey(request));
+      if (!(await allow(db, bucket, LIMITS.login, Date.now()))) {
+        return json({ error: 'Trop de tentatives. Réessayez dans une heure.' }, cors, 429);
+      }
       return login(db, request, env, cors);
+    }
+    if (segments[1] === 'signup' && request.method === 'POST' && segments[2] === undefined) {
+      return signup(db, request, env, cors);
+    }
+    // La confirmation d'adresse : avant la lecture de session, car on peut
+    // suivre le lien depuis un autre appareil que celui de l'inscription.
+    if (segments[1] === 'signup' && segments[2] === 'confirm' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as { token?: unknown };
+      const token = typeof body.token === 'string' ? body.token : '';
+      if (token === '') return json({ error: 'invalid' }, cors, 400);
+      const outcome = await confirmEmail(db, token, Date.now());
+      return outcome === 'ok'
+        ? new Response(null, { status: 204, headers: cors })
+        : json({ error: 'invalid' }, cors, 400);
     }
     if (segments[1] === 'logout') {
       return new Response(null, {
@@ -335,6 +494,10 @@ export default {
         { address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, row.rows[0]?.['alert_token']) },
         cors,
       );
+    }
+
+    if (segments[1] === 'account' && request.method === 'DELETE') {
+      return deleteAccountRoute(db, request, env, cors, userId);
     }
 
     if (segments[1] === 'documents') {

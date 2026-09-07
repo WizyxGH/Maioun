@@ -53,7 +53,10 @@ const ICONS = {
   ChevronDown: 'CaretDown',
   ChevronLeft: 'CaretLeft',
   ChevronRight: 'CaretRight',
+  Copy: 'Copy',
   Dot: 'Dot',
+  Eye: 'Eye',
+  EyeOff: 'EyeSlash',
   ExternalLink: 'ArrowSquareOut',
   FileCheck2: 'CheckCircle',
   FileText: 'FileText',
@@ -78,6 +81,7 @@ const ICONS = {
   Search: 'MagnifyingGlass',
   Settings: 'GearSix',
   ShieldCheck: 'ShieldCheck',
+  SignOut: 'SignOut',
   SlidersHorizontal: 'SlidersHorizontal',
   Sun: 'Sun',
   TrainFront: 'Train',
@@ -85,6 +89,7 @@ const ICONS = {
   Trash2: 'Trash',
   Upload: 'UploadSimple',
   User: 'User',
+  UserPlus: 'UserPlus',
   X: 'X',
 };
 

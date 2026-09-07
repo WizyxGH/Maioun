@@ -5,9 +5,12 @@
  * base et tient les sessions. En local il n'a pas lieu d'être : le serveur
  * n'écoute que sur 127.0.0.1, il n'y a personne d'autre devant la machine.
  *
- * PAS D'INSCRIPTION ICI, et ce n'est pas un oubli : un site ouvert à
- * l'inscription est un site que n'importe qui remplit. Les comptes se créent
- * en ligne de commande, depuis la machine qui a déjà accès à la base.
+ * L'INSCRIPTION EST OUVERTE DEPUIS ICI. Elle ne l'était pas : les comptes se
+ * créaient en ligne de commande, depuis la machine ayant accès à la base — ce
+ * qui se tenait tant qu'il n'y avait qu'un utilisateur, et interdisait à
+ * quiconque d'entrer dès lors qu'on vend le service. Ce qui protège réellement
+ * n'est pas l'absence de formulaire, mais ce qui l'entoure : quotas par
+ * origine, adresses jetables refusées, adresse confirmée par lien.
  *
  * LE MESSAGE D'ERREUR NE DISTINGUE PAS identifiant inconnu et mot de passe
  * faux. C'est délibéré : la différence n'apprendrait rien à qui possède un
@@ -15,7 +18,7 @@
  */
 
 import { useState } from 'react';
-import { LogIn } from './icons.js';
+import { LogIn, UserPlus } from './icons.js';
 import { login } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
@@ -23,10 +26,13 @@ import { Card } from '@/components/ui/card.js';
 export function LoginScreen({
   onSignedIn,
   onForgot,
+  onSignup,
 }: {
   readonly onSignedIn: () => void;
   /** Ouvre la demande de lien. Absent : le lien ne s'affiche pas. */
   readonly onForgot?: () => void;
+  /** Ouvre la création de compte. Absent : le bouton ne s'affiche pas. */
+  readonly onSignup?: () => void;
 }): React.JSX.Element {
   const [identifiant, setIdentifiant] = useState('');
   const [password, setPassword] = useState('');
@@ -86,10 +92,7 @@ export function LoginScreen({
           </label>
 
           {error !== null && (
-            <p
-              role="alert"
-              className="border-destructive/40 bg-destructive/10 rounded-lg border px-3 py-2 text-sm"
-            >
+            <p role="alert" className="border-bad/40 bg-bad/10 rounded-lg border px-3 py-2 text-sm">
               {error}
             </p>
           )}
@@ -114,6 +117,19 @@ export function LoginScreen({
           )}
         </form>
       </Card>
+
+      {/* L'INSCRIPTION EST UNE PORTE, PAS UN LIEN DISCRET. « Mot de passe
+        oublié » se cherche une fois tous les deux ans ; « créer un compte » est
+        la première chose que voit quelqu'un qui n'en a pas encore, et le seul
+        geste qu'il puisse faire sur cet écran. */}
+      {onSignup !== undefined && (
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <p className="text-muted-foreground text-[0.85rem]">Pas encore de compte ?</p>
+          <Button variant="outline" onClick={onSignup} className="w-full">
+            <UserPlus aria-hidden="true" className="size-4" /> Créer un compte
+          </Button>
+        </div>
+      )}
 
       <p className="text-muted-foreground mt-4 text-[0.82rem]">
         Les annonces sont communes à tous les comptes ; vos favoris, votre suivi et vos recherches
