@@ -52,6 +52,24 @@ describe('traitConditions', () => {
     expect(args).toEqual([45]);
   });
 
+  it('borne la disponibilité à la FIN de la journée demandée', () => {
+    // Sans cela, une annonce disponible le jour même mais horodatée dans
+    // l’après-midi serait rejetée, quand la même rangée à minuit passerait.
+    const { sql, args } = traitConditions({ availableBy: '2026-10-01' });
+    expect(sql).toEqual(['(available_at IS NULL OR available_at <= ?)']);
+    expect(args).toEqual(['2026-10-01T23:59:59.999Z']);
+  });
+
+  it('garde les disponibilités INCONNUES (§17)', () => {
+    // Deux annonces sur trois ne publient aucune date : les écarter viderait la
+    // liste des deux tiers dès la première date saisie.
+    expect(traitConditions({ availableBy: '2026-10-01' }).sql[0]).toContain('available_at IS NULL');
+  });
+
+  it('ignore une date vide', () => {
+    expect(traitConditions({ availableBy: '' }).sql).toEqual([]);
+  });
+
   it('cumule les préférences dans l’ordre, arguments compris', () => {
     const { sql, args } = traitConditions({
       excludeFlatShare: true,
@@ -59,8 +77,9 @@ describe('traitConditions', () => {
       landlordFilter: 'agency',
       furnishedFilter: 'furnished',
       maxCommuteMinutes: 30,
+      availableBy: '2026-10-01',
     });
-    expect(sql).toHaveLength(5);
-    expect(args).toEqual([30]);
+    expect(sql).toHaveLength(6);
+    expect(args).toEqual([30, '2026-10-01T23:59:59.999Z']);
   });
 });

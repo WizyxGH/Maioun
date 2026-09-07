@@ -38,6 +38,7 @@ import {
   parseMaxOccupants,
   extractFeatures,
   extractStreetAddress,
+  parseAvailabilityInText,
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
@@ -224,14 +225,18 @@ function resolveDpe(raw: RawListing): NormalizedListing['dpe'] {
   );
 }
 
-/** Disponibilité : champ dédié, sinon repérée dans le titre/la description. */
+/**
+ * Disponibilité : champ dédié d'abord, sinon repérée dans le titre ou la
+ * description.
+ *
+ * LE CHAMP DÉDIÉ EST CRU SUR PAROLE — « Libre » y veut dire maintenant. Le
+ * texte libre, non : le mot s'y promène, et `parseAvailabilityInText` n'y
+ * retient une date que si la phrase en porte une.
+ */
 function resolveAvailability(raw: RawListing, nowMs: number): string | null {
   return (
     parseAvailableAt(raw.availableAtText, nowMs) ??
-    parseAvailableAt(
-      `${raw.title ?? ''} ${raw.description ?? ''}`.match(/disponi\w+[^.;!]{0,60}/i)?.[0],
-      nowMs,
-    )
+    parseAvailabilityInText(`${raw.title ?? ''}. ${raw.description ?? ''}`, nowMs)
   );
 }
 
@@ -362,9 +367,17 @@ export function normalizeListing(
 function fillGaps(
   occurrence: NormalizedListing,
   text: string,
+  nowMs: number,
 ): Pick<
   NormalizedListing,
-  'flatShare' | 'charges' | 'rooms' | 'dpe' | 'district' | 'maxOccupants' | 'furnished'
+  | 'flatShare'
+  | 'charges'
+  | 'rooms'
+  | 'dpe'
+  | 'district'
+  | 'maxOccupants'
+  | 'furnished'
+  | 'availableAt'
 > {
   return {
     // Le TITRE est transmis à part : « Chambre meublée à Nice nord » loue une
@@ -408,6 +421,19 @@ function fillGaps(
      * qu'il est fait pour rattraper.
      */
     furnished: occurrence.furnished === null ? parseFurnished(text) : occurrence.furnished,
+    /**
+     * LA DISPONIBILITÉ MANQUAIT ICI AUSSI, et pour la même raison : la
+     * détection s'est améliorée après coup. Deux tiers des annonces n'avaient
+     * aucune date, alors que leur description en portait une — « DISPONIBLE LE
+     * 1 ER OCTOBRE », « BAIL A L ANNEE LIBRE DE SUITE ». Sans ce rattrapage,
+     * le filtre « disponible au plus tard le… » n'aurait rien eu à filtrer
+     * avant la prochaine visite de chaque source, c'est-à-dire jamais pour
+     * celles qui ne rendent visite qu'aux annonces inconnues.
+     */
+    availableAt:
+      occurrence.availableAt === null
+        ? parseAvailabilityInText(text, nowMs)
+        : occurrence.availableAt,
   };
 }
 
@@ -455,7 +481,10 @@ function fillGaps(
  *
  * @returns l'occurrence corrigée, ou `null` si rien ne change.
  */
-export function rederiveFromText(occurrence: NormalizedListing): NormalizedListing | null {
+export function rederiveFromText(
+  occurrence: NormalizedListing,
+  nowMs: number = Date.now(),
+): NormalizedListing | null {
   const text = `${occurrence.title ?? ''} ${occurrence.description ?? ''}`;
 
   const fromText = dedupeStreetAddress(extractStreetAddress(occurrence.description));
@@ -486,8 +515,8 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
   ].filter((feature) => !occurrence.features.includes(feature));
   const features = gained.length > 0 ? [...occurrence.features, ...gained] : occurrence.features;
 
-  const filled = fillGaps(occurrence, text);
-  const { flatShare, charges, rooms, dpe, district, maxOccupants, furnished } = filled;
+  const filled = fillGaps(occurrence, text, nowMs);
+  const { flatShare, charges, rooms, dpe, district, maxOccupants, furnished, availableAt } = filled;
 
   if (
     address === occurrence.address &&
@@ -499,7 +528,8 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     dpe === occurrence.dpe &&
     district === occurrence.district &&
     maxOccupants === occurrence.maxOccupants &&
-    furnished === occurrence.furnished
+    furnished === occurrence.furnished &&
+    availableAt === occurrence.availableAt
   ) {
     return null;
   }
@@ -515,6 +545,12 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     district,
     maxOccupants,
     furnished,
+    // À NE PAS OUBLIER ICI. Le champ décide du retour — il figure dans la
+    // comparaison ci-dessus — mais s'il manque de l'objet rendu, le `...occurrence`
+    // en tête réinstalle l'ancienne valeur : le rejeu annonce alors une
+    // correction, l'écrit à l'identique, et la réannonce au passage suivant.
+    // Vingt-six occurrences ont tourné ainsi, sans jamais bouger.
+    availableAt,
   };
 }
 

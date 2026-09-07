@@ -35,6 +35,11 @@ export interface TraitFilters {
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
   readonly maxCommuteMinutes?: number;
+  /**
+   * Date d'emmenagement souhaitee, au format `AAAA-MM-JJ`. Ne garde que les
+   * logements disponibles AU PLUS TARD ce jour-la.
+   */
+  readonly availableBy?: string;
 }
 
 export interface TraitConditions {
@@ -73,6 +78,21 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
   if (typeof filters.maxCommuteMinutes === 'number') {
     sql.push('(commute_minutes IS NULL OR commute_minutes <= ?)');
     args.push(filters.maxCommuteMinutes);
+  }
+
+  // LA DISPONIBILITE INCONNUE NE DISQUALIFIE PAS, comme partout ailleurs ici :
+  // deux annonces sur trois ne publient aucune date, et les ecarter viderait la
+  // liste des deux tiers des la premiere date saisie. Ce qu'on retire, ce sont
+  // les logements dont on SAIT qu'ils ne seront pas libres a temps.
+  //
+  // La comparaison est textuelle, et elle peut l'etre : les dates sont rangees
+  // en ISO 8601, ou l'ordre alphabetique EST l'ordre chronologique. Le `T23:59`
+  // fait de la borne une fin de journee — sans lui, une annonce disponible le
+  // jour meme, rangee a `T00:00:00.000Z`, passerait de justesse mais une autre
+  // horodatee dans l'apres-midi serait rejetee le meme jour.
+  if (typeof filters.availableBy === 'string' && filters.availableBy !== '') {
+    sql.push('(available_at IS NULL OR available_at <= ?)');
+    args.push(`${filters.availableBy}T23:59:59.999Z`);
   }
 
   return { sql, args };

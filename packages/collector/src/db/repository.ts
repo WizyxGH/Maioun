@@ -892,8 +892,9 @@ export function createRepository(db: Database): Repository {
         // score la lisent sans ouvrir la charge utile : l'oublier ici aurait
         // rendu la correction invisible là où elle compte.
         //
-        // `furnished` ÉTAIT PRÉCISÉMENT DANS CE CAS. Il a sa colonne, il ne
-        // figure pas dans la charge utile, et il ne bougeait pas ici : le rejeu
+        // `furnished` ÉTAIT PRÉCISÉMENT DANS CE CAS, et `available_at` l'était
+        // aussi — même colonne dédiée, même absence de la charge utile, même
+        // oubli ici. Ils ne bougeaient pas : le rejeu
         // annonçait « huit occurrences corrigées » à chaque passage, sans que
         // rien ne change jamais — il relisait la colonne inchangée et
         // recommençait. Une correction qui se répète sans effet est le signe
@@ -902,7 +903,7 @@ export function createRepository(db: Database): Repository {
         // la ligne pour rien.
         sql: `UPDATE occurrences
               SET address = ?, property_type = ?, flat_share = ?, furnished = ?, charges = ?,
-                  rooms = ?, payload = ?, content_hash = ?
+                  rooms = ?, available_at = ?, payload = ?, content_hash = ?
               WHERE id = ?`,
         args: [
           listing.address,
@@ -911,6 +912,7 @@ export function createRepository(db: Database): Repository {
           listing.furnished === null ? null : listing.furnished ? 1 : 0,
           listing.charges,
           listing.rooms,
+          listing.availableAt,
           JSON.stringify(occurrencePayload(listing)),
           occurrenceHash(listing),
           listing.id,
@@ -971,8 +973,9 @@ export function createRepository(db: Database): Repository {
               latitude, longitude, published_at, first_seen_at, last_seen_at,
               lifecycle, tracking, match_score, opportunity_score, visit_score,
               risk_score, action_priority, matches_criteria, payload, content_hash, updated_at,
-              flat_share, student_only, furnished, landlord_kind, commute_minutes
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              flat_share, student_only, furnished, landlord_kind, commute_minutes,
+              available_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title, price = excluded.price, area = excluded.area,
               rooms = excluded.rooms, property_type = excluded.property_type,
@@ -992,7 +995,11 @@ export function createRepository(db: Database): Repository {
               -- il se déduit du texte au scoring).
               flat_share = excluded.flat_share, student_only = excluded.student_only,
               furnished = excluded.furnished, landlord_kind = excluded.landlord_kind,
-              commute_minutes = excluded.commute_minutes
+              commute_minutes = excluded.commute_minutes,
+              -- Même raison que les précédentes : on filtre dessus, donc c'est
+              -- une colonne. La disponibilité vivait sur l'occurrence et dans
+              -- le JSON de la fiche, mais nulle part où une requête la lise.
+              available_at = excluded.available_at
           `,
           args: [
             listing.id,
@@ -1024,6 +1031,7 @@ export function createRepository(db: Database): Repository {
             boolToInt(listing.furnished.value),
             listing.contact.kind === 'unknown' ? null : listing.contact.kind,
             shortestCommuteMinutes(listing),
+            listing.availableAt.value,
           ],
         });
 

@@ -995,44 +995,159 @@ const FRENCH_MONTHS: Readonly<Record<string, number>> = {
 };
 
 /**
+ * « Tout de suite », dans les mots des annonces.
+ *
+ * Séparé du simple « libre » : celui-ci se promène dans les descriptions
+ * (« une chambre libre sur deux », « les diagnostics sont disponibles »), alors
+ * qu'aucune de ces tournures-ci ne s'emploie pour autre chose.
+ */
+const AVAILABLE_NOW = /\b(immediat\w*|de suite|des maintenant|des a present)\b/;
+
+/** « Libre », « disponible », employés seuls. */
+const AVAILABLE_BARE = /\b(libre|disponible)\b/;
+
+/**
+ * Un jour et un mois, écrits comme les agences les écrivent.
+ *
+ * `\s*(?:er|ere|eme)?\s+` PLUTÔT QUE `(?:er)?\s+`, et ce détail valait
+ * soixante annonces. BEP écrit « DISPONIBLE LE 1 ER OCTOBRE », avec une espace
+ * entre le chiffre et son suffixe ; l'ancienne forme exigeait « 1er » collé et
+ * ne lisait donc aucune de ces dates.
+ */
+const DAY_AND_MONTH =
+  /\b(\d{1,2})\s*(?:er|ere|eme)?\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(?:\s+(\d{4}))?\b/;
+
+/**
+ * Un mois SANS jour : « disponible de octobre à mai », « à partir de septembre ».
+ *
+ * On retient le PREMIER de ce mois. Ce n'est pas une invention (§17) mais la
+ * lecture de la phrase : « à partir d'octobre » ne désigne aucune autre date
+ * que le début d'octobre. La précision perdue — au plus quelques jours — est
+ * sans commune mesure avec l'information gagnée : sans cette règle, ces
+ * annonces n'ont pas de disponibilité du tout.
+ */
+const MONTH_ONLY =
+  /\b(?:de|des|du|en|le|a partir de|a partir du|a compter de|a compter du)\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/;
+
+/**
+ * Au-delà de ce recul, une date sans année désigne l'année PROCHAINE.
+ *
+ * QUARANTE-CINQ JOURS, ET NON UN SEUL. La tolérance d'un jour envoyait
+ * « disponible le 1er septembre », lu le 7 septembre, au 1er septembre 2027 :
+ * une annonce libre depuis six jours devenait indisponible pendant un an. Une
+ * disponibilité qui vient de passer veut dire « c'est libre » ; une qui date de
+ * six mois, elle, désigne bien le prochain tour.
+ */
+const STALE_AVAILABILITY_DAYS = 45;
+
+/** Une année explicite, quelque part dans la phrase. */
+const NEARBY_YEAR = /\b(20\d{2})\b/;
+
+/**
+ * La date française lue dans un texte déjà mis en forme comparable.
+ *
+ * SANS ANNÉE, ON PREND LA PROCHAINE OCCURRENCE : une disponibilité est toujours
+ * devant soi, contrairement à une date de publication.
+ */
+function frenchDateFrom(lower: string, nowMs: number): string | null {
+  const exact = DAY_AND_MONTH.exec(lower);
+  const month = exact?.[2] === undefined ? MONTH_ONLY.exec(lower)?.[1] : exact[2];
+  if (month === undefined) return null;
+
+  const monthNumber = FRENCH_MONTHS[month];
+  if (monthNumber === undefined) return null;
+  const day = exact?.[1] === undefined ? 1 : Number.parseInt(exact[1], 10);
+  if (day < 1 || day > 31) return null;
+
+  // L'ANNÉE PEUT ÊTRE AILLEURS DANS LA PHRASE : « libre du 1er août au 31 août
+  // 2026 » ne la porte que sur la seconde date, et l'ignorer faisait basculer
+  // la première d'un an.
+  const stated = exact?.[3] ?? NEARBY_YEAR.exec(lower)?.[1];
+  let year = stated !== undefined ? Number.parseInt(stated, 10) : new Date(nowMs).getUTCFullYear();
+  let date = new Date(Date.UTC(year, monthNumber - 1, day));
+  if (stated === undefined && date.getTime() < nowMs - STALE_AVAILABILITY_DAYS * 86_400_000) {
+    year += 1;
+    date = new Date(Date.UTC(year, monthNumber - 1, day));
+  }
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+export interface AvailabilityOptions {
+  /**
+   * « Libre » ou « disponible », seuls et sans date, valent-ils « tout de
+   * suite » ?
+   *
+   * VRAI POUR UN CHAMP DÉDIÉ : la source a répondu à la question, sa réponse
+   * est « maintenant ». FAUX DANS UNE DESCRIPTION, où le mot se promène — « les
+   * diagnostics sont disponibles sur Géorisques » figure dans un quart des
+   * annonces et ne dit rien de la date d'entrée.
+   */
+  readonly bareWordMeansNow?: boolean;
+}
+
+/**
  * Date de disponibilité d'un logement (§17).
  *
  * Comprend, en plus des formats de `parsePublishedAt` :
- *   - « immédiatement », « de suite », « disponible » seul → maintenant ;
- *   - les dates textuelles françaises « 1er septembre 2027 », « 15 mars » —
- *     sans année, on prend la PROCHAINE occurrence (une disponibilité est
- *     toujours dans le futur, contrairement à une date de publication).
+ *   - « immédiatement », « de suite », « dès maintenant » → maintenant ;
+ *   - les dates textuelles françaises « 1er septembre 2027 », « 15 mars »,
+ *     « 1 ER OCTOBRE » — sans année, la PROCHAINE occurrence ;
+ *   - un mois seul, quand la phrase le présente comme un départ.
+ *
+ * L'ORDRE A CHANGÉ, ET IL COMPTE. « Libre » était examiné en premier et rendait
+ * « maintenant » : « LIBRE DU 1ER AOÛT AU 31 AOÛT 2026 » devenait donc
+ * disponible aujourd'hui, alors que la phrase donne une date. Les dates passent
+ * désormais avant le mot nu.
  */
-export function parseAvailableAt(text: string | null | undefined, nowMs: number): string | null {
+export function parseAvailableAt(
+  text: string | null | undefined,
+  nowMs: number,
+  options: AvailabilityOptions = {},
+): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
   const lower = comparable(cleaned);
 
-  if (/\b(immediat\w*|de suite|des maintenant|libre)\b/.test(lower)) {
-    return new Date(nowMs).toISOString();
-  }
+  if (AVAILABLE_NOW.test(lower)) return new Date(nowMs).toISOString();
 
-  const textual = lower.match(
-    /\b(\d{1,2})(?:er)?\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(?:\s+(\d{4}))?\b/,
-  );
-  if (textual?.[1] !== undefined && textual[2] !== undefined) {
-    const day = Number.parseInt(textual[1], 10);
-    const month = FRENCH_MONTHS[textual[2]];
-    if (month !== undefined && day >= 1 && day <= 31) {
-      let year =
-        textual[3] !== undefined
-          ? Number.parseInt(textual[3], 10)
-          : new Date(nowMs).getUTCFullYear();
-      let date = new Date(Date.UTC(year, month - 1, day));
-      // Sans année explicite, une date déjà passée désigne l'année prochaine.
-      if (textual[3] === undefined && date.getTime() < nowMs - 86_400_000) {
-        year += 1;
-        date = new Date(Date.UTC(year, month - 1, day));
-      }
-      if (!Number.isNaN(date.getTime())) return date.toISOString();
-    }
-  }
+  const textual = frenchDateFrom(lower, nowMs);
+  if (textual !== null) return textual;
 
   // Formats numériques et relatifs communs avec la date de publication.
-  return parsePublishedAt(text, nowMs);
+  const numeric = parsePublishedAt(text, nowMs);
+  if (numeric !== null) return numeric;
+
+  return (options.bareWordMeansNow ?? true) && AVAILABLE_BARE.test(lower)
+    ? new Date(nowMs).toISOString()
+    : null;
+}
+
+/**
+ * La disponibilité repérée dans un TEXTE LIBRE — titre, description.
+ *
+ * ON NE LIT PAS LA DESCRIPTION ENTIÈRE, mais les quelques mots qui suivent
+ * chaque « disponible » ou « libre » : une description mentionne des dates pour
+ * dix raisons — travaux, diagnostic, bail précédent — et la première venue
+ * n'est presque jamais la bonne.
+ *
+ * « LIBRE » ÉTAIT ABSENT DE CETTE RECHERCHE, et c'est ce qui manquait le plus :
+ * BEP écrit « BAIL A L ANNEE LIBRE DE SUITE » sans jamais employer le mot
+ * « disponible ». Aucune de ces annonces n'avait de date.
+ *
+ * TOUTES LES OCCURRENCES SONT ESSAYÉES, pas seulement la première : « les
+ * diagnostics sont disponibles sur Géorisques » ouvre souvent le bal, et
+ * s'arrêter là condamnait la vraie phrase, trois lignes plus bas.
+ */
+export function parseAvailabilityInText(
+  text: string | null | undefined,
+  nowMs: number,
+): string | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+
+  for (const window of cleaned.matchAll(/(?:disponibl\w*|disponibilit\w*|libre)[^.;!]{0,70}/gi)) {
+    const found = parseAvailableAt(window[0], nowMs, { bareWordMeansNow: false });
+    if (found !== null) return found;
+  }
+  return null;
 }

@@ -74,6 +74,15 @@ export interface SearchCriteria {
    * exclu sur ce critère (§17). Absent → pas de plafond de trajet.
    */
   readonly maxCommuteMinutes?: number;
+  /**
+   * Date d'emmenagement souhaitee (`AAAA-MM-JJ`). Ne garde que les logements
+   * disponibles au plus tard ce jour-la — ceux dont la date est INCONNUE
+   * restent affiches (§17), comme pour tous les filtres de ce fichier.
+   *
+   * Filtre de LECTURE : il n'entre pas dans `matches_criteria`, sinon le
+   * decocher ne ramenerait rien (voir `trait-filters.ts`).
+   */
+  readonly availableBy?: string;
   /** Durée maximale acceptée vers un point de référence, en minutes. */
   readonly maxDurationToReference?: Readonly<Record<string, number>>;
   /** Classes DPE acceptées, ex. `['A', 'B', 'C']`. */

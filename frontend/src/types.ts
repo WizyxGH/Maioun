@@ -180,4 +180,9 @@ export interface FilterConfig {
   landlordFilter?: 'all' | 'private' | 'agency';
   /** Meublé : tous, meublés seulement, ou non meublés seulement. */
   furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
+  /**
+   * Date d'emménagement souhaitée (`AAAA-MM-JJ`), telle que la rend un champ
+   * `<input type="date">`. Vide = aucune contrainte de disponibilité.
+   */
+  availableBy?: string;
 }

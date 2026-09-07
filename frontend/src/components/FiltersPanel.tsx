@@ -178,6 +178,25 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
             onChange={(e) => set({ maxCommuteMinutes: Number(e.target.value) })}
           />
         </div>
+        {/* LA DATE D'EMMÉNAGEMENT, et elle se lit dans les deux sens. Un
+          logement libre APRÈS la date qu'on se fixe n'est pas une option ;
+          celui dont la date est inconnue en reste une, et c'est le cas des
+          deux tiers des annonces — les écarter viderait la liste sur une
+          information que les sources ne donnent pas (§17).
+
+          `date` et non trois champs : le sélecteur natif du navigateur est
+          celui que l'utilisateur connaît déjà, et il est correct au clavier
+          comme au doigt. */}
+        <div className={ROW}>
+          <label htmlFor="availableBy">Disponible au plus tard le</label>
+          <input
+            id="availableBy"
+            type="date"
+            className={FIELD}
+            value={filters.availableBy ?? ''}
+            onChange={(e) => set({ availableBy: e.target.value })}
+          />
+        </div>
         <div className={ROW}>
           <label htmlFor="excludeFlatShare">Exclure les colocations</label>
           <input

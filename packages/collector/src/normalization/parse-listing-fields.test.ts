@@ -17,6 +17,7 @@ import {
   isShortTermStudentLease,
   isStudentOnlyHousing,
   parseMaxOccupants,
+  parseAvailabilityInText,
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
@@ -461,6 +462,73 @@ describe('parseAvailableAt (§17 — disponibilité)', () => {
   it('rend null sans indication exploitable', () => {
     expect(parseAvailableAt('nous consulter', now)).toBeNull();
     expect(parseAvailableAt(null, now)).toBeNull();
+  });
+
+  it('lit « 1 ER OCTOBRE », l’espace entre le chiffre et son suffixe', () => {
+    // BEP écrit ainsi, et la forme exigeait « 1er » collé : soixante annonces
+    // n’avaient aucune date pour une espace.
+    expect(parseAvailableAt('DISPONIBLE LE 1 ER OCTOBRE', now)).toBe('2026-10-01T00:00:00.000Z');
+    expect(parseAvailableAt('DISPONIBLE LE 01 ER OCTOBRE', now)).toBe('2026-10-01T00:00:00.000Z');
+  });
+
+  it('lit un mois SEUL quand la phrase le présente comme un départ', () => {
+    // « À partir d’octobre » ne désigne aucune autre date que le début
+    // d’octobre : c’est une lecture, pas une invention (§17).
+    expect(parseAvailableAt('DISPONIBLE DE OCTOBRE A MAI', now)).toBe('2026-10-01T00:00:00.000Z');
+    expect(parseAvailableAt('libre à partir de septembre', now)).toBe('2026-09-01T00:00:00.000Z');
+  });
+
+  it('préfère la DATE au mot « libre » qui la précède', () => {
+    // « Libre » était examiné en premier et rendait « maintenant » : une
+    // annonce qui donnait pourtant sa date devenait disponible aujourd’hui.
+    expect(parseAvailableAt('LIBRE DU 1ER AOÛT AU 31 AOÛT 2026', now)).toBe(
+      '2026-08-01T00:00:00.000Z',
+    );
+  });
+
+  it('ne renvoie pas un an plus loin une date TOUT JUSTE passée', () => {
+    // Lu six jours après, « disponible le 1er août » veut dire « c’est libre »,
+    // pas « rendez-vous l’an prochain ». Six mois de recul, en revanche,
+    // désignent bien le tour suivant.
+    expect(parseAvailableAt('disponible le 1er août', now)).toBe('2026-08-01T00:00:00.000Z');
+    expect(parseAvailableAt('disponible le 1er février', now)).toBe('2027-02-01T00:00:00.000Z');
+  });
+});
+
+describe('parseAvailabilityInText (§17 — disponibilité en texte libre)', () => {
+  const now = Date.parse('2026-08-14T12:00:00.000Z');
+
+  it('trouve la phrase de disponibilité au milieu d’une description', () => {
+    expect(
+      parseAvailabilityInText('Bel appartement rénové. Disponible le 1 ER OCTOBRE, calme.', now),
+    ).toBe('2026-10-01T00:00:00.000Z');
+    // « Libre » n’était pas cherché du tout : BEP n’écrit jamais « disponible ».
+    expect(parseAvailabilityInText('BAIL A L ANNEE LIBRE DE SUITE, AU REZ DE CHAUSSEE', now)).toBe(
+      '2026-08-14T12:00:00.000Z',
+    );
+  });
+
+  it('n’invente RIEN à partir du mot seul (§17)', () => {
+    // Ces deux phrases figurent dans un quart des annonces et ne disent rien
+    // de la date d’entrée. Les lire comme « libre aujourd’hui » serait faux.
+    expect(
+      parseAvailabilityInText(
+        'Les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques.',
+        now,
+      ),
+    ).toBeNull();
+    expect(parseAvailabilityInText('Grand studio, une chambre libre sur deux', now)).toBeNull();
+  });
+
+  it('essaie TOUTES les mentions, pas seulement la première', () => {
+    // La phrase parasite ouvre presque toujours le bal ; s’arrêter là
+    // condamnait la vraie, trois lignes plus bas.
+    expect(
+      parseAvailabilityInText(
+        'Les diagnostics sont disponibles sur Géorisques. Libre le 1er novembre.',
+        now,
+      ),
+    ).toBe('2026-11-01T00:00:00.000Z');
   });
 });
 

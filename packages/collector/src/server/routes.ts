@@ -66,6 +66,7 @@ export interface LiveFilters {
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
   readonly maxCommuteMinutes?: number;
+  readonly availableBy?: string;
 }
 
 /** Statuts de suivi acceptés par l'API (§35). */
@@ -1011,6 +1012,13 @@ async function liveFilters(db: Client, userId: string): Promise<LiveFilters | un
         : {}),
       ...(typeof parsed.maxCommuteMinutes === 'number'
         ? { maxCommuteMinutes: parsed.maxCommuteMinutes }
+        : {}),
+      // LA FORME EST VERIFIEE ICI, et il le faut : cette valeur part dans une
+      // comparaison SQL. Elle est parametree, donc rien ne s'injecte, mais une
+      // chaine quelconque produirait un filtre silencieusement faux — refuser
+      // ce qui n'est pas une date vaut mieux que filtrer sur du vide.
+      ...(typeof parsed.availableBy === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.availableBy)
+        ? { availableBy: parsed.availableBy }
         : {}),
     };
   } catch {
