@@ -31,7 +31,7 @@ import {
   parseChargesField,
   parseChargesFromText,
   parseEmail,
-  parseDistrict,
+  parseDistrictOf,
   parseDpe,
   parseFlatShare,
   parseFurnished,
@@ -196,9 +196,7 @@ function resolveLocation(raw: RawListing): {
     // Quartier/secteur si la source le publie (ex. Orpi `extra.quartier`).
     // Champ dédié d'abord — neuf sources sur quarante le remplissent —, puis
     // le texte, où la tournure « quartier X » se désigne elle-même.
-    district:
-      toNull(raw.extra?.['quartier']) ??
-      parseDistrict(`${raw.title ?? ''}. ${raw.description ?? ''}`),
+    district: toNull(raw.extra?.['quartier']) ?? parseDistrictOf(raw.title, raw.description),
     // Ville en forme comparable : les filtres et le dédoublonnage ignorent
     // ainsi casse et accents.
     city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,
@@ -395,7 +393,10 @@ function fillGaps(
     // description est le séjour d'un trois-pièces, pas le logement entier.
     rooms: occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms,
     dpe: occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe,
-    district: occurrence.district === null ? parseDistrict(text) : occurrence.district,
+    district:
+      occurrence.district === null
+        ? parseDistrictOf(occurrence.title, occurrence.description)
+        : occurrence.district,
     /**
      * LE MEUBLÉ MANQUAIT ICI, et le manque se voyait dans les chiffres : sur
      * huit annonces dont la description dit « location vide », une restait sans

@@ -878,6 +878,22 @@ function knownNiceDistrict(text: string): string | null {
  * accepte n'importe quel nom, puis à défaut un quartier niçois RECONNU, qui
  * n'accepte que ceux de la liste.
  */
+/**
+ * Le quartier d'une annonce, TITRE D'ABORD.
+ *
+ * L'ordre compte, et il a coûté une erreur : « RIQUIER — 3 rooms in lovely
+ * flat » se retrouvait situé au Vieux Nice, parce que sa description en
+ * parlait. Le titre nomme le quartier DU BIEN ; la description énumère ce
+ * qu'il y a autour. On ne descend donc dans la seconde que si le premier ne
+ * dit rien.
+ */
+export function parseDistrictOf(
+  title: string | null | undefined,
+  description: string | null | undefined,
+): string | null {
+  return parseDistrict(title) ?? parseDistrict(description);
+}
+
 export function parseDistrict(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;

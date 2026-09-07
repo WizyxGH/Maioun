@@ -10,6 +10,7 @@ import {
   parseFlatShare,
   parseFurnished,
   parseDistrict,
+  parseDistrictOf,
   parseDpe,
   extractFeatures,
   extractStreetAddress,
@@ -680,6 +681,21 @@ describe('parseDistrict', () => {
     expect(parseDistrict('Studio face à Cimiez')).toBeNull();
     // « aéroport » contient « port » : les mots entiers, et rien d’autre.
     expect(parseDistrict('Grand studio aéroport, résidence récente')).toBeNull();
+  });
+});
+
+describe('parseDistrictOf', () => {
+  it('lit le TITRE d’abord : la description parle du voisinage', () => {
+    // « RIQUIER — 3 rooms in lovely flat » se retrouvait situé au Vieux Nice,
+    // parce que sa description en vantait la proximité.
+    expect(parseDistrictOf('RIQUIER - 3 rooms in lovely flat', 'À deux pas du Vieux Nice')).toBe(
+      'Riquier',
+    );
+  });
+
+  it('descend dans la description quand le titre ne dit rien', () => {
+    expect(parseDistrictOf('Bel appartement 3 pièces', 'Situé à Cimiez, au calme')).toBe('Cimiez');
+    expect(parseDistrictOf('Bel appartement 3 pièces', null)).toBeNull();
   });
 });
 
