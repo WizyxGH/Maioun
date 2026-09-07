@@ -30,6 +30,7 @@
  */
 
 import type { Client } from '@libsql/client';
+import { traitConditions } from '../core/trait-filters.js';
 import {
   CURRENT_USER,
   MVP_CRITERIA,
@@ -294,7 +295,12 @@ export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
       }
       conditions.push('(area IS NULL OR area >= ?)');
       filterArgs.push(filters.minArea);
-      applyTraitFilters(filters, conditions, filterArgs);
+      // Les préférences vivent dans `core/trait-filters` : la LISTE et les
+      // NOTIFICATIONS s'en servent toutes deux, et deux copies auraient fini
+      // par diverger — on aurait alors signalé ce qu'on n'affiche pas (§75).
+      const traits = traitConditions(filters);
+      conditions.push(...traits.sql);
+      filterArgs.push(...traits.args);
     }
   }
 
@@ -974,46 +980,6 @@ const DEFAULT_FILTERS = {
  * la collecte suivante. Les exclusions (colocation, étudiant) restent figées à
  * la collecte — elles demandent le texte de l'annonce, pas un nombre.
  */
-/**
- * Les quatre exclusions et le plafond de trajet, en conditions SQL.
- *
- * UN TRAIT INCONNU NE FAIT JAMAIS SORTIR UNE ANNONCE (§17). C'est la règle qui
- * gouverne chaque ligne ci-dessous : « exclure les colocations » écarte ce qui
- * est une colocation, pas ce dont on ignore si c'en est une. La plupart des
- * annonces ne disent rien de leur ameublement ou de leur bailleur ; les traiter
- * comme des « non » viderait la liste.
- *
- * Les colonnes sont NULLES tant que le rejeu (`reprocess`) n'a pas eu lieu :
- * la même règle fait que les filtres laissent alors tout passer, au lieu
- * d'écarter au hasard.
- */
-function applyTraitFilters(
-  filters: LiveFilters,
-  conditions: string[],
-  args: Array<string | number>,
-): void {
-  if (filters.excludeFlatShare === true) conditions.push('COALESCE(flat_share, 0) = 0');
-  if (filters.excludeStudent === true) conditions.push('COALESCE(student_only, 0) = 0');
-
-  // « Particuliers seuls » garde les bailleurs inconnus : beaucoup d'annonces de
-  // particuliers ne se déclarent pas comme telles. « Agences uniquement », au
-  // contraire, demande une agence AVÉRÉE — c'est le sens de la demande.
-  if (filters.landlordFilter === 'private')
-    conditions.push("COALESCE(landlord_kind, '') != 'agency'");
-  if (filters.landlordFilter === 'agency') conditions.push("landlord_kind = 'agency'");
-
-  if (filters.furnishedFilter === 'furnished') conditions.push('COALESCE(furnished, 1) = 1');
-  if (filters.furnishedFilter === 'unfurnished') conditions.push('COALESCE(furnished, 0) = 0');
-
-  // Le trajet manque pour toute annonce sans adresse publiée — la majorité.
-  // Les écarter reviendrait à masquer la liste entière dès qu'on règle un
-  // plafond, ce que personne n'attend d'un curseur de durée.
-  if (typeof filters.maxCommuteMinutes === 'number') {
-    conditions.push('(commute_minutes IS NULL OR commute_minutes <= ?)');
-    args.push(filters.maxCommuteMinutes);
-  }
-}
-
 async function liveFilters(db: Client, userId: string): Promise<LiveFilters | undefined> {
   const stored = await db.execute({
     sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',

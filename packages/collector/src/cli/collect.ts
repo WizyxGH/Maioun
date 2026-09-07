@@ -22,6 +22,7 @@ import { databaseTarget, openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createRegistry } from '../core/registry.js';
+import type { TraitFilters } from '../core/trait-filters.js';
 import { createLogger, narratorSink } from '../core/logger.js';
 import { systemClock } from '../core/clock.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
@@ -95,8 +96,14 @@ async function notifyAll(deps: {
   readonly repository: Repository;
   readonly vapid: VapidConfig;
   readonly logger: Logger;
-  /** Les critères actifs : nécessaires pour juger de la « proximité ». */
-  readonly criteria: NearMatchCriteria;
+  /**
+   * Les critères actifs. `NearMatchCriteria` ne portait que ville, loyer et
+   * surface — assez pour juger de la « proximité », mais pas les PRÉFÉRENCES
+   * (colocation, bail étudiant, bailleur, ameublement), qu'il faut appliquer
+   * aux notifications comme à la liste depuis qu'elles ne sont plus figées
+   * dans `matches_criteria`.
+   */
+  readonly criteria: NearMatchCriteria & TraitFilters;
 }): Promise<void> {
   const { repository, vapid, logger, criteria } = deps;
   try {
@@ -116,7 +123,11 @@ async function notifyAll(deps: {
       // téléphone, et les honoraires. Les deux fiches restent visibles sur le
       // site — seule la sonnerie en double disparaît (§29).
       const pending = dropRedundantNotifications(
-        await repository.pendingNotifications(0),
+        // LES MÊMES PRÉFÉRENCES QUE LA LISTE. Colocation, bail étudiant,
+        // bailleur et ameublement ne sont plus figés dans `matches_criteria` —
+        // ils se décochent, et décocher doit ramener les annonces. Les oublier
+        // ici signalerait des colocations que l'écran n'affiche pas.
+        await repository.pendingNotifications(0, criteria),
         await repository.directListingSpecKeys(),
       );
       const report = await sendWebPush({ ...common, listings: pending });
@@ -333,7 +344,13 @@ async function main(): Promise<void> {
           sinceDays: 30,
         });
         const known = ALL_SCRAPERS.map((scraper) => scraper.descriptor.name);
-        const agencies = findUndiscoveredAgencies(bodies, known);
+        // `findUndiscoveredAgencies` ne lit que le TEXTE : les destinataires,
+        // qui servent à rattacher un transfert à son compte, ne l'intéressent
+        // pas.
+        const agencies = findUndiscoveredAgencies(
+          bodies.map((email) => email.body),
+          known,
+        );
         if (agencies.length > 0) logger.info('agencies.undiscovered', { agencies });
       } catch (error) {
         logger.debug('agencies.discovery_failed', {

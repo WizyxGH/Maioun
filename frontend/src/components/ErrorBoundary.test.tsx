@@ -16,11 +16,24 @@ function Boom(): React.JSX.Element {
 }
 
 describe('ErrorBoundary', () => {
+  /**
+   * React RELANCE l'erreur après l'avoir attrapée, pour que les outils de
+   * développement la voient. Dans un processus de test isolé, cette relance
+   * n'est rattrapée par personne et TUE le processus : la suite passait seule et
+   * mourait dans le lot, une fois sur deux. On l'intercepte donc ici, sans rien
+   * masquer — le composant a déjà fait son travail quand elle arrive.
+   */
+  const swallow = (event: ErrorEvent): void => event.preventDefault();
+
   beforeEach(() => {
+    window.addEventListener('error', swallow);
     // React écrit l'erreur lui-même ; on tait le bruit sans masquer le nôtre.
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    window.removeEventListener('error', swallow);
+    vi.restoreAllMocks();
+  });
 
   it('laisse passer ce qui s’affiche normalement', () => {
     render(

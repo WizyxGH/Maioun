@@ -16,8 +16,9 @@ import type {
   SourceDescriptor,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { loadImapConfig } from '../../config.js';
+import { alertAddressTemplate, loadImapConfig } from '../../config.js';
 import { fetchAlertEmails } from '../../core/email-import.js';
+import { acceptsRecipients, forwardingToken } from '../../core/alert-recipients.js';
 import { locationFromUrl, parseAlertEmail, referenceFromUrl } from './parser.js';
 
 export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
@@ -151,13 +152,42 @@ export const emailAlertsScraper: Scraper = {
     // le lien renvoie souvent vers une annonce « plus disponible » et rouvrir
     // beaucoup de ces liens fait rate-limiter l'utilisateur par le portail. On
     // privilégie donc le frais au volume (§17, §29).
-    const bodies = await fetchAlertEmails({ config, log: context.log, sinceDays: 4 });
+    const emails = await fetchAlertEmails({ config, log: context.log, sinceDays: 4 });
+
+    /**
+     * QUI A FAIT SUIVRE CE MESSAGE. La boîte lue est celle du PROJET : chaque
+     * compte y transfère ses alertes vers une adresse `alertes+<jeton>@…` qui
+     * n'est qu'à lui. Le jeton est tiré au hasard et ne se devine pas.
+     *
+     * Un message qui n'en porte aucun n'a pas été transféré par un compte
+     * connu — et la boîte reçoit tout ce qu'on lui envoie. Sans ce tri,
+     * n'importe qui pourrait y déverser des annonces et les faire entrer dans
+     * la base COMMUNE à tous les comptes. On l'écarte donc.
+     *
+     * Tant que le gabarit n'est pas configuré, rien n'est exigé : le collecteur
+     * lit la boîte qu'on lui indique, comme il l'a toujours fait.
+     */
+    const template = alertAddressTemplate();
+    const accepted = emails.filter((email) => acceptsRecipients(email.recipients, template));
+    const rejected = emails.length - accepted.length;
+    if (rejected > 0) {
+      context.log('email.unaddressed_skipped', { skipped: rejected, kept: accepted.length });
+    }
 
     // Toutes les annonces des e-mails, dédoublonnées sur la référence.
     const bySourceRef = new Map<string, RawListing>();
-    for (const body of bodies) {
-      for (const listing of parseAlertEmail(body)) {
-        if (!bySourceRef.has(listing.sourceRef)) bySourceRef.set(listing.sourceRef, listing);
+    for (const email of accepted) {
+      const token = forwardingToken(email.recipients, template);
+      for (const listing of parseAlertEmail(email.body)) {
+        if (bySourceRef.has(listing.sourceRef)) continue;
+        // Le jeton VOYAGE AVEC L'ANNONCE : c'est la seule trace de qui l'a
+        // apportée, et le corps du message ne la porte nulle part.
+        bySourceRef.set(
+          listing.sourceRef,
+          token === null
+            ? listing
+            : { ...listing, extra: { ...listing.extra, forwardedBy: token } },
+        );
       }
     }
     const all = [...bySourceRef.values()];
@@ -172,7 +202,7 @@ export const emailAlertsScraper: Scraper = {
     const { listings, requests } = await resolveCanonicalUrls(fresh, context);
 
     context.log('email.parsed', {
-      emails: bodies.length,
+      emails: accepted.length,
       listings: all.length,
       new: listings.length,
       resolved: requests,
@@ -182,8 +212,8 @@ export const emailAlertsScraper: Scraper = {
       sourceId: EMAIL_ALERTS_DESCRIPTOR.id,
       listings,
       confirmedRefs,
-      requestCount: bodies.length + requests,
-      pagesFetched: bodies.length,
+      requestCount: accepted.length + requests,
+      pagesFetched: accepted.length,
       stopReason: 'completed',
       warnings: [],
     };

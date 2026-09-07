@@ -366,7 +366,7 @@ function fillGaps(
   text: string,
 ): Pick<
   NormalizedListing,
-  'flatShare' | 'charges' | 'rooms' | 'dpe' | 'district' | 'maxOccupants'
+  'flatShare' | 'charges' | 'rooms' | 'dpe' | 'district' | 'maxOccupants' | 'furnished'
 > {
   return {
     // Le TITRE est transmis à part : « Chambre meublée à Nice nord » loue une
@@ -396,6 +396,17 @@ function fillGaps(
     rooms: occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms,
     dpe: occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe,
     district: occurrence.district === null ? parseDistrict(text) : occurrence.district,
+    /**
+     * LE MEUBLÉ MANQUAIT ICI, et le manque se voyait dans les chiffres : sur
+     * huit annonces dont la description dit « location vide », une restait sans
+     * statut. La cause n'est pas la détection — elle reconnaît la tournure —
+     * mais le TEXTE qu'on lui donne : chaque source décide de ce qu'elle passe,
+     * et celles qui ne joignent pas la description ne laissent rien à lire.
+     *
+     * Le rejeu, lui, dispose du texte conservé en entier. C'est exactement ce
+     * qu'il est fait pour rattraper.
+     */
+    furnished: occurrence.furnished === null ? parseFurnished(text) : occurrence.furnished,
   };
 }
 
@@ -475,7 +486,7 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
   const features = gained.length > 0 ? [...occurrence.features, ...gained] : occurrence.features;
 
   const filled = fillGaps(occurrence, text);
-  const { flatShare, charges, rooms, dpe, district, maxOccupants } = filled;
+  const { flatShare, charges, rooms, dpe, district, maxOccupants, furnished } = filled;
 
   if (
     address === occurrence.address &&
@@ -486,7 +497,8 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     rooms === occurrence.rooms &&
     dpe === occurrence.dpe &&
     district === occurrence.district &&
-    maxOccupants === occurrence.maxOccupants
+    maxOccupants === occurrence.maxOccupants &&
+    furnished === occurrence.furnished
   ) {
     return null;
   }
@@ -501,6 +513,7 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     dpe,
     district,
     maxOccupants,
+    furnished,
   };
 }
 

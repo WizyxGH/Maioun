@@ -15,7 +15,7 @@ import {
   minutesBefore,
   TEST_NOW,
 } from '../../../../tests/helpers/factories.js';
-import { scoreMatch } from './match.js';
+import { isStudentHousing, scoreMatch } from './match.js';
 import { scoreOpportunity } from './opportunity.js';
 import { scoreVisitProbability } from './visit-probability.js';
 import { scoreRisk } from './risk.js';
@@ -93,75 +93,60 @@ describe('scoreMatch (§16)', () => {
     expect(scoreMatch(makeAggregated({ price: 400 }), MVP_CRITERIA).matchesCriteria).toBe(true);
   });
 
-  it('exclut une location EXCLUSIVEMENT étudiante, pas celles qui acceptent des étudiants', () => {
-    // Exclusivement étudiant → exclu.
+  /**
+   * LES PRÉFÉRENCES NE SONT PLUS DES CRITÈRES, et ces tests disaient l'inverse.
+   *
+   * Colocation, bail étudiant, nature du bailleur et ameublement étaient jugés
+   * ici et FIGÉS dans `matchesCriteria`. Les cocher marchait ; les décocher ne
+   * ramenait rien, puisque les annonces écartées à la collecte restaient
+   * marquées « hors critères » et qu'aucun filtre ne les repêchait. Un
+   * demi-interrupteur, qui n'allume pas.
+   *
+   * Elles s'appliquent désormais à la LECTURE (`core/trait-filters`), où les
+   * changer se voit dans les deux sens. Le scoring, lui, ne juge plus que ce
+   * qui est intrinsèque : un parking ne devient pas un logement parce qu'on
+   * change d'avis.
+   */
+  it('ne juge plus les préférences, quel que soit leur réglage', () => {
+    const preferences = {
+      ...MVP_CRITERIA,
+      excludeFlatShare: true,
+      excludeStudent: true,
+      landlordFilter: 'agency' as const,
+      furnishedFilter: 'unfurnished' as const,
+    };
+    for (const listing of [
+      makeAggregated({ flatShare: true }),
+      makeAggregated({ description: 'Studio réservé aux étudiants' }),
+      makeAggregated({ furnished: true }),
+      makeAggregated({ contact: makeContact({ kind: 'private' }) }),
+    ]) {
+      expect(scoreMatch(listing, preferences).matchesCriteria).toBe(true);
+    }
+  });
+
+  /**
+   * Le caractère étudiant reste DÉTECTÉ — c'est un fait sur l'annonce, que le
+   * filtre de lecture consomme. Ne plus l'établir rendrait le filtre aveugle.
+   */
+  it('reconnaît une location exclusivement étudiante, pas celles qui en acceptent', () => {
+    expect(isStudentHousing(makeAggregated({ description: 'Studio réservé aux étudiants' }))).toBe(
+      true,
+    );
+    expect(isStudentHousing(makeAggregated({ description: 'Location étudiant de 9 mois' }))).toBe(
+      true,
+    );
+    // Accepte des étudiants MAIS pas uniquement → ce n'est pas un logement
+    // étudiant (décision 2026-08-16).
     expect(
-      scoreMatch(makeAggregated({ title: 'T1 en résidence étudiante' }), MVP_CRITERIA)
-        .matchesCriteria,
+      isStudentHousing(makeAggregated({ description: 'Joli studio idéal pour un étudiant' })),
     ).toBe(false);
     expect(
-      scoreMatch(makeAggregated({ description: 'Studio réservé aux étudiants' }), MVP_CRITERIA)
-        .matchesCriteria,
+      isStudentHousing(makeAggregated({ description: 'Bel appartement, étudiants acceptés' })),
     ).toBe(false);
-    // Accepte des étudiants MAIS pas uniquement → conservé (décision 2026-08-16).
-    expect(
-      scoreMatch(
-        makeAggregated({ description: 'Joli studio idéal pour un étudiant, proche fac' }),
-        MVP_CRITERIA,
-      ).matchesCriteria,
-    ).toBe(true);
-    expect(
-      scoreMatch(
-        makeAggregated({ description: 'Bel appartement, étudiants acceptés' }),
-        MVP_CRITERIA,
-      ).matchesCriteria,
-    ).toBe(true);
   });
 
-  it('filtre par nature du bailleur (particulier / agence), inconnu = non-agence', () => {
-    const at = (kind: 'agency' | 'private' | 'unknown') =>
-      makeAggregated({ price: 650, area: 20, city: 'nice', contact: makeContact({ kind }) });
-    const withFilter = (f: 'all' | 'private' | 'agency') => ({
-      ...MVP_CRITERIA,
-      landlordFilter: f,
-    });
-
-    // « all » (défaut) : aucun bailleur exclu.
-    for (const k of ['agency', 'private', 'unknown'] as const) {
-      expect(scoreMatch(at(k), withFilter('all')).matchesCriteria).toBe(true);
-    }
-    // « private » : masque les agences, garde particuliers ET inconnus (§17).
-    expect(scoreMatch(at('agency'), withFilter('private')).matchesCriteria).toBe(false);
-    expect(scoreMatch(at('private'), withFilter('private')).matchesCriteria).toBe(true);
-    expect(scoreMatch(at('unknown'), withFilter('private')).matchesCriteria).toBe(true);
-    // « agency » : ne garde que les agences connues.
-    expect(scoreMatch(at('agency'), withFilter('agency')).matchesCriteria).toBe(true);
-    expect(scoreMatch(at('private'), withFilter('agency')).matchesCriteria).toBe(false);
-    expect(scoreMatch(at('unknown'), withFilter('agency')).matchesCriteria).toBe(false);
-  });
-
-  it('filtre par caractère meublé, un meublé inconnu restant conservé (§17)', () => {
-    const withFurniture = (v: boolean | null) => makeAggregated({ furnished: v });
-    const f = (mode: 'all' | 'furnished' | 'unfurnished') => ({
-      ...MVP_CRITERIA,
-      furnishedFilter: mode,
-    });
-
-    // « all » : rien n'est exclu.
-    for (const v of [true, false, null] as const) {
-      expect(scoreMatch(withFurniture(v), f('all')).matchesCriteria).toBe(true);
-    }
-    // « furnished » : exclut les non meublés, garde meublés et inconnus.
-    expect(scoreMatch(withFurniture(false), f('furnished')).matchesCriteria).toBe(false);
-    expect(scoreMatch(withFurniture(true), f('furnished')).matchesCriteria).toBe(true);
-    expect(scoreMatch(withFurniture(null), f('furnished')).matchesCriteria).toBe(true);
-    // « unfurnished » : exclut les meublés, garde non meublés et inconnus.
-    expect(scoreMatch(withFurniture(true), f('unfurnished')).matchesCriteria).toBe(false);
-    expect(scoreMatch(withFurniture(false), f('unfurnished')).matchesCriteria).toBe(true);
-    expect(scoreMatch(withFurniture(null), f('unfurnished')).matchesCriteria).toBe(true);
-  });
-
-  it('détecte la location étudiante via l’URL de la source', () => {
+  it('reconnaît la location étudiante annoncée par l’URL de la source', () => {
     const listing = makeAggregated({
       occurrences: [
         makeOccurrence({
@@ -172,34 +157,17 @@ describe('scoreMatch (§16)', () => {
         }),
       ],
     });
-    expect(scoreMatch(listing, MVP_CRITERIA).matchesCriteria).toBe(false);
+    expect(isStudentHousing(listing)).toBe(true);
   });
 
   it('exclut un stationnement de la liste principale', () => {
+    // Structurel, et non préférentiel : un parking n'est pas un logement, quel
+    // que soit le réglage. Celui-là reste éliminatoire au scoring.
     const { matchesCriteria } = scoreMatch(
       makeAggregated({ propertyType: 'parking' }),
       MVP_CRITERIA,
     );
     expect(matchesCriteria).toBe(false);
-  });
-
-  it('exclut une colocation quand excludeFlatShare est actif', () => {
-    const { matchesCriteria } = scoreMatch(makeAggregated({ flatShare: true }), MVP_CRITERIA);
-    expect(matchesCriteria).toBe(false);
-  });
-
-  it('garde un logement entier et une coloc inconnue (§17)', () => {
-    expect(scoreMatch(makeAggregated({ flatShare: false }), MVP_CRITERIA).matchesCriteria).toBe(
-      true,
-    );
-    expect(scoreMatch(makeAggregated({ flatShare: null }), MVP_CRITERIA).matchesCriteria).toBe(
-      true,
-    );
-  });
-
-  it("n'exclut pas les colocations si le critère est désactivé", () => {
-    const criteria = { ...MVP_CRITERIA, excludeFlatShare: false };
-    expect(scoreMatch(makeAggregated({ flatShare: true }), criteria).matchesCriteria).toBe(true);
   });
 
   it('favorise un loyer nettement sous le plafond', () => {

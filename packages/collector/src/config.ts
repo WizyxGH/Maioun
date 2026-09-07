@@ -392,6 +392,18 @@ export function loadImapConfig(env: NodeJS.ProcessEnv = process.env): ImapConfig
   };
 }
 
+/**
+ * Gabarit de l'adresse de transfert des alertes, avec `{token}` (§6).
+ *
+ * Vide = pas de vérification du destinataire, et c'est le bon défaut : tant que
+ * la fonctionnalité n'est pas configurée, le collecteur lit la boîte qu'on lui
+ * indique comme il l'a toujours fait. Exiger un jeton faute de gabarit
+ * couperait l'import chez qui lit simplement sa propre boîte.
+ */
+export function alertAddressTemplate(env: NodeJS.ProcessEnv = process.env): string {
+  return env['ALERT_ADDRESS_TEMPLATE']?.trim() ?? '';
+}
+
 /** User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur (§10). */
 export function collectorUserAgent(env: NodeJS.ProcessEnv = process.env): string {
   return env['COLLECTOR_USER_AGENT'] ?? 'RentFinderBot/0.1 (+https://github.com/)';

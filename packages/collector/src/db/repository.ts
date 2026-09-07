@@ -21,6 +21,7 @@ import type {
   SourceRuntimeState,
 } from '@rentfinder/shared';
 import { CURRENT_USER, NEAR_MATCH_MARGIN } from '@rentfinder/shared';
+import { traitConditions, type TraitFilters } from '../core/trait-filters.js';
 import { actionPriority } from '@rentfinder/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
@@ -308,7 +309,14 @@ export interface Repository {
    * Annonces à signaler : dans les critères, actives, jamais notifiées, et de
    * priorité suffisante (§29). Triées par priorité décroissante.
    */
-  pendingNotifications(minPriority: number): Promise<NotifiableListing[]>;
+  /**
+   * @param traits Les préférences du compte — colocation, bail étudiant,
+   *   bailleur, ameublement. Elles ne sont plus figées dans `matches_criteria`
+   *   (elles se décochent, et décocher doit ramener les annonces) : il faut
+   *   donc les appliquer ICI aussi, sans quoi l'on signalerait des colocations
+   *   que l'écran n'affiche pas — le pire des deux mondes.
+   */
+  pendingNotifications(minPriority: number, traits?: TraitFilters): Promise<NotifiableListing[]>;
   /**
    * Clés `prix|surface|ville|pièces` des annonces actives issues UNIQUEMENT de
    * sources directes (agences), jamais des alertes e-mail. Sert à taire la
@@ -834,16 +842,24 @@ export function createRepository(db: Database): Repository {
         // `flat_share` a sa propre colonne parce que le dédoublonnage et le
         // score la lisent sans ouvrir la charge utile : l'oublier ici aurait
         // rendu la correction invisible là où elle compte.
+        //
+        // `furnished` ÉTAIT PRÉCISÉMENT DANS CE CAS. Il a sa colonne, il ne
+        // figure pas dans la charge utile, et il ne bougeait pas ici : le rejeu
+        // annonçait « huit occurrences corrigées » à chaque passage, sans que
+        // rien ne change jamais — il relisait la colonne inchangée et
+        // recommençait. Une correction qui se répète sans effet est le signe
+        // qu'on écrit ailleurs qu'on ne lit.
         // `content_hash` suit, pour que la prochaine collecte ne réécrive pas
         // la ligne pour rien.
         sql: `UPDATE occurrences
-              SET address = ?, property_type = ?, flat_share = ?, charges = ?,
+              SET address = ?, property_type = ?, flat_share = ?, furnished = ?, charges = ?,
                   rooms = ?, payload = ?, content_hash = ?
               WHERE id = ?`,
         args: [
           listing.address,
           listing.propertyType,
           listing.flatShare === null ? null : listing.flatShare ? 1 : 0,
+          listing.furnished === null ? null : listing.furnished ? 1 : 0,
           listing.charges,
           listing.rooms,
           JSON.stringify(occurrencePayload(listing)),
@@ -1232,7 +1248,9 @@ export function createRepository(db: Database): Repository {
       );
     },
 
-    async pendingNotifications(minPriority) {
+    async pendingNotifications(minPriority, traits = {}) {
+      const preferences = traitConditions(traits);
+      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
       const result = await db.execute({
         // `lifecycle = 'active'` (et non « != inactive ») : une annonce
         // `possiblyInactive` a déjà disparu de sa source lors de plusieurs
@@ -1247,8 +1265,9 @@ export function createRepository(db: Database): Repository {
                 AND archived = 0
                 AND rented = 0
                 AND COALESCE(action_priority, 0) >= ?
+                ${extra}
               ORDER BY action_priority DESC`,
-        args: [minPriority],
+        args: [minPriority, ...preferences.args],
       });
 
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));

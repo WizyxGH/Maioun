@@ -10,6 +10,7 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { ALERT_SENDER_MATCHES } from '@rentfinder/shared';
+import { RECIPIENT_HEADERS, addressesIn } from './alert-recipients.js';
 import type { ImapConfig } from '../config.js';
 
 export interface EmailImportOptions {
@@ -44,10 +45,24 @@ export interface ImapLike {
 }
 
 /**
- * Récupère le HTML des e-mails d'alerte récents. Chaque entrée = le corps HTML
- * (ou texte) d'un e-mail, à passer ensuite à `parseAlertEmail`.
+ * Un e-mail d'alerte, et à qui il était adressé.
+ *
+ * LES DESTINATAIRES NE SONT PAS UN ORNEMENT. Le collecteur lit UNE boîte, celle
+ * du projet, où chaque compte fait suivre ses alertes. Rien dans le CORPS ne dit
+ * de qui vient le message — un digest SeLoger a la même apparence pour tout le
+ * monde. Seule l'adresse visée le dit.
  */
-export async function fetchAlertEmails(options: EmailImportOptions): Promise<string[]> {
+export interface AlertEmail {
+  /** Corps HTML, ou texte à défaut. */
+  readonly body: string;
+  /** Adresses citées par les en-têtes de destination, en minuscules. */
+  readonly recipients: readonly string[];
+}
+
+/**
+ * Récupère les e-mails d'alerte récents : leur corps, et à qui ils allaient.
+ */
+export async function fetchAlertEmails(options: EmailImportOptions): Promise<AlertEmail[]> {
   const { config, log } = options;
   const sinceDays = options.sinceDays ?? 7;
   const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
@@ -62,7 +77,7 @@ export async function fetchAlertEmails(options: EmailImportOptions): Promise<str
       logger: false,
     });
 
-  const bodies: string[] = [];
+  const emails: AlertEmail[] = [];
   try {
     await client.connect();
   } catch (error) {
@@ -84,7 +99,22 @@ export async function fetchAlertEmails(options: EmailImportOptions): Promise<str
         if (message.source === undefined) continue;
         const parsed = await simpleParser(message.source);
         const body = typeof parsed.html === 'string' ? parsed.html : (parsed.text ?? '');
-        if (body !== '') bodies.push(body);
+        if (body === '') continue;
+        // Les en-têtes de destination, tous ceux qu'on connaît : aucun
+        // fournisseur ne les écrit tous, et c'est `Delivered-To` — écrit par le
+        // serveur qui livre — qui porte l'adresse réellement visée.
+        const recipients = [
+          ...new Set(
+            RECIPIENT_HEADERS.flatMap((header) =>
+              addressesIn(
+                typeof parsed.headers.get(header) === 'string'
+                  ? (parsed.headers.get(header) as string)
+                  : ((parsed.headers.get(header) as { text?: string } | undefined)?.text ?? null),
+              ),
+            ),
+          ),
+        ];
+        emails.push({ body, recipients });
       }
     } finally {
       lock.release();
@@ -101,6 +131,6 @@ export async function fetchAlertEmails(options: EmailImportOptions): Promise<str
     }
   }
 
-  log('email.fetched', { emails: bodies.length });
-  return bodies;
+  log('email.fetched', { emails: emails.length });
+  return emails;
 }

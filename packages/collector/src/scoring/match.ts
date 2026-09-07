@@ -152,81 +152,6 @@ function parkingExclusion(listing: AggregatedListing): ScoreReason | null {
     : null;
 }
 
-/** Location EXCLUSIVEMENT étudiante, quand l'utilisateur l'exclut (§17). */
-function studentExclusion(
-  listing: AggregatedListing,
-  criteria: SearchCriteria,
-): ScoreReason | null {
-  return criteria.excludeStudent === true && isStudentHousing(listing)
-    ? { code: 'student.excluded', label: 'Location étudiante — exclue de la recherche', delta: 0 }
-    : null;
-}
-
-/** Colocation, quand l'utilisateur l'exclut. Un flatShare inconnu n'élimine pas (§17). */
-function flatShareExclusion(
-  listing: AggregatedListing,
-  criteria: SearchCriteria,
-): ScoreReason | null {
-  return criteria.excludeFlatShare === true && listing.flatShare.value === true
-    ? { code: 'flatshare.excluded', label: 'Colocation — exclue de la recherche', delta: 0 }
-    : null;
-}
-
-/**
- * Exclusion éliminatoire selon la NATURE DU BAILLEUR (§17). `null` si l'annonce
- * n'est pas exclue. `'private'` masque les agences connues (garde les bailleurs
- * inconnus) ; `'agency'` ne garde que les agences.
- */
-function landlordExclusion(
-  listing: AggregatedListing,
-  criteria: SearchCriteria,
-): ScoreReason | null {
-  const filter = criteria.landlordFilter ?? 'all';
-  const isAgency = listing.contact.kind === 'agency';
-  if (filter === 'private' && isAgency) {
-    return {
-      code: 'landlord.agency',
-      label: 'Annonce d’agence — exclue (particuliers seulement)',
-      delta: 0,
-    };
-  }
-  if (filter === 'agency' && !isAgency) {
-    return {
-      code: 'landlord.notAgency',
-      label: 'Hors agence — exclue (agences seulement)',
-      delta: 0,
-    };
-  }
-  return null;
-}
-
-/**
- * Exclusion éliminatoire selon le caractère MEUBLÉ (§17). Un statut inconnu
- * (null) n'exclut jamais.
- */
-function furnishedExclusion(
-  listing: AggregatedListing,
-  criteria: SearchCriteria,
-): ScoreReason | null {
-  const filter = criteria.furnishedFilter ?? 'all';
-  const furnished = listing.furnished.value;
-  if (filter === 'furnished' && furnished === false) {
-    return {
-      code: 'furnished.excluded',
-      label: 'Non meublé — exclu (meublés seulement)',
-      delta: 0,
-    };
-  }
-  if (filter === 'unfurnished' && furnished === true) {
-    return {
-      code: 'unfurnished.excluded',
-      label: 'Meublé — exclu (non meublés seulement)',
-      delta: 0,
-    };
-  }
-  return null;
-}
-
 export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria): MatchOutcome {
   const reasons: ScoreReason[] = [];
   const unknownSignals: string[] = [];
@@ -308,17 +233,23 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
   // (dedans/dehors), pas des dimensions notées : ils n'entrent ni dans `total`
   // ni dans `maxTotal`, et un signal INCONNU n'élimine jamais (§17). L'annonce
   // reste collectée et consultable hors critères (§53).
-  for (const exclusion of [
-    parkingExclusion(listing),
-    studentExclusion(listing, criteria),
-    flatShareExclusion(listing, criteria),
-    landlordExclusion(listing, criteria),
-    furnishedExclusion(listing, criteria),
-  ]) {
-    if (exclusion !== null) {
-      matchesCriteria = false;
-      reasons.push(exclusion);
-    }
+  /**
+   * SEUL LE NON-RÉSIDENTIEL RESTE ÉLIMINATOIRE ICI.
+   *
+   * Colocation, bail étudiant, nature du bailleur et ameublement étaient jugés
+   * au même endroit — et FIGÉS dans `matches_criteria`. Les cocher marchait ;
+   * les décocher ne ramenait rien, puisque les annonces écartées à la collecte
+   * restaient marquées « hors critères » et qu'aucun filtre ne les repêchait.
+   *
+   * Ce sont des PRÉFÉRENCES, pas des faits sur le bien : elles s'appliquent
+   * désormais à la lecture (`core/trait-filters`), où les changer se voit
+   * immédiatement, dans les deux sens. Un parking, lui, ne devient pas un
+   * logement parce qu'on change d'avis.
+   */
+  const exclusion = parkingExclusion(listing);
+  if (exclusion !== null) {
+    matchesCriteria = false;
+    reasons.push(exclusion);
   }
 
   // --- Critères optionnels, inactifs dans le MVP (§2) -----------------------

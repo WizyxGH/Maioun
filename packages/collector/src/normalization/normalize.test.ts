@@ -228,3 +228,34 @@ describe('nature du bailleur', () => {
     expect(normalizeListing(raw({ cityText: 'nice' }), OPTIONS)?.contact.kind).toBe('unknown');
   });
 });
+
+/**
+ * LE MEUBLÉ SE RATTRAPE AU REJEU, et il ne se rattrapait pas.
+ *
+ * La détection reconnaît « location vide » ; ce qui manquait, c'est le TEXTE
+ * qu'on lui donne. Chaque source décide de ce qu'elle passe au détecteur, et
+ * celles qui ne joignent pas la description ne laissent rien à lire. Relevé sur
+ * huit annonces disant « location vide » : une restait sans statut.
+ */
+describe('meublé rattrapé par le rejeu', () => {
+  it('lit « location vide » dans la description conservée', () => {
+    const stored = normalizeListing(
+      raw({ cityText: 'nice', title: 'Appartement 3 pièces', description: 'Location vide.' }),
+      OPTIONS,
+    );
+    expect(stored).not.toBeNull();
+    // Une occurrence enregistrée SANS statut — la source ne l'avait pas passé.
+    const blind = { ...stored!, furnished: null };
+    expect(rederiveFromText(blind)?.furnished).toBe(false);
+  });
+
+  it('ne réécrit pas un statut déjà établi', () => {
+    const stored = normalizeListing(
+      raw({ cityText: 'nice', title: 'Studio meublé', furnishedText: 'Studio meublé' }),
+      OPTIONS,
+    );
+    expect(stored?.furnished).toBe(true);
+    // Rien à rattraper : le rejeu ne rend rien plutôt que de réécrire.
+    expect(rederiveFromText(stored!)).toBeNull();
+  });
+});
