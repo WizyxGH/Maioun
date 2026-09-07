@@ -779,13 +779,111 @@ const NOT_A_DISTRICT =
 const NAMED_DISTRICT =
   /\b(?:quartier|secteur)\s+(?:de\s+|du\s+|des\s+|d['’]\s?)?([A-ZÉÈÀÂÎÔÛÇ][\wÀ-ÿ'’-]+(?:[ -][A-ZÉÈÀÂÎÔÛÇ][\wÀ-ÿ'’-]+){0,2})/;
 
-/** Le quartier nommé dans le texte, ou `null`. */
+/**
+ * Les quartiers de Nice, tels que les annonces les écrivent.
+ *
+ * IL EN FALLAIT UNE LISTE, et voici pourquoi. La détection ne reconnaissait un
+ * quartier qu'ANNONCÉ comme tel — « Quartier Madeleine », « secteur Cimiez ».
+ * Or les agences l'écrivent presque toujours nu, dans le titre : « Studio
+ * meublé de 25 m² à la madeleine », « Studio Nice Fabron résidence piscine »,
+ * « Location meublée Nice Port/Riquier ». Sur cinq annonces portant un nom de
+ * quartier évident, une seule était reconnue.
+ *
+ * UNE LISTE FERMÉE PLUTÔT QU'UNE RÈGLE : « à la madeleine » ne se distingue
+ * d'un lieu-dit quelconque que si l'on SAIT que c'est un quartier de Nice. On
+ * ne devine pas, on reconnaît (§17) — et un nom absent de cette liste laisse le
+ * quartier vide, ce qui est la bonne réponse quand on ne sait pas.
+ *
+ * L'ORDRE EST SIGNIFIANT : le premier nom trouvé l'emporte, donc le plus
+ * précis vient d'abord. « Nice Ouest Madeleine » doit donner Madeleine, le
+ * quartier, et non Nice Ouest, le secteur qui en contient une demi-douzaine ;
+ * « Petit Fabron » doit l'emporter sur « Fabron ».
+ */
+const NICE_DISTRICTS: readonly string[] = [
+  // Quartiers, du composé au simple.
+  'Vieux Nice',
+  'Petit Fabron',
+  'Bas Fabron',
+  'Mont Boron',
+  'Bon Voyage',
+  'Las Planas',
+  'Sainte-Marguerite',
+  'Saint-Sylvestre',
+  'Saint-Pancrace',
+  'Saint-Augustin',
+  'Saint-Isidore',
+  'Saint-Antoine',
+  'Saint-Roch',
+  'Jean Medecin',
+  'Borriglione',
+  'Liberation',
+  'Californie',
+  'Baumettes',
+  'Madeleine',
+  'Musiciens',
+  'Pessicart',
+  'Gambetta',
+  'Lanterne',
+  'Riquier',
+  'Fabron',
+  'Gairaut',
+  'Pasteur',
+  'Magnan',
+  'Ariane',
+  'Cimiez',
+  'Rimiez',
+  'Carras',
+  'Thiers',
+  'Port',
+  // Secteurs : en dernier recours seulement, faute de quartier plus precis.
+  'Nice Nord',
+  'Nice Ouest',
+  'Nice Est',
+];
+
+/**
+ * « Proche de Cimiez » ne dit PAS que le bien est à Cimiez — il dit le
+ * contraire. Ces tournures précèdent un repère dont l'annonce se rapproche, et
+ * un nom de quartier qui les suit n'est pas celui du logement (§17).
+ */
+const NEAR_BUT_NOT_IN =
+  /(?:proche|proximite|pres|pied|deux pas|face|limitrophe|vers|entre|acces|direction)(?: de| du| des| d| a)?$/;
+
+/**
+ * Le quartier niçois nommé dans un texte, s'il en est un de connu.
+ *
+ * La comparaison se fait en forme `comparable` — minuscules, sans accent ni
+ * ponctuation — sur des MOTS ENTIERS : « Port » ne doit se déclencher ni sur
+ * « aéroport », ni sur « portes ».
+ */
+function knownNiceDistrict(text: string): string | null {
+  const haystack = comparable(text);
+  for (const district of NICE_DISTRICTS) {
+    const pattern = comparable(district).replace(/ /g, '\\s+');
+    const found = new RegExp(`\\b${pattern}\\b`).exec(haystack);
+    if (found === null) continue;
+    // Ce qui précède décide : « à la Madeleine » situe, « proche de la
+    // Madeleine » éloigne. On regarde les quelques mots d'avant.
+    const before = haystack.slice(Math.max(0, found.index - 30), found.index).trimEnd();
+    if (NEAR_BUT_NOT_IN.test(before.replace(/(?: la| le| l)$/, ''))) continue;
+    return district;
+  }
+  return null;
+}
+
+/**
+ * Le quartier nommé dans le texte, ou `null`.
+ *
+ * Deux chemins : le quartier ANNONCÉ (« quartier X », « secteur X »), qui
+ * accepte n'importe quel nom, puis à défaut un quartier niçois RECONNU, qui
+ * n'accepte que ceux de la liste.
+ */
 export function parseDistrict(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
   const name = NAMED_DISTRICT.exec(cleaned)?.[1];
-  if (name === undefined) return null;
-  return NOT_A_DISTRICT.test(comparable(name)) ? null : name;
+  if (name !== undefined && !NOT_A_DISTRICT.test(comparable(name))) return name;
+  return knownNiceDistrict(cleaned);
 }
 
 /** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */

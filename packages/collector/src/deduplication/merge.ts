@@ -179,7 +179,24 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     Date.parse(candidate.firstSeenAt) < Date.parse(best.firstSeenAt) ? candidate : best,
   );
 
-  const imageUrls = [...new Set(occurrences.flatMap((occurrence) => occurrence.imageUrls))];
+  /**
+   * LES PHOTOS AFFICHABLES D'ABORD.
+   *
+   * Une image servie en `http://` ne s'affiche PAS sur une page en `https` : le
+   * navigateur la bloque, sans message. Le bulletin abonnés de BEP n'a que
+   * celles-là — son hébergeur ne parle pas TLS du tout —, tandis que le site
+   * public de la même agence sert les siennes en `https`. Depuis que les deux
+   * sont fusionnés, la fiche prenait les premières venues : on affichait donc
+   * un cadre vide alors que les bonnes photos étaient là, dans l'autre source.
+   *
+   * On ne jette rien : les `http` restent, en fin de liste. La fiche sait les
+   * proposer en lien quand elle n'a qu'elles (§11 — jamais réhébergées).
+   */
+  const allImages = [...new Set(occurrences.flatMap((occurrence) => occurrence.imageUrls))];
+  const imageUrls = [
+    ...allImages.filter((url) => !url.startsWith('http://')),
+    ...allImages.filter((url) => url.startsWith('http://')),
+  ];
 
   const timestamps = occurrences.map((o) => Date.parse(o.firstSeenAt)).filter(Number.isFinite);
   const lastSeen = occurrences.map((o) => Date.parse(o.lastSeenAt)).filter(Number.isFinite);

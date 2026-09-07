@@ -328,6 +328,30 @@ describe('mergeGroup — fusion des informations (§15)', () => {
     expect(merged.contact.providedBy).toEqual(expect.arrayContaining(['leboncoin', 'agencex']));
   });
 
+  it('met les photos AFFICHABLES devant celles que le navigateur refuse', () => {
+    // Le bulletin abonnés de BEP n’a que des images en `http`, servies par un
+    // hôte qui ne parle pas TLS ; le site public de la même agence a les mêmes
+    // photos en `https`. Fusionnées, la fiche prenait les premières venues et
+    // affichait un cadre vide, les bonnes photos étant pourtant là.
+    const occurrences = [
+      listing({
+        id: 'bep-abonnes:7',
+        sourceId: 'bep-abonnes',
+        imageUrls: ['http://beptransaction.example.invalid/1.jpg'],
+      }),
+      listing({
+        id: 'bep:7',
+        sourceId: 'bep',
+        imageUrls: ['https://images.example.invalid/1.jpg'],
+      }),
+    ];
+
+    const merged = mergeGroup(occurrences);
+    expect(merged.imageUrls[0]).toBe('https://images.example.invalid/1.jpg');
+    // On ne jette rien : les `http` restent, derrière.
+    expect(merged.imageUrls).toContain('http://beptransaction.example.invalid/1.jpg');
+  });
+
   it('conserve les valeurs divergentes au lieu de les écraser', () => {
     const occurrences = [
       listing({ id: 'a:6', sourceId: 'a', price: 690, area: 34 }),

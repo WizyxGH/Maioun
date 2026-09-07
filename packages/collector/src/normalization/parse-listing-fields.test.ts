@@ -657,6 +657,30 @@ describe('parseDistrict', () => {
     expect(parseDistrict('Studio proche de Cimiez')).toBeNull();
     expect(parseDistrict(null)).toBeNull();
   });
+
+  it('reconnaît un quartier niçois écrit nu, comme le font les titres', () => {
+    // Rien n’annonçait le quartier : ces cinq titres, relevés en base le
+    // 2026-09-07, portaient tous un nom évident, et un seul était reconnu.
+    expect(parseDistrict('Studio meublé de 25m² à la madeleine')).toBe('Madeleine');
+    expect(parseDistrict('Studio 31 M2 la madeleine')).toBe('Madeleine');
+    expect(parseDistrict('Studio Nice Fabron Residence piscine')).toBe('Fabron');
+    expect(parseDistrict('Location Meublée Nice Port/Riquier - Studio')).toBe('Riquier');
+    expect(parseDistrict('STUDIO MEUBLE — NICE OUEST MADELEINE')).toBe('Madeleine');
+  });
+
+  it('préfère le quartier au secteur qui le contient', () => {
+    // « Nice Ouest » en contient une demi-douzaine : il ne vaut qu’à défaut.
+    expect(parseDistrict('Bel appartement Nice Ouest, proche tram')).toBe('Nice Ouest');
+    expect(parseDistrict('Appartement Nice Ouest — Petit Fabron')).toBe('Petit Fabron');
+  });
+
+  it('ne prend pas un REPÈRE VOISIN pour le quartier du bien (§17)', () => {
+    expect(parseDistrict('Studio à 5 min à pied du Port')).toBeNull();
+    expect(parseDistrict('T2 à proximité de Riquier')).toBeNull();
+    expect(parseDistrict('Studio face à Cimiez')).toBeNull();
+    // « aéroport » contient « port » : les mots entiers, et rien d’autre.
+    expect(parseDistrict('Grand studio aéroport, résidence récente')).toBeNull();
+  });
 });
 
 describe('parseChargesField', () => {
