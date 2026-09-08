@@ -365,11 +365,34 @@ export async function fetchAlerts(): Promise<readonly ListingView[]> {
  * Route à part et chargée à l'ouverture des réglages seulement : elle coûte une
  * lecture de ligne, et l'écran d'accueil n'en a pas besoin (§30).
  */
-export async function fetchAlertAddress(): Promise<string | null> {
-  if (DEMO) return 'alertes+demo@exemple.invalid';
-  if (API_URL === '') return null;
-  const response = await request<{ address: string | null }>('/api/alert-address');
-  return response.address;
+export interface AlertForwarding {
+  readonly address: string | null;
+  /** `null` tant qu'aucune alerte n'est arrivée sur cette adresse. */
+  readonly lastReceivedAt: string | null;
+  readonly receivedCount: number;
+}
+
+const DEMO_FORWARDING: AlertForwarding = {
+  address: 'alertes+demo@exemple.invalid',
+  lastReceivedAt: null,
+  receivedCount: 0,
+};
+
+export async function fetchAlertAddress(): Promise<AlertForwarding> {
+  if (DEMO) return DEMO_FORWARDING;
+  if (API_URL === '') return { address: null, lastReceivedAt: null, receivedCount: 0 };
+  return await request<AlertForwarding>('/api/alert-address');
+}
+
+/**
+ * Tire une nouvelle adresse pour ce compte, l'ancienne cessant aussitôt.
+ *
+ * C'est le recours quand l'adresse a fuité : sans lui, l'avertissement « ne la
+ * publiez pas » ne mène à rien le jour où c'est arrivé.
+ */
+export async function rotateAlertAddress(): Promise<AlertForwarding> {
+  if (DEMO) return DEMO_FORWARDING;
+  return await request<AlertForwarding>('/api/alert-address/rotate', { method: 'POST' });
 }
 
 /**
