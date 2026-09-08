@@ -22,7 +22,13 @@
 
 import { createClient } from '@libsql/client';
 
-const cible = (process.argv[2] ?? '').trim().toLowerCase();
+/**
+ * UN POINT FINAL COPIÉ AVEC LA PHRASE. Une consigne se termine par un point, et
+ * l'adresse collée depuis cette consigne le ramène avec elle : le script
+ * refusait alors une adresse juste, sans laisser voir qu'il ne s'en fallait que
+ * d'un caractère. Aucune adresse ne finit légitimement par un point.
+ */
+const cible = (process.argv[2] ?? '').trim().replace(/\.+$/, '').toLowerCase();
 const imap = (process.env['IMAP_USER'] ?? '').trim().toLowerCase();
 
 if (cible === '') {
@@ -35,8 +41,10 @@ if (imap === '') {
 }
 if (cible !== imap) {
   console.error(
-    'Refusé : cette adresse n’est pas la boîte lue par le collecteur.\n' +
-      'Ce script ne confirme que celle dont nous avons la preuve — pas une autre.',
+    // ON MONTRE CE QU'ON A COMPARÉ. « Ce n'est pas la bonne adresse » sans dire
+    // laquelle on a reçue laisse chercher longtemps une faute d'un caractère.
+    `Refusé : « ${cible} » n’est pas la boîte lue par le collecteur.\n` +
+      'Ce script ne confirme que celle-là, dont nous avons la preuve — pas une autre.',
   );
   process.exit(1);
 }
