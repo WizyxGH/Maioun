@@ -10,7 +10,7 @@
  * navigateur a stocké, rien d'autre (§26).
  */
 
-import type { TenantProfile } from '@rentfinder/shared';
+import { TENANT_SITUATIONS, type TenantProfile } from '@rentfinder/shared';
 import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from './icons.js';
 import { UNKNOWN_LABEL, formatPhone } from '../format.js';
 import { guarantorsLabel } from '../profile.js';
@@ -43,7 +43,11 @@ function lines(profile: TenantProfile): readonly {
       key: 'situation',
       Icon: ShieldCheck,
       label: 'Situation',
-      value: profile.situation === '' ? null : profile.situation,
+      // LE LIBELLÉ, PAS LA VALEUR STOCKÉE. Le profil retient `cdi-essai` ; c est
+      // ce qu on lisait à l écran, au lieu de « CDI en période d essai ». Une
+      // situation saisie librement — « intermittent » — n est dans aucune liste
+      // et s affiche telle quelle, ce qui est déjà le bon texte.
+      value: profile.situation === '' ? null : situationLabel(profile.situation),
     },
     {
       key: 'income',
@@ -67,6 +71,11 @@ function lines(profile: TenantProfile): readonly {
           : new Date(profile.moveInDate).toLocaleDateString('fr-FR'),
     },
   ];
+}
+
+/** L intitulé d une situation, ou le texte libre quand elle n est pas listée. */
+function situationLabel(value: string): string {
+  return TENANT_SITUATIONS.find((one) => one.value === value)?.label ?? value;
 }
 
 export function ProfileSummary({

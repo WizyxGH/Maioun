@@ -46,6 +46,26 @@ export const BEP_ABONNES_DESCRIPTOR: SourceDescriptor = {
   priority: 1,
   schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 60 }),
   budget: budgetFor('agencyNetwork', { maxPagesPerRun: 2, maxListingsPerRun: 1000 }),
+  /**
+   * LE BULLETIN N'EST PAS UN INVENTAIRE, et c'est ce qui rendait ces annonces
+   * IMMORTELLES.
+   *
+   * Il publie une VINGTAINE d'entrées à la fois — les dernières parues — pour
+   * un stock de quatre-vingt-quinze. Le vieillissement ordinaire compte les
+   * absences d'un passage à l'autre : ici, soixante-quinze annonces manquent à
+   * chaque fois sans que cela prouve quoi que ce soit. Le garde-fou
+   * anti-expiration massive s'en apercevait et refusait de conclure — à
+   * raison — mais il se déclenchait à CHAQUE passage (« chute suspecte : 18
+   * annonces rendues pour 95 connues »), si bien qu'aucune annonce BEP ne
+   * pouvait jamais mourir. Relevé le 2026-09-08 : une seule éteinte sur
+   * quatre-vingt-seize, certaines plus revues depuis sept jours.
+   *
+   * C'est exactement la situation que décrit `oneShotListings` : l'absence ne
+   * prouve rien, et seul le TEMPS peut trancher. Le bien reste alors visible
+   * dix jours, puis douteux, puis retiré — au lieu de rester éternellement
+   * « disponible » sur un accès que l'utilisateur PAIE.
+   */
+  oneShotListings: true,
   enabled: true,
   // Premier contact via l'agence BEP : automatiser n'est pas approprié (§23).
   manualOnly: true,
