@@ -11,7 +11,8 @@
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
     "icons": "node scripts/build-icons.mjs",
-    "sources": "node scripts/build-sources.mjs"
+    "sources": "node scripts/build-sources.mjs",
+    "app-icons": "node scripts/build-app-icons.mjs"
   },
   "dependencies": {
     "@rentfinder/shared": "workspace:*",

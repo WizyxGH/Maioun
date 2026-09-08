@@ -1,0 +1,14 @@
+<!--
+  L'IDENTITÉ DE L'APPLICATION, EN UN SEUL FICHIER.
+
+  Elle vivait en double : une emoji posée en `data:` dans `index.html` pour
+  l'onglet, et des PNG dessinés à part pour les notifications. Deux maisons
+  différentes pour une seule application — on ne reconnaissait pas l'expéditeur
+  d'une alerte, alors que c'est tout ce qu'on demande à cette vignette.
+
+  Ce fichier est désormais la source : l'onglet le montre directement, et
+  `scripts/build-app-icons.mjs` en tire les PNG que les notifications exigent.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <text y=".9em" font-size="90">🏠</text>
+</svg>
