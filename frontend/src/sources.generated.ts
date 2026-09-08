@@ -38,6 +38,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   beaumont: { name: 'Beaumont Immobilier', domain: 'beaumontimmo.com', logo: null },
   bep: { name: 'BEP Logement', domain: 'bep-logement.com', logo: null },
   'bep-abonnes': { name: 'BEP Logement (abonné)', domain: null, logo: null },
+  bienici: { name: 'Bien’ici', domain: null, logo: null },
   'borne-delaunay': { name: 'Borne & Delaunay', domain: 'borne-delaunay.com', logo: null },
   centragence: { name: 'Centragence', domain: 'centragence.net', logo: null },
   century21: { name: 'Century 21', domain: null, logo: null },

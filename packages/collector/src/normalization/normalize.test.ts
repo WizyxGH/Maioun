@@ -252,6 +252,36 @@ describe('nature du bailleur', () => {
   it('sans aucun indice, on ne suppose rien (§17)', () => {
     expect(normalizeListing(raw({ cityText: 'nice' }), OPTIONS)?.contact.kind).toBe('unknown');
   });
+
+  /**
+   * UNE SOURCE QUI LE DIT ANNONCE PAR ANNONCE. Bien'ici publie le type de
+   * compte du déposant : c'est la première fois qu'un particulier peut être
+   * reconnu SANS que le mot figure dans une prose que la plupart des annonces
+   * n'ont pas. Le `landlord` du descripteur ne pouvait pas rendre ce service :
+   * il vaut pour toute la source, or ce portail porte les deux.
+   */
+  it('la nature déclarée par l’annonce prime sur tout le reste', () => {
+    const declared = raw({
+      cityText: 'nice',
+      title: 'Studio 25 m²',
+      extra: { reference: 'r1', landlord: 'private' },
+    });
+    expect(normalizeListing(declared, OPTIONS)?.contact.kind).toBe('private');
+    // Même face à une agence nommée : la source sait ce qu'elle dit, et une
+    // enseigne au champ « agence » ne doit pas la contredire.
+    expect(
+      normalizeListing({ ...declared, agencyName: 'Cabinet Martin' }, OPTIONS)?.contact.kind,
+    ).toBe('private');
+  });
+
+  it('une valeur inattendue dans extra.landlord ne trouble rien', () => {
+    const bizarre = raw({
+      cityText: 'nice',
+      title: 'Studio 25 m²',
+      extra: { reference: 'r1', landlord: 'société civile' },
+    });
+    expect(normalizeListing(bizarre, OPTIONS)?.contact.kind).toBe('unknown');
+  });
 });
 
 /**

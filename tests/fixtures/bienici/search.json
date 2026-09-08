@@ -1,0 +1,964 @@
+{
+  "total": 512,
+  "from": 0,
+  "perPage": 5,
+  "realEstateAds": [
+    {
+      "blurInfo": {
+        "type": "exact",
+        "bbox": [
+          7.292968999999999,
+          43.70790299999998,
+          7.292969000000001,
+          43.70790300000002
+        ],
+        "origin": "accounts",
+        "position": {
+          "lat": 43.707903,
+          "lon": 7.292969
+        },
+        "centroid": {
+          "lat": 43.707903,
+          "lon": 7.292969
+        }
+      },
+      "city": "Nice",
+      "postalCode": "06300",
+      "chargingStations": {
+        "providers": []
+      },
+      "id": "apimo-87323377",
+      "adType": "rent",
+      "propertyType": "flat",
+      "description": "STUDIO MEUBLE - 20 BD ARMEE DES ALPES - DEBUT SAINT ROCH \n\nAntoine BIERLAIRE du Cabinet GESTION CASSINI vous propose la location d'un appartement studio meublé de 24m² situé au 2ème étage (avec ascenseur) d'un immeuble idéalement situé à proximité des commerces.\n\nL'appartement se compose d'une entrée, séjour avec accès balcon, cuisine ouverte aménagée et équipée, salle d'eau avec WC.\n\nL'appartement est en bon état général, lumineux et bénéficie d'un système de climatisation.\n\nEmplacement idéal, à proximité direct des transports, commerces et écoles. La gare SNCF RIQUIER est situé à seulement 5 minutes à pieds.\n\nDisponible immédiatement.",
+      "title": "STUDIO MEUBLE - 20 BD ARMEE DES ALPES - DEBUT SAINT ROCH",
+      "publicationDate": "2026-09-08T14:01:11.696Z",
+      "modificationDate": "2026-09-08T15:25:36.401Z",
+      "newProperty": false,
+      "virtualTours": [
+        {
+          "originalUrl": "https://tour.giraffe360.com/c273ed76a15a4693aec6d27f48b7db0e",
+          "url": "https://tour.giraffe360.com/c273ed76a15a4693aec6d27f48b7db0e",
+          "type": "photos 360, déplacements suivi",
+          "accepted": true,
+          "https": true,
+          "mobileSupport": true,
+          "size": "responsive",
+          "id": "apimo-87323377_virtualTour_0"
+        }
+      ],
+      "accountType": "agency",
+      "isBienIciExclusive": false,
+      "photoWatermarkAlias": "4bb9d88d-cc47-4c4c-92e1-2dc20572dfe6",
+      "accountDisplayName": "Gestion Cassini",
+      "isFurnished": true,
+      "roomsQuantity": 1,
+      "bedroomsQuantity": 0,
+      "charges": 30,
+      "inventoryOfFixturesFees": 70.44,
+      "safetyDeposit": 740,
+      "floor": 2,
+      "photos": [
+        {
+          "url_photo": "https://media.apimo.pro/cache/19968d1c71096cd239045258e9f2627a_37a2d60b99_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_19968d1c71096cd239045258e9f2627a_37a2d60b99_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_19968d1c71096cd239045258e9f2627a_37a2d60b99_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/c4429eac0a4ce4482799eb72bbad91a4_71552fe76b_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_c4429eac0a4ce4482799eb72bbad91a4_71552fe76b_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_c4429eac0a4ce4482799eb72bbad91a4_71552fe76b_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/bea7c88b887d94bd77354645f88fba1b_85a8e186bc_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_bea7c88b887d94bd77354645f88fba1b_85a8e186bc_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_bea7c88b887d94bd77354645f88fba1b_85a8e186bc_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/69c90cf83878ab04d3c480f5b472a258_75a2273fb5_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_69c90cf83878ab04d3c480f5b472a258_75a2273fb5_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_69c90cf83878ab04d3c480f5b472a258_75a2273fb5_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/475fe75d97a08c7d9dd5633d12681d39_58287756fb_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_475fe75d97a08c7d9dd5633d12681d39_58287756fb_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_475fe75d97a08c7d9dd5633d12681d39_58287756fb_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/c6ce6ad74432dbf6c2a407478c041fae_c76c629a3c_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_c6ce6ad74432dbf6c2a407478c041fae_c76c629a3c_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_c6ce6ad74432dbf6c2a407478c041fae_c76c629a3c_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/3cf7af8404e0b2d1be3a393689efc998_c9cd0cec8a_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_3cf7af8404e0b2d1be3a393689efc998_c9cd0cec8a_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_3cf7af8404e0b2d1be3a393689efc998_c9cd0cec8a_2000-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/e6dbe6b796c73f9d43e6d4212ec60c35_fa05d97cc0_4096-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_e6dbe6b796c73f9d43e6d4212ec60c35_fa05d97cc0_4096-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_e6dbe6b796c73f9d43e6d4212ec60c35_fa05d97cc0_4096-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/d8936bdcc4cc12c30c227ac4b84230ae_a35103b239_2000-original.jpg",
+          "photo": "apimo-87323377_media.apimo.pro_cache_d8936bdcc4cc12c30c227ac4b84230ae_a35103b239_2000-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323377_media.apimo.pro_cache_d8936bdcc4cc12c30c227ac4b84230ae_a35103b239_2000-original.jpg"
+        }
+      ],
+      "balconyQuantity": 1,
+      "energyValue": 147,
+      "energyPerformanceDiagnosticDate": "2026-09-08",
+      "energyClassification": "C",
+      "greenhouseGazValue": 4,
+      "greenhouseGazClassification": "A",
+      "surfaceArea": 23.48,
+      "rentWithoutCharges": 710,
+      "price": 740,
+      "agencyRentalFee": 305.24,
+      "useJuly2021EnergyPerformanceDiagnostic": true,
+      "adCreatedByPro": true,
+      "heating": "Climatisation Electrique Individuel",
+      "hasAirConditioning": true,
+      "district": {
+        "id_polygone": 300101,
+        "id_type": 1,
+        "name": "Nice - Saint-Roch",
+        "libelle": "Saint-Roch",
+        "cp": "06300",
+        "code_insee": "06088",
+        "id": 300101,
+        "insee_code": "06088",
+        "postal_code": "06300",
+        "type_id": 1
+      },
+      "with360": true,
+      "status": {
+        "onTheMarket": true,
+        "closedByUser": false,
+        "autoImported": true,
+        "isLeading": false,
+        "highlighted": false,
+        "is3dHighlighted": false
+      },
+      "departmentCode": "06",
+      "addressKnown": true,
+      "displayDistrictName": true,
+      "pricePerSquareMeter": 31.51618398637138,
+      "postalCodeForSearchFilters": "06300",
+      "descriptionTextLength": 644,
+      "userRelativeData": {
+        "importAccountId": "5913331e150de0009ce38406",
+        "accountIds": [
+          "apimo-2858"
+        ],
+        "searchAccountIds": [
+          "apimo-2858",
+          "contract-type-agency-excellence-package",
+          "contract-type-agency-performance-package",
+          "contract-type-agency-efficiency-package",
+          "5913331e150de0009ce38406"
+        ],
+        "isAdmin": false,
+        "isAdModifier": false,
+        "canSetAsFeatured": false,
+        "canSeeExactPosition": false,
+        "canSeeAddress": false,
+        "canSeeStats": false,
+        "canOpenAdDetail": true,
+        "canSeeRealDates": false,
+        "canSeePublicationCertificateHtml": false,
+        "canSeePublicationCertificatePdf": false
+      },
+      "priceHasDecreased": false,
+      "transactionType": "rent",
+      "adTypeFR": "location",
+      "with3dModel": false,
+      "endOfPromotedAsExclusive": 0,
+      "nothingBehindForm": false,
+      "highlightMailContact": false,
+      "customerId": "gestion-cassini-1",
+      "displayInsuranceEstimation": true,
+      "phoneDisplays": []
+    },
+    {
+      "blurInfo": {
+        "type": "disk",
+        "radius": 50,
+        "bbox": [
+          7.27445417409288,
+          43.703127784876635,
+          7.275696786863391,
+          43.70402610259372
+        ],
+        "position": {
+          "lat": 43.70357694373518,
+          "lon": 7.275075480478136
+        },
+        "centroid": {
+          "lat": 43.70357694373518,
+          "lon": 7.275075480478136
+        }
+      },
+      "city": "Nice",
+      "postalCode": "06000",
+      "chargingStations": {
+        "providers": []
+      },
+      "hasGeorisquesMention": true,
+      "id": "netty-company56146lrb-appt-6822",
+      "adType": "rent",
+      "propertyType": "flat",
+      "reference": "PM257ETUD-CONFIANCEIMMO",
+      "description": "NICE - CENTRE CARABACEL - STUDIO MEUBLE - Location annuelle<br>Au coeur du centre ville - situé sur le boulevard Carabacel, nous vous présentons cet appartement en location meublée. Disponible à partir d'octobre 2026.<br>Studio en bon état, dans un immeuble de 2000, sécurisé et entretenu.<br>Appartement moderne, au 4ème étage, avec ascenseur, meublé tout confort, composé d'une entrée avec placard, salle de douche avec WC, d'une belle pièce à vivre avec coin cuisine équipée.<br>Studio assez spacieux, lumineux et sans vis à vis. Visite virtuelle disponible en copiant ce lien : <span class=\"importDescriptionDecorator\" data-url=\"https://nodalview.com/huzXFh5Mu6pmUysRfM9fTDkd\" data-type=\"virtualTour\">https://nodalview.com/huzXFh5Mu6pmUysRfM9fTDkd</span> <br>Surface habitable : 22.96 m²<br>Loyer : 680€ par mois charges comprises dont 40€ de provisions de charges (Eau froide incluse dans les charges)  <br>Dépôt de garantie : 800€<br>Honoraires charge locataire : 347,38€ TTC dont 69.57€ TTC pour état des lieux.<br>« Demandez une visite ! Simple et rapide : effectuez votre demande directement sur la plateforme ou sur notre site. Vous recevrez ensuite un e-mail de confirmation vous invitant à compléter votre dossier en ligne, de façon sécurisée et accompagnée à chaque étape. Une fois votre dossier finalisé et pré-validé selon les critères d'éligibilité, vous pourrez accéder directement aux disponibilités de visite du logement.<br>Nous avons hâte de vous accompagner dans votre projet ! »<br>'Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr'<br>Honoraires de 347,38 € TTC  à la charge du locataire comprenant  69,57 € TTC  pour l'état des lieux. Loyer de base 640.00 €/mois. Provision sur charges 40 €/mois, régularisation annuelle. Dépôt de garantie 800 €. Classe énergie C, Classe climat A Montant moyen estimé des dépenses annuelles d'énergie pour un usage standard, établi à partir des prix de l'énergie de l'année 2021 : entre 388.00 et 526.00 €. Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : georisques.gouv.fr. <br>Votre conseiller CONFIANCE IMMOBILIERE : Pearl MOSTACCI<br>Agent commercial (Entreprise individuelle)",
+      "title": "NICE - CENTRE CARABACEL - STUDIO MEUBLE - INTERNET - Location é",
+      "publicationDate": "2026-09-08T16:27:48.784Z",
+      "modificationDate": "2026-09-08T16:27:48.784Z",
+      "newProperty": false,
+      "yearOfConstruction": 2000,
+      "virtualTours": [
+        {
+          "originalUrl": "https://nodalview.com/huzXFh5Mu6pmUysRfM9fTDkd",
+          "url": "https://nodalview.com/huzXFh5Mu6pmUysRfM9fTDkd",
+          "accepted": true,
+          "https": true,
+          "mobileSupport": true,
+          "type": "photos 360, déplacements suivi",
+          "size": "responsive",
+          "id": "netty-company56146lrb-appt-6822_virtualTour_0"
+        }
+      ],
+      "accountType": "agency",
+      "isBienIciExclusive": false,
+      "photoWatermarkAlias": "f038ad45-1dd0-4c32-b342-96cc04b8e79d",
+      "accountDisplayName": "CONFIANCE IMMOBILIERE",
+      "price": 680,
+      "agencyRentalFee": 347.38,
+      "surfaceArea": 22.96,
+      "roomsQuantity": 1,
+      "availableDate": "2018-09-01T00:00:00.000Z",
+      "charges": 40,
+      "floor": 4,
+      "floorQuantity": 7,
+      "isFurnished": true,
+      "showerRoomsQuantity": 1,
+      "toiletQuantity": 1,
+      "hasSeparateToilet": false,
+      "hasElevator": true,
+      "hasCellar": false,
+      "hasTerrace": false,
+      "hasPool": false,
+      "isDisabledPeopleFriendly": true,
+      "photos": [
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537262_LA6822_1_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537262_LA6822_1_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537262_LA6822_1_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537262_LA6822_2_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537262_LA6822_2_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537262_LA6822_2_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537272_LA6822_3_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_3_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_3_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537272_LA6822_4_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_4_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_4_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537272_LA6822_5_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_5_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_5_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537272_LA6822_6_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_6_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537272_LA6822_6_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537282_LA6822_7_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537282_LA6822_7_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537282_LA6822_7_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537282_LA6822_8_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537282_LA6822_8_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537282_LA6822_8_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537282_LA6822_9_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537282_LA6822_9_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537282_LA6822_9_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537292_LA6822_10_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_10_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_10_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537292_LA6822_11_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_11_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_11_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537292_LA6822_12_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_12_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_12_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537292_LA6822_13_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_13_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537292_LA6822_13_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537302_LA6822_14_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537302_LA6822_14_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537302_LA6822_14_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537302_LA6822_15_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537302_LA6822_15_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537302_LA6822_15_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537302_LA6822_16_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537302_LA6822_16_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537302_LA6822_16_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537312_LA6822_17_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537312_LA6822_17_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537312_LA6822_17_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537312_LA6822_18_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537312_LA6822_18_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537312_LA6822_18_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537312_LA6822_19_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537312_LA6822_19_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537312_LA6822_19_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537322_LA6822_20_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_20_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_20_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537322_LA6822_21_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_21_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_21_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537322_LA6822_22_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_22_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_22_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537322_LA6822_23_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_23_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537322_LA6822_23_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537332_LA6822_24_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_24_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_24_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537332_LA6822_25_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_25_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_25_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537332_LA6822_26_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_26_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_26_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537332_LA6822_27_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_27_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_27_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537332_LA6822_28_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_28_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537332_LA6822_28_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537342_LA6822_29_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537342_LA6822_29_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537342_LA6822_29_original.jpg"
+        },
+        {
+          "url_photo": "https://img.netty.immo/productcw/company56146lrb/2/LA6822/17728537342_LA6822_30_original.jpg",
+          "photo": "netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537342_LA6822_30_original.jpg",
+          "url": "https://file.bienici.com/photo/netty-company56146lrb-appt-6822_img.netty.immo_productcw_company56146lrb_2_LA6822_17728537342_LA6822_30_original.jpg"
+        }
+      ],
+      "safetyDeposit": 800,
+      "energyValue": 181,
+      "energyClassification": "C",
+      "greenhouseGazValue": 7,
+      "greenhouseGazClassification": "A",
+      "chargesMethod": "advance",
+      "rentExtra": 0,
+      "inventoryOfFixturesFees": 69.57,
+      "agencyFeeUrl": "https://files.netty.immo/file/company56146lrb/145/F08LR/bareme_des_honoraires.pdf",
+      "energyPerformanceDiagnosticDate": "2022-06-16",
+      "useJuly2021EnergyPerformanceDiagnostic": true,
+      "minEnergyConsumption": 388,
+      "maxEnergyConsumption": 526,
+      "energySimulationReferenceDate": "2021-01-01",
+      "epdFinalEnergyConsumption": 95.5,
+      "exposition": "Est",
+      "adCreatedByPro": true,
+      "heating": "électrique individuel",
+      "district": {
+        "id_polygone": 110051,
+        "id_type": 1,
+        "name": "Nice - Carabacel",
+        "libelle": "Carabacel",
+        "cp": "06000",
+        "code_insee": "06088",
+        "id": 110051,
+        "insee_code": "06088",
+        "postal_code": "06000",
+        "type_id": 1
+      },
+      "with360": true,
+      "status": {
+        "onTheMarket": true,
+        "closedByUser": false,
+        "autoImported": true,
+        "isLeading": false,
+        "highlighted": false,
+        "is3dHighlighted": false
+      },
+      "departmentCode": "06",
+      "addressKnown": true,
+      "displayDistrictName": true,
+      "pricePerSquareMeter": 29.616724738675956,
+      "postalCodeForSearchFilters": "06000",
+      "descriptionTextLength": 2098,
+      "userRelativeData": {
+        "importAccountId": "643eb01ff69fb300b6dd4eaf",
+        "accountIds": [
+          "netty-company56146lrb"
+        ],
+        "searchAccountIds": [
+          "netty-company56146lrb",
+          "643eb01ff69fb300b6dd4eaf",
+          "contract-type-agency-performance-package"
+        ],
+        "isAdmin": false,
+        "isAdModifier": false,
+        "canSetAsFeatured": false,
+        "canSeeExactPosition": false,
+        "canSeeAddress": false,
+        "canSeeStats": false,
+        "canOpenAdDetail": true,
+        "canSeeRealDates": false,
+        "canSeePublicationCertificateHtml": false,
+        "canSeePublicationCertificatePdf": false
+      },
+      "priceHasDecreased": false,
+      "transactionType": "rent",
+      "adTypeFR": "location",
+      "with3dModel": false,
+      "endOfPromotedAsExclusive": 0,
+      "opticalFiberStatus": "deploye",
+      "nothingBehindForm": false,
+      "highlightMailContact": false,
+      "customerId": "confiance-immobiliere-2-1698151518569",
+      "displayInsuranceEstimation": true,
+      "phoneDisplays": []
+    },
+    {
+      "blurInfo": {
+        "type": "cityOrArrondissement",
+        "bbox": [
+          7.181953531,
+          43.645418906,
+          7.32391196,
+          43.760763515
+        ],
+        "origin": "positionPrecision",
+        "position": {
+          "lat": 43.700935793,
+          "lon": 7.268391135
+        },
+        "centroid": {
+          "lat": 43.700935793,
+          "lon": 7.268391135
+        }
+      },
+      "city": "Nice",
+      "postalCode": "06300",
+      "id": "apimo-87323089",
+      "adType": "rent",
+      "propertyType": "flat",
+      "reference": "87323089",
+      "description": "NICE\n\nCe logement est particulièrement bien desservi grâce à sa situation idéale à deux pas de la Place Garibaldi et du Port. La ligne L1 vous connecte directement au centre-ville et à la gare de Nice-Ville en moins de 2 minutes de marche, tandis que la ligne L2, accessible à 3 minutes à pied, vous relie directement à l'Aéroport de Nice Côte d'Azur.\n\nBel appartement de deux pièces meublé de 31m² offre un cadre de vie paisible grâce à sa vue sur cour au calme. \nIl se compose d'un séjour agréable avec une cuisine ouverte entièrement équipée (four, plaques de cuisson et réfrigérateur), d'une chambre confortable et d'une salle d’eau avec WC. \n\nPour votre confort au quotidien, le logement dispose de la climatisation, d'une connexion Wi-Fi et d'un agréable balcon de 4 m². \n\nPour étudiant d'octobre à mai !\n\n- Loyer : 950€ hors charges + 150€ de charges soit un loyer charges comprises de 1100€ \n\nDépôt de garantie : 950€\n\nHonoraires à la charge du locataire : 220 € TTC\nRéférence de l’annonce : 0603327\n\nEt si votre futur logement n’était pas encore en ligne ?\nN’hésitez pas à nous contacter au <span class=\"importDescriptionDecorator\" data-type=\"phone\">06 00 00 00 01</span> ou à venir nous rencontrer directement à l’agence, située au 7 rue de Lépante à Nice, à deux pas de Nice Étoile et du Monoprix.",
+      "title": "Charmant deux pièces avec balcon",
+      "publicationDate": "2026-09-08T12:31:11.676Z",
+      "modificationDate": "2026-09-08T12:31:11.676Z",
+      "newProperty": false,
+      "accountType": "agency",
+      "isBienIciExclusive": false,
+      "roomsQuantity": 2,
+      "bedroomsQuantity": 1,
+      "charges": 150,
+      "safetyDeposit": 950,
+      "floor": 2,
+      "isFurnished": true,
+      "photos": [
+        {
+          "url_photo": "https://media.apimo.pro/cache/d8a55fba218a8c800f03a77fc6fd7963_ed5e4cd23a_1920-original.jpg",
+          "photo": "apimo-87323089_media.apimo.pro_cache_d8a55fba218a8c800f03a77fc6fd7963_ed5e4cd23a_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323089_media.apimo.pro_cache_d8a55fba218a8c800f03a77fc6fd7963_ed5e4cd23a_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/b07b66193238652613ff224f31c8ae4c_c1740fb697_1920-original.jpg",
+          "photo": "apimo-87323089_media.apimo.pro_cache_b07b66193238652613ff224f31c8ae4c_c1740fb697_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323089_media.apimo.pro_cache_b07b66193238652613ff224f31c8ae4c_c1740fb697_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/68d19c9aae0fdf23371c632d259d549b_6eb84b74c4_1920-original.jpg",
+          "photo": "apimo-87323089_media.apimo.pro_cache_68d19c9aae0fdf23371c632d259d549b_6eb84b74c4_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323089_media.apimo.pro_cache_68d19c9aae0fdf23371c632d259d549b_6eb84b74c4_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/804c3dc202e9d346f3823e4072d9074c_9824836e7e_1920-original.jpg",
+          "photo": "apimo-87323089_media.apimo.pro_cache_804c3dc202e9d346f3823e4072d9074c_9824836e7e_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323089_media.apimo.pro_cache_804c3dc202e9d346f3823e4072d9074c_9824836e7e_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/79d41bc9c38c5e9eb08f07e859591b3e_c20649a2b9_1920-original.jpg",
+          "photo": "apimo-87323089_media.apimo.pro_cache_79d41bc9c38c5e9eb08f07e859591b3e_c20649a2b9_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87323089_media.apimo.pro_cache_79d41bc9c38c5e9eb08f07e859591b3e_c20649a2b9_1920-original.jpg"
+        }
+      ],
+      "energyValue": 224,
+      "energyPerformanceDiagnosticDate": "2026-09-08",
+      "energyClassification": "D",
+      "greenhouseGazValue": 30,
+      "greenhouseGazClassification": "C",
+      "surfaceArea": 31,
+      "rentWithoutCharges": 950,
+      "price": 1100,
+      "useJuly2021EnergyPerformanceDiagnostic": true,
+      "adCreatedByPro": true,
+      "district": {
+        "id_polygone": 6088,
+        "id_type": 3,
+        "name": "Nice",
+        "libelle": "Nice",
+        "cp": "06000",
+        "code_insee": "06088",
+        "id": 6088,
+        "insee_code": "06088",
+        "postal_code": "06000",
+        "type_id": 3
+      },
+      "status": {
+        "onTheMarket": true,
+        "closedByUser": false,
+        "autoImported": true,
+        "isLeading": false,
+        "highlighted": false,
+        "is3dHighlighted": false
+      },
+      "departmentCode": "06",
+      "addressKnown": false,
+      "displayDistrictName": true,
+      "pricePerSquareMeter": 35.483870967741936,
+      "postalCodeForSearchFilters": "06300",
+      "descriptionTextLength": 1242,
+      "userRelativeData": {
+        "importAccountId": "5913331e150de0009ce38406",
+        "accountIds": [
+          "apimo-2547"
+        ],
+        "searchAccountIds": [
+          "apimo-2547",
+          "contract-type-agency-package",
+          "5913331e150de0009ce38406"
+        ],
+        "isAdmin": false,
+        "isAdModifier": false,
+        "canSetAsFeatured": false,
+        "canSeeExactPosition": false,
+        "canSeeAddress": false,
+        "canSeeStats": false,
+        "canOpenAdDetail": true,
+        "canSeeRealDates": false,
+        "canSeePublicationCertificateHtml": false,
+        "canSeePublicationCertificatePdf": false
+      },
+      "priceHasDecreased": false,
+      "transactionType": "rent",
+      "adTypeFR": "location",
+      "with3dModel": false,
+      "endOfPromotedAsExclusive": 0,
+      "chargingStations": {},
+      "nothingBehindForm": false,
+      "highlightMailContact": false,
+      "displayInsuranceEstimation": true,
+      "phoneDisplays": []
+    },
+    {
+      "blurInfo": {
+        "type": "disk",
+        "radius": 1000,
+        "bbox": [
+          7.26796711261992,
+          43.725468355187054,
+          7.292834577107382,
+          43.74343563464149
+        ],
+        "origin": "accounts",
+        "position": {
+          "lat": 43.734451994914274,
+          "lon": 7.280400844863651
+        },
+        "centroid": {
+          "lat": 43.734451994914274,
+          "lon": 7.280400844863651
+        }
+      },
+      "city": "Nice",
+      "postalCode": "06000",
+      "hasGeorisquesMention": true,
+      "id": "apimo-87305863",
+      "adType": "rent",
+      "propertyType": "house",
+      "reference": "87305863",
+      "description": "Découvrez cette magnifique villa de 152,92 m² située dans le quartier prisé de Rimiez à Nice. Ce bien d'exception propose 4 chambres, offrant un cadre de vie paisible à proximité de la nature. Le séjour bénéficie de grandes baies vitrées et d'un accès direct à une belle terrasse ombragée donnant sur un jardin et sur la piscine, parfait pour se détendre en toute intimité.\n\nElle se compose, au rez-de-chaussée, d’un grand séjour avec cuisine ouverte, offrant un accès direct à la terrasse et aux espaces extérieurs. Vous trouverez également une chambre avec salle de douche, un dressing ainsi qu’un accès au garage de 35 m².\n\nÀ l’étage, la maison dispose de trois chambres, et de salle de bains.\nDisponible actuellement.\n\nLes informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr Pour tout renseignements, contactez votre interlocuteur Valérie BOUILLOT <span class=\"importDescriptionDecorator\" data-type=\"phone\">06 00 00 00 01</span> <span class=\"importDescriptionDecorator\" data-type=\"email\">contact@example.invalid</span>",
+      "title": "NICE RIMIEZ - VILLA - 5 PIECES - JARDIN - PISCINE - GARAGE",
+      "publicationDate": "2026-09-02T10:21:47.865Z",
+      "modificationDate": "2026-09-07T08:41:06.075Z",
+      "newProperty": false,
+      "accountType": "agency",
+      "isBienIciExclusive": false,
+      "photoWatermarkAlias": "93832398-931d-4a92-8a5c-3624bdae8752",
+      "accountDisplayName": "OREA TRANSACTION",
+      "roomsQuantity": 5,
+      "bedroomsQuantity": 4,
+      "inventoryOfFixturesFees": 463.34,
+      "safetyDeposit": 3780,
+      "hasAirConditioning": true,
+      "hasIntercom": true,
+      "hasPool": true,
+      "photos": [
+        {
+          "url_photo": "https://media.apimo.pro/cache/c7dfb66e122b1db27bc959884b2d4bfe_a6333bacab_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_c7dfb66e122b1db27bc959884b2d4bfe_a6333bacab_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_c7dfb66e122b1db27bc959884b2d4bfe_a6333bacab_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/e0ad5c39f56fd95ca030f93c48eb32dd_ed5899be4e_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_e0ad5c39f56fd95ca030f93c48eb32dd_ed5899be4e_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_e0ad5c39f56fd95ca030f93c48eb32dd_ed5899be4e_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/b3d4c1bd8096070a2ceedc04a135f2f7_8d5d35275d_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_b3d4c1bd8096070a2ceedc04a135f2f7_8d5d35275d_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_b3d4c1bd8096070a2ceedc04a135f2f7_8d5d35275d_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/fe4dbaeaff6c01fb9b4cf2f18ea859ee_9cc37862e8_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_fe4dbaeaff6c01fb9b4cf2f18ea859ee_9cc37862e8_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_fe4dbaeaff6c01fb9b4cf2f18ea859ee_9cc37862e8_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/c4ddda67d16174f3b9553bd1b22a5ff6_c3a98fa5e6_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_c4ddda67d16174f3b9553bd1b22a5ff6_c3a98fa5e6_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_c4ddda67d16174f3b9553bd1b22a5ff6_c3a98fa5e6_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/0dca0a7f34666246bb68a1f7948cbbc6_de04df237d_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_0dca0a7f34666246bb68a1f7948cbbc6_de04df237d_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_0dca0a7f34666246bb68a1f7948cbbc6_de04df237d_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/4675c2783f0475bcc11329092f4abbe8_792c8fdb84_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_4675c2783f0475bcc11329092f4abbe8_792c8fdb84_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_4675c2783f0475bcc11329092f4abbe8_792c8fdb84_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/2158cb03f4868d294455e999938e080c_cd98994764_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_2158cb03f4868d294455e999938e080c_cd98994764_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_2158cb03f4868d294455e999938e080c_cd98994764_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/c8a01ef1863625c6038e1eee626bb0a5_f3c81ed214_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_c8a01ef1863625c6038e1eee626bb0a5_f3c81ed214_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_c8a01ef1863625c6038e1eee626bb0a5_f3c81ed214_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/75f86e1308fee7a582f34c71170e3c04_c74c433e18_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_75f86e1308fee7a582f34c71170e3c04_c74c433e18_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_75f86e1308fee7a582f34c71170e3c04_c74c433e18_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/a1ea50540c0a8402436927a06b5a6a75_fedf22d5a2_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_a1ea50540c0a8402436927a06b5a6a75_fedf22d5a2_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_a1ea50540c0a8402436927a06b5a6a75_fedf22d5a2_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/9d8e3da17df1c6d7ec442ec02c74d2ea_1dad3b6f99_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_9d8e3da17df1c6d7ec442ec02c74d2ea_1dad3b6f99_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_9d8e3da17df1c6d7ec442ec02c74d2ea_1dad3b6f99_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/7100e3f164143b57f4b4178a56fd4048_275c188db1_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_7100e3f164143b57f4b4178a56fd4048_275c188db1_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_7100e3f164143b57f4b4178a56fd4048_275c188db1_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/a9b9cfed5f1112564e29ba661e1b340f_731b2aeefb_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_a9b9cfed5f1112564e29ba661e1b340f_731b2aeefb_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_a9b9cfed5f1112564e29ba661e1b340f_731b2aeefb_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/c87a051d0996c5fb3b4aac8388c4b479_739375b0b2_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_c87a051d0996c5fb3b4aac8388c4b479_739375b0b2_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_c87a051d0996c5fb3b4aac8388c4b479_739375b0b2_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/28b8a06621edcf3088dc8825ec4d0c49_2fcfea7dcb_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_28b8a06621edcf3088dc8825ec4d0c49_2fcfea7dcb_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_28b8a06621edcf3088dc8825ec4d0c49_2fcfea7dcb_1920-original.jpg"
+        },
+        {
+          "url_photo": "https://media.apimo.pro/cache/ecfd681834d8b8461d6ee1fcecf19607_543d4708e9_1920-original.jpg",
+          "photo": "apimo-87305863_media.apimo.pro_cache_ecfd681834d8b8461d6ee1fcecf19607_543d4708e9_1920-original.jpg",
+          "url": "https://file.bienici.com/photo/apimo-87305863_media.apimo.pro_cache_ecfd681834d8b8461d6ee1fcecf19607_543d4708e9_1920-original.jpg"
+        }
+      ],
+      "terraceSurfaceArea": 18.97,
+      "terracesQuantity": 1,
+      "garagesQuantity": 1,
+      "energyValue": 64,
+      "energyPerformanceDiagnosticDate": "2026-09-02",
+      "energyClassification": "A",
+      "greenhouseGazValue": 2,
+      "greenhouseGazClassification": "A",
+      "minEnergyConsumption": 974,
+      "maxEnergyConsumption": 1318,
+      "surfaceArea": 152.92,
+      "rentWithoutCharges": 3780,
+      "floorQuantity": 2,
+      "price": 3780,
+      "agencyRentalFee": 2006.3,
+      "useJuly2021EnergyPerformanceDiagnostic": true,
+      "adCreatedByPro": true,
+      "heating": "Climatisation Electrique Individuel",
+      "district": {
+        "id_polygone": 300095,
+        "id_type": 1,
+        "name": "Nice - Rimiez",
+        "libelle": "Rimiez",
+        "cp": "06100",
+        "code_insee": "06088",
+        "id": 300095,
+        "insee_code": "06088",
+        "postal_code": "06100",
+        "type_id": 1
+      },
+      "status": {
+        "onTheMarket": true,
+        "closedByUser": false,
+        "autoImported": true,
+        "isLeading": false,
+        "highlighted": false,
+        "is3dHighlighted": false
+      },
+      "departmentCode": "06",
+      "addressKnown": true,
+      "displayDistrictName": true,
+      "pricePerSquareMeter": 24.71880721946116,
+      "postalCodeForSearchFilters": "06000",
+      "descriptionTextLength": 963,
+      "userRelativeData": {
+        "importAccountId": "5913331e150de0009ce38406",
+        "accountIds": [
+          "apimo-13107"
+        ],
+        "searchAccountIds": [
+          "apimo-13107",
+          "674ddb775dbe5100b293687f",
+          "contract-type-agency-excellence-package",
+          "contract-type-agency-performance-package",
+          "contract-type-agency-efficiency-package",
+          "5913331e150de0009ce38406"
+        ],
+        "isAdmin": false,
+        "isAdModifier": false,
+        "canSetAsFeatured": false,
+        "canSeeExactPosition": false,
+        "canSeeAddress": false,
+        "canSeeStats": false,
+        "canOpenAdDetail": true,
+        "canSeeRealDates": false,
+        "canSeePublicationCertificateHtml": false,
+        "canSeePublicationCertificatePdf": false
+      },
+      "priceHasDecreased": false,
+      "transactionType": "rent",
+      "adTypeFR": "location",
+      "with3dModel": false,
+      "endOfPromotedAsExclusive": 0,
+      "chargingStations": {
+        "providers": []
+      },
+      "nothingBehindForm": false,
+      "highlightMailContact": false,
+      "customerId": "orea-immobilier-nice-1",
+      "displayInsuranceEstimation": true,
+      "phoneDisplays": []
+    },
+    {
+      "blurInfo": {
+        "type": "disk",
+        "radius": 50,
+        "bbox": [
+          7.266793555847481,
+          43.70623655037945,
+          7.2680362352248755,
+          43.70713486809661
+        ],
+        "position": {
+          "lat": 43.70668570923803,
+          "lon": 7.267414895536178
+        },
+        "centroid": {
+          "lat": 43.70668570923803,
+          "lon": 7.267414895536178
+        }
+      },
+      "city": "Nice",
+      "postalCode": "06000",
+      "chargingStations": {
+        "providers": []
+      },
+      "hasGeorisquesMention": true,
+      "id": "hektor-cabinet_agir-2767",
+      "adType": "rent",
+      "propertyType": "flat",
+      "reference": "219bis",
+      "description": "A louer 5 pièces dans un immeuble ancien, boulevard Raimbaldi à Nice, à proximité immédiate de l'avenue Jean Médecin, des commerces et des transports (tramway, train, bus). L'appartement, tout fraichement rénové, comprend une entrée, un salon, une salle à manger, une cuisine, une salle de bains avec wc et trois chambres. Disponible au 1er octobre. Pour candidater, nous contacter depuis l'annonce.<br>Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr  Les informations sur les risques auxquels ce bien est exposé sont disponiblessur le site Géorisques : www.georisques.gouv.fr",
+      "title": "A LOUER 5 PIECES RAIMBALDI-NICE",
+      "publicationDate": "2026-09-08T14:30:13.151Z",
+      "modificationDate": "2026-09-08T14:30:13.151Z",
+      "newProperty": false,
+      "yearOfConstruction": 1948,
+      "accountType": "agency",
+      "isBienIciExclusive": false,
+      "price": 1150.31,
+      "agencyRentalFee": 1112.44,
+      "surfaceArea": 84.79,
+      "roomsQuantity": 5,
+      "bedroomsQuantity": 3,
+      "availableDate": "2026-10-01T00:00:00.000Z",
+      "charges": 110,
+      "floor": 1,
+      "floorQuantity": 6,
+      "isFurnished": false,
+      "bathroomsQuantity": 1,
+      "toiletQuantity": 1,
+      "hasElevator": true,
+      "hasCellar": false,
+      "hasIntercom": true,
+      "hasTerrace": false,
+      "hasAirConditioning": false,
+      "photos": [
+        {
+          "url_photo": "https://mongaragenville.staticlbi.com/original/images/biens/5/42d6572153ec1db59e97ca87dcd06bde/photo_54fbbe7bd6fb37dee6c795885398a79d.jpg",
+          "photo": "hektor-cabinet_agir-2767_mongaragenville.staticlbi.com_original_images_biens_5_42d6572153ec1db59e97ca87dcd06bde_photo_54fbbe7bd6fb37dee6c795885398a79d.jpg",
+          "url": "https://file.bienici.com/photo/hektor-cabinet_agir-2767_mongaragenville.staticlbi.com_original_images_biens_5_42d6572153ec1db59e97ca87dcd06bde_photo_54fbbe7bd6fb37dee6c795885398a79d.jpg"
+        }
+      ],
+      "safetyDeposit": 1040.31,
+      "energyValue": 194,
+      "energyClassification": "D",
+      "greenhouseGazValue": 42,
+      "greenhouseGazClassification": "D",
+      "chargesMethod": "advance",
+      "inventoryOfFixturesFees": 256.91,
+      "agencyFeeUrl": "https://www.agir.immo/honoraires.pdf",
+      "energyPerformanceDiagnosticDate": "2026-08-19",
+      "useJuly2021EnergyPerformanceDiagnostic": true,
+      "minEnergyConsumption": 1510,
+      "maxEnergyConsumption": 2100,
+      "energySimulationReferenceDate": "2023-01-01",
+      "averageAnnualEnergyConsumption": 0,
+      "epdFinalEnergyConsumption": 191,
+      "adCreatedByPro": true,
+      "heating": "gaz individuel",
+      "district": {
+        "id_polygone": 110051,
+        "id_type": 1,
+        "name": "Nice - Carabacel",
+        "libelle": "Carabacel",
+        "cp": "06000",
+        "code_insee": "06088",
+        "id": 110051,
+        "insee_code": "06088",
+        "postal_code": "06000",
+        "type_id": 1
+      },
+      "status": {
+        "onTheMarket": true,
+        "closedByUser": false,
+        "autoImported": true,
+        "isLeading": false,
+        "highlighted": false,
+        "is3dHighlighted": false
+      },
+      "departmentCode": "06",
+      "addressKnown": true,
+      "displayDistrictName": true,
+      "pricePerSquareMeter": 13.566576247198961,
+      "postalCodeForSearchFilters": "06000",
+      "descriptionTextLength": 651,
+      "userRelativeData": {
+        "importAccountId": "584fd128b442a40099b9b67a",
+        "accountIds": [
+          "hektor-cabinet_agir"
+        ],
+        "searchAccountIds": [
+          "hektor-cabinet_agir",
+          "contract-type-agency-package",
+          "584fd128b442a40099b9b67a"
+        ],
+        "isAdmin": false,
+        "isAdModifier": false,
+        "canSetAsFeatured": false,
+        "canSeeExactPosition": false,
+        "canSeeAddress": false,
+        "canSeeStats": false,
+        "canOpenAdDetail": true,
+        "canSeeRealDates": false,
+        "canSeePublicationCertificateHtml": false,
+        "canSeePublicationCertificatePdf": false
+      },
+      "priceHasDecreased": false,
+      "transactionType": "rent",
+      "adTypeFR": "location",
+      "with3dModel": false,
+      "endOfPromotedAsExclusive": 0,
+      "opticalFiberStatus": "deploye",
+      "nothingBehindForm": false,
+      "highlightMailContact": false,
+      "customerId": "agir-1-1698151972960",
+      "displayInsuranceEstimation": true,
+      "phoneDisplays": []
+    }
+  ]
+}
