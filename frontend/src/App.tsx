@@ -51,29 +51,11 @@ import { formatSourceName } from './format.js';
 import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
-import { DocumentsSection } from './components/DocumentsSection.js';
-import { ForwardingPanel } from './components/ForwardingPanel.js';
-import { ReferencePointsSection } from './components/ReferencePointsSection.js';
-import { NotificationSettingsPanel } from './components/NotificationSettingsPanel.js';
-import { ThemePanel } from './components/ThemePanel.js';
-import { AgenciesPanel, AgencyPanel } from './components/AgenciesPanel.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
-import { ProfileForm } from './components/ProfileForm.js';
-import { SourcesPanel } from './components/SourcesPanel.js';
-import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
-import { ForgotPassword } from './components/ForgotPassword.js';
-import { ResetPassword } from './components/ResetPassword.js';
-import { SignupScreen } from './components/SignupScreen.js';
-import { ConfirmEmail } from './components/ConfirmEmail.js';
-import { AccountPanel } from './components/AccountPanel.js';
-import { SharedSearch } from './components/SharedSearch.js';
-import { UnconfiguredScreen } from './components/UnconfiguredScreen.js';
-import { ChangelogModal } from './components/ChangelogModal.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
-import { OnboardingPanel } from './components/OnboardingPanel.js';
 import {
   newSearchId,
   suggestName,
@@ -81,8 +63,6 @@ import {
   toSavedView,
   type SavedSearch,
 } from './saved-searches.js';
-import { SourcePanel } from './components/SourcePanel.js';
-import { StatsPanel } from './components/StatsPanel.js';
 import {
   ArrowLeft,
   Bell,
@@ -93,7 +73,6 @@ import {
   SlidersHorizontal,
 } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
-import { NotificationsPanel } from './components/NotificationsPanel.js';
 import { BottomNav, type BottomTab } from './components/BottomNav.js';
 import {
   ListingDetailSkeleton,
@@ -118,6 +97,86 @@ import type { View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
+
+/**
+ * LES ÉCRANS SECONDAIRES NE PARTENT PLUS AVEC LA PREMIÈRE PAGE. Ils étaient
+ * tous importés d'emblée : ouvrir la liste téléchargeait aussi les
+ * statistiques, le dossier, les sources, la création de compte — vingt écrans
+ * qu'on ne visite pas, sur un téléphone en 4G.
+ *
+ * `Shell` porte la frontière de chargement, une seule fois pour tous : chaque
+ * écran arrive à son ouverture, derrière le squelette habituel.
+ */
+const DocumentsSection = lazy(() =>
+  import('./components/DocumentsSection.js').then((m) => ({ default: m.DocumentsSection })),
+);
+const ForwardingPanel = lazy(() =>
+  import('./components/ForwardingPanel.js').then((m) => ({ default: m.ForwardingPanel })),
+);
+const ReferencePointsSection = lazy(() =>
+  import('./components/ReferencePointsSection.js').then((m) => ({
+    default: m.ReferencePointsSection,
+  })),
+);
+const NotificationSettingsPanel = lazy(() =>
+  import('./components/NotificationSettingsPanel.js').then((m) => ({
+    default: m.NotificationSettingsPanel,
+  })),
+);
+const ThemePanel = lazy(() =>
+  import('./components/ThemePanel.js').then((m) => ({ default: m.ThemePanel })),
+);
+const ProfileForm = lazy(() =>
+  import('./components/ProfileForm.js').then((m) => ({ default: m.ProfileForm })),
+);
+const SourcesPanel = lazy(() =>
+  import('./components/SourcesPanel.js').then((m) => ({ default: m.SourcesPanel })),
+);
+const SavedSearchesPanel = lazy(() =>
+  import('./components/SavedSearchesPanel.js').then((m) => ({ default: m.SavedSearchesPanel })),
+);
+const ForgotPassword = lazy(() =>
+  import('./components/ForgotPassword.js').then((m) => ({ default: m.ForgotPassword })),
+);
+const ResetPassword = lazy(() =>
+  import('./components/ResetPassword.js').then((m) => ({ default: m.ResetPassword })),
+);
+const SignupScreen = lazy(() =>
+  import('./components/SignupScreen.js').then((m) => ({ default: m.SignupScreen })),
+);
+const ConfirmEmail = lazy(() =>
+  import('./components/ConfirmEmail.js').then((m) => ({ default: m.ConfirmEmail })),
+);
+const AccountPanel = lazy(() =>
+  import('./components/AccountPanel.js').then((m) => ({ default: m.AccountPanel })),
+);
+const SharedSearch = lazy(() =>
+  import('./components/SharedSearch.js').then((m) => ({ default: m.SharedSearch })),
+);
+const UnconfiguredScreen = lazy(() =>
+  import('./components/UnconfiguredScreen.js').then((m) => ({ default: m.UnconfiguredScreen })),
+);
+const ChangelogModal = lazy(() =>
+  import('./components/ChangelogModal.js').then((m) => ({ default: m.ChangelogModal })),
+);
+const OnboardingPanel = lazy(() =>
+  import('./components/OnboardingPanel.js').then((m) => ({ default: m.OnboardingPanel })),
+);
+const SourcePanel = lazy(() =>
+  import('./components/SourcePanel.js').then((m) => ({ default: m.SourcePanel })),
+);
+const StatsPanel = lazy(() =>
+  import('./components/StatsPanel.js').then((m) => ({ default: m.StatsPanel })),
+);
+const NotificationsPanel = lazy(() =>
+  import('./components/NotificationsPanel.js').then((m) => ({ default: m.NotificationsPanel })),
+);
+const AgenciesPanel = lazy(() =>
+  import('./components/AgenciesPanel.js').then((m) => ({ default: m.AgenciesPanel })),
+);
+const AgencyPanel = lazy(() =>
+  import('./components/AgenciesPanel.js').then((m) => ({ default: m.AgencyPanel })),
+);
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
@@ -263,8 +322,11 @@ function Shell({
         si c'était la même page qui avait changé ou une autre qui s'était
         ouverte. Un glissement latéral, lui, aurait suggéré une direction que
         la navigation n'a pas. */}
+      {/* La frontière de chargement des écrans différés, posée UNE FOIS pour
+        tous : chacun traverse ce `Shell`. Le squelette est celui des listes,
+        déjà employé pendant que les annonces arrivent. */}
       <div key={view} className="rf-fade">
-        {children}
+        <Suspense fallback={<RowsSkeleton rows={4} />}>{children}</Suspense>
       </div>
       {/* `pb-20` sur mobile : sans cela, la barre fixe recouvre la fin de la
         liste et le dernier élément reste inatteignable. */}
@@ -579,7 +641,23 @@ function userState(listing: ListingView): Partial<ListingView> {
   };
 }
 
+/**
+ * Le filet de chargement des écrans différés, posé AU-DESSUS de tout.
+ *
+ * Il ne suffit pas de l'avoir dans `Shell` : plusieurs écrans — connexion,
+ * inscription, recherche partagée, installation non configurée — se rendent
+ * hors de lui. Sans frontière au-dessus, React ne rend rien du tout pendant
+ * leur chargement, et la page reste blanche.
+ */
 export function App(): React.JSX.Element {
+  return (
+    <Suspense fallback={<RowsSkeleton rows={4} />}>
+      <AppView />
+    </Suspense>
+  );
+}
+
+function AppView(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
   /**

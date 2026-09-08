@@ -267,7 +267,9 @@ describe('préparation du contact (§22)', () => {
     const user = await openAndConfigureProfile();
 
     await user.click(await screen.findByRole('button', { name: /Configurer mon profil/ }));
-    await user.type(screen.getByLabelText('Prénom'), 'Alex');
+    // Attente explicite : le formulaire de profil arrive en chargement différé,
+    // il n'est pas dans le document à l'instant du clic.
+    await user.type(await screen.findByLabelText('Prénom'), 'Alex');
     await user.type(screen.getByLabelText('Nom'), 'Dupont');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
@@ -282,7 +284,9 @@ describe('préparation du contact (§22)', () => {
     const user = await openAndConfigureProfile();
 
     await user.click(await screen.findByRole('button', { name: /Configurer mon profil/ }));
-    await user.type(screen.getByLabelText('Prénom'), 'Alex');
+    // Attente explicite : le formulaire de profil arrive en chargement différé,
+    // il n'est pas dans le document à l'instant du clic.
+    await user.type(await screen.findByLabelText('Prénom'), 'Alex');
     await user.type(screen.getByLabelText('Nom'), 'Dupont');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
@@ -293,7 +297,9 @@ describe('préparation du contact (§22)', () => {
     const user = await openAndConfigureProfile();
 
     await user.click(await screen.findByRole('button', { name: /Configurer mon profil/ }));
-    await user.type(screen.getByLabelText('Prénom'), 'Alex');
+    // Attente explicite : le formulaire de profil arrive en chargement différé,
+    // il n'est pas dans le document à l'instant du clic.
+    await user.type(await screen.findByLabelText('Prénom'), 'Alex');
     await user.type(screen.getByLabelText('Nom'), 'Dupont');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
