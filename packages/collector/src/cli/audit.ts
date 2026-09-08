@@ -134,6 +134,31 @@ async function reportFlatShare(db: Database, total: number): Promise<void> {
   }
 }
 
+/**
+ * Les réglages posés par compte.
+ *
+ * Plusieurs écrans ne s'affichent QUE si leur marque est absente — l'accueil
+ * des nouveaux venus, la modale des nouveautés. Quand l'un d'eux « ne
+ * s'affiche jamais », c'est ici que la réponse se trouve, et nulle part
+ * ailleurs : la marque est posée, ou elle ne l'est pas.
+ */
+async function reportSettings(db: Database): Promise<void> {
+  const rows = await db.execute(
+    `SELECT user_id, key, substr(value, 1, 60) AS extrait, updated_at
+     FROM app_settings ORDER BY user_id, key`,
+  );
+  console.log('\n── Réglages par compte ───────────────────────────────────────');
+  if (rows.rows.length === 0) {
+    console.log('   aucun réglage enregistré.');
+    return;
+  }
+  for (const r of rows.rows) {
+    console.log(
+      `   ${String(r['user_id']).padEnd(10)} ${String(r['key']).padEnd(24)} ${String(r['extrait'])}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   loadDotEnv();
   const db = openDatabaseFromEnv();
@@ -149,6 +174,7 @@ async function main(): Promise<void> {
     await reportLocation(db, total);
     await reportFields(db, total);
     await reportFlatShare(db, total);
+    await reportSettings(db);
     console.log('');
   } finally {
     db.close();
