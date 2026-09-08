@@ -31,6 +31,8 @@ import { relayPhoto } from './photo-relay.js';
 import { triggerCollect } from './collect-trigger.js';
 import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 import {
+  changeEmail,
+  changeEmailProblemMessage,
   confirmEmail,
   confirmEmailBody,
   confirmLink,
@@ -385,6 +387,80 @@ async function signup(
  * effacer veut dire effacer. Ce que l'écran doit dire clairement AVANT, parce
  * qu'après il n'y a plus personne à qui le dire.
  */
+/**
+ * L'adresse du compte : la lire, ou en changer. `null` si la méthode ne
+ * correspond à rien ici — l'appelant poursuit alors son aiguillage.
+ *
+ * Route À PART et non un champ de `/api/me` : `me` répond à chaque ouverture du
+ * site sans toucher la base, et y ajouter une lecture de ligne la ferait payer
+ * à tout le monde pour un écran de réglages qu'on ouvre une fois (§30).
+ */
+async function accountEmailRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response | null> {
+  if (request.method === 'POST') return changeEmailRoute(db, request, env, cors, userId);
+  if (request.method !== 'GET') return null;
+
+  const row = await db.execute({
+    sql: 'SELECT email, email_verified FROM users WHERE id = ? LIMIT 1',
+    args: [userId],
+  });
+  const found = row.rows[0];
+  const address = found?.['email'];
+  return json(
+    {
+      email: typeof address === 'string' && address !== '' ? address : null,
+      verified: Number(found?.['email_verified'] ?? 0) === 1,
+    },
+    cors,
+  );
+}
+
+/**
+ * Change l'adresse du compte et envoie le lien qui la prouve.
+ *
+ * `confirmationSent` DIT LA VÉRITÉ. L'adresse est écrite dans tous les cas,
+ * mais elle reste NON prouvée tant que le lien n'est pas suivi — et sans envoi
+ * configuré, ce lien ne partira jamais. L'écran doit pouvoir le dire, faute de
+ * quoi l'utilisateur attendrait un message qui n'existe pas (§17).
+ */
+async function changeEmailRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response> {
+  const body = (await request.json().catch(() => ({}))) as {
+    email?: unknown;
+    password?: unknown;
+  };
+  const email = typeof body.email === 'string' ? body.email : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  const changed = await changeEmail(db, userId, { email, password }, Date.now());
+  if (!changed.ok) {
+    const status = changed.problem === 'wrong-password' ? 401 : 400;
+    return json({ error: changeEmailProblemMessage(changed.problem) }, cors, status);
+  }
+
+  const siteUrl = env.SITE_URL ?? '';
+  let confirmationSent = false;
+  if (mailerConfigured(env) && siteUrl !== '') {
+    confirmationSent = await sendEmail(env, {
+      to: changed.email,
+      subject: 'Confirmez votre nouvelle adresse Maïoun',
+      text: confirmEmailBody(confirmLink(siteUrl, changed.token)),
+    });
+  }
+
+  return json({ email: changed.email, confirmationSent }, cors);
+}
+
 async function deleteAccountRoute(
   db: Client,
   request: Request,
@@ -612,6 +688,14 @@ export default {
 
     if (segments[1] === 'account' && request.method === 'DELETE') {
       return deleteAccountRoute(db, request, env, cors, userId);
+    }
+
+    // L'adresse du compte — jusqu'ici posée à l'inscription et jamais
+    // modifiable. Un compte dont l'adresse était fautive ou abandonnée y
+    // restait pour toujours : plus de « mot de passe oublié », plus d'alertes.
+    if (segments[1] === 'account' && segments[2] === 'email') {
+      const answered = await accountEmailRoute(db, request, env, cors, userId);
+      if (answered !== null) return answered;
     }
 
     if (segments[1] === 'documents') {

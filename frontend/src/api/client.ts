@@ -365,6 +365,67 @@ export async function fetchAlerts(): Promise<readonly ListingView[]> {
  * Route à part et chargée à l'ouverture des réglages seulement : elle coûte une
  * lecture de ligne, et l'écran d'accueil n'en a pas besoin (§30).
  */
+export interface AccountEmail {
+  readonly email: string | null;
+  /** `false` tant que le lien de confirmation n'a pas été suivi. */
+  readonly verified: boolean;
+}
+
+export async function fetchAccountEmail(): Promise<AccountEmail> {
+  if (DEMO || API_URL === '') return { email: null, verified: false };
+  return await request<AccountEmail>('/api/account/email');
+}
+
+export type ChangeEmailOutcome =
+  | { readonly ok: true; readonly email: string; readonly confirmationSent: boolean }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Change l'adresse du compte. Le mot de passe est exigé par le serveur :
+ * déplacer l'adresse, c'est déplacer où part le lien de réinitialisation.
+ */
+export async function changeAccountEmail(
+  email: string,
+  password: string,
+): Promise<ChangeEmailOutcome> {
+  if (DEMO || API_URL === '') {
+    return { ok: false, error: 'Fonctionnalité indisponible sur cette installation.' };
+  }
+
+  // `fetch` DIRECT, comme à l'inscription : le `request` générique remplace le
+  // message du serveur par un texte de statut, et traduirait le 401 « mot de
+  // passe incorrect » en « votre session a expiré » — un contresens qui
+  // enverrait se reconnecter au lieu de retaper son mot de passe.
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/api/account/email`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    return { ok: false, error: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.' };
+  }
+
+  const body = (await response.json().catch(() => ({}))) as {
+    email?: unknown;
+    confirmationSent?: unknown;
+    error?: unknown;
+  };
+  if (response.ok) {
+    return {
+      ok: true,
+      email: typeof body.email === 'string' ? body.email : email,
+      confirmationSent: body.confirmationSent === true,
+    };
+  }
+  return {
+    ok: false,
+    error: typeof body.error === 'string' ? body.error : 'Le changement n’a pas abouti.',
+  };
+}
+
 export interface AlertForwarding {
   readonly address: string | null;
   /** `null` tant qu'aucune alerte n'est arrivée sur cette adresse. */
