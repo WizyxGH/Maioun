@@ -7,7 +7,7 @@
  * ville de la taille de Nice.
  */
 
-import { TRAVEL_SPEED_KMH, type ReferenceTravelMode } from '@rentfinder/shared';
+import { TRAVEL_SPEED_KMH, type ReferenceTravelMode } from '@maioun/shared';
 
 /** Rayon moyen de la Terre en kilomètres. */
 const EARTH_RADIUS_KM = 6371;

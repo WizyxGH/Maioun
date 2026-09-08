@@ -16,7 +16,7 @@
  * Le fichier produit est VERSIONNÉ : l'interface se compile sans avoir à
  * construire le collecteur d'abord.
  *
- * Usage : pnpm --filter @rentfinder/frontend run sources
+ * Usage : pnpm --filter @maioun/frontend run sources
  */
 
 import { writeFileSync } from 'node:fs';
@@ -25,7 +25,7 @@ import prettier from 'prettier';
 
 // Le collecteur est une dépendance de DÉVELOPPEMENT : ce script ne tourne
 // qu'ici, et rien de son code n'entre dans le bundle publié.
-const { ALL_SCRAPERS } = await import('@rentfinder/collector');
+const { ALL_SCRAPERS } = await import('@maioun/collector');
 
 const OUT = fileURLToPath(new URL('../src/sources.generated.ts', import.meta.url));
 
@@ -49,7 +49,7 @@ const entries = [...ALL_SCRAPERS]
 
 const file = `/**
  * ENGENDRÉ — ne pas modifier à la main.
- * Reconstruire avec \`pnpm --filter @rentfinder/frontend run sources\`.
+ * Reconstruire avec \`pnpm --filter @maioun/frontend run sources\`.
  *
  * La table des sources, telle que le collecteur les déclare : un nom lisible et,
  * pour les agences qui ont leur propre site, son domaine.

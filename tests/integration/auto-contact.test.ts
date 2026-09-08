@@ -8,9 +8,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { AutoContactLimits, ContactAttempt, SourceDescriptor } from '@rentfinder/shared';
-import { MVP_CRITERIA } from '@rentfinder/shared';
-import { evaluateAutoContact, scoreListing, budgetFor, scheduleFor } from '@rentfinder/collector';
+import type { AutoContactLimits, ContactAttempt, SourceDescriptor } from '@maioun/shared';
+import { MVP_CRITERIA } from '@maioun/shared';
+import { evaluateAutoContact, scoreListing, budgetFor, scheduleFor } from '@maioun/collector';
 import { makeAggregated, makeContact, makeOccurrence, TEST_NOW } from '../helpers/factories.js';
 
 const LIMITS: AutoContactLimits = {

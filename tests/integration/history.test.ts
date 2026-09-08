@@ -16,7 +16,7 @@ import {
   silentLogger,
   type Database,
   type Repository,
-} from '@rentfinder/collector';
+} from '@maioun/collector';
 import { makeOccurrence } from '../helpers/factories.js';
 // Chemin direct vers la source : le paquet expose `./server/routes`, mais vers
 // `dist`. Les tests d'intégration travaillent sur les sources.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { RawListing } from '@rentfinder/shared';
-import { SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
+import { SHORT_TERM_LEASE_FEATURE } from '@maioun/shared';
 import { dedupeStreetAddress, normalizeListing, rederiveFromText } from './normalize.js';
 
 describe('district (quartier)', () => {

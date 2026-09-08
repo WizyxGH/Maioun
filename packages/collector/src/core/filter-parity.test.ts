@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { withStoredCriteria } from '../config.js';
 import { traitConditions, type TraitFilters } from './trait-filters.js';
-import { MVP_CRITERIA } from '@rentfinder/shared';
+import { MVP_CRITERIA } from '@maioun/shared';
 
 /** Un jeu de critères où CHAQUE préférence de lecture est réglée. */
 const TOUT_REGLE = {

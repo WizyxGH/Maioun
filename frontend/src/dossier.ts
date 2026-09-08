@@ -10,7 +10,7 @@
  * intitulés — il ne lit, n'envoie et ne stocke rien.
  */
 
-import { MAX_GUARANTORS, type Guarantor } from '@rentfinder/shared';
+import { MAX_GUARANTORS, type Guarantor } from '@maioun/shared';
 
 export interface DossierSlot {
   /** Identifiant court, préfixé au nom du fichier pour le ranger. */

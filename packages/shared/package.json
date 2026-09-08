@@ -1,9 +1,9 @@
 {
-  "name": "@rentfinder/shared",
+  "name": "@maioun/shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Modèle de données normalisé et contrats explicites entre les composants de RentFinder.",
+  "description": "Modèle de données normalisé et contrats explicites entre les composants de Maïoun.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

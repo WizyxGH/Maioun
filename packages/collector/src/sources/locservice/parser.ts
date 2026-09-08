@@ -18,7 +18,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** « Nice (06000) » — la commune et son code postal, d'un seul tenant. */

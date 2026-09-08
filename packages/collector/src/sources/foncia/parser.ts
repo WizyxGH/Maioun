@@ -18,7 +18,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawDraft } from '../shared/raw-listing.js';
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
 
 /** Forme d'une URL de fiche : `/location/{ville}-{dept}/{type}/{réf}.htm`. */

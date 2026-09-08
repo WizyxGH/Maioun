@@ -11,7 +11,7 @@ import {
   SHORT_TERM_LEASE_FEATURE,
   STUDENT_HOUSING_FEATURE,
   type PropertyType,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { cleanText, comparable } from './text.js';
 import { extractNumber, parseFrenchNumber } from './parse-number.js';
 

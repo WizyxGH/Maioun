@@ -59,11 +59,11 @@ jobs:
         run: pnpm run test
 
       - name: Tests (frontend)
-        run: pnpm --filter @rentfinder/frontend run test
+        run: pnpm --filter @maioun/frontend run test
 
       # 7. Build
       - name: Build du frontend
-        run: pnpm --filter @rentfinder/frontend run build
+        run: pnpm --filter @maioun/frontend run build
 
       # 9. Secrets — voir aussi le job dédié ci-dessous
       - name: Vérification des secrets
@@ -89,10 +89,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Installer le navigateur Playwright
-        run: pnpm --filter @rentfinder/frontend exec playwright install --with-deps chromium
+        run: pnpm --filter @maioun/frontend exec playwright install --with-deps chromium
 
       - name: Lancer les scénarios E2E
-        run: pnpm --filter @rentfinder/frontend run test:e2e
+        run: pnpm --filter @maioun/frontend run test:e2e
 
       - name: Conserver le rapport en cas d'échec
         if: failure()

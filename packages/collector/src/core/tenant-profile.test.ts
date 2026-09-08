@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { TenantProfile } from '@rentfinder/shared';
+import type { TenantProfile } from '@maioun/shared';
 import { resolveTenantProfile, type ProfileReader } from './tenant-profile.js';
 
 const reader = (value: string | null): ProfileReader => ({

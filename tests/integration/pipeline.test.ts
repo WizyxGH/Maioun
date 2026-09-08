@@ -14,8 +14,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Scraper } from '@rentfinder/shared';
-import { MVP_CRITERIA } from '@rentfinder/shared';
+import type { Scraper } from '@maioun/shared';
+import { MVP_CRITERIA } from '@maioun/shared';
 import {
   createRegistry,
   createRepository,
@@ -27,7 +27,7 @@ import {
   laforetScraper,
   type Database,
   type Repository,
-} from '@rentfinder/collector';
+} from '@maioun/collector';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = resolve(here, '../fixtures/laforet');
@@ -79,7 +79,7 @@ function pipelineOptions(
     repository,
     config: CONFIG,
     referencePoints: [],
-    userAgent: 'RentFinderBot/0.1 (test)',
+    userAgent: 'MaiounBot/0.1 (test)',
     mode: 'live' as const,
     clock: createTestClock({ startMs: nowMs, random: 0 }),
     logger: silentLogger,

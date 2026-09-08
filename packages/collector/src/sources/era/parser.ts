@@ -25,7 +25,7 @@
  * et on s'en remet au descriptif, qui nomme souvent le quartier ou la rue.
  */
 
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 

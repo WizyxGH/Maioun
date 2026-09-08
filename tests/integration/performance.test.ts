@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { NormalizedListing } from '@rentfinder/shared';
+import type { NormalizedListing } from '@maioun/shared';
 import { dedupe } from '../../packages/collector/src/deduplication/dedupe.js';
 import { makeOccurrence } from '../helpers/factories.js';
 

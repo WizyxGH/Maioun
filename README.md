@@ -1,4 +1,4 @@
-# RentFinder
+# Maïoun
 
 Agrégateur **personnel** d'annonces de location à Nice. Ce n'est pas un énième
 site immobilier : c'est un outil dont l'unique objectif est de **maximiser le
@@ -85,7 +85,7 @@ v4 + shadcn/ui (frontend), Node 22 (collecteur), Worker Cloudflare (API), cheeri
 Prérequis : Node ≥ 20.10, pnpm 9 (`corepack enable`).
 
 ```bash
-git clone <votre-fork> && cd rentfinder
+git clone <votre-fork> && cd maioun
 pnpm install
 pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
 pnpm dev          # l'interface, en mode démonstration

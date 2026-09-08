@@ -27,7 +27,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ALERT_SENDER_LABELS } from '@rentfinder/shared';
+import { ALERT_SENDER_LABELS } from '@maioun/shared';
 import { fetchAlertAddress, rotateAlertAddress, type AlertForwarding } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';

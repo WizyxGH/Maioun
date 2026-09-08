@@ -22,7 +22,7 @@ import type {
   ScrapeResult,
   SourceDescriptor,
   StopReason,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
 import { parseDetailPage, parseSitemap, type ParsedListingUrl } from './parser.js';

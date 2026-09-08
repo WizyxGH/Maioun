@@ -39,7 +39,7 @@ import {
   loadTransitConfig,
   withStoredCriteria,
 } from '../config.js';
-import { REFERENCE_POINTS_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import { REFERENCE_POINTS_SETTING, SEARCH_CRITERIA_SETTING } from '@maioun/shared';
 import { referencePointsDeclared, resolveReferencePoints } from '../core/reference-points.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -56,9 +56,7 @@ async function main(): Promise<void> {
   });
 
   if (!jsonMode) {
-    console.log(
-      `\n🧹 RentFinder — rattrapage des données existantes${dryRun ? ' (à blanc)' : ''}\n`,
-    );
+    console.log(`\n🧹 Maïoun — rattrapage des données existantes${dryRun ? ' (à blanc)' : ''}\n`);
   }
 
   const fileConfig = loadPublicConfig((message) => logger.warn('config.invalid', { message }));

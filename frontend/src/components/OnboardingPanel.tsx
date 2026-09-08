@@ -19,7 +19,7 @@
 
 import { useState } from 'react';
 import { ArrowRight, Check, Search, User } from './icons.js';
-import type { TenantProfile } from '@rentfinder/shared';
+import type { TenantProfile } from '@maioun/shared';
 import { ProfileForm } from './ProfileForm.js';
 import { FiltersPanel } from './FiltersPanel.js';
 import { Button } from '@/components/ui/button.js';

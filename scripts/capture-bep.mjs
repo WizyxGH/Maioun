@@ -30,7 +30,7 @@ if (!user || !password) {
   process.exit(1);
 }
 
-const UA = process.env['COLLECTOR_USER_AGENT'] ?? 'RentFinderBot/0.1 (+https://github.com/)';
+const UA = process.env['COLLECTOR_USER_AGENT'] ?? 'MaiounBot/0.1 (+https://github.com/)';
 
 /** Concatène les cookies d'un en-tête Set-Cookie (nom=valeur ; …). */
 function collectCookies(setCookieHeaders, jar) {

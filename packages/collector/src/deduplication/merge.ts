@@ -19,7 +19,7 @@ import type {
   NormalizedListing,
   PropertyType,
   Sourced,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 
 /** Champs pris en compte pour mesurer la complétude d'une occurrence. */
 const COMPLETENESS_FIELDS = [

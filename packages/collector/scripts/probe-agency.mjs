@@ -20,8 +20,7 @@
  */
 
 const USER_AGENT =
-  process.env['COLLECTOR_USER_AGENT'] ??
-  'RentFinderBot/0.1 (+https://github.com/WizyxGH/RentFinder)';
+  process.env['COLLECTOR_USER_AGENT'] ?? 'MaiounBot/0.1 (+https://github.com/WizyxGH/RentFinder)';
 
 /** Communes visées : Nice et sa périphérie proche, en slug d'URL. */
 const NICE_SLUGS = ['nice', 'saint-laurent-du-var', 'cagnes-sur-mer', 'villeneuve-loubet'];

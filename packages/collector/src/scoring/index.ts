@@ -10,7 +10,7 @@ import type {
   ReferenceDistance,
   ScoredListing,
   SearchCriteria,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import type { ReferencePoint } from '../config.js';
 import { estimateDurationMinutes, haversineKm, type Coordinates } from '../core/geo.js';
 import { isStudentHousing, scoreMatch } from './match.js';

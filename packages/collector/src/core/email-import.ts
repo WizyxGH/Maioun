@@ -9,7 +9,7 @@
 
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
-import { ALERT_SENDER_MATCHES } from '@rentfinder/shared';
+import { ALERT_SENDER_MATCHES } from '@maioun/shared';
 import { RECIPIENT_HEADERS, addressesIn } from './alert-recipients.js';
 import type { ImapConfig } from '../config.js';
 

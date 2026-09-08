@@ -44,7 +44,7 @@ import {
   REFERENCE_POINTS_SETTING,
   SAVED_SEARCHES_SETTING,
   SEARCH_CRITERIA_SETTING,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 
 /**
  * Fonctionnalités disponibles uniquement en mode local (elles touchent le

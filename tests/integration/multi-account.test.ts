@@ -23,11 +23,11 @@ import {
   scoreListing,
   silentLogger,
   type Database,
-} from '@rentfinder/collector';
+} from '@maioun/collector';
 // Chemin direct vers la source : le paquet expose bien `./server/routes`, mais
 // vers `dist`. Les tests d'intégration travaillent sur les sources.
 import { route } from '../../packages/collector/src/server/routes.js';
-import { MVP_CRITERIA, type ScoredListing } from '@rentfinder/shared';
+import { MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
 import { makeAggregated, makeOccurrence } from '../helpers/factories.js';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');

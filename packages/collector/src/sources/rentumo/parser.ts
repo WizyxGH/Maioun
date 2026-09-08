@@ -25,7 +25,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';

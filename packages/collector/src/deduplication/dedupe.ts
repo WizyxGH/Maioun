@@ -9,7 +9,7 @@
  * `similarity`, et fusionnées via une structure union-find.
  */
 
-import type { NormalizedListing } from '@rentfinder/shared';
+import type { NormalizedListing } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
 import { similarity, type SimilarityResult } from './similarity.js';
 

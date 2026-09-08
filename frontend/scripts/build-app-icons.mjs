@@ -1,7 +1,7 @@
 /**
  * Engendre les icônes de l'application à partir du FAVICON.
  *
- *   pnpm --filter @rentfinder/frontend run app-icons
+ *   pnpm --filter @maioun/frontend run app-icons
  *
  * POURQUOI. L'onglet du navigateur montrait une maison — le favicon, une
  * emoji posée en SVG dans `index.html` — pendant que les notifications push

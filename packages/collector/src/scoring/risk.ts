@@ -12,13 +12,8 @@
  *   ✓ Agence identifiable
  */
 
-import type {
-  AggregatedListing,
-  ExplainedScore,
-  MergedField,
-  ScoreReason,
-} from '@rentfinder/shared';
-import { clampScore } from '@rentfinder/shared';
+import type { AggregatedListing, ExplainedScore, MergedField, ScoreReason } from '@maioun/shared';
+import { clampScore } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
 
 /**

@@ -16,7 +16,7 @@
  * au scoring (§16).
  */
 
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
@@ -28,7 +28,7 @@ import { compactListing } from '../shared/raw-listing.js';
  * inconnue » aujourd'hui. Il n'existe donc AUCUN lien stable par annonce — on
  * pointe vers le bulletin lui-même (page d'accueil abonné), où l'utilisateur,
  * une fois connecté, retrouve l'annonce par sa référence (affichée sur la
- * fiche RentFinder). Voir `docs/sources.md`.
+ * fiche Maïoun). Voir `docs/sources.md`.
  */
 const BULLETIN_URL = 'http://abonnes.beplogement.com/w_index_abonnes.php';
 /** Le formulaire de demande, une annonce à la fois. */

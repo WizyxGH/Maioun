@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STUDENT_HOUSING_FEATURE } from '@rentfinder/shared';
+import { STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import {
   parseArea,
   parseBedrooms,

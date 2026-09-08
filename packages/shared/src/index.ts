@@ -1,5 +1,5 @@
 /**
- * @rentfinder/shared — modèle de données et contrats communs.
+ * @maioun/shared — modèle de données et contrats communs.
  *
  * Ce paquet ne contient aucune logique métier : uniquement les types partagés
  * entre le collecteur, l'API et le frontend, plus quelques helpers purs.

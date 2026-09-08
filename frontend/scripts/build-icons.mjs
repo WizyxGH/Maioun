@@ -12,7 +12,7 @@
  * dessins employés.
  *
  * POUR AJOUTER UNE ICÔNE : une ligne dans `ICONS` ci-dessous, puis
- * `pnpm --filter @rentfinder/frontend run icons`. Le fichier généré est
+ * `pnpm --filter @maioun/frontend run icons`. Le fichier généré est
  * committé — la construction du site ne dépend donc pas de ce script, et
  * `@phosphor-icons/react` reste une dépendance de développement.
  */

@@ -15,7 +15,7 @@ import type {
   ReferenceDistance,
   ReferenceTravelMode,
   TrackingStatus,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 
 export type {
   TrackingStatus,

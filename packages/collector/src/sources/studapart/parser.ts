@@ -6,7 +6,7 @@
  * recherche PUBLIQUE : `POST https://search-api.studapart.com/property` (proxy
  * Elasticsearch). Cet hôte n'a pas de robots.txt ; le site principal autorise
  * le crawler générique en `Content-Signal: search=yes, use=reference` — usage
- * exact de RentFinder, avec un User-Agent honnête (§6, §10).
+ * exact de Maïoun, avec un User-Agent honnête (§6, §10).
  *
  * Une seule requête rend jusqu'à 201 biens dédoublonnés pour une ville, avec
  * l'ADRESSE EXACTE, la surface, le loyer charges comprises, le meublé, la
@@ -15,7 +15,7 @@
  * personnel les écarte le cas échéant (§17).
  */
 
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { compactListing } from '../shared/raw-listing.js';
 
 const SITE_BASE = 'https://www.studapart.com';

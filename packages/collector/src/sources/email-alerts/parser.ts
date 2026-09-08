@@ -4,7 +4,7 @@
  * Voie 100 % conforme pour les portails qui interdisent l'accès automatisé
  * (DataDome) : ce n'est PAS du scraping. L'utilisateur crée une alerte de
  * recherche sur le portail ; le portail LUI envoie par e-mail les nouvelles
- * annonces ; RentFinder lit ces e-mails dans SA boîte (IMAP, lecture seule) et
+ * annonces ; Maïoun lit ces e-mails dans SA boîte (IMAP, lecture seule) et
  * en extrait les annonces. Aucune connexion au portail, aucun contournement.
  *
  * Ce module ne fait QUE le parsing du HTML d'un e-mail (pur, testable). Le
@@ -20,7 +20,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 
 /** Portail reconnu et comment en tirer une référence stable depuis l'URL. */

@@ -15,8 +15,8 @@
  * des contacts aura accumulé assez de résultats réels (§33).
  */
 
-import type { AggregatedListing, ExplainedScore, ScoreReason } from '@rentfinder/shared';
-import { clampScore } from '@rentfinder/shared';
+import type { AggregatedListing, ExplainedScore, ScoreReason } from '@maioun/shared';
+import { clampScore } from '@maioun/shared';
 
 export interface VisitProbabilityOptions {
   readonly nowMs: number;

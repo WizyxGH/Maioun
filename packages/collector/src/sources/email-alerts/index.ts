@@ -2,7 +2,7 @@
  * Source : ALERTES E-MAIL des portails (§6, §10) — voir `parser.ts`.
  *
  * Voie conforme pour Leboncoin/SeLoger & co. : l'utilisateur crée des alertes,
- * le portail lui envoie les nouvelles annonces par e-mail, RentFinder les lit
+ * le portail lui envoie les nouvelles annonces par e-mail, Maïoun les lit
  * dans SA boîte (IMAP, lecture seule). Aucune connexion au portail.
  *
  * Désactivée tant qu'`IMAP_USER`/`IMAP_APP_PASSWORD` ne sont pas dans `.env`.
@@ -14,7 +14,7 @@ import type {
   ScrapeContext,
   ScrapeResult,
   SourceDescriptor,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { alertAddressTemplate, loadImapConfig } from '../../config.js';
 import { fetchAlertEmails } from '../../core/email-import.js';

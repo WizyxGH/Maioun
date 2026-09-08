@@ -23,7 +23,7 @@ import {
   settingsAvailable,
   type StoredReferencePoint,
 } from '../api/client.js';
-import { REFERENCE_TRAVEL_MODES, type ReferenceTravelMode } from '@rentfinder/shared';
+import { REFERENCE_TRAVEL_MODES, type ReferenceTravelMode } from '@maioun/shared';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { Input } from '@/components/ui/input.js';

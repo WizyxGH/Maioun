@@ -6,7 +6,7 @@
  * connaissance des sources existantes (§76).
  */
 
-import type { Scraper, SourceDescriptor, SourceId } from '@rentfinder/shared';
+import type { Scraper, SourceDescriptor, SourceId } from '@maioun/shared';
 
 export interface SourceRegistry {
   /** Tous les scrapers déclarés, actifs ou non. */

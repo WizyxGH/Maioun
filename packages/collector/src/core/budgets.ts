@@ -6,7 +6,7 @@
  * ce qui permet de régler la pression de collecte sans toucher au code.
  */
 
-import type { RateLimitBudget, SourceKind, SourceSchedule } from '@rentfinder/shared';
+import type { RateLimitBudget, SourceKind, SourceSchedule } from '@maioun/shared';
 
 /**
  * Budget prudent servant de base commune.

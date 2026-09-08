@@ -21,7 +21,7 @@
  * `useRoute`, à côté, pour que la table des routes se teste sans navigateur.
  */
 
-import { listingPath } from '@rentfinder/shared';
+import { listingPath } from '@maioun/shared';
 
 /** Les écrans de l'application. */
 export type View =

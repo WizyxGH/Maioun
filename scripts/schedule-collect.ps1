@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Planifie la collecte RentFinder pour qu'elle tourne automatiquement — et donc
+  Planifie la collecte Maïoun pour qu'elle tourne automatiquement — et donc
   que les notifications Telegram (§29) arrivent sans rien lancer à la main.
 
 .DESCRIPTION
@@ -30,7 +30,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$TaskName = 'RentFinder - Collecte'
+$TaskName = 'Maïoun - Collecte'
 # Racine du dépôt = dossier parent de ce script.
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
@@ -75,7 +75,7 @@ $Settings = New-ScheduledTaskSettingsSet `
   -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger `
-  -Settings $Settings -Description 'Collecte RentFinder + notifications Telegram' `
+  -Settings $Settings -Description 'Collecte Maïoun + notifications Telegram' `
   -Force | Out-Null
 
 Write-Host "Tache '$TaskName' planifiee : toutes les $IntervalMinutes min."

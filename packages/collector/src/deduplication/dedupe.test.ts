@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { NormalizedListing } from '@rentfinder/shared';
-import { EMPTY_CONTACT } from '@rentfinder/shared';
+import type { NormalizedListing } from '@maioun/shared';
+import { EMPTY_CONTACT } from '@maioun/shared';
 import { similarity } from './similarity.js';
 import { blockingKeys, dedupe } from './dedupe.js';
 import { mergeGroup } from './merge.js';

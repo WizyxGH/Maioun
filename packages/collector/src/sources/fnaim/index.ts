@@ -20,7 +20,7 @@ import type {
   ScrapeResult,
   SourceDescriptor,
   StopReason,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { listUrl, parseDetail, parseListPage } from './parser.js';

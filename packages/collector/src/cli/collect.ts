@@ -43,7 +43,7 @@ import {
   parseNotificationPreferences,
   canNotifyNow,
   NOTIFICATIONS_SENT_AT_SETTING,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
 import type { NearMatch, NotifiableListing, Repository } from '../db/repository.js';
@@ -334,7 +334,7 @@ async function main(): Promise<void> {
 
   if (!jsonMode) {
     const started = new Date().toLocaleTimeString('fr-FR');
-    console.log(`\n🏠 RentFinder — collecte (${started})\n`);
+    console.log(`\n🏠 Maïoun — collecte (${started})\n`);
   }
 
   // §8 : le backfill exige une intention explicite, en argument ET en

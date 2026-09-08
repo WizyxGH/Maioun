@@ -35,7 +35,7 @@ import {
   convertEstimatedDuration,
   REFERENCE_TRAVEL_MODES,
   type ReferenceTravelMode,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { Select } from '@/components/ui/select.js';
 
 /** Les modes, dits comme on les dit — « à pied », et non « walking ». */

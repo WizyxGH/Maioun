@@ -7,8 +7,8 @@
  */
 
 import { SOURCES } from './sources.generated.js';
-import type { PropertyType, TrackingStatus } from '@rentfinder/shared';
-import { formatCommune, formatLocation } from '@rentfinder/shared';
+import type { PropertyType, TrackingStatus } from '@maioun/shared';
+import { formatCommune, formatLocation } from '@maioun/shared';
 
 /**
  * Valeur non fournie par la source.
@@ -295,7 +295,7 @@ export const TRACKING_ORDER: readonly TrackingStatus[] = [
  * propre ne se déduit pas d'un identifiant technique.
  *
  * Cette table reprend le champ `name` des descripteurs du collecteur ; le
- * frontend ne peut pas les importer (il ne dépend que de `@rentfinder/shared`,
+ * frontend ne peut pas les importer (il ne dépend que de `@maioun/shared`,
  * qui ne connaît aucune source). Ajouter une source ici quand on en ajoute une
  * là-bas — l'oubli est sans gravité : le repli reprend la main.
  */

@@ -12,8 +12,8 @@
  */
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import type { TenantProfile } from '@rentfinder/shared';
-import { MVP_CRITERIA } from '@rentfinder/shared';
+import type { TenantProfile } from '@maioun/shared';
+import { MVP_CRITERIA } from '@maioun/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
   ApiError,

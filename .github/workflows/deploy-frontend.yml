@@ -44,7 +44,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Construire l'application
-        run: pnpm --filter @rentfinder/frontend run build
+        run: pnpm --filter @maioun/frontend run build
         env:
           # GitHub Pages sert le site depuis /<nom-du-depot>/.
           BASE_PATH: /${{ github.event.repository.name }}/

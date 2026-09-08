@@ -15,7 +15,7 @@
  * ville seule : un itinéraire vers « 06000 Nice » déposerait au centre-ville.
  */
 
-import type { ReferenceTravelMode, StoredReferencePoint } from '@rentfinder/shared';
+import type { ReferenceTravelMode, StoredReferencePoint } from '@maioun/shared';
 
 /**
  * Ce que Google Maps attend, pour chacun de nos modes.

@@ -18,7 +18,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** L'identifiant WordPress de l'article : `post-445540` → `445540`. */

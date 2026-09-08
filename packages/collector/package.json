@@ -1,5 +1,5 @@
 {
-  "name": "@rentfinder/collector",
+  "name": "@maioun/collector",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "@rentfinder/shared": "workspace:*",
+    "@maioun/shared": "workspace:*",
     "cheerio": "^1.2.0",
     "imapflow": "^1.7.3",
     "mailparser": "^3.9.20",

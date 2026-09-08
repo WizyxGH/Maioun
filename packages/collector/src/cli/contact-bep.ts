@@ -37,7 +37,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { CURRENT_USER } from '@rentfinder/shared';
+import { CURRENT_USER } from '@maioun/shared';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createLogger } from '../core/logger.js';

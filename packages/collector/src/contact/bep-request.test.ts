@@ -12,7 +12,7 @@ import { bulletinRefFrom, sendBepRequest } from './bep-request.js';
 const CREDENTIALS = { user: 'abonne', password: 'motdepasse' }; // secret-scan-ignore
 const DEPS = (fetchImpl: typeof fetch) => ({
   credentials: CREDENTIALS,
-  userAgent: 'RentFinderBot/0.1 (+https://exemple.invalid)',
+  userAgent: 'MaiounBot/0.1 (+https://exemple.invalid)',
   fetchImpl,
 });
 
