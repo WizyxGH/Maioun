@@ -73,7 +73,7 @@ export function LoginScreen({
             <Input
               type="text"
               value={identifiant}
-              autoComplete="username email"
+              autoComplete="username"
               autoFocus
               onChange={(event) => setIdentifiant(event.target.value)}
               // 16 px sur mobile : en dessous, iOS zoome à la mise au point.
