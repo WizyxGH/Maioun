@@ -101,7 +101,7 @@ function Reception({ state }: { state: AlertForwarding }): React.JSX.Element | n
   );
 }
 
-export function ForwardingPanel(): React.JSX.Element {
+export function ForwardingSection(): React.JSX.Element {
   const [state, setState] = useState<AlertForwarding | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -141,10 +141,7 @@ export function ForwardingPanel(): React.JSX.Element {
   };
 
   return (
-    <section aria-labelledby="forwarding-title">
-      <h1 id="forwarding-title" className="text-xl font-bold">
-        Alertes des portails
-      </h1>
+    <div>
       <p className="text-muted-foreground mt-1 text-[0.88rem]">
         Ces portails n’autorisent que leur propre alerte par e-mail. Voici où l’envoyer.
       </p>
@@ -215,6 +212,6 @@ export function ForwardingPanel(): React.JSX.Element {
           />
         </>
       )}
-    </section>
+    </div>
   );
 }
