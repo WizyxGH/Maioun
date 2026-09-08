@@ -118,12 +118,24 @@ export function parseDetail(html: string): RawDraft | null {
   }
   const imageUrls = [...byShot.values()].sort();
 
+  // LA FICHE COMPTE LES PIÈCES, la carte comptait les chambres. « Appartement
+  // meublé 1 chambre » n'en donnait aucune — l'annonce s'affichait « 1 chambre
+  // — · 65 m² », ce tiret étant le nombre de pièces manquant. La fiche l'écrit
+  // en toutes lettres : « Composé de 2 pièces dont 1 chambre ». On la lit, on
+  // ne la déduit pas (§17), et l'on garde la phrase ENTIÈRE pour que la
+  // normalisation y retrouve aussi les chambres.
+  const composition = ROOMS_IN_DESCRIPTION.exec(description)?.[0];
+
   if (description === '' && imageUrls.length === 0) return null;
   return {
     ...(description !== '' ? { description } : {}),
+    ...(composition !== undefined ? { roomsText: composition } : {}),
     ...(imageUrls.length > 0 ? { imageUrls } : {}),
   };
 }
+
+/** « Composé de 2 pièces dont 1 chambre » — le gabarit de toutes les fiches. */
+const ROOMS_IN_DESCRIPTION = /\d+\s*pi[eè]ces?(?:\s+dont\s+\d+\s*chambres?)?/i;
 
 /** Photos en pleine taille : le dossier `/G/` de la référence. */
 const PHOTO_URL =
