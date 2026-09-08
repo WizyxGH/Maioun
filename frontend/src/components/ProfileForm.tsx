@@ -12,6 +12,7 @@ import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
+import { Input } from '@/components/ui/input.js';
 import { PhoneField } from './PhoneField.js';
 
 interface ProfileFormProps {
@@ -149,19 +150,41 @@ export function ProfileForm({
           </label>
         )}
 
+        {/* NET OU BRUT, ET LE CHAMP NE LE DEMANDAIT PAS. Un bailleur compte en
+          net — la règle des trois fois le loyer s'y applique — et l'écart entre
+          les deux dépasse vingt pour cent : un brut pris pour un net fait
+          écarter le dossier au premier calcul. */}
         <label className={FIELD}>
           Revenus mensuels (€)
-          <input
-            type="number"
-            min="0"
-            value={profile.monthlyIncome ?? ''}
-            onChange={(event) =>
-              update(
-                'monthlyIncome',
-                event.target.value === '' ? null : Number.parseInt(event.target.value, 10),
-              )
-            }
-          />
+          <span className="flex gap-2">
+            <Input
+              type="number"
+              min="0"
+              className="min-w-0 flex-1"
+              value={profile.monthlyIncome ?? ''}
+              onChange={(event) =>
+                update(
+                  'monthlyIncome',
+                  event.target.value === '' ? null : Number.parseInt(event.target.value, 10),
+                )
+              }
+            />
+            <Select
+              aria-label="Revenus nets ou bruts"
+              className="w-28 shrink-0"
+              value={profile.incomeKind ?? ''}
+              onChange={(event) => {
+                const chosen = event.target.value;
+                update('incomeKind', chosen === 'net' || chosen === 'gross' ? chosen : undefined);
+              }}
+            >
+              {/* L'option vide reste tant qu'on n'a pas choisi : le message
+                n'écrit alors aucune mention plutôt qu'une fausse (§17). */}
+              <option value="">à préciser</option>
+              <option value="net">net</option>
+              <option value="gross">brut</option>
+            </Select>
+          </span>
         </label>
 
         <label className={FIELD}>

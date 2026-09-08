@@ -135,6 +135,17 @@ export interface TenantProfile {
   readonly situation: string;
   readonly monthlyIncome: number | null;
   /**
+   * Revenus déclarés en NET ou en BRUT.
+   *
+   * Un bailleur compte en net — la règle des trois fois le loyer s'y applique —
+   * et l'écart entre les deux dépasse vingt pour cent. Annoncer un brut pris
+   * pour un net, c'est se voir écarté au premier calcul, sans savoir pourquoi.
+   *
+   * ABSENT sur les profils remplis avant ce champ : on ne devine pas lequel des
+   * deux a été saisi, et le message n'ajoute alors aucune mention (§17).
+   */
+  readonly incomeKind?: 'net' | 'gross';
+  /**
    * Les garanties de paiement, dans l'ordre où on les annonce. Vide = aucune.
    *
    * UNE LISTE ET NON UN CHOIX UNIQUE : deux parents se portent souvent caution
@@ -210,7 +221,11 @@ function describeSolvency(profile: TenantProfile): string {
   const situation = situationPhrase(profile.situation);
   if (situation !== '') parts.push(situation);
   if (profile.monthlyIncome !== null) {
-    parts.push(`avec des revenus mensuels de ${Math.round(profile.monthlyIncome)} €`);
+    // La mention ne s'écrit que si elle a été choisie : un profil ancien ne dit
+    // pas laquelle, et l'inventer tromperait le bailleur.
+    const kind =
+      profile.incomeKind === 'net' ? ' net' : profile.incomeKind === 'gross' ? ' brut' : '';
+    parts.push(`avec des revenus mensuels de ${Math.round(profile.monthlyIncome)} €${kind}`);
   }
   const guarantee = describeGuarantees(profile.guarantors);
   if (guarantee !== '') parts.push(guarantee);

@@ -48,6 +48,16 @@ import { FiltersPanel } from './FiltersPanel.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
+import { RangeSlider } from '@/components/ui/range-slider.js';
+
+/**
+ * Les bornes du curseur de budget — celles du marché niçois.
+ *
+ * En dessous de 200 € il n'y a pas de logement ; au-delà de 2500 € on sort de
+ * la recherche que cet outil sert. Une borne atteinte vaut « pas de limite ».
+ */
+const BUDGET_MIN = 200;
+const BUDGET_MAX = 2500;
 
 export interface SortFilterModalProps {
   readonly open: boolean;
@@ -196,23 +206,35 @@ export function SortFilterModal({
           <div>
             <fieldset className="mb-4">
               <FieldLabel>Budget</FieldLabel>
-              {/* Fourchette libre plutôt que des paliers : chaque recherche a son
-                propre encadrement, et un plancher sert à écarter les annonces
-                trop bon marché pour être crédibles. */}
-              <div className="flex items-center gap-2">
-                <NumberField
-                  label="de"
-                  suffix="€"
-                  value={quickFilters.minPrice}
-                  onChange={(v) => patch({ minPrice: v })}
-                />
-                <NumberField
-                  label="à"
-                  suffix="€"
-                  value={quickFilters.maxPrice}
-                  onChange={(v) => patch({ maxPrice: v })}
-                />
-              </div>
+              {/* UNE FOURCHETTE, ET NON DEUX CHAMPS. Régler un budget ouvrait le
+                clavier du téléphone, effaçait, retapait — et rien ne montrait où
+                l'on se situait dans l'échelle des loyers. Le plancher garde son
+                utilité : il écarte les annonces trop bon marché pour être
+                crédibles (parkings et box mal étiquetés).
+
+                Les bornes sont celles du marché niçois, pas des valeurs rondes
+                choisies au hasard : en dessous de 200 € il n'y a pas de
+                logement, au-delà de 2500 € on n'est plus dans la recherche que
+                cet outil sert. */}
+              <RangeSlider
+                min={BUDGET_MIN}
+                max={BUDGET_MAX}
+                step={25}
+                lowValue={quickFilters.minPrice ?? BUDGET_MIN}
+                highValue={quickFilters.maxPrice ?? BUDGET_MAX}
+                lowLabel="Loyer minimum"
+                highLabel="Loyer maximum"
+                format={(value) => `${value} €`}
+                onChange={(low, high) =>
+                  patch({
+                    // Une borne ramenée à son extrémité vaut « pas de limite »,
+                    // et non « exactement 200 € » : on la remet à `null`, ce que
+                    // le filtre lit comme absent.
+                    minPrice: low <= BUDGET_MIN ? null : low,
+                    maxPrice: high >= BUDGET_MAX ? null : high,
+                  })
+                }
+              />
             </fieldset>
 
             <fieldset className="mb-4">

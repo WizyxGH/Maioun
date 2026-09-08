@@ -180,3 +180,24 @@ describe('situation professionnelle', () => {
     expect(body).toContain('Je suis en intermittent du spectacle');
   });
 });
+
+describe('revenus nets ou bruts', () => {
+  const withIncome = (incomeKind?: 'net' | 'gross'): string =>
+    prepareMessage(listing('agency'), { ...PROFILE, ...(incomeKind ? { incomeKind } : {}) }).body;
+
+  it('précise la mention quand elle a été choisie', () => {
+    // Un bailleur compte en net : l'écart avec le brut dépasse vingt pour cent,
+    // et un dossier se fait écarter au premier calcul.
+    expect(withIncome('net')).toContain('revenus mensuels de 2400 € net');
+    expect(withIncome('gross')).toContain('revenus mensuels de 2400 € brut');
+  });
+
+  it('N’INVENTE AUCUNE MENTION sur un profil qui n’en porte pas', () => {
+    // Les profils remplis avant ce champ ne disent pas lequel des deux a été
+    // saisi. Écrire « net » au hasard tromperait le bailleur (§17).
+    const body = withIncome();
+    expect(body).toContain('revenus mensuels de 2400 €');
+    expect(body).not.toContain('€ net');
+    expect(body).not.toContain('€ brut');
+  });
+});
