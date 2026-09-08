@@ -14,5 +14,7 @@ export const ltImmobilierScraper = makeHektorScraper({
   id: 'lt-immobilier',
   name: 'LT Immobilier',
   domain: 'lt-immobilier.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://www.lt-immobilier.com/images/favicon.png',
   listUrls: ['https://www.lt-immobilier.com/a-louer/1'],
 });

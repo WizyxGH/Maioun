@@ -85,6 +85,24 @@ export interface SourceDescriptor {
   readonly schedule: SourceSchedule;
   readonly budget: RateLimitBudget;
 
+  /**
+   * L'icône de l'agence, en URL absolue, QUAND ELLE N'EST PAS À `/favicon.ico`.
+   *
+   * L'interface tentait `https://<domaine>/favicon.ico` pour tout le monde.
+   * Neuf agences sur les trente-sept que nous collectons n'en servent aucun à
+   * cet endroit — elles déclarent leur icône dans un `<link rel="icon">` qui
+   * pointe ailleurs : `/images/favicon.png`, `/Vues/Images/favicon.jpg`,
+   * `/favicons/favicon.ico`. Elles retombaient donc sur l'icône neutre alors
+   * que leur logo existe et est public.
+   *
+   * RELEVÉ UNE FOIS, PAS DEVINÉ (§17). L'adresse est celle que le site déclare
+   * lui-même ; on ne construit pas de chemin au hasard. Absent, on garde
+   * `/favicon.ico`, qui suffit aux vingt-huit autres.
+   *
+   * §11 : l'image est POINTÉE, jamais copiée ni réhébergée.
+   */
+  readonly logo?: string;
+
   /** `false` désactive la source sans supprimer son code (§5, §76). */
   readonly enabled: boolean;
 

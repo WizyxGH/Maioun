@@ -23,6 +23,8 @@ export interface HektorConfig {
   readonly id: string;
   readonly name: string;
   readonly domain: string;
+  /** Icone de l agence quand elle n est pas a /favicon.ico (voir SourceDescriptor). */
+  readonly logo?: string;
   /** Pages de liste des locations, absolues (la 1re page suffit souvent). */
   readonly listUrls: readonly string[];
   readonly priority?: number;
@@ -36,6 +38,7 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
     id: config.id,
     name: config.name,
     domain: config.domain,
+    ...(config.logo !== undefined ? { logo: config.logo } : {}),
     kind: 'localAgency',
     method: 'html',
     priority: config.priority ?? 2,

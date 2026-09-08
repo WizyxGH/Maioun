@@ -39,9 +39,12 @@ const entries = [...ALL_SCRAPERS]
     // logo d'agence donnerait le logo du portail à des dizaines d'agences
     // différentes (§17).
     const ownSite = descriptor.kind === 'localAgency' && domain !== '';
+    // Le logo n'est transporté que pour une agence : il n'a de sens qu'avec le
+    // domaine qui l'accompagne.
+    const logo = ownSite ? (descriptor.logo ?? null) : null;
     return `  '${descriptor.id}': { name: ${JSON.stringify(descriptor.name)}, domain: ${JSON.stringify(
       ownSite ? domain : null,
-    )} },`;
+    )}, logo: ${JSON.stringify(logo)} },`;
   });
 
 const file = `/**
@@ -54,11 +57,15 @@ const file = `/**
  * \`domain\` vaut \`null\` pour les portails : leur domaine n'est pas celui d'une
  * agence, et s'en servir comme logo donnerait la même image à des dizaines
  * d'agences distinctes.
+ *
+ * \`logo\` n'est renseigné que pour les agences dont l'icône N'EST PAS à
+ * \`/favicon.ico\` — c'est l'adresse que leur site déclare lui-même.
  */
 
 export interface SourceInfo {
   readonly name: string;
   readonly domain: string | null;
+  readonly logo: string | null;
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {

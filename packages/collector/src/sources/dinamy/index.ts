@@ -46,6 +46,8 @@ export const DINAMY_DESCRIPTOR: SourceDescriptor = {
   id: 'dinamy',
   name: 'Dinamy Immobilier',
   domain: 'dinamyimmobilier.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://dinamyimmobilier.com/Vues/Images/favicon.jpg',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

@@ -28,6 +28,8 @@ export const SAINT_ROCH_DESCRIPTOR: SourceDescriptor = {
   id: 'saint-roch',
   name: 'Saint Roch Immobilier',
   domain: 'saintrochimmobilier.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://saintrochimmobilier.com/images/favicon.ico',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

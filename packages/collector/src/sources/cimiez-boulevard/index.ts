@@ -36,6 +36,8 @@ const descriptor: SourceDescriptor = {
   id: 'cimiez-boulevard',
   name: 'Cimiez Boulevard',
   domain: 'cimiez-boulevard.fr',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://cimiez-boulevard.fr/build/assets/apple-icon-57x57-C4C4tfzi.png',
   kind: 'localAgency',
   method: 'sitemap',
   priority: 2,

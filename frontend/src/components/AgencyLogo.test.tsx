@@ -6,22 +6,36 @@
 
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AgencyLogo, agencyDomain, sameAgency } from './AgencyLogo.js';
+import { AgencyLogo, agencyLogoUrl, sameAgency } from './AgencyLogo.js';
 
-describe('agencyDomain', () => {
-  it('rend le domaine d’une agence qu’on collecte directement', () => {
-    expect(agencyDomain(['climmo'], 'CL IMMO')).toBe('climmo.com');
+describe('agencyLogoUrl', () => {
+  it('rend le favicon d’une agence qu’on collecte directement', () => {
+    expect(agencyLogoUrl(['climmo'], 'CL IMMO')).toBe('https://climmo.com/favicon.ico');
+  });
+
+  /**
+   * NEUF AGENCES SUR TRENTE-SEPT NE SERVENT RIEN à `/favicon.ico`. On pointait
+   * donc une image inexistante, et l'écran retombait sur l'icône neutre alors
+   * que leur logo est public — à l'adresse que leur site déclare lui-même.
+   */
+  it('préfère l’adresse que le site déclare, quand /favicon.ico n’existe pas', () => {
+    expect(agencyLogoUrl(['winter'], 'Winter Immobilier')).toBe(
+      'https://www.agence-winter.com/favicons/favicon.ico',
+    );
+    expect(agencyLogoUrl(['giletta'], 'Giletta Immobilier')).toBe(
+      'https://www.giletta-properties.com/images/favicon.png',
+    );
   });
 
   it('ne rend rien pour un portail', () => {
     // fnaim et studapart sont des portails : leur domaine n'est celui d'aucune
     // des agences qui y publient.
-    expect(agencyDomain(['fnaim'], 'CL IMMO')).toBeNull();
-    expect(agencyDomain(['studapart'], 'CL IMMO')).toBeNull();
+    expect(agencyLogoUrl(['fnaim'], 'CL IMMO')).toBeNull();
+    expect(agencyLogoUrl(['studapart'], 'CL IMMO')).toBeNull();
   });
 
   it('retient le site propre quand une agence vient de deux sources', () => {
-    expect(agencyDomain(['fnaim', 'climmo'], 'CL Immo')).toBe('climmo.com');
+    expect(agencyLogoUrl(['fnaim', 'climmo'], 'CL Immo')).toBe('https://climmo.com/favicon.ico');
   });
 
   /**
@@ -30,11 +44,11 @@ describe('agencyDomain', () => {
    * alors le premier domaine venu, donc le logo de la première.
    */
   it('n’attribue pas le logo d’une source à une agence qui n’est pas elle', () => {
-    expect(agencyDomain(['climmo'], 'CABINET MARTIN')).toBeNull();
+    expect(agencyLogoUrl(['climmo'], 'CABINET MARTIN')).toBeNull();
   });
 
   it('ne rend rien pour une source inconnue', () => {
-    expect(agencyDomain(['source-qui-nexiste-pas'], 'Une agence')).toBeNull();
+    expect(agencyLogoUrl(['source-qui-nexiste-pas'], 'Une agence')).toBeNull();
   });
 });
 
