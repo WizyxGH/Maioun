@@ -713,7 +713,6 @@ function AppView(): React.JSX.Element {
   const [editingProfile, setEditingProfile] = useState(false);
   const [search, setSearch] = useState(restored.search);
   const [hideUncertain, setHideUncertain] = useState(restored.hideUncertain);
-  const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(restored.includeOutOfCriteria);
   const [showArchived, setShowArchived] = useState(restored.showArchived);
   /**
    * L'ADRESSE FAIT FOI sur la liste : `/favoris` ouvre les favoris, `/recherche`
@@ -880,7 +879,6 @@ function AppView(): React.JSX.Element {
         selectedSources,
         search,
         hideUncertain,
-        includeOutOfCriteria,
         showArchived,
         favoritesOnly,
         displayMode,
@@ -893,7 +891,6 @@ function AppView(): React.JSX.Element {
     selectedSources,
     search,
     hideUncertain,
-    includeOutOfCriteria,
     showArchived,
     favoritesOnly,
     displayMode,
@@ -970,7 +967,6 @@ function AppView(): React.JSX.Element {
     try {
       const response = await fetchListings({
         sort,
-        includeOutOfCriteria,
         includeArchived: showArchived,
         favoritesOnly,
       });
@@ -988,7 +984,7 @@ function AppView(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [sort, includeOutOfCriteria, showArchived, favoritesOnly]);
+  }, [sort, showArchived, favoritesOnly]);
 
   /**
    * QUI EST CONNECTÉ — et une limite de patience.
@@ -1982,7 +1978,7 @@ function AppView(): React.JSX.Element {
     quickFilters,
     sourceCount: selectedSources.size,
     search,
-    toggles: [favoritesOnly, includeOutOfCriteria, showArchived, hideUncertain],
+    toggles: [favoritesOnly, showArchived, hideUncertain],
   });
 
   const resetSortAndFilters = (): void => {
@@ -1991,7 +1987,6 @@ function AppView(): React.JSX.Element {
     setSelectedSources(new Set());
     setSearch('');
     setFavoritesOnly(false);
-    setIncludeOutOfCriteria(false);
     setShowArchived(false);
     setHideUncertain(false);
   };
@@ -1999,7 +1994,7 @@ function AppView(): React.JSX.Element {
   const toolbarBadge = countActiveSettings({
     sort,
     sourceCount: selectedSources.size,
-    toggles: [favoritesOnly, includeOutOfCriteria, showArchived, hideUncertain],
+    toggles: [favoritesOnly, showArchived, hideUncertain],
   });
 
   const toggleSource = (sourceId: string): void =>
@@ -2172,7 +2167,6 @@ function AppView(): React.JSX.Element {
             toggles={[
               ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
               ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
-              ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
               ['Annonces archivées', showArchived, setShowArchived],
             ]}
             quickFilters={quickFilters}
