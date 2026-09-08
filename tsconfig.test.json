@@ -23,9 +23,17 @@
     "paths": {
       "@rentfinder/shared": ["./packages/shared/src/index.ts"],
       "@rentfinder/collector": ["./packages/collector/src/index.ts"],
+      "@rentfinder/collector/server/routes": ["./packages/collector/src/server/routes.ts"],
+      "@rentfinder/collector/notify/mailer": ["./packages/collector/src/notify/mailer.ts"],
       "@/*": ["./frontend/src/*"]
     }
   },
+  // LES TESTS DU WORKER ONT LEUR PROPRE CONFIGURATION. Celui de son aiguillage
+  // importe son point d entree, qui depend des types Cloudflare ; les ajouter
+  // ICI ferait entrer les globales WebWorker dans les tests du frontend, ou
+  // elles ecrasent celles du DOM — `Element.append` y devient celui de
+  // HTMLRewriter, et MapView cesse de compiler.
+  "exclude": ["packages/worker/src/**/*.test.ts"],
   "include": [
     "frontend/src/test-setup.ts",
     "frontend/src/vite-env.d.ts",

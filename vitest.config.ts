@@ -16,6 +16,13 @@ export default defineConfig({
     // ne sauraient pas résoudre les paquets internes. Pointer vers les sources
     // plutôt que vers `dist/` évite aussi de tester un build périmé.
     alias: {
+      // LES SOUS-CHEMINS D'ABORD : `@rentfinder/collector` seul les
+      // masquerait, l'alias le plus général l'emportant sur les autres. Ils
+      // sont déclarés dans le paquet vers `dist/`, que les tests ne
+      // construisent pas — le Worker les importe, et sans eux son aiguillage
+      // restait intestable.
+      '@rentfinder/collector/server/routes': fromRoot('./packages/collector/src/server/routes.ts'),
+      '@rentfinder/collector/notify/mailer': fromRoot('./packages/collector/src/notify/mailer.ts'),
       '@rentfinder/shared': fromRoot('./packages/shared/src/index.ts'),
       '@rentfinder/collector': fromRoot('./packages/collector/src/index.ts'),
     },
