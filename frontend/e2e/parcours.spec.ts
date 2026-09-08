@@ -86,17 +86,14 @@ test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§5
 });
 
 test('scénario 3 — une annonce hors critères est écartée de la liste (§53)', async ({ page }) => {
-  // L'annonce à 750 € dépasse le budget : absente par défaut.
+  // L'annonce à 750 € dépasse le budget : elle n'a pas sa place dans la liste.
+  //
+  // LA BASCULE « ANNONCES HORS CRITÈRES » A ÉTÉ RETIRÉE, et ce scénario ne la
+  // remplace par rien : élargir les critères est ce qui montre ces annonces, et
+  // c'est le scénario « les critères de recherche sont réglables » qui couvre
+  // ce geste. Ce qui reste à vérifier ici, c'est la règle du §53 elle-même —
+  // une annonce hors critères ne remonte pas d'elle-même.
   await expect(page.getByText('750 €')).toHaveCount(0);
-
-  // Le réglage vit dans la modale « Filtres », derrière le menu « Afficher » :
-  // quatre bascules dépliées remplaçaient un écran de défilement pour des
-  // options qu'on touche rarement.
-  await page.getByRole('button', { name: /Filtres/ }).click();
-  await page.getByRole('button', { name: /Afficher/ }).click();
-  await page.getByRole('checkbox', { name: 'Annonces hors critères' }).check();
-  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
-  await expect(page.getByText('750 €').first()).toBeVisible();
 });
 
 test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async ({ page }) => {
