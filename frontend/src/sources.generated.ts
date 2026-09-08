@@ -112,6 +112,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   },
   'savi-esteve': { name: 'Agence Savi Estève', domain: 'saviesteve-nice.com', logo: null },
   studapart: { name: 'Studapart', domain: null, logo: null },
+  'votre-agence-immo': { name: 'Votre Agence Immo', domain: 'votre-agence-immo.fr', logo: null },
   winter: {
     name: 'Winter Immobilier',
     domain: 'agence-winter.com',
