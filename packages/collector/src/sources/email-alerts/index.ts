@@ -157,18 +157,18 @@ export const emailAlertsScraper: Scraper = {
     /**
      * QUI A FAIT SUIVRE CE MESSAGE. La boîte lue est celle du PROJET : chaque
      * compte y transfère ses alertes vers une adresse `alertes+<jeton>@…` qui
-     * n'est qu'à lui. Le jeton est tiré au hasard et ne se devine pas.
+     * n'est qu'à lui, et c'est ce jeton — tiré au hasard, indevinable — qui dit
+     * à qui l'annonce appartient.
      *
-     * Un message qui n'en porte aucun n'a pas été transféré par un compte
-     * connu — et la boîte reçoit tout ce qu'on lui envoie. Sans ce tri,
-     * n'importe qui pourrait y déverser des annonces et les faire entrer dans
-     * la base COMMUNE à tous les comptes. On l'écarte donc.
-     *
-     * Tant que le gabarit n'est pas configuré, rien n'est exigé : le collecteur
-     * lit la boîte qu'on lui indique, comme il l'a toujours fait.
+     * Le tri n'est pas cosmétique : la boîte reçoit tout ce qu'on lui envoie, et
+     * ce qui y entre entre dans la base COMMUNE à tous les comptes. On ne garde
+     * donc que ce qui porte un jeton connu, ou ce qui visait la boîte elle-même
+     * (voir `acceptsRecipients`).
      */
     const template = alertAddressTemplate();
-    const accepted = emails.filter((email) => acceptsRecipients(email.recipients, template));
+    const accepted = emails.filter((email) =>
+      acceptsRecipients(email.recipients, template, config.user),
+    );
     const rejected = emails.length - accepted.length;
     if (rejected > 0) {
       context.log('email.unaddressed_skipped', { skipped: rejected, kept: accepted.length });

@@ -73,4 +73,25 @@ describe('acceptsRecipients', () => {
     expect(acceptsRecipients(['inconnu@exemple.invalid'], TEMPLATE)).toBe(false);
     expect(acceptsRecipients([], TEMPLATE)).toBe(false);
   });
+
+  /**
+   * POSER LE GABARIT NE DOIT RIEN COUPER. Les alertes déjà configurées chez les
+   * portails visent l'adresse simple de la boîte : les refuser le jour où l'on
+   * renseigne le gabarit ferait disparaître la source en silence.
+   */
+  it('accepte ce qui vise la boîte elle-même, sans jeton', () => {
+    expect(
+      acceptsRecipients(['alertes@exemple.invalid'], TEMPLATE, 'alertes@exemple.invalid'),
+    ).toBe(true);
+    expect(
+      acceptsRecipients([' Alertes@Exemple.Invalid '], TEMPLATE, 'alertes@exemple.invalid'),
+    ).toBe(true);
+    expect(
+      acceptsRecipients(['inconnu@exemple.invalid'], TEMPLATE, 'alertes@exemple.invalid'),
+    ).toBe(false);
+  });
+
+  it('n’attribue aucun jeton à ce qui vise la boîte simple', () => {
+    expect(forwardingToken(['alertes@exemple.invalid'], TEMPLATE)).toBeNull();
+  });
 });
