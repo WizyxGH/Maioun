@@ -13,6 +13,7 @@ import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { Input } from '@/components/ui/input.js';
+import { Textarea } from '@/components/ui/textarea.js';
 import { PhoneField } from './PhoneField.js';
 
 interface ProfileFormProps {
@@ -80,7 +81,7 @@ export function ProfileForm({
       <div className="my-4 grid gap-2.5 sm:grid-cols-2">
         <label className={FIELD}>
           Prénom
-          <input
+          <Input
             type="text"
             value={profile.firstName}
             onChange={(event) => update('firstName', event.target.value)}
@@ -90,7 +91,7 @@ export function ProfileForm({
 
         <label className={FIELD}>
           Nom
-          <input
+          <Input
             type="text"
             value={profile.lastName}
             onChange={(event) => update('lastName', event.target.value)}
@@ -100,7 +101,7 @@ export function ProfileForm({
 
         <label className={FIELD}>
           E-mail
-          <input
+          <Input
             type="email"
             value={profile.email}
             onChange={(event) => update('email', event.target.value)}
@@ -141,7 +142,7 @@ export function ProfileForm({
         {!knownSituation && (
           <label className={FIELD}>
             Précisez votre situation
-            <input
+            <Input
               type="text"
               placeholder="Intermittent, pensionné…"
               value={profile.situation}
@@ -189,7 +190,7 @@ export function ProfileForm({
 
         <label className={FIELD}>
           Date d’entrée souhaitée
-          <input
+          <Input
             type="date"
             value={profile.moveInDate ?? ''}
             onChange={(event) =>
@@ -244,7 +245,7 @@ export function ProfileForm({
                   </div>
 
                   {option?.namePlaceholder !== undefined && (
-                    <input
+                    <Input
                       type="text"
                       aria-label={`Nom de la garantie ${index + 1}`}
                       placeholder={option.namePlaceholder}
@@ -274,12 +275,12 @@ export function ProfileForm({
           annonces. C'est TOUJOURS vous qui l'envoyez (bouton « Ouvrir »). */}
       <label className={`${FIELD} my-4`}>
         Message de candidature (identique pour toutes les annonces)
-        <textarea
+        <Textarea
           rows={8}
           value={profile.applicationMessage ?? ''}
           onChange={(event) => update('applicationMessage', event.target.value)}
           placeholder={`Bonjour,\n\nVotre annonce m'intéresse. Je suis en CDI, revenus 3× le loyer, garant possible. Serait-il possible de convenir d'une visite ?\n\nCordialement,\n${profile.firstName} ${profile.lastName}\n${profile.phone}`.trim()}
-          className="rounded-lg border border-border bg-card px-2.5 py-2 font-sans text-[0.9rem] text-foreground"
+          className="font-sans text-[0.9rem]"
         />
         <span className="text-[0.8rem]">
           Laissé vide, un message personnalisé par annonce est généré à la place. L’objet de

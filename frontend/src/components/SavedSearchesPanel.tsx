@@ -26,6 +26,7 @@ import { hrefOf } from '../router.js';
 import { encodeSearch } from '../share-search.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { Input } from '@/components/ui/input.js';
 
 interface SavedSearchesPanelProps {
   readonly searches: readonly SavedSearch[];
@@ -80,7 +81,8 @@ function NameForm({
         if (trimmed !== '') onConfirm(trimmed);
       }}
     >
-      <input
+      <Input
+        size="sm"
         type="text"
         value={name}
         autoFocus
@@ -90,7 +92,7 @@ function NameForm({
           if (event.key === 'Escape') onCancel();
         }}
         // 16 px sur mobile : en dessous, iOS zoome à la mise au point.
-        className="min-w-0 flex-1 rounded-lg border border-border px-3 py-1.5 text-base sm:text-sm"
+        className="min-w-0 flex-1 px-3 text-base sm:text-sm"
       />
       <Button size="sm" type="submit">
         Valider

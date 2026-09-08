@@ -97,6 +97,7 @@ import type { View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
+import { Input } from '@/components/ui/input.js';
 
 /**
  * LES ÉCRANS SECONDAIRES NE PARTENT PLUS AVEC LA PREMIÈRE PAGE. Ils étaient
@@ -2055,7 +2056,7 @@ function AppView(): React.JSX.Element {
           résultat dépend de la largeur. */}
           <div className="flex items-center gap-2">
             <div className="relative min-w-0 flex-1">
-              <input
+              <Input
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -2063,7 +2064,7 @@ function AppView(): React.JSX.Element {
                 aria-label="Rechercher une annonce"
                 // 16 px (`text-base`) sur mobile : en dessous, iOS zoome
                 // automatiquement à la mise au point et désaligne la page.
-                className="w-full rounded-full border border-input bg-card py-2.5 pl-9 pr-3 text-base sm:py-1.5 sm:text-sm"
+                className="w-full rounded-full pr-3 pl-9 text-base sm:min-h-9 sm:py-1.5 sm:text-sm"
               />
               <Search
                 aria-hidden="true"

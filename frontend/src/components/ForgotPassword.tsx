@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { ArrowLeft, Mail } from './icons.js';
 import { requestPasswordReset } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
 
 export function ForgotPassword({ onBack }: { readonly onBack: () => void }): React.JSX.Element {
@@ -66,7 +67,7 @@ export function ForgotPassword({ onBack }: { readonly onBack: () => void }): Rea
           >
             <label className="flex flex-col gap-1">
               <span className="text-[0.85rem] font-medium">Identifiant</span>
-              <input
+              <Input
                 type="text"
                 value={identifiant}
                 autoComplete="username"

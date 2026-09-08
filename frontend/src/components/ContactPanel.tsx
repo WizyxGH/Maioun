@@ -27,6 +27,7 @@ import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js'
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 import { ChevronRight } from './icons.js';
+import { Textarea } from '@/components/ui/textarea.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -441,9 +442,9 @@ export function ContactPanel({
           >
             Message préparé
           </label>
-          <textarea
+          <Textarea
             id="contact-message"
-            className="w-full resize-y bg-background text-[0.92rem]"
+            className="w-full resize-y text-[0.92rem]"
             value={message}
             readOnly={!editing}
             rows={10}
