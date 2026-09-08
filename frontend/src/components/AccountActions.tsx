@@ -16,6 +16,7 @@ import { deleteAccount, logout } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { SignOut, Trash2 } from './icons.js';
+import { Input } from '@/components/ui/input.js';
 
 export function AccountActions({
   onSignedOut,
@@ -119,7 +120,7 @@ export function AccountActions({
           <span className="text-[0.85rem] font-medium">
             Saisissez votre mot de passe pour confirmer
           </span>
-          <input
+          <Input
             type="password"
             value={password}
             autoComplete="current-password"

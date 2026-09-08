@@ -16,6 +16,7 @@
 
 import { COUNTRIES, DEFAULT_COUNTRY, formatPhone, parsePhone } from '../phone.js';
 import { Select } from '@/components/ui/select.js';
+import { Input } from '@/components/ui/input.js';
 
 export function PhoneField({
   value,
@@ -45,7 +46,7 @@ export function PhoneField({
           </option>
         ))}
       </Select>
-      <input
+      <Input
         id={id}
         type="tel"
         inputMode="tel"

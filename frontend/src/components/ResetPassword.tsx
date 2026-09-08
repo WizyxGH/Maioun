@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { Check } from './icons.js';
 import { resetPassword } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
 
 /** Le plancher exigé par le serveur. Le redire ici évite un aller-retour. */
@@ -70,7 +71,7 @@ export function ResetPassword({
         >
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Mot de passe</span>
-            <input
+            <Input
               type="password"
               value={password}
               autoComplete="new-password"
@@ -82,7 +83,7 @@ export function ResetPassword({
 
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Confirmation</span>
-            <input
+            <Input
               type="password"
               value={confirmation}
               autoComplete="new-password"

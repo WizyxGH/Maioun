@@ -26,6 +26,7 @@ import {
 import { REFERENCE_TRAVEL_MODES, type ReferenceTravelMode } from '@rentfinder/shared';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
+import { Input } from '@/components/ui/input.js';
 
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
@@ -48,9 +49,8 @@ interface Draft {
   mode: ReferenceTravelMode;
 }
 
-const FIELD =
-  'w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[0.9rem] ' +
-  'focus:outline-none focus:ring-2 focus:ring-ring';
+/** Le socle vient de `Input` ; il ne reste ici que la largeur et la taille. */
+const FIELD = 'w-full text-[0.9rem]';
 
 export function ReferencePointsSection(): React.JSX.Element | null {
   const [drafts, setDrafts] = useState<readonly Draft[] | null>(null);
@@ -127,7 +127,7 @@ export function ReferencePointsSection(): React.JSX.Element | null {
             <div className="flex items-start gap-2">
               <MapPin aria-hidden="true" className="mt-2 size-5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <input
+                <Input
                   className={FIELD}
                   value={draft.label}
                   aria-label={`Nom du repère ${index + 1}`}

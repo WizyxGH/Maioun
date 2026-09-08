@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { Input } from '@/components/ui/input.js';
 
 /** Service public : pas de clé, pas de compte, CORS ouvert. */
 const BAN_ENDPOINT = 'https://api-adresse.data.gouv.fr/search/';
@@ -143,7 +144,7 @@ export function AddressField({
 
   return (
     <div className="relative">
-      <input
+      <Input
         type="text"
         value={value}
         role="combobox"

@@ -21,6 +21,7 @@ import { useState } from 'react';
 import { LogIn, UserPlus } from './icons.js';
 import { login } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
 
 export function LoginScreen({
@@ -69,7 +70,7 @@ export function LoginScreen({
         >
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Identifiant</span>
-            <input
+            <Input
               type="text"
               value={identifiant}
               autoComplete="username"
@@ -82,7 +83,7 @@ export function LoginScreen({
 
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Mot de passe</span>
-            <input
+            <Input
               type="password"
               value={password}
               autoComplete="current-password"

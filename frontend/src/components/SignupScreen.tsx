@@ -25,6 +25,7 @@ import { useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, Mail, UserPlus } from './icons.js';
 import { signup } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
 
 export function SignupScreen({
@@ -105,7 +106,7 @@ export function SignupScreen({
         >
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Identifiant</span>
-            <input
+            <Input
               type="text"
               value={login}
               autoComplete="username"
@@ -120,7 +121,7 @@ export function SignupScreen({
 
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Adresse e-mail</span>
-            <input
+            <Input
               type="email"
               value={email}
               autoComplete="email"
@@ -136,7 +137,7 @@ export function SignupScreen({
           <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Mot de passe</span>
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 type={visible ? 'text' : 'password'}
                 value={password}
                 autoComplete="new-password"
