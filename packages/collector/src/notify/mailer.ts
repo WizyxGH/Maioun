@@ -71,7 +71,36 @@ export function mailerConfigured(env: MailerEnv): boolean {
  * il n'a de toute façon rien de mieux à répondre qu'« essayez plus tard ».
  */
 export async function sendEmail(env: MailerEnv, message: EmailMessage): Promise<boolean> {
-  if (!mailerConfigured(env)) return false;
+  return (await sendEmailResult(env, message)) === 'sent';
+}
+
+/**
+ * Pourquoi un envoi n'a pas eu lieu.
+ *
+ * `unconfigured` il manque la clé ou l'expéditeur ; `refused` le fournisseur a
+ * dit non ; `unreachable` on ne l'a pas joint.
+ */
+export type SendOutcome = 'sent' | 'unconfigured' | 'refused' | 'unreachable';
+
+/**
+ * Envoie un message et DIT CE QUI S'EST PASSÉ.
+ *
+ * `sendEmail` rendait `false` dans les quatre cas, et n'écrivait rien nulle
+ * part : une clé absente, une clé invalide et un destinataire refusé étaient
+ * indiscernables. L'écran affichait alors « l'envoi n'est pas configuré » pour
+ * un envoi parfaitement configuré que le fournisseur venait de refuser — ce qui
+ * envoie chercher le problème exactement là où il n'est pas (§17).
+ *
+ * LE REFUS EST JOURNALISÉ, corps compris : c'est la seule trace qui permette de
+ * comprendre. Resend explique précisément ses refus — expéditeur non vérifié,
+ * destinataire interdit tant qu'aucun domaine ne l'est — et cette phrase vaut
+ * mieux que toutes nos suppositions.
+ *
+ * NE LÈVE JAMAIS (§69) : un fournisseur en panne ne doit pas transformer une
+ * demande de réinitialisation en erreur 500.
+ */
+export async function sendEmailResult(env: MailerEnv, message: EmailMessage): Promise<SendOutcome> {
+  if (!mailerConfigured(env)) return 'unconfigured';
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -86,8 +115,14 @@ export async function sendEmail(env: MailerEnv, message: EmailMessage): Promise<
         text: message.text,
       }),
     });
-    return response.ok;
-  } catch {
-    return false;
+    if (response.ok) return 'sent';
+    // Le corps est lu puis journalisé, jamais rendu à l'appelant : il peut
+    // nommer l'expéditeur configuré, qui ne regarde pas le navigateur.
+    const detail = await response.text().catch(() => '');
+    console.error('email.refused', response.status, detail.slice(0, 500));
+    return 'refused';
+  } catch (error) {
+    console.error('email.unreachable', error instanceof Error ? error.message : String(error));
+    return 'unreachable';
   }
 }

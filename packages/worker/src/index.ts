@@ -25,11 +25,23 @@ import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } f
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
-import { alertAddress } from './alert-address.js';
-import { mailerConfigured, sendEmail } from '@rentfinder/collector/notify/mailer';
+import { alertAddress, ownsReadMailbox } from './alert-address.js';
+import {
+  mailerConfigured,
+  sendEmail,
+  sendEmailResult,
+  type SendOutcome,
+} from '@rentfinder/collector/notify/mailer';
 import { relayPhoto } from './photo-relay.js';
 import { triggerCollect } from './collect-trigger.js';
-import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
+import {
+  completeReset,
+  hashToken,
+  newToken,
+  openReset,
+  resetEmailBody,
+  resetLink,
+} from './password-reset.js';
 import {
   changeEmail,
   changeEmailProblemMessage,
@@ -403,8 +415,12 @@ async function accountEmailRoute(
   env: Env,
   cors: Record<string, string>,
   userId: string,
+  action: string | undefined,
 ): Promise<Response | null> {
-  if (request.method === 'POST') return changeEmailRoute(db, request, env, cors, userId);
+  if (request.method === 'POST') {
+    if (action === 'resend') return resendConfirmationRoute(db, env, cors, userId);
+    return changeEmailRoute(db, request, env, cors, userId);
+  }
   if (request.method !== 'GET') return null;
 
   const row = await db.execute({
@@ -450,17 +466,72 @@ async function changeEmailRoute(
     return json({ error: changeEmailProblemMessage(changed.problem) }, cors, status);
   }
 
+  const confirmation = await sendConfirmation(env, changed.email, changed.token);
+  return json({ email: changed.email, confirmation }, cors);
+}
+
+/**
+ * Envoie le lien qui prouve une adresse, et DIT CE QUI S'EST PASSÉ.
+ *
+ * On rendait un booléen, et l'écran traduisait `false` par « l'envoi d'e-mails
+ * n'est pas configuré ». C'était faux dès que le fournisseur REFUSAIT un envoi
+ * parfaitement configuré — et cela envoyait chercher le problème là où il
+ * n'était pas (§17). Les trois cas se disent maintenant séparément.
+ */
+async function sendConfirmation(env: Env, email: string, token: string): Promise<SendOutcome> {
   const siteUrl = env.SITE_URL ?? '';
-  let confirmationSent = false;
-  if (mailerConfigured(env) && siteUrl !== '') {
-    confirmationSent = await sendEmail(env, {
-      to: changed.email,
-      subject: 'Confirmez votre nouvelle adresse Maïoun',
-      text: confirmEmailBody(confirmLink(siteUrl, changed.token)),
-    });
+  if (siteUrl === '') return 'unconfigured';
+  return await sendEmailResult(env, {
+    to: email,
+    subject: 'Confirmez votre adresse Maïoun',
+    text: confirmEmailBody(confirmLink(siteUrl, token)),
+  });
+}
+
+/**
+ * Renvoie le lien de confirmation à l'adresse DÉJÀ enregistrée.
+ *
+ * SANS CELA, UN ENVOI RATÉ ÉTAIT SANS RECOURS : l'adresse restait à prouver,
+ * et le seul moyen de relancer le message était de la ressaisir avec son mot
+ * de passe — pour changer une adresse qui était déjà la bonne.
+ *
+ * Le mot de passe n'est pas exigé ici, et il ne doit pas l'être : rien n'est
+ * modifié, et le message ne peut partir que vers l'adresse déjà en base. Il
+ * faut de toute façon une session pour l'obtenir.
+ */
+async function resendConfirmationRoute(
+  db: Client,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response> {
+  const row = await db.execute({
+    sql: 'SELECT email, email_verified FROM users WHERE id = ? LIMIT 1',
+    args: [userId],
+  });
+  const found = row.rows[0];
+  const email = found?.['email'];
+  if (typeof email !== 'string' || email.trim() === '') {
+    return json({ error: 'Aucune adresse enregistrée sur ce compte.' }, cors, 400);
+  }
+  if (Number(found?.['email_verified'] ?? 0) === 1) {
+    return json({ confirmation: 'sent', alreadyVerified: true }, cors);
   }
 
-  return json({ email: changed.email, confirmationSent }, cors);
+  const token = newToken();
+  const now = Date.now();
+  await db.execute({
+    sql: `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
+          VALUES (?, ?, ?, ?)`,
+    args: [
+      await hashToken(token),
+      userId,
+      new Date(now).toISOString(),
+      new Date(now + 48 * 3_600_000).toISOString(),
+    ],
+  });
+
+  return json({ confirmation: await sendConfirmation(env, email, token) }, cors);
 }
 
 async function deleteAccountRoute(
@@ -639,7 +710,7 @@ export default {
     if (segments[1] === 'alert-address') {
       if (request.method === 'GET') {
         const row = await db.execute({
-          sql: `SELECT alert_token, alert_last_received_at, alert_received_count
+          sql: `SELECT alert_token, alert_last_received_at, alert_received_count, email
                 FROM users WHERE id = ? LIMIT 1`,
           args: [userId],
         });
@@ -652,6 +723,9 @@ export default {
             // l'une comme l'autre ne produisent rien (§17).
             lastReceivedAt: found?.['alert_last_received_at'] ?? null,
             receivedCount: Number(found?.['alert_received_count'] ?? 0),
+            // Le compte EST la boite que le collecteur lit : ses alertes y
+            // arrivent deja, il n a aucune regle a poser.
+            ownMailbox: ownsReadMailbox(env.ALERT_ADDRESS_TEMPLATE, found?.['email']),
           },
           cors,
         );
@@ -696,7 +770,7 @@ export default {
     // modifiable. Un compte dont l'adresse était fautive ou abandonnée y
     // restait pour toujours : plus de « mot de passe oublié », plus d'alertes.
     if (segments[1] === 'account' && segments[2] === 'email') {
-      const answered = await accountEmailRoute(db, request, env, cors, userId);
+      const answered = await accountEmailRoute(db, request, env, cors, userId, segments[3]);
       if (answered !== null) return answered;
     }
 

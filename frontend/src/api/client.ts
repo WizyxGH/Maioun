@@ -376,8 +376,38 @@ export async function fetchAccountEmail(): Promise<AccountEmail> {
   return await request<AccountEmail>('/api/account/email');
 }
 
+/**
+ * Pourquoi le lien de confirmation n est pas parti.
+ *
+ * On rendait un booleen, et l ecran traduisait `false` par « l envoi n est pas
+ * configure » — ce qui etait faux des que le fournisseur REFUSAIT un envoi
+ * parfaitement configure, et envoyait chercher le probleme la ou il n etait
+ * pas (§17).
+ */
+export type SendOutcome = 'sent' | 'unconfigured' | 'refused' | 'unreachable';
+
+/** Lit le verdict d envoi rendu par l API, sans rien supposer (§17). */
+function outcomeOf(value: unknown): SendOutcome {
+  return value === 'sent' || value === 'unconfigured' || value === 'refused'
+    ? value
+    : 'unreachable';
+}
+
+/** Renvoie le lien de confirmation a l adresse deja enregistree. */
+export async function resendConfirmation(): Promise<SendOutcome> {
+  if (DEMO || API_URL === '') return 'unconfigured';
+  try {
+    const r = await request<{ confirmation?: unknown }>('/api/account/email/resend', {
+      method: 'POST',
+    });
+    return outcomeOf(r.confirmation);
+  } catch {
+    return 'unreachable';
+  }
+}
+
 export type ChangeEmailOutcome =
-  | { readonly ok: true; readonly email: string; readonly confirmationSent: boolean }
+  | { readonly ok: true; readonly email: string; readonly confirmation: SendOutcome }
   | { readonly ok: false; readonly error: string };
 
 /**
@@ -410,14 +440,14 @@ export async function changeAccountEmail(
 
   const body = (await response.json().catch(() => ({}))) as {
     email?: unknown;
-    confirmationSent?: unknown;
+    confirmation?: unknown;
     error?: unknown;
   };
   if (response.ok) {
     return {
       ok: true,
       email: typeof body.email === 'string' ? body.email : email,
-      confirmationSent: body.confirmationSent === true,
+      confirmation: outcomeOf(body.confirmation),
     };
   }
   return {
@@ -431,17 +461,25 @@ export interface AlertForwarding {
   /** `null` tant qu'aucune alerte n'est arrivée sur cette adresse. */
   readonly lastReceivedAt: string | null;
   readonly receivedCount: number;
+  /**
+   * Le compte EST la boîte que le collecteur lit : ses alertes y arrivent
+   * déjà, il n'a aucune règle à poser.
+   */
+  readonly ownMailbox: boolean;
 }
 
 const DEMO_FORWARDING: AlertForwarding = {
   address: 'alertes+demo@exemple.invalid',
   lastReceivedAt: null,
   receivedCount: 0,
+  ownMailbox: false,
 };
 
 export async function fetchAlertAddress(): Promise<AlertForwarding> {
   if (DEMO) return DEMO_FORWARDING;
-  if (API_URL === '') return { address: null, lastReceivedAt: null, receivedCount: 0 };
+  if (API_URL === '') {
+    return { address: null, lastReceivedAt: null, receivedCount: 0, ownMailbox: false };
+  }
   return await request<AlertForwarding>('/api/alert-address');
 }
 

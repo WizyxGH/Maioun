@@ -2,8 +2,10 @@
  * Se déconnecter, supprimer son compte — au pied des Paramètres.
  *
  * Ces deux gestes vivaient derrière un écran « Votre compte », qu'il fallait
- * ouvrir pour trouver ce qu'on cherchait. Ce sont deux boutons : ils sont
- * maintenant là où on les cherche, sans texte, à côté l'un de l'autre.
+ * ouvrir pour trouver ce qu'on cherchait. Ce sont deux boutons, là où on les
+ * cherche, côte à côte — et AVEC LEUR INTITULÉ : réduits à leur icône, une
+ * porte et une corbeille se ressemblent assez pour qu'on hésite avant de
+ * cliquer, alors que l'un des deux efface le compte.
  *
  * CHACUN DEMANDE CONFIRMATION, et pas de la même façon. Se déconnecter est
  * réversible — une simple question suffit. Supprimer ne l'est pas : le MOT DE
@@ -25,12 +27,33 @@ import {
   deleteAccount,
   fetchAccountEmail,
   logout,
+  resendConfirmation,
   type AccountEmail,
+  type SendOutcome,
 } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { SignOut, Trash2 } from './icons.js';
 import { Input } from '@/components/ui/input.js';
+
+/**
+ * Ce qu'on dit de chaque issue d'envoi.
+ *
+ * LES QUATRE ÉTAIENT DITES PAREIL. « L'envoi d'e-mails n'est pas configuré »
+ * s'affichait aussi quand tout l'était et que le fournisseur avait refusé — ce
+ * qui envoie chercher le problème là où il n'est pas (§17). Un refus se répare
+ * chez le fournisseur, une absence de configuration dans les réglages du site :
+ * ce ne sont pas les mêmes gestes.
+ */
+const SEND_MESSAGE: Readonly<Record<SendOutcome, string>> = {
+  sent: 'Un lien de confirmation vient de partir vers cette adresse.',
+  unconfigured:
+    'Adresse enregistrée, mais l’envoi d’e-mails n’est pas configuré sur cette installation : aucun lien ne partira.',
+  refused:
+    'Adresse enregistrée, mais le service d’envoi a refusé le message. C’est le cas si l’expéditeur n’a pas de domaine vérifié : il ne peut alors écrire qu’à l’adresse du compte qui l’héberge.',
+  unreachable:
+    'Adresse enregistrée, mais le service d’envoi n’a pas répondu. Réessayez dans un instant.',
+};
 
 export function AccountActions({
   onSignedOut,
@@ -45,7 +68,7 @@ export function AccountActions({
   const [busy, setBusy] = useState(false);
   const [account, setAccount] = useState<AccountEmail | null>(null);
   const [newEmail, setNewEmail] = useState('');
-  const [sent, setSent] = useState<'yes' | 'no' | null>(null);
+  const [sent, setSent] = useState<SendOutcome | null>(null);
 
   useEffect(() => {
     void fetchAccountEmail()
@@ -73,8 +96,14 @@ export function AccountActions({
     // La nouvelle adresse est écrite, mais NON prouvée : c'est le lien qui la
     // prouve, et l'écran doit le dire plutôt que d'afficher un compte en règle.
     setAccount({ email: outcome.email, verified: false });
-    setSent(outcome.confirmationSent ? 'yes' : 'no');
+    setSent(outcome.confirmation);
     close();
+  };
+
+  const resend = async (): Promise<void> => {
+    setBusy(true);
+    setSent(await resendConfirmation());
+    setBusy(false);
   };
 
   const signOut = async (): Promise<void> => {
@@ -119,10 +148,20 @@ export function AccountActions({
           )}
           {sent !== null && (
             <p role="status" className="mt-1 text-[0.8rem]">
-              {sent === 'yes'
-                ? 'Un lien de confirmation vient de partir vers cette adresse.'
-                : 'Adresse enregistrée, mais l’envoi d’e-mails n’est pas configuré : aucun lien de confirmation ne partira.'}
+              {SEND_MESSAGE[sent]}
             </p>
+          )}
+
+          {account.email !== null && !account.verified && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 mr-2"
+              disabled={busy}
+              onClick={() => void resend()}
+            >
+              Renvoyer le lien
+            </Button>
           )}
           <Button
             variant="outline"
@@ -139,23 +178,22 @@ export function AccountActions({
         </div>
       )}
 
-      <div className="mt-2 flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          aria-label="Se déconnecter"
-          title="Se déconnecter"
-          onClick={() => setAsking('signOut')}
-        >
-          <SignOut aria-hidden="true" className="size-5" />
+      {/* AVEC LEUR INTITULÉ. Réduits à leur icône, ils ne disaient plus ce
+        qu'ils font : une porte et une corbeille se ressemblent assez pour qu'on
+        hésite avant de cliquer — et l'un des deux efface le compte. Le libellé
+        coûte deux mots et lève le doute. */}
+      <div className="mt-2 flex flex-wrap justify-end gap-2">
+        <Button variant="outline" onClick={() => setAsking('signOut')}>
+          <SignOut aria-hidden="true" className="size-4" />
+          Se déconnecter
         </Button>
         <Button
-          variant="ghost"
-          aria-label="Supprimer mon compte"
-          title="Supprimer mon compte"
-          className="text-bad"
+          variant="outline"
+          className="text-bad border-bad/40"
           onClick={() => setAsking('delete')}
         >
-          <Trash2 aria-hidden="true" className="size-5" />
+          <Trash2 aria-hidden="true" className="size-4" />
+          Supprimer mon compte
         </Button>
       </div>
 
