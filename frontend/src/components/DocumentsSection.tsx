@@ -66,24 +66,65 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic';
  * `img`.
  */
 function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.Element {
-  if (!/\.(jpe?g|png|webp|heic)$/i.test(doc.name)) {
+  const isImage = /\.(jpe?g|png|webp|heic)$/i.test(doc.name);
+  const [src, setSrc] = useState<string | null>(null);
+
+  /**
+   * L'IMAGE EST TÉLÉCHARGÉE, PAS POINTÉE — et c'est ce qui la fait apparaître
+   * sur téléphone.
+   *
+   * `<img src="…/api/documents/…">` est une requête vers un AUTRE domaine que
+   * le site : le Worker. Elle n'aboutit qu'avec le cookie de session, or les
+   * navigateurs qui refusent les cookies tiers — Safari en tête — ne le
+   * joignent pas à une balise `img`. Le Worker répondait donc 401 et la
+   * vignette restait vide, sur le seul appareil où l'on dépose ses pièces.
+   *
+   * `fetch` avec `credentials: 'include'` est exactement le chemin qu'emprunte
+   * déjà tout le reste de l'application, et lui fonctionne. On lit les octets,
+   * on en fait une URL locale — que l'on RELÂCHE au démontage, faute de quoi
+   * chaque ouverture de l'écran retiendrait quelques mégaoctets.
+   */
+  useEffect(() => {
+    if (!isImage) return undefined;
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    void fetch(documentUrl(doc.name), { credentials: 'include' })
+      .then(async (response) => (response.ok ? await response.blob() : null))
+      .then((blob) => {
+        if (blob === null || cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => {
+        /* Hors ligne, ou pièce disparue : l'icône neutre prend le relais. */
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
+    };
+  }, [doc.name, isImage]);
+
+  // L'ICÔNE NEUTRE COUVRE LES TROIS CAS : ce n'est pas une image, elle n'est
+  // pas encore arrivée, ou elle n'arrivera pas. Un cadre vide ne disait rien
+  // de ces trois-là.
+  if (src === null) {
     return (
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-        <FileText aria-hidden="true" className="size-5 text-muted-foreground" />
+      <span className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md">
+        <FileText aria-hidden="true" className="text-muted-foreground size-5" />
       </span>
     );
   }
+
   return (
     <img
-      src={documentUrl(doc.name)}
+      src={src}
       alt=""
-      loading="lazy"
-      className="size-10 shrink-0 rounded-md bg-muted object-cover"
+      className="bg-muted size-10 shrink-0 rounded-md object-cover"
       // Un format que le navigateur ne sait pas rendre — le HEIC d'un iPhone,
-      // le plus souvent — ne doit pas laisser un cadre cassé.
-      onError={(event) => {
-        event.currentTarget.style.visibility = 'hidden';
-      }}
+      // le plus souvent — repasse à l'icône plutôt que de laisser un cadre cassé.
+      onError={() => setSrc(null)}
     />
   );
 }

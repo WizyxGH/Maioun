@@ -30,7 +30,7 @@ import { ConfirmDialog } from '@/components/ui/dialog.js';
 
 const SOURCE_ID = 'bep-abonnes';
 
-export function PaidSourcesPanel(): React.JSX.Element {
+export function PaidSourcesSection(): React.JSX.Element {
   const [access, setAccess] = useState<SourceAccess | null>(null);
   const [editing, setEditing] = useState(false);
   const [login, setLogin] = useState('');
@@ -74,13 +74,10 @@ export function PaidSourcesPanel(): React.JSX.Element {
   };
 
   return (
-    <section aria-labelledby="paid-sources-title">
-      <h1 id="paid-sources-title" className="text-xl font-bold">
-        Accès abonnés
-      </h1>
+    <div>
       <p className="text-muted-foreground mt-1 text-[0.88rem]">
-        Certaines agences réservent leurs annonces à leurs abonnés. Si vous payez un tel accès,
-        déclarez-le ici : la collecte s’en servira pour lire ce que vous avez déjà le droit de lire.
+        Si vous payez l’accès abonné d’une agence, déclarez-le : la collecte lira ce que vous avez
+        déjà le droit de lire.
       </p>
 
       {access === null && <p className="text-muted-foreground mt-4 text-[0.9rem]">Chargement…</p>}
@@ -168,6 +165,6 @@ export function PaidSourcesPanel(): React.JSX.Element {
           </p>
         )}
       </ConfirmDialog>
-    </section>
+    </div>
   );
 }

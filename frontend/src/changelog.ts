@@ -34,6 +34,12 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-09-08-acces',
+    date: '2026-09-08',
+    title: 'Vos accès tiennent en un seul écran',
+    body: '« Alertes des portails » et « Accès abonnés » n’en font plus qu’un : Paramètres → Accès supplémentaires. Nouveau : si vous payez l’accès abonné d’une agence, déclarez-le et la collecte lira ce que vous avez déjà le droit de lire. Votre mot de passe y est chiffré, et ne vous est jamais réaffiché.',
+  },
+  {
     id: '2026-09-08-adresse',
     date: '2026-09-08',
     title: 'Votre adresse e-mail suffit',
