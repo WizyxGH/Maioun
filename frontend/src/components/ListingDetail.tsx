@@ -5,8 +5,10 @@
  * le détail des scores et l'historique en dessous.
  */
 
-import { Fragment } from 'react';
-import type { TenantProfile } from '@rentfinder/shared';
+import { Fragment, useEffect, useState } from 'react';
+import type { StoredReferencePoint, TenantProfile } from '@rentfinder/shared';
+import { fetchReferencePoints } from '../api/client.js';
+import { directionsUrl } from '../directions.js';
 import type { ListingView, TrackingStatus } from '../types.js';
 import {
   formatPostalAddress,
@@ -243,6 +245,63 @@ function mapsQueryOf(listing: ListingView): string {
     .join(', ');
 }
 
+/**
+ * Les points de référence, chargés UNE FOIS pour toutes les fiches.
+ *
+ * La promesse est retenue au niveau du module : ouvrir dix annonces ne doit pas
+ * relire dix fois un réglage qui ne bouge pas.
+ */
+let referencePoints: Promise<readonly StoredReferencePoint[] | null> | null = null;
+
+function useReferencePoints(): readonly StoredReferencePoint[] {
+  const [points, setPoints] = useState<readonly StoredReferencePoint[]>([]);
+  useEffect(() => {
+    referencePoints ??= fetchReferencePoints();
+    let alive = true;
+    void referencePoints.then((list) => {
+      if (alive && list !== null) setPoints(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return points;
+}
+
+/**
+ * « voir le trajet » — l'itinéraire réel entre un point de référence et le
+ * logement.
+ *
+ * Absent quand l'annonce n'est située que par sa commune : `mapsQueryOf` rend
+ * alors une chaîne vide, et un itinéraire vers un centre-ville n'apprend rien.
+ */
+function DirectionsLink({
+  listing,
+  distance,
+  points,
+}: {
+  readonly listing: ListingView;
+  readonly distance: ListingView['distances'][number];
+  readonly points: readonly StoredReferencePoint[];
+}): React.JSX.Element | null {
+  const url = directionsUrl(
+    mapsQueryOf(listing),
+    points.find((point) => point.label === distance.label),
+    distance.mode,
+  );
+  if (url === null) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="ml-2 text-[0.85rem] whitespace-nowrap"
+    >
+      voir le trajet
+    </a>
+  );
+}
+
 export function ListingDetail({
   listing,
   profile,
@@ -255,6 +314,7 @@ export function ListingDetail({
   onOpenSource,
   onConfigureProfile,
 }: ListingDetailProps): React.JSX.Element {
+  const points = useReferencePoints();
   const charges = listing.charges.value;
   const archived = listing.archived === true;
   const favorite = listing.favorite === true;
@@ -396,6 +456,7 @@ export function ListingDetail({
                   ({distance.distanceKm} km à vol d’oiseau)
                 </span>
               )}
+              <DirectionsLink listing={listing} distance={distance} points={points} />
             </dd>
           </Fragment>
         ))}
