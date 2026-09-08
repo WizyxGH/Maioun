@@ -49,6 +49,7 @@ import { akorimmoScraper } from './akorimmo/index.js';
 import { immoJbfScraper } from './immo-jbf/index.js';
 import { immo3000Scraper } from './immo3000/index.js';
 import { acropolisImmoScraper } from './acropolis-immo/index.js';
+import { oreaScraper } from './orea/index.js';
 import { partnersImmoScraper } from './partners-immo/index.js';
 import { agenceLongchampScraper } from './agence-longchamp/index.js';
 import { cimiezBoulevardScraper } from './cimiez-boulevard/index.js';
@@ -112,6 +113,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   immoJbfScraper,
   immo3000Scraper,
   acropolisImmoScraper,
+  oreaScraper,
   partnersImmoScraper,
   agenceLongchampScraper,
   cimiezBoulevardScraper,
