@@ -129,6 +129,34 @@ function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.E
   );
 }
 
+/**
+ * Un nom qui n écrase rien.
+ *
+ * LE STOCKAGE EST UN ENSEMBLE DE CLÉS : deux fichiers portant le même nom
+ * occupent la même, et le second efface le premier sans un mot. Or c est le cas
+ * courant — les photos d un téléphone s appellent toutes `IMG_1234.jpg`, et
+ * l on dépose justement un recto ET un verso. On croyait n avoir réussi qu un
+ * seul envoi.
+ *
+ * Le rang est glissé AVANT l extension, pour que le fichier reste ouvrable.
+ */
+export function uniqueName(
+  slotId: string | null,
+  fileName: string,
+  taken: ReadonlySet<string>,
+): string {
+  const prefix = slotId === null ? '' : slotPrefix(slotId);
+  const dot = fileName.lastIndexOf('.');
+  const base = dot > 0 ? fileName.slice(0, dot) : fileName;
+  const ext = dot > 0 ? fileName.slice(dot) : '';
+
+  let candidate = `${prefix}${fileName}`;
+  for (let rank = 2; taken.has(candidate); rank += 1) {
+    candidate = `${prefix}${base} (${rank})${ext}`;
+  }
+  return candidate;
+}
+
 /** Une pièce déposée : aperçu, lien de consultation, poids, suppression. */
 function DocumentRow({
   doc,
@@ -138,6 +166,30 @@ function DocumentRow({
   readonly onDelete: (name: string) => void;
 }): React.JSX.Element {
   const label = displayName(doc.name);
+  const [ouverture, setOuverture] = useState(false);
+
+  /**
+   * Ouvre la pièce dans un onglet, depuis des octets et non depuis l'API.
+   *
+   * L'adresse locale n'est PAS révoquée tout de suite : le navigateur en a
+   * besoin le temps que l'onglet la charge. Une minute suffit largement, et la
+   * garder indéfiniment retiendrait le fichier en mémoire.
+   */
+  const ouvrir = async (): Promise<void> => {
+    setOuverture(true);
+    try {
+      const response = await fetch(documentUrl(doc.name), { credentials: 'include' });
+      if (!response.ok) return;
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, '_blank', 'noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      /* Hors ligne : rien ne s'ouvre, et c'est tout ce qu'on peut en dire. */
+    } finally {
+      setOuverture(false);
+    }
+  };
+
   return (
     <li className="flex items-center gap-2 py-1.5">
       <DocumentThumbnail doc={doc} />
@@ -148,17 +200,25 @@ function DocumentRow({
         nom qui en fait quarante-six. Le nom est ce qu'on lit, le poids ce qu'on
         vérifie ; l'un ne doit pas manger l'autre. */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* L'œil dit que ça s'ouvre : un nom souligné pouvait passer pour un
-          simple intitulé. */}
-        <a
-          href={documentUrl(doc.name)}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex min-w-0 items-center gap-1.5 text-[0.9rem] text-primary underline"
+        {/* ON N'OUVRE PLUS L'ADRESSE DE L'API, ON OUVRE LES OCTETS.
+
+          Un lien vers `…/api/documents/…` est une navigation vers un AUTRE
+          site que celui-ci : le cookie de session ne l'accompagne pas, et
+          l'onglet affichait « Connexion requise » au lieu de la pièce. C'est
+          le même empêchement que pour la vignette, sous une autre forme.
+
+          On télécharge donc le fichier — requête faite DEPUIS la page, où le
+          cookie voyage — puis on ouvre une adresse locale. L'œil dit que ça
+          s'ouvre : un nom souligné pouvait passer pour un simple intitulé. */}
+        <button
+          type="button"
+          onClick={() => void ouvrir()}
+          disabled={ouverture}
+          className="inline-flex min-w-0 cursor-pointer items-center gap-1.5 text-left text-[0.9rem] text-primary underline"
         >
           <Eye aria-hidden="true" className="size-4 shrink-0" />
           <span className="truncate">{label}</span>
-        </a>
+        </button>
         <span className="text-muted-foreground text-[0.78rem]">{formatSize(doc.size)}</span>
       </div>
 
@@ -285,20 +345,42 @@ export function DocumentsSection({
     if (files === null || files.length === 0) return;
     setBusy(true);
     setError(null);
-    try {
-      for (const file of files) {
-        const named =
-          slotId === null
-            ? file
-            : new File([file], `${slotPrefix(slotId)}${file.name}`, { type: file.type });
+
+    /**
+     * UN ÉCHEC N'ABANDONNE PLUS LES SUIVANTS. La boucle vivait dans un seul
+     * `try` : la première pièce refusée — trop lourde, format inconnu —
+     * emportait toutes celles sélectionnées avec elle, sans dire lesquelles.
+     * On déposait deux fichiers et l'on en retrouvait un, voire aucun.
+     *
+     * Chaque pièce est donc tentée pour elle-même, et le message NOMME celles
+     * qui n'ont pas abouti : c'est la seule chose qui permette de recommencer
+     * à bon escient (§17).
+     */
+    const refusees: string[] = [];
+    let dernierMessage: string | null = null;
+    // Les noms déjà pris, ceux de la base ET ceux de ce lot : le stockage est
+    // un ensemble de CLÉS, et deux fichiers homonymes s écrasent en silence.
+    const pris = new Set(documents.map((doc) => doc.name));
+
+    for (const file of files) {
+      const named = new File([file], uniqueName(slotId, file.name, pris), { type: file.type });
+      pris.add(named.name);
+      try {
         const saved = await uploadDocument(named);
         setDocuments((current) => [...current.filter((doc) => doc.name !== saved.name), saved]);
+      } catch (caught) {
+        refusees.push(file.name);
+        dernierMessage = caught instanceof Error ? caught.message : null;
       }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Dépôt impossible');
-    } finally {
-      setBusy(false);
     }
+
+    if (refusees.length > 0) {
+      setError(
+        `${refusees.length > 1 ? 'Ces pièces n’ont pas été déposées' : 'Cette pièce n’a pas été déposée'} : ` +
+          `${refusees.join(', ')}${dernierMessage === null ? '' : ` — ${dernierMessage}`}`,
+      );
+    }
+    setBusy(false);
   };
 
   const handleDelete = (name: string): void => {
