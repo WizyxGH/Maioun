@@ -30,7 +30,7 @@ import {
   type DocumentInfo,
 } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
-import { ChevronDown, FileCheck2, FileWarning, Trash2, Upload } from './icons.js';
+import { ChevronDown, Eye, FileCheck2, FileText, FileWarning, Trash2, Upload } from './icons.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import {
   FORBIDDEN_PIECES,
@@ -55,7 +55,40 @@ function formatSize(bytes: number): string {
  */
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic';
 
-/** Une pièce déposée : lien de consultation, poids, suppression. */
+/**
+ * L'aperçu d'une pièce, à gauche de son nom.
+ *
+ * Un nom de fichier ne dit pas ce qu'il contient — surtout renommé par le
+ * rangement (`garant-caution__…`). La vignette rend la pièce reconnaissable, et
+ * permet de repérer celle qu'on a déposée de travers.
+ *
+ * Les PDF gardent une icône : le navigateur ne sait pas les rendre dans un
+ * `img`.
+ */
+function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.Element {
+  if (!/\.(jpe?g|png|webp|heic)$/i.test(doc.name)) {
+    return (
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+        <FileText aria-hidden="true" className="size-5 text-muted-foreground" />
+      </span>
+    );
+  }
+  return (
+    <img
+      src={documentUrl(doc.name)}
+      alt=""
+      loading="lazy"
+      className="size-10 shrink-0 rounded-md bg-muted object-cover"
+      // Un format que le navigateur ne sait pas rendre — le HEIC d'un iPhone,
+      // le plus souvent — ne doit pas laisser un cadre cassé.
+      onError={(event) => {
+        event.currentTarget.style.visibility = 'hidden';
+      }}
+    />
+  );
+}
+
+/** Une pièce déposée : aperçu, lien de consultation, poids, suppression. */
 function DocumentRow({
   doc,
   onDelete,
@@ -66,13 +99,17 @@ function DocumentRow({
   const label = displayName(doc.name);
   return (
     <li className="flex items-center gap-2 py-1.5">
+      <DocumentThumbnail doc={doc} />
+      {/* L'œil dit que ça s'ouvre : un nom souligné pouvait passer pour un
+        simple intitulé. */}
       <a
         href={documentUrl(doc.name)}
         target="_blank"
         rel="noreferrer noopener"
-        className="min-w-0 flex-1 truncate text-[0.9rem] text-primary underline"
+        className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-[0.9rem] text-primary underline"
       >
-        {label}
+        <Eye aria-hidden="true" className="size-4 shrink-0" />
+        <span className="truncate">{label}</span>
       </a>
       <span className="shrink-0 text-[0.8rem] text-muted-foreground">{formatSize(doc.size)}</span>
       <Button

@@ -47,7 +47,6 @@ export type View =
   | 'signup'
   | 'confirm'
   | 'shared'
-  | 'account'
   | 'onboarding';
 
 /**
@@ -86,7 +85,6 @@ const VIEW_PRESENCE: Record<View, true> = {
   signup: true,
   confirm: true,
   shared: true,
-  account: true,
   onboarding: true,
 };
 
@@ -140,7 +138,6 @@ const SETTINGS_ROUTES: Readonly<Record<string, View>> = {
   notifications: 'notifications',
   forwarding: 'forwarding',
   theme: 'theme',
-  account: 'account',
 };
 
 const SETTINGS_PATHS: Readonly<Partial<Record<View, string>>> = Object.fromEntries(

@@ -147,9 +147,6 @@ const SignupScreen = lazy(() =>
 const ConfirmEmail = lazy(() =>
   import('./components/ConfirmEmail.js').then((m) => ({ default: m.ConfirmEmail })),
 );
-const AccountPanel = lazy(() =>
-  import('./components/AccountPanel.js').then((m) => ({ default: m.AccountPanel })),
-);
 const SharedSearch = lazy(() =>
   import('./components/SharedSearch.js').then((m) => ({ default: m.SharedSearch })),
 );
@@ -1680,7 +1677,15 @@ function AppView(): React.JSX.Element {
 
               `navigate` et non `setView` : certaines vues doivent CHARGER leurs
               données avant d'apparaître (les sources, notamment). */}
-          <SettingsLinks onNavigate={(key) => navigate(key as View)} />
+          <SettingsLinks
+            onNavigate={(key) => navigate(key as View)}
+            onSignedOut={() => {
+              // La session n'existe plus : `currentUser` à `null` ramène
+              // l'écran de connexion.
+              setCurrentUser(null);
+              replace({ view: 'home' });
+            }}
+          />
         </Shell>
       );
     }
@@ -1689,21 +1694,6 @@ function AppView(): React.JSX.Element {
         <Shell {...shell}>
           <BackToSettings onBack={() => setView('profile')} />
           <DocumentsSection profile={profile} />
-        </Shell>
-      );
-    }
-    if (view === 'account') {
-      return (
-        <Shell {...shell}>
-          <AccountPanel
-            onBack={() => setView('profile')}
-            onSignedOut={() => {
-              // La session n'existe plus : on repart de l'accueil, et
-              // `currentUser` à `null` ramène l'écran de connexion.
-              setCurrentUser(null);
-              replace({ view: 'home' });
-            }}
-          />
         </Shell>
       );
     }

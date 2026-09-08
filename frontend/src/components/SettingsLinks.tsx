@@ -18,6 +18,7 @@
  * une recherche déjà réglée » dit à quoi sert le clic qu'on s'apprête à faire.
  */
 
+import { AccountActions } from './AccountActions.js';
 import {
   Agency,
   BarChart3,
@@ -29,7 +30,6 @@ import {
   MapPin,
   Palette,
   Radio,
-  ShieldCheck,
   User,
   type IconComponent,
 } from './icons.js';
@@ -61,15 +61,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Dossier de candidature',
         hint: 'Déposez vos pièces une fois, joignez-les partout.',
         Icon: FileText,
-      },
-      {
-        // IL N'Y AVAIT AUCUNE PORTE DE SORTIE : pas un bouton de déconnexion
-        // dans toute l'interface, et supprimer son compte demandait quelqu'un
-        // ayant accès à la base. Le RGPD en fait un droit, pas une option.
-        key: 'account',
-        label: 'Votre compte',
-        hint: 'Se déconnecter, ou supprimer définitivement votre compte.',
-        Icon: ShieldCheck,
       },
     ],
   },
@@ -147,8 +138,11 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = SETTINGS_SECTIONS.flatMap
 
 export function SettingsLinks({
   onNavigate,
+  onSignedOut,
 }: {
   readonly onNavigate: (key: string) => void;
+  /** Après une déconnexion ou une suppression : il n'y a plus de session. */
+  readonly onSignedOut: () => void;
 }): React.JSX.Element {
   return (
     <nav aria-label="Réglages">
@@ -178,6 +172,12 @@ export function SettingsLinks({
           </ul>
         </section>
       ))}
+
+      {/* AU PIED DE LA LISTE, et sans texte. Ces deux gestes vivaient derrière
+        un écran « Votre compte » qu'il fallait ouvrir pour trouver ce qu'on
+        cherchait. Ils ne se déclenchent pas au premier doigt : chacun demande
+        confirmation, et la suppression exige toujours le mot de passe. */}
+      <AccountActions onSignedOut={onSignedOut} />
     </nav>
   );
 }
