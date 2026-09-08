@@ -66,11 +66,11 @@ export function ForgotPassword({ onBack }: { readonly onBack: () => void }): Rea
             }}
           >
             <label className="flex flex-col gap-1">
-              <span className="text-[0.85rem] font-medium">Identifiant</span>
+              <span className="text-[0.85rem] font-medium">Adresse e-mail ou identifiant</span>
               <Input
                 type="text"
                 value={identifiant}
-                autoComplete="username"
+                autoComplete="username email"
                 autoFocus
                 onChange={(event) => setIdentifiant(event.target.value)}
                 className="w-full text-base"

@@ -20,31 +20,20 @@ function fakeDb(
   const wiped: string[] = [];
 
   const run = (sql: string, args: unknown[]): Row[] => {
-    if (sql.includes('FROM users WHERE login = ? OR lower(email) = ?')) {
-      return users
-        .filter(
-          (user) =>
-            user['login'] === args[0] || String(user['email'] ?? '').toLowerCase() === args[1],
-        )
-        .map((user) => ({
-          login: user['login'],
-          email: String(user['email'] ?? '').toLowerCase(),
-        }));
-    }
     if (sql.includes('INSERT INTO users')) {
-      const login = args[1];
-      const email = String(args[5] ?? '').toLowerCase();
-      const clash = users.some(
-        (user) => user['login'] === login || String(user['email'] ?? '').toLowerCase() === email,
-      );
-      if (clash) throw new Error('UNIQUE constraint failed');
+      // `login` n'est plus un argument : la requête écrit NULL en dur, l'adresse
+      // étant devenue le seul identifiant qu'on crée.
+      const email = String(args[4] ?? '').toLowerCase();
+      if (users.some((user) => String(user['email'] ?? '').toLowerCase() === email)) {
+        throw new Error('UNIQUE constraint failed');
+      }
       users.push({
         id: args[0],
-        login,
-        password_hash: args[2],
-        display_name: args[3],
-        created_at: args[4],
-        email: args[5],
+        login: null,
+        password_hash: args[1],
+        display_name: args[2],
+        created_at: args[3],
+        email: args[4],
         email_verified: 0,
       });
       return [];
@@ -56,6 +45,9 @@ function fakeDb(
       return users.filter(
         (user) => String(user['email'] ?? '').toLowerCase() === args[0] && user['id'] !== args[1],
       );
+    }
+    if (sql.includes('SELECT id FROM users WHERE lower(email) = ? LIMIT 1')) {
+      return users.filter((user) => String(user['email'] ?? '').toLowerCase() === args[0]);
     }
     if (sql.includes('UPDATE users SET email = ?, email_verified = 0')) {
       const clash = users.some(
@@ -114,7 +106,7 @@ function fakeDb(
 }
 
 const NOW = Date.parse('2026-09-07T12:00:00.000Z');
-const GOOD = { login: 'florian', email: 'Florian@example.com', password: 'unmotdepasse' }; // secret-scan-ignore
+const GOOD = { email: 'Florian@example.com', password: 'unmotdepasse' }; // secret-scan-ignore
 
 describe('createAccount', () => {
   it('crée le compte, l’adresse en minuscules et NON confirmée', async () => {
@@ -123,7 +115,9 @@ describe('createAccount', () => {
     expect(created.ok).toBe(true);
 
     const user = db.users[0];
-    expect(user?.['login']).toBe('florian');
+    // L'ADRESSE EST L'IDENTIFIANT : plus rien à inventer, et `login` reste vide
+    // — la colonne ne sert plus qu'aux comptes qui en avaient un avant.
+    expect(user?.['login']).toBeNull();
     expect(user?.['email']).toBe('florian@example.com');
     // Une adresse SAISIE n'est pas une adresse PROUVÉE.
     expect(user?.['email_verified']).toBe(0);
@@ -147,22 +141,6 @@ describe('createAccount', () => {
     expect(db.verifications[0]?.['token_hash']).not.toBe(created.account.token);
   });
 
-  it('refuse un identifiant mal formé ou réservé', async () => {
-    const db = fakeDb();
-    expect(await createAccount(db, { ...GOOD, login: 'ab' }, NOW)).toMatchObject({
-      problem: 'login-shape',
-    });
-    expect(await createAccount(db, { ...GOOD, login: '1florian' }, NOW)).toMatchObject({
-      problem: 'login-shape',
-    });
-    expect(await createAccount(db, { ...GOOD, login: 'jean dupont' }, NOW)).toMatchObject({
-      problem: 'login-shape',
-    });
-    expect(await createAccount(db, { ...GOOD, login: 'admin' }, NOW)).toMatchObject({
-      problem: 'login-reserved',
-    });
-  });
-
   it('refuse une adresse jetable ou impossible', async () => {
     const db = fakeDb();
     const jetable = { ...GOOD, email: 'x@yopmail.com' }; // secret-scan-ignore
@@ -178,14 +156,11 @@ describe('createAccount', () => {
     });
   });
 
-  it('refuse un identifiant ou une adresse déjà pris, SANS dire lequel existe', async () => {
+  it('refuse une adresse déjà prise, quelle qu’en soit la casse', async () => {
     const db = fakeDb();
     await createAccount(db, GOOD, NOW);
-    expect(await createAccount(db, { ...GOOD, email: 'autre@example.com' }, NOW)).toMatchObject({
-      problem: 'login-taken',
-    });
     // Casse différente : c'est la même boîte, donc le même compte.
-    expect(await createAccount(db, { ...GOOD, login: 'autre' }, NOW)).toMatchObject({
+    expect(await createAccount(db, { ...GOOD, email: 'FLORIAN@Example.com' }, NOW)).toMatchObject({
       problem: 'email-taken',
     });
     expect(db.users).toHaveLength(1);

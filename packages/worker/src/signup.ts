@@ -10,6 +10,16 @@
  * C'est ce qui le rend testable sans réseau (§59), comme `password-reset.ts`
  * dont il est le jumeau.
  *
+ * L'ADRESSE EST L'IDENTIFIANT. On demandait EN PLUS un identifiant à inventer,
+ * soumis à ses propres règles de forme et de disponibilité : une chose de plus
+ * à trouver, à retenir et à retaper, pour distinguer des comptes que l'adresse
+ * distinguait déjà — elle est unique, et c'est la seule des deux qu'on vérifie.
+ * Trois des six refus possibles à l'inscription ne portaient que sur lui.
+ *
+ * La colonne `login` demeure, et la CONNEXION l'accepte toujours : les comptes
+ * antérieurs en ont un et doivent pouvoir entrer avec. Elle n'est simplement
+ * plus remplie pour les nouveaux.
+ *
  * L'ADRESSE EST CONFIRMÉE, PAS SEULEMENT SAISIE. Une adresse saisie n'est
  * qu'une chaîne : rien ne dit qu'elle existe, ni qu'elle appartient à celui qui
  * la tape. C'est la confirmation par lien — et elle seule — qui empêche
@@ -40,48 +50,9 @@ const VALID_HOURS = 48;
  */
 const MIN_PASSWORD = 8;
 
-/**
- * Forme d'un identifiant de connexion.
- *
- * Volontairement étroite. Un identifiant sert à se connecter et à rien d'autre :
- * il n'a pas besoin d'espaces, d'accents ni d'emoji, et les accepter crée des
- * comptes qu'on ne peut plus taper depuis un autre clavier. Trois caractères au
- * moins, trente-deux au plus, commençant par une lettre.
- */
-const LOGIN_SHAPE = /^[a-z][a-z0-9._-]{2,31}$/;
-
-/**
- * Identifiants réservés, qui ne doivent appartenir à personne.
- *
- * `admin` ou `support` dans un message donnent à leur porteur une autorité
- * qu'il n'a pas — c'est le plus vieux tour de l'hameçonnage.
- */
-const RESERVED_LOGINS = [
-  'admin',
-  'administrateur',
-  'root',
-  'maioun',
-  'support',
-  'contact',
-  'aide',
-  'help',
-  'moi',
-  'api',
-  'www',
-  'system',
-  'noreply',
-  'no-reply',
-  'postmaster',
-  'abuse',
-  'security',
-  'securite',
-];
-
-export type SignupProblem =
-  'login-shape' | 'login-reserved' | 'login-taken' | 'email-taken' | 'weak-password' | EmailProblem;
+export type SignupProblem = 'email-taken' | 'weak-password' | EmailProblem;
 
 export interface NewAccount {
-  readonly login: string;
   readonly email: string;
   readonly password: string;
 }
@@ -96,12 +67,6 @@ export interface CreatedAccount {
 /** Le message montré pour chaque refus, en clair et sans jargon. */
 export function signupProblemMessage(problem: SignupProblem): string {
   switch (problem) {
-    case 'login-shape':
-      return 'L’identifiant doit faire 3 à 32 caractères : une lettre, puis des lettres, chiffres, points, tirets ou soulignés.';
-    case 'login-reserved':
-      return 'Cet identifiant est réservé. Choisissez-en un autre.';
-    case 'login-taken':
-      return 'Cet identifiant est déjà pris.';
     case 'email-taken':
       // ON NE DIT PAS « un compte existe déjà avec cette adresse » sur un
       // formulaire ouvert : ce serait un annuaire, interrogeable en boucle pour
@@ -174,10 +139,6 @@ export async function createAccount(
   input: NewAccount,
   nowMs: number,
 ): Promise<{ ok: true; account: CreatedAccount } | { ok: false; problem: SignupProblem }> {
-  const login = input.login.trim().toLowerCase();
-  if (!LOGIN_SHAPE.test(login)) return { ok: false, problem: 'login-shape' };
-  if (RESERVED_LOGINS.includes(login)) return { ok: false, problem: 'login-reserved' };
-
   const email = normalizeEmail(input.email);
   const problem = emailProblem(email);
   if (problem !== null) return { ok: false, problem };
@@ -185,13 +146,10 @@ export async function createAccount(
   if (input.password.length < MIN_PASSWORD) return { ok: false, problem: 'weak-password' };
 
   const taken = await db.execute({
-    sql: 'SELECT login, lower(email) AS email FROM users WHERE login = ? OR lower(email) = ? LIMIT 1',
-    args: [login, email],
+    sql: 'SELECT id FROM users WHERE lower(email) = ? LIMIT 1',
+    args: [email],
   });
-  const clash = taken.rows[0];
-  if (clash !== undefined) {
-    return { ok: false, problem: clash['login'] === login ? 'login-taken' : 'email-taken' };
-  }
+  if (taken.rows[0] !== undefined) return { ok: false, problem: 'email-taken' };
 
   const userId = crypto.randomUUID();
   const hash = await hashPassword(input.password);
@@ -207,9 +165,14 @@ export async function createAccount(
           // `alert_token` est tiré ICI et non par défaut en base : c'est lui qui
           // rend l'adresse de transfert indevinable (§6), et un compte qui
           // naîtrait sans en serait privé jusqu'à ce que quelqu'un le remarque.
+          // `login` RESTE NULL : l'adresse est désormais le seul identifiant
+          // qu'on crée. La colonne demeure pour les comptes qui en avaient un
+          // avant, et qui continuent de s'en servir pour entrer. SQLite tolère
+          // plusieurs NULL sous un index unique, ce qui rend la cohabitation
+          // possible sans migration.
           sql: `INSERT INTO users (id, login, password_hash, display_name, created_at, alert_token, email, email_verified)
-                VALUES (?, ?, ?, ?, ?, lower(hex(randomblob(9))), ?, 0)`,
-          args: [userId, login, hash, login, now, email],
+                VALUES (?, NULL, ?, ?, ?, lower(hex(randomblob(9))), ?, 0)`,
+          args: [userId, hash, email.split('@')[0] ?? email, now, email],
         },
         {
           sql: `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
@@ -220,9 +183,8 @@ export async function createAccount(
       'write',
     );
   } catch {
-    // L'index unique a parlé : quelqu'un a pris la place entre-temps. On ne
-    // sait pas lequel des deux, et le dire n'aiderait personne.
-    return { ok: false, problem: 'login-taken' };
+    // L'index unique a parlé : quelqu'un a pris l'adresse entre-temps.
+    return { ok: false, problem: 'email-taken' };
   }
 
   return { ok: true, account: { userId, token, email } };

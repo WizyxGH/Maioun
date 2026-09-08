@@ -69,11 +69,11 @@ export function LoginScreen({
           }}
         >
           <label className="flex flex-col gap-1">
-            <span className="text-[0.85rem] font-medium">Identifiant</span>
+            <span className="text-[0.85rem] font-medium">Adresse e-mail ou identifiant</span>
             <Input
               type="text"
               value={identifiant}
-              autoComplete="username"
+              autoComplete="username email"
               autoFocus
               onChange={(event) => setIdentifiant(event.target.value)}
               // 16 px sur mobile : en dessous, iOS zoome à la mise au point.

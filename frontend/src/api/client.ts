@@ -471,7 +471,6 @@ export async function rotateAlertAddress(): Promise<AlertForwarding> {
  * message qui ne viendra jamais (§17).
  */
 export async function signup(input: {
-  readonly login: string;
   readonly email: string;
   readonly password: string;
 }): Promise<{ ok: true; confirmationSent: boolean } | { ok: false; error: string }> {
