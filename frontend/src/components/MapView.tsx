@@ -93,6 +93,21 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
     layerRef.current = L.layerGroup().addTo(map);
 
     return () => {
+      /**
+       * ON ARRÊTE L'ANIMATION AVANT DE DÉTRUIRE LA CARTE.
+       *
+       * `fitBounds` lance un zoom ANIMÉ. Basculer de la carte vers la liste
+       * démonte le composant pendant ce mouvement : Leaflet retire ses
+       * panneaux, puis la transition CSS se termine et son gestionnaire va
+       * chercher la position d'un panneau qui n'existe plus —
+       * « Cannot read properties of undefined (reading '_leaflet_pos') »,
+       * relevé deux fois dans la console d'un usage ordinaire.
+       *
+       * L'erreur ne cassait rien de visible, la carte étant déjà partie ; mais
+       * une exception non rattrapée à chaque bascule pollue la console au point
+       * d'y noyer celles qui comptent.
+       */
+      map.stop();
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
