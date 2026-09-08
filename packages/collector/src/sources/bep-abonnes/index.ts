@@ -79,10 +79,16 @@ export const bepAbonnesScraper: Scraper = {
       warnings,
     });
 
-    const credentials = loadBepCredentials();
+    // LE COMPTE D ABORD, L ENVIRONNEMENT ENSUITE. L abonnement est paye a
+    // titre personnel : il se declare depuis le site, compte par compte. Le
+    // `.env` ne sert plus que d amorcage, pour une machine qui collecte sans
+    // que personne ait ouvert l ecran.
+    const credentials = context.credentials ?? loadBepCredentials();
     if (credentials === null) {
       context.log('bep_abonnes.no_credentials');
-      return empty('completed', ['Identifiants BEP absents (.env) — source inactive']);
+      return empty('completed', [
+        'Aucun abonnement BEP déclaré — source inactive (Paramètres → Accès abonnés)',
+      ]);
     }
 
     const userAgent = collectorUserAgent();

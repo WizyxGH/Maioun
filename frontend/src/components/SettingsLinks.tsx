@@ -30,6 +30,7 @@ import {
   MapPin,
   Palette,
   Radio,
+  ShieldCheck,
   User,
   type IconComponent,
 } from './icons.js';
@@ -88,6 +89,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Alertes des portails',
         hint: 'Faites suivre vos alertes Leboncoin ou SeLoger vers votre adresse.',
         Icon: Mail,
+      },
+      {
+        // L'ABONNEMENT EST PAYÉ PAR QUELQU'UN, et vivait pourtant dans une
+        // variable d'environnement : seul le détenteur du fichier de
+        // configuration pouvait s'en servir, et un second compte ne pouvait
+        // même pas déclarer le sien.
+        key: 'paid-sources',
+        label: 'Accès abonnés',
+        hint: 'Un abonnement payant à une agence ? Déclarez-le, la collecte le lira.',
+        Icon: ShieldCheck,
       },
       {
         // L'INTERRUPTEUR VIT DERRIÈRE CETTE PORTE, et non plus au-dessus de la

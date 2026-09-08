@@ -437,6 +437,18 @@ export interface Repository {
    * source. Dès qu'elle agit POUR QUELQU'UN, il lui faut celui-là.
    */
   readSettingFor(userId: string, key: string): Promise<string | null>;
+
+  /**
+   * Les identifiants declares pour une source PAYEE, tous comptes confondus.
+   *
+   * TOUS, ET NON CEUX D UN COMPTE : le stock ainsi collecte entre dans la base
+   * COMMUNE, comme celui des alertes transferees. Un abonnement suffit donc a
+   * servir tout le monde, et rien ne justifierait de collecter la meme source
+   * autant de fois qu il y a de comptes.
+   *
+   * Le secret rendu est encore CHIFFRE : ce module ne connait pas la cle.
+   */
+  sourceCredentials(sourceId: string): Promise<readonly EncryptedCredential[]>;
   /** Écrit un réglage applicatif, écrasant le précédent. */
   writeSetting(key: string, value: string): Promise<void>;
   /** Le même réglage, écrit pour UN compte donné. */
@@ -751,6 +763,13 @@ export function occurrenceMatching(
   }
   const first = list[0]?.sourceUrl;
   return typeof first === 'string' ? first : null;
+}
+
+/** Un identifiant de source, son secret encore chiffre. */
+export interface EncryptedCredential {
+  readonly userId: string;
+  readonly login: string;
+  readonly secretEncrypted: string;
 }
 
 export function createRepository(db: Database): Repository {
@@ -1929,6 +1948,19 @@ export function createRepository(db: Database): Repository {
       });
       const row = result.rows[0];
       return row === undefined ? null : String(row['value']);
+    },
+
+    async sourceCredentials(sourceId) {
+      const result = await db.execute({
+        sql: `SELECT user_id, login, secret_encrypted FROM source_credentials
+              WHERE source_id = ? ORDER BY updated_at DESC`,
+        args: [sourceId],
+      });
+      return result.rows.map((row) => ({
+        userId: String(row['user_id']),
+        login: String(row['login']),
+        secretEncrypted: String(row['secret_encrypted']),
+      }));
     },
 
     async readSettingFor(userId, key) {

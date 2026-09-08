@@ -159,6 +159,9 @@ importers:
       '@rentfinder/collector':
         specifier: workspace:*
         version: link:../collector
+      '@rentfinder/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20250109.0

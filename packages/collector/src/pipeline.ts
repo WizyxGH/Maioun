@@ -44,6 +44,8 @@ import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 import { withStoredCriteria } from './config.js';
 import { resolveReferencePoints } from './core/reference-points.js';
 import {
+  decryptSecret,
+  type SourceCredentials,
   CURRENT_USER,
   REFERENCE_POINTS_SETTING,
   SEARCH_CRITERIA_SETTING,
@@ -128,6 +130,7 @@ async function runSource(
   scraper: Scraper,
   options: PipelineOptions,
   knownRefs: ReadonlySet<string>,
+  credentials: SourceCredentials | null,
 ): Promise<{ outcome: SourceOutcome; nextState: Partial<SourceRuntimeState> }> {
   const { descriptor } = scraper;
   const logger = options.logger.child({ source: descriptor.id });
@@ -152,6 +155,7 @@ async function runSource(
     },
     isKnown: (ref) => knownRefs.has(ref),
     knownRefs,
+    credentials,
     log: (event, fields) => logger.debug(event, fields),
     shouldStop: () => requestsUsed >= descriptor.budget.maxPagesPerRun,
   };
@@ -626,6 +630,35 @@ function countAlertsByToken(
   return counts;
 }
 
+/**
+ * Les identifiants d une source payee, declares depuis le site.
+ *
+ * ON PREND LE PREMIER QUI SE DECHIFFRE. Le stock collecte entre dans la base
+ * COMMUNE : un abonnement suffit a servir tout le monde, et collecter la meme
+ * source une fois par compte ne rapporterait rien de plus a personne.
+ *
+ * Un secret qu on ne sait plus lire — cle changee, ligne d une autre
+ * installation — est traite comme absent, jamais comme une panne (§17) : on
+ * passe au suivant, et l environnement reste le dernier recours.
+ */
+async function resolveCredentials(
+  repository: Repository,
+  sourceId: string,
+  logger: Logger,
+): Promise<SourceCredentials | null> {
+  const key = process.env['CREDENTIALS_KEY'];
+  if (key === undefined || key.trim() === '') return null;
+  for (const stored of await repository.sourceCredentials(sourceId)) {
+    const password = await decryptSecret(stored.secretEncrypted, key);
+    if (password === null) {
+      logger.warn('credentials.unreadable', { sourceId });
+      continue;
+    }
+    return { user: stored.login, password };
+  }
+  return null;
+}
+
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
   const startedMs = clock.now();
@@ -658,7 +691,8 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
     const knownRefs = await repository.knownRefs(decision.sourceId);
     const previousState = entries.find((entry) => entry.descriptor.id === decision.sourceId)?.state;
-    const { outcome, nextState } = await runSource(scraper, options, knownRefs);
+    const credentials = await resolveCredentials(repository, decision.sourceId, logger);
+    const { outcome, nextState } = await runSource(scraper, options, knownRefs, credentials);
     outcomes.push(outcome);
 
     if (outcome.result !== null) {

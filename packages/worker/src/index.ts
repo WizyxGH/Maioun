@@ -26,6 +26,7 @@ import { deleteDocument, listDocuments, readDocument, saveDocument } from './doc
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress, ownsReadMailbox } from './alert-address.js';
+import { encryptSecret } from '@rentfinder/shared';
 import {
   mailerConfigured,
   sendEmail,
@@ -102,7 +103,23 @@ export interface Env {
   readonly GITHUB_DISPATCH_TOKEN?: string;
   /** `proprietaire/depot`. Absent : le dépôt du projet. */
   readonly GITHUB_REPOSITORY?: string;
+  /**
+   * Clé de chiffrement des accès aux sources PAYÉES (§6, §26).
+   *
+   * Absente, on REFUSE d’enregistrer : stocker un secret qu’on ne saurait pas
+   * rechiffrer reviendrait à le poser en clair. Le collecteur doit avoir la
+   * MÊME valeur, sans quoi il ne saura rien relire.
+   */
+  readonly CREDENTIALS_KEY?: string;
 }
+
+/**
+ * Les sources dont un abonnement peut être déclaré.
+ *
+ * LISTE FERMÉE : sans elle, n’importe quel identifiant de source écrirait une
+ * ligne dans la table, y compris pour une source qui n’existe pas.
+ */
+const PAID_SOURCES: readonly string[] = ['bep-abonnes'];
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
   const origin = request.headers.get('Origin');
@@ -409,6 +426,85 @@ async function signup(
  * site sans toucher la base, et y ajouter une lecture de ligne la ferait payer
  * à tout le monde pour un écran de réglages qu'on ouvre une fois (§30).
  */
+/**
+ * Déclarer, remplacer ou retirer l'accès à une source PAYÉE (§6, §26).
+ *
+ * LE SECRET NE REDESCEND JAMAIS. La lecture ne rend que « configuré » et
+ * l'identifiant — assez pour savoir SOUS QUEL compte l'abonnement est déclaré,
+ * jamais assez pour s'en servir. Un écran qui réafficherait le mot de passe le
+ * mettrait à la portée de tout ce qui regarde par-dessus l'épaule, sans rien
+ * apporter : on ne relit pas un mot de passe, on le remplace.
+ *
+ * SANS CLÉ DE PLATEFORME, ON REFUSE D'ÉCRIRE. Stocker un secret qu'on ne
+ * saurait pas rechiffrer reviendrait à le poser en clair : mieux vaut dire que
+ * la fonctionnalité n'est pas configurée (§17).
+ */
+async function credentialsRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+  sourceId: string | undefined,
+): Promise<Response | null> {
+  if (sourceId === undefined || !PAID_SOURCES.includes(sourceId)) {
+    return json({ error: 'Source inconnue.' }, cors, 404);
+  }
+
+  if (request.method === 'GET') {
+    const row = await db.execute({
+      sql: 'SELECT login FROM source_credentials WHERE user_id = ? AND source_id = ? LIMIT 1',
+      args: [userId, sourceId],
+    });
+    const login = row.rows[0]?.['login'];
+    return json(
+      {
+        configured: typeof login === 'string',
+        login: typeof login === 'string' ? login : null,
+        available: (env.CREDENTIALS_KEY ?? '') !== '',
+      },
+      cors,
+    );
+  }
+
+  if (request.method === 'DELETE') {
+    await db.execute({
+      sql: 'DELETE FROM source_credentials WHERE user_id = ? AND source_id = ?',
+      args: [userId, sourceId],
+    });
+    return json({ configured: false, login: null }, cors);
+  }
+
+  if (request.method !== 'PUT') return null;
+
+  const key = env.CREDENTIALS_KEY ?? '';
+  if (key === '') {
+    return json(
+      { error: 'Le stockage des accès payants n’est pas configuré sur cette installation.' },
+      cors,
+      501,
+    );
+  }
+
+  const body = (await request.json().catch(() => ({}))) as { login?: unknown; password?: unknown };
+  const login = typeof body.login === 'string' ? body.login.trim() : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+  if (login === '' || password === '') {
+    return json({ error: 'Identifiant et mot de passe requis.' }, cors, 400);
+  }
+
+  await db.execute({
+    sql: `INSERT INTO source_credentials (user_id, source_id, login, secret_encrypted, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT (user_id, source_id) DO UPDATE
+            SET login = excluded.login,
+                secret_encrypted = excluded.secret_encrypted,
+                updated_at = excluded.updated_at`,
+    args: [userId, sourceId, login, await encryptSecret(password, key), new Date().toISOString()],
+  });
+  return json({ configured: true, login }, cors);
+}
+
 async function accountEmailRoute(
   db: Client,
   request: Request,
@@ -771,6 +867,12 @@ export default {
     // restait pour toujours : plus de « mot de passe oublié », plus d'alertes.
     if (segments[1] === 'account' && segments[2] === 'email') {
       const answered = await accountEmailRoute(db, request, env, cors, userId, segments[3]);
+      if (answered !== null) return answered;
+    }
+
+    // Les identifiants d une source PAYEE, declares compte par compte (§6).
+    if (segments[1] === 'credentials') {
+      const answered = await credentialsRoute(db, request, env, cors, userId, segments[2]);
       if (answered !== null) return answered;
     }
 
