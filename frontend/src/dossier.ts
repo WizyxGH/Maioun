@@ -29,7 +29,10 @@ const CORE: readonly (readonly [string, string, string])[] = [
   [
     'identite',
     'Pièce d’identité',
-    'Carte nationale d’identité, passeport ou titre de séjour, en cours de validité.',
+    // RECTO ET VERSO : l'emplacement acceptait déjà plusieurs fichiers — le
+    // sélecteur est `multiple` et la liste les montre tous — mais rien ne le
+    // disait, et une carte déposée d'un seul côté ne fait pas un dossier.
+    'Carte nationale d’identité (recto ET verso, en deux fichiers), passeport ou titre de séjour, en cours de validité.',
   ],
   [
     'domicile',

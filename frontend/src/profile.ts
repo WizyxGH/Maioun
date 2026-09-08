@@ -66,7 +66,7 @@ export const GUARANTOR_OPTIONS: readonly GuarantorOption[] = [
   {
     kind: 'visale',
     label: 'Garantie Visale',
-    hint: 'Gratuite, portée par Action Logement. Elle se demande sur visale.fr AVANT de candidater : le visa obtenu tient lieu de garant, et une seule attestation remplace tout le dossier d’une caution.',
+    hint: 'Gratuite, portée par Action Logement. Elle se demande sur visale.fr AVANT de candidater : le visa obtenu tient lieu de garant, et une seule attestation remplace tout le dossier d’une caution. La déclarer ici ouvre l’emplacement où déposer l’attestation, dans votre dossier.',
   },
   {
     kind: 'garantme',
