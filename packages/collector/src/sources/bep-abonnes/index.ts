@@ -67,7 +67,15 @@ export const BEP_ABONNES_DESCRIPTOR: SourceDescriptor = {
    */
   oneShotListings: true,
   enabled: true,
-  // Premier contact via l'agence BEP : automatiser n'est pas approprié (§23).
+  /**
+   * RESTE VRAI, MÊME DEPUIS QUE `pnpm contact:bep` existe.
+   *
+   * Ce drapeau ferme le contact automatique PAR RÈGLE — celui que
+   * `contact/guards.ts` déclenche sur un score, sans que personne ait regardé
+   * l'annonce. La demande au bulletin ne passe pas par là : elle ne touche que
+   * les favoris, désignés un par un devant la fiche. Les deux chemins ne se
+   * confondent pas, et seul le second est ouvert (§23).
+   */
   manualOnly: true,
   allowedPaths: ['/w_login_abonnes.php', '/w_index_abonnes.php'],
   notes:
