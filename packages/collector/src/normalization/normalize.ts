@@ -115,6 +115,15 @@ function toNull(value: string | undefined): string | null {
  * filtre laisse alors passer.
  */
 function inferLandlordKind(raw: RawListing, sourceLandlord?: LandlordKind): LandlordKind {
+  /**
+   * UNE SOURCE QUI LE DIT PRIME SUR TOUT LE RESTE. Bien'ici publie le type de
+   * compte du déposant ; c'est la première fois qu'une source du projet fait
+   * la différence explicitement, au lieu de la laisser deviner dans une prose
+   * que les deux tiers des annonces n'ont pas.
+   */
+  const declared = raw.extra?.['landlord'];
+  if (declared === 'agency' || declared === 'private') return declared;
+
   if (toNull(raw.agencyName) !== null) return 'agency';
   const haystack = comparable(`${raw.title ?? ''} ${raw.description ?? ''}`);
   if (/\bparticulier\b|\bde particulier a particulier\b/.test(haystack)) return 'private';
