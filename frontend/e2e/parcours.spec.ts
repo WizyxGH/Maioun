@@ -220,7 +220,13 @@ test('les critères de recherche sont réglables depuis le site (§66)', async (
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
   await toolbar.getByRole('button', { name: /Filtres/ }).click();
 
-  const trajet = page.getByLabel('Trajet max domicile→travail (min)');
+  // LES MINUTES ONT MAINTENANT UN MODE À CÔTÉ D'ELLES : trente minutes à pied
+  // et trente en voiture ne désignent pas la même ville, et le mode se choisit
+  // ici plutôt que dans l'écran des points de repère.
+  const mode = page.getByLabel('Mode de déplacement');
+  await expect(mode).toBeVisible();
+
+  const trajet = page.getByLabel('Trajet max domicile→travail');
   await expect(trajet).toBeVisible();
   await trajet.fill('45');
 
@@ -264,13 +270,17 @@ test('les alertes se règlent depuis leur propre écran (§29)', async ({ page }
   await ouvrirReglage(page, 'Notifications');
   await expect(page).toHaveURL(/\/settings\/notifications$/);
 
-  const alertes = page.getByRole('switch', { name: 'Alertes sur cet appareil' });
+  // « NOUVELLES ANNONCES » EST L'INTERRUPTEUR PRINCIPAL. Il y en avait deux,
+  // l'un au-dessus de l'autre : « Alertes sur cet appareil » ouvrait le canal,
+  // celui-ci choisissait le sujet — deux gestes pour un seul, personne
+  // n'ouvrant le canal sans vouloir les nouvelles annonces.
+  const alertes = page.getByRole('switch', { name: 'Nouvelles annonces' });
   await expect(alertes).toBeVisible();
   // Rien ne sonne sans consentement explicite.
   await expect(alertes).toHaveAttribute('aria-checked', 'false');
-  // Et le détail par famille ne s'affiche pas tant que rien n'est allumé :
-  // régler finement quelque chose de muet n'apprendrait rien.
-  await expect(page.getByRole('switch', { name: 'Nouvelles annonces' })).toHaveCount(0);
+  // Les autres familles restent là mais inertes tant qu'il est éteint : régler
+  // finement quelque chose de muet n'apprendrait rien.
+  await expect(page.getByRole('switch', { name: 'Proche de vos critères' })).toBeDisabled();
 });
 
 test('les paramètres sont rangés par sujet (§39)', async ({ page }) => {
