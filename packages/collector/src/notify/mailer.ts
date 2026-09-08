@@ -6,7 +6,7 @@
  * alertes. Ce fichier vivait dans le Worker : le collecteur aurait dû
  * réécrire le même appel, et un projet qui parle à Resend à deux endroits en
  * change à deux endroits. Il est donc ici, exposé par
- * `@rentfinder/collector/notify/mailer`.
+ * `@maioun/collector/notify/mailer`.
  *
  * Rien d'autre ne part d'ici — les messages aux AGENCES restent envoyés par
  * l'utilisateur lui-même, depuis son propre client (§24), et cela ne change

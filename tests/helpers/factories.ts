@@ -15,8 +15,8 @@ import type {
   MergedField,
   NormalizedListing,
   PropertyType,
-} from '@rentfinder/shared';
-import { EMPTY_CONTACT, merged } from '@rentfinder/shared';
+} from '@maioun/shared';
+import { EMPTY_CONTACT, merged } from '@maioun/shared';
 
 export const TEST_NOW = Date.parse('2026-08-14T12:00:00.000Z');
 export const TEST_NOW_ISO = new Date(TEST_NOW).toISOString();

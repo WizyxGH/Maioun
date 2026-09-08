@@ -21,9 +21,9 @@
  * rien n'est envoyé à une agence automatiquement (§24).
  */
 
-import type { Guarantor, GuarantorKind, TenantProfile } from '@rentfinder/shared';
+import type { Guarantor, GuarantorKind, TenantProfile } from '@maioun/shared';
 
-const PROFILE_STORAGE_KEY = 'rentfinder.tenantProfile';
+const PROFILE_STORAGE_KEY = 'maioun.tenantProfile';
 
 /** Profil vide, servant de base au formulaire de configuration. */
 export const EMPTY_PROFILE: TenantProfile = {

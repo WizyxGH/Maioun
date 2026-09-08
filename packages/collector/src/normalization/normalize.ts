@@ -13,12 +13,8 @@ import type {
   NormalizedListing,
   RawListing,
   SourceId,
-} from '@rentfinder/shared';
-import {
-  EMPTY_CONTACT,
-  SHORT_TERM_LEASE_FEATURE,
-  STUDENT_HOUSING_FEATURE,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
+import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import { cleanText, comparable } from './text.js';
 import {
   isShortTermStudentLease,

@@ -40,7 +40,7 @@ import {
   slotPrefix,
   type DossierSlot,
 } from '../dossier.js';
-import type { TenantProfile } from '@rentfinder/shared';
+import type { TenantProfile } from '@maioun/shared';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;

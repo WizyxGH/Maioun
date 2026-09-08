@@ -11,8 +11,8 @@ import type {
   ExplainedScore,
   ScoreReason,
   SearchCriteria,
-} from '@rentfinder/shared';
-import { clampScore } from '@rentfinder/shared';
+} from '@maioun/shared';
+import { clampScore } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
 import {
   isShortTermStudentLease,

@@ -21,10 +21,10 @@
     "types": ["node", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
-      "@rentfinder/shared": ["./packages/shared/src/index.ts"],
-      "@rentfinder/collector": ["./packages/collector/src/index.ts"],
-      "@rentfinder/collector/server/routes": ["./packages/collector/src/server/routes.ts"],
-      "@rentfinder/collector/notify/mailer": ["./packages/collector/src/notify/mailer.ts"],
+      "@maioun/shared": ["./packages/shared/src/index.ts"],
+      "@maioun/collector": ["./packages/collector/src/index.ts"],
+      "@maioun/collector/server/routes": ["./packages/collector/src/server/routes.ts"],
+      "@maioun/collector/notify/mailer": ["./packages/collector/src/notify/mailer.ts"],
       "@/*": ["./frontend/src/*"]
     }
   },

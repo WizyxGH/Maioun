@@ -13,7 +13,7 @@
  *      un en double (§14).
  */
 
-import type { NormalizedListing } from '@rentfinder/shared';
+import type { NormalizedListing } from '@maioun/shared';
 import { comparable, tokenize } from '../normalization/text.js';
 import { haversineKm } from '../core/geo.js';
 

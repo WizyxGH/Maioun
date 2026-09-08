@@ -6,7 +6,7 @@
  */
 
 import { Fragment, useEffect, useState } from 'react';
-import type { StoredReferencePoint, TenantProfile } from '@rentfinder/shared';
+import type { StoredReferencePoint, TenantProfile } from '@maioun/shared';
 import { fetchReferencePoints } from '../api/client.js';
 import { directionsUrl } from '../directions.js';
 import type { ListingView, TrackingStatus } from '../types.js';

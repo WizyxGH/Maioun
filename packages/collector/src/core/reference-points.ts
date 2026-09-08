@@ -19,7 +19,7 @@
  * l'oubli EFFACE des données n'a pas sa place dans un appelant.
  */
 
-import { parseReferencePoints, type StoredReferencePoint } from '@rentfinder/shared';
+import { parseReferencePoints, type StoredReferencePoint } from '@maioun/shared';
 import type { Logger } from './logger.js';
 import type { ReferencePoint } from '../config.js';
 import { collectorUserAgent, loadReferenceAddresses, loadReferencePoints } from '../config.js';

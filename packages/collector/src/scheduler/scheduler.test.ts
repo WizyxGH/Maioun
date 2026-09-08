@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { SourceDescriptor, SourceRuntimeState } from '@rentfinder/shared';
+import type { SourceDescriptor, SourceRuntimeState } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../core/budgets.js';
 import { decideForSource, effectiveInterval, planRun } from './scheduler.js';
 

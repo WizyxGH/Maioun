@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { directionsUrl } from './directions.js';
-import type { StoredReferencePoint } from '@rentfinder/shared';
+import type { StoredReferencePoint } from '@maioun/shared';
 
 const TRAVAIL: StoredReferencePoint = {
   label: 'Travail',

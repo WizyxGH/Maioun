@@ -41,7 +41,7 @@ self.addEventListener('push', (event) => {
     icon: `${base}icon-192.png`,
     body: payload.body || '',
     // `tag` dédoublonne : deux envois rapprochés ne s'empilent pas.
-    tag: payload.tag || 'rentfinder',
+    tag: payload.tag || 'maioun',
     data: { url: payload.url || '/', listingId, phone },
     // Sans cela, une notification arrivée pendant le sommeil de l'appareil
     // disparaît sans avoir été vue.

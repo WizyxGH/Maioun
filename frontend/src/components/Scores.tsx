@@ -10,7 +10,7 @@
  *     une précision inexistante.
  */
 
-import type { ExplainedScore } from '@rentfinder/shared';
+import type { ExplainedScore } from '@maioun/shared';
 import { Card } from '@/components/ui/card.js';
 import { Check, Dot, TriangleAlert } from './icons.js';
 

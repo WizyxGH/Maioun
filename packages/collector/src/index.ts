@@ -1,5 +1,5 @@
 /**
- * @rentfinder/collector — API publique du collecteur.
+ * @maioun/collector — API publique du collecteur.
  *
  * Ce paquet regroupe la collecte, la normalisation, le dédoublonnage, le
  * scoring et la persistance. Il est utilisable comme bibliothèque (tests,
@@ -43,9 +43,9 @@ export { mergeGroup, mergeContacts, pickPrimary } from './deduplication/merge.js
 
 export * from './scoring/index.js';
 
-// La génération de message vit dans @rentfinder/shared : le frontend l'utilise
+// La génération de message vit dans @maioun/shared : le frontend l'utilise
 // aussi pour le mode manuel (§22, §24).
-export { prepareMessage, TEMPLATES, type PreparedMessage } from '@rentfinder/shared';
+export { prepareMessage, TEMPLATES, type PreparedMessage } from '@maioun/shared';
 export { evaluateAutoContact, type AutoContactDecision } from './contact/guards.js';
 
 export {

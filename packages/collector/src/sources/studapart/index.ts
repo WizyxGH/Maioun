@@ -11,7 +11,7 @@ import type {
   ScrapeResult,
   SourceDescriptor,
   StopReason,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { buildSearchBody, parseSearchResponse, SEARCH_API_URL } from './parser.js';
 

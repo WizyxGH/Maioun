@@ -20,7 +20,7 @@
  * série sur-le-champ : la source vient de dire qu'elle en a assez.
  */
 
-import type { RawListing, ScrapeContext } from '@rentfinder/shared';
+import type { RawListing, ScrapeContext } from '@maioun/shared';
 import type { RawDraft } from './raw-listing.js';
 
 export interface EnrichOptions {

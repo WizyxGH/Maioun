@@ -97,7 +97,7 @@ describe('createRateLimiter', () => {
 describe('createHttpClient', () => {
   const baseOptions = () => ({
     budget,
-    userAgent: 'RentFinderBot/0.1 (test)',
+    userAgent: 'MaiounBot/0.1 (test)',
     clock: createTestClock({ random: 0 }),
     logger: silentLogger,
     cache: createMemoryCacheStore(),
@@ -111,7 +111,7 @@ describe('createHttpClient', () => {
     await client.get('https://example.invalid/a');
 
     const headers = fetchImpl.mock.calls[0]?.[1]?.headers as Record<string, string>;
-    expect(headers['user-agent']).toBe('RentFinderBot/0.1 (test)');
+    expect(headers['user-agent']).toBe('MaiounBot/0.1 (test)');
     expect(headers['user-agent']).not.toMatch(/Mozilla|Chrome|Safari/);
   });
 

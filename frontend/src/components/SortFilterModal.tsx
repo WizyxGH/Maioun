@@ -36,7 +36,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { X } from './icons.js';
-import type { PropertyType } from '@rentfinder/shared';
+import type { PropertyType } from '@maioun/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
 import {
   OCCUPANT_PRESETS,

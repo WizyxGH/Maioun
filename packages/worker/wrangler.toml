@@ -48,7 +48,7 @@ SITE_URL = "https://wizyxgh.github.io/RentFinder/"
 # d'adresse ni son lien de réinitialisation, et Resend refuserait l'envoi sans
 # que l'écran puisse le dire : de son point de vue la fonctionnalité EST
 # configurée. Vérifier un domaine dans Resend est ce qui lève la limite.
-EMAIL_FROM = "RentFinder <onboarding@resend.dev>"  # secret-scan-ignore : expediteur public de Resend
+EMAIL_FROM = "Maïoun <onboarding@resend.dev>"  # secret-scan-ignore : expediteur public de Resend
 
 # --- Pièces du dossier de candidature (§25) — à activer si vous les voulez ---
 #

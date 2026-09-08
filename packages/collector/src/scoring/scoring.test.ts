@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MVP_CRITERIA } from '@rentfinder/shared';
+import { MVP_CRITERIA } from '@maioun/shared';
 import {
   makeAggregated,
   makeContact,

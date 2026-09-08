@@ -7,7 +7,7 @@ import {
   pushContentsFor,
   reminderContentFor,
 } from './web-push.js';
-import { listingPath } from '@rentfinder/shared';
+import { listingPath } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 
 const listing = (over: Record<string, unknown> = {}): never =>
@@ -43,7 +43,7 @@ describe('loadVapidConfig', () => {
     expect(config).toEqual({
       publicKey: 'pub',
       privateKey: 'priv',
-      subject: 'mailto:rentfinder@example.invalid',
+      subject: 'mailto:maioun@example.invalid',
     });
   });
 });
@@ -121,7 +121,7 @@ describe('pushContentsFor', () => {
     // ce soit — l'inverse de ce qu'une alerte doit faire.
     const contents = pushContentsFor([listing(), listing({ id: 'l2', price: 700 })], SITE);
     expect(contents).toHaveLength(2);
-    expect(contents[0]?.tag).toBe('rentfinder-l1');
+    expect(contents[0]?.tag).toBe('maioun-l1');
     expect(contents[1]?.body).toContain('700 €');
   });
 
@@ -130,7 +130,7 @@ describe('pushContentsFor', () => {
     const contents = pushContentsFor(many, SITE);
     expect(contents).toHaveLength(5);
     expect(contents[4]?.title).toBe('+ 3 autres annonces');
-    expect(contents[4]?.tag).toBe('rentfinder-lot');
+    expect(contents[4]?.tag).toBe('maioun-lot');
   });
 });
 
@@ -161,7 +161,7 @@ describe('les autres familles d’alertes', () => {
     expect(content.url).toContain('/listing/l9');
     // Une étiquette DISTINCTE de l'alerte « nouvelle annonce » : sinon la
     // seconde remplacerait la première dans le tiroir du téléphone.
-    expect(content.tag).not.toBe(`rentfinder-${suivi.id}`);
+    expect(content.tag).not.toBe(`maioun-${suivi.id}`);
   });
 
   it('rappelle une candidature en tête avec le téléphone sous la main', () => {

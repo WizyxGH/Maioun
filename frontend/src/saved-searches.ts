@@ -19,7 +19,7 @@
  * critères : un téléphone et un ordinateur doivent voir les mêmes.
  */
 
-import { MVP_CRITERIA, type PropertyType } from '@rentfinder/shared';
+import { MVP_CRITERIA, type PropertyType } from '@maioun/shared';
 import type { FilterConfig, SortMode } from './types.js';
 import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
 

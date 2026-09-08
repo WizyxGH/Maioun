@@ -25,7 +25,7 @@ import type {
   SourceHealth,
   SourceRuntimeState,
   StopReason,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import type { Clock } from './core/clock.js';
 import type { Logger } from './core/logger.js';
 import { BlockedError, createHttpClient, RateLimitedError } from './core/http-client.js';
@@ -38,7 +38,7 @@ import { scoreListing, scoreMatch } from './scoring/index.js';
 import { createGeocoder, geocodeCacheKey } from './core/geocode.js';
 import { createTransitRouter } from './core/transit.js';
 import type { Coordinates } from './core/geo.js';
-import type { AggregatedListing } from '@rentfinder/shared';
+import type { AggregatedListing } from '@maioun/shared';
 import type { Repository, UpsertReport } from './db/repository.js';
 import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 import { withStoredCriteria } from './config.js';
@@ -49,7 +49,7 @@ import {
   CURRENT_USER,
   REFERENCE_POINTS_SETTING,
   SEARCH_CRITERIA_SETTING,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 
 /** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
 const GEOCODE_NETWORK_BUDGET = 80;

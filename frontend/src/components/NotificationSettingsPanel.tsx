@@ -22,8 +22,8 @@
  * paragraphe précédent cherchait à éviter.
  */
 
-import { NEAR_MATCH_MARGIN } from '@rentfinder/shared';
-import type { NotificationFrequency } from '@rentfinder/shared';
+import { NEAR_MATCH_MARGIN } from '@maioun/shared';
+import type { NotificationFrequency } from '@maioun/shared';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
@@ -31,7 +31,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationKind,
   type NotificationPreferences,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { fetchNotificationPreferences, saveNotificationPreferences } from '../api/client.js';
 import { disablePush, enablePush, pushEnabled, pushSupported, resyncPush } from '../push.js';
 import { readOptIn, requestNotificationPermission, writeOptIn } from '../notifications.js';

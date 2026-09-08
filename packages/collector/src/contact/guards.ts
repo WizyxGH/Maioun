@@ -17,7 +17,7 @@ import type {
   ContactAttempt,
   ScoredListing,
   SourceDescriptor,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 
 export interface AutoContactDecision {
   readonly allowed: boolean;

@@ -8,7 +8,7 @@
  * la complexité reste sous contrôle.
  */
 
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 
 /** Brouillon : mêmes champs que `RawListing`, tous facultatifs et `undefined`-ables. */
 export type RawDraft = { [K in keyof RawListing]?: RawListing[K] | undefined };

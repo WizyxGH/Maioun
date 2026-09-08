@@ -11,8 +11,8 @@
  * laisser croire à une précision qui n'existe pas.
  */
 
-import type { AggregatedListing, ExplainedScore, ScoreReason } from '@rentfinder/shared';
-import { clampScore } from '@rentfinder/shared';
+import type { AggregatedListing, ExplainedScore, ScoreReason } from '@maioun/shared';
+import { clampScore } from '@maioun/shared';
 
 /** Paliers de fraîcheur, en minutes, et points associés. */
 const FRESHNESS_TIERS: readonly { maxMinutes: number; points: number; label: string }[] = [

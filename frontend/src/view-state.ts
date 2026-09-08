@@ -16,11 +16,11 @@
  * Un réglage d'affichage perdu ne vaut pas un écran d'erreur (§69).
  */
 
-import type { PropertyType } from '@rentfinder/shared';
+import type { PropertyType } from '@maioun/shared';
 import type { SortMode } from './types.js';
 import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
 
-const KEY = 'rentfinder.viewState';
+const KEY = 'maioun.viewState';
 
 /** L'état d'affichage complet, tel qu'il est restauré au chargement. */
 export interface ViewState {

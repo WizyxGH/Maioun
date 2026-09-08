@@ -1,7 +1,7 @@
 /**
  * Crée ou met à jour un compte.
  *
- *   pnpm --filter @rentfinder/worker user:add
+ *   pnpm --filter @maioun/worker user:add
  *
  * POURQUOI UNE COMMANDE, ET PAS UN ÉCRAN D'INSCRIPTION. Un site ouvert à
  * l'inscription est un site que n'importe qui peut remplir ; celui-ci est un

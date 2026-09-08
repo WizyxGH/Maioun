@@ -6,8 +6,8 @@
  */
 
 import { useState } from 'react';
-import type { Guarantor, GuarantorKind, TenantProfile } from '@rentfinder/shared';
-import { MAX_GUARANTORS, TENANT_SITUATIONS } from '@rentfinder/shared';
+import type { Guarantor, GuarantorKind, TenantProfile } from '@maioun/shared';
+import { MAX_GUARANTORS, TENANT_SITUATIONS } from '@maioun/shared';
 import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';

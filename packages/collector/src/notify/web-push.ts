@@ -11,7 +11,7 @@
  * à ouvrir le site, ce qu'une alerte doit précisément éviter.
  */
 
-import { listingUrl } from '@rentfinder/shared';
+import { listingUrl } from '@maioun/shared';
 import { imagePayload } from './photo.js';
 import webpush from 'web-push';
 import type { Logger } from '../core/logger.js';
@@ -46,7 +46,7 @@ export function loadVapidConfig(env: NodeJS.ProcessEnv = process.env): VapidConf
   return {
     publicKey,
     privateKey,
-    subject: env['VAPID_SUBJECT'] ?? 'mailto:rentfinder@example.invalid',
+    subject: env['VAPID_SUBJECT'] ?? 'mailto:maioun@example.invalid',
   };
 }
 
@@ -96,7 +96,7 @@ export function pushContentFor(
     title: listing.title ?? 'Nouvelle annonce',
     body: lines.join('\n'),
     url: listingUrl(siteUrl, listing.id),
-    tag: `rentfinder-${listing.id}`,
+    tag: `maioun-${listing.id}`,
     ...imagePayload(listing.photoUrls[0]),
     listingId: listing.id,
     ...(listing.phone !== null ? { phone: listing.phone } : {}),
@@ -107,9 +107,9 @@ export function pushContentFor(
 function overflowContent(count: number, siteUrl: string): PushPayload {
   return {
     title: `+ ${count} autre${count > 1 ? 's' : ''} annonce${count > 1 ? 's' : ''}`,
-    body: 'Ouvrez RentFinder pour les voir.',
+    body: 'Ouvrez Maïoun pour les voir.',
     url: siteUrl,
-    tag: 'rentfinder-lot',
+    tag: 'maioun-lot',
   };
 }
 
@@ -147,7 +147,7 @@ export function goneContentFor(listing: NotifiableListing, siteUrl: string): Pus
       .filter((line): line is string => line !== null)
       .join('\n'),
     url: listingUrl(siteUrl, listing.id),
-    tag: `rentfinder-gone-${listing.id}`,
+    tag: `maioun-gone-${listing.id}`,
     listingId: listing.id,
   };
 }
@@ -173,7 +173,7 @@ export function reminderContentFor(listing: NotifiableListing, siteUrl: string):
       .filter((line): line is string => line !== null && line !== '')
       .join('\n'),
     url: listingUrl(siteUrl, listing.id),
-    tag: `rentfinder-rappel-${listing.id}`,
+    tag: `maioun-rappel-${listing.id}`,
     listingId: listing.id,
     ...(listing.phone !== null ? { phone: listing.phone } : {}),
   };
@@ -206,7 +206,7 @@ export function nearMatchContentFor(
       .filter((line): line is string => line !== null && line !== '')
       .join('\n'),
     url: listingUrl(siteUrl, listing.id),
-    tag: `rentfinder-proche-${listing.id}`,
+    tag: `maioun-proche-${listing.id}`,
     listingId: listing.id,
     ...imagePayload(listing.photoUrls[0]),
     ...(listing.phone !== null ? { phone: listing.phone } : {}),

@@ -21,7 +21,7 @@ import {
   silentLogger,
   type Database,
   type Repository,
-} from '@rentfinder/collector';
+} from '@maioun/collector';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');
 const NOW = Date.parse('2026-09-04T12:00:00.000Z');

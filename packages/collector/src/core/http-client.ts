@@ -14,7 +14,7 @@
  * les garanties ci-dessus vérifiables à un seul endroit.
  */
 
-import type { FetchResult, RateLimitBudget } from '@rentfinder/shared';
+import type { FetchResult, RateLimitBudget } from '@maioun/shared';
 import type { Clock } from './clock.js';
 import type { Logger } from './logger.js';
 import { createRateLimiter, type RateLimiter } from './rate-limiter.js';

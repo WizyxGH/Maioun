@@ -155,9 +155,9 @@ chacun (`listing_user_state`), et les pièces du dossier aussi.
 
 ```bash
 turso auth login                        # compte gratuit (navigateur)
-turso db create rentfinder
-turso db show rentfinder --url          # → TURSO_DATABASE_URL
-turso db tokens create rentfinder       # → TURSO_AUTH_TOKEN
+turso db create maioun
+turso db show maioun --url          # → TURSO_DATABASE_URL
+turso db tokens create maioun       # → TURSO_AUTH_TOKEN
 ```
 
 Placez ces deux valeurs dans `.env`, appliquez le schéma, puis publiez ce que
@@ -224,7 +224,7 @@ répondra en erreur à la première requête.**
 Puis, une fois par personne :
 
 ```bash
-pnpm --filter @rentfinder/worker user:add
+pnpm --filter @maioun/worker user:add
 ```
 
 La commande demande un identifiant et un mot de passe **sans l'afficher**, et
@@ -280,7 +280,7 @@ l'écran l'ajoute donc à sa liste sans attendre de relire.
 
 Sans elle, un mot de passe perdu est un compte perdu : ses favoris, son suivi,
 ses pièces déposées et ses recherches enregistrées avec. Le seul recours est
-alors `pnpm --filter @rentfinder/worker user:add`, relancé sur l'identifiant
+alors `pnpm --filter @maioun/worker user:add`, relancé sur l'identifiant
 existant depuis une machine qui a accès à la base.
 
 Trois choses à mettre en place, dans cet ordre :
@@ -291,7 +291,7 @@ en relançant la même commande sur un identifiant existant : les champs laissé
 vides ne sont pas écrasés.
 
 ```bash
-pnpm --filter @rentfinder/worker user:add
+pnpm --filter @maioun/worker user:add
 ```
 
 **2. Un service d'envoi.** Un Worker Cloudflare ne peut pas ouvrir de connexion
@@ -354,7 +354,7 @@ page.
 
 ```bash
 pnpm build:landing        # → landing/dist (≈ 6 ko compressés, aucun JavaScript)
-pnpm --filter @rentfinder/landing dev
+pnpm --filter @maioun/landing dev
 ```
 
 Elle n'importe **aucun paquet du dépôt** — ses couleurs sont recopiées, pas

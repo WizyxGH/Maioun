@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { NormalizedListing } from '@rentfinder/shared';
+import type { NormalizedListing } from '@maioun/shared';
 import { dedupe } from '../../packages/collector/src/deduplication/dedupe.js';
 import { mergeGroup } from '../../packages/collector/src/deduplication/merge.js';
 import { similarity } from '../../packages/collector/src/deduplication/similarity.js';

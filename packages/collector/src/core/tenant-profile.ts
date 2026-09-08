@@ -17,7 +17,7 @@
  * l'affiche. Un module qui écrit dans la console ne se teste pas.
  */
 
-import { CURRENT_USER, TENANT_PROFILE_SETTING, type TenantProfile } from '@rentfinder/shared';
+import { CURRENT_USER, TENANT_PROFILE_SETTING, type TenantProfile } from '@maioun/shared';
 
 /** Ce qui a été lu, et d'où. */
 export interface ResolvedProfile {

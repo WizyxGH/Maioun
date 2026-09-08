@@ -21,7 +21,7 @@ import {
   portalLabel,
   prepareMessage,
   type TenantProfile,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import type { ListingView, OccurrenceView } from '../types.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';

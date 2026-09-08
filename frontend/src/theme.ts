@@ -43,7 +43,7 @@ export const THEME_HINTS: Readonly<Record<ThemePreference, string>> = {
   dark: 'Toujours sombre, plus reposant le soir.',
 };
 
-const KEY = 'rentfinder.theme';
+const KEY = 'maioun.theme';
 
 function isPreference(value: unknown): value is ThemePreference {
   return THEME_PREFERENCES.includes(value as ThemePreference);

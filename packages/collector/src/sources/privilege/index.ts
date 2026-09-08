@@ -12,7 +12,7 @@ import type {
   ScrapeResult,
   SourceDescriptor,
   StopReason,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseApimoDetail } from '../apimo/parser.js';
 import { parseLocationLinks } from './parser.js';

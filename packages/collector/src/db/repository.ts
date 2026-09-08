@@ -19,10 +19,10 @@ import type {
   ScoredListing,
   SourceId,
   SourceRuntimeState,
-} from '@rentfinder/shared';
-import { canonicalDistrict, CURRENT_USER, NEAR_MATCH_MARGIN } from '@rentfinder/shared';
+} from '@maioun/shared';
+import { canonicalDistrict, CURRENT_USER, NEAR_MATCH_MARGIN } from '@maioun/shared';
 import { traitConditions, type TraitFilters } from '../core/trait-filters.js';
-import { actionPriority } from '@rentfinder/shared';
+import { actionPriority } from '@maioun/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
 import type { CacheEntry, HttpCacheStore } from '../core/http-client.js';

@@ -59,7 +59,7 @@ export async function triggerCollect(env: CollectTriggerEnv): Promise<TriggerRes
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
         // GitHub refuse une requête d'API sans User-Agent.
-        'User-Agent': 'RentFinder-Worker',
+        'User-Agent': 'Maioun-Worker',
         'Content-Type': 'application/json',
       },
       // `ref` est OBLIGATOIRE : c'est la branche sur laquelle exécuter.

@@ -46,7 +46,7 @@ import {
   SAVED_SEARCHES_SETTING,
   parseReferencePoints,
   type StoredReferencePoint,
-} from '@rentfinder/shared';
+} from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
 import { byRecency } from '../recency.js';
 

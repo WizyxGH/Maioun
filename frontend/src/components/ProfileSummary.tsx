@@ -10,7 +10,7 @@
  * navigateur a stocké, rien d'autre (§26).
  */
 
-import { TENANT_SITUATIONS, type TenantProfile } from '@rentfinder/shared';
+import { TENANT_SITUATIONS, type TenantProfile } from '@maioun/shared';
 import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from './icons.js';
 import { UNKNOWN_LABEL, formatPhone } from '../format.js';
 import { guarantorsLabel } from '../profile.js';

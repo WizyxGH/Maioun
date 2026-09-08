@@ -10,7 +10,7 @@
  * temps réel. L'objectif est la longévité de l'accès, pas le débit (§10).
  */
 
-import type { RateLimitBudget } from '@rentfinder/shared';
+import type { RateLimitBudget } from '@maioun/shared';
 import type { Clock } from './clock.js';
 
 /** Erreur levée quand la source est en repos forcé. */

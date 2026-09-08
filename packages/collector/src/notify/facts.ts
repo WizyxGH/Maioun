@@ -12,7 +12,7 @@
  * Toutes sont PURES et testables sans réseau (§59).
  */
 
-import { formatLocation, portalLabel } from '@rentfinder/shared';
+import { formatLocation, portalLabel } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import { sourceDisplayNames } from '../sources/index.js';
 

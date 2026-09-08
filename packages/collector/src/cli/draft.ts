@@ -25,7 +25,7 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { prepareMessage, CURRENT_USER } from '@rentfinder/shared';
+import { prepareMessage, CURRENT_USER } from '@maioun/shared';
 import { resolveTenantProfile } from '../core/tenant-profile.js';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';

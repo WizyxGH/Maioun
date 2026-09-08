@@ -20,19 +20,19 @@
  */
 
 import { createClient, type Client } from '@libsql/client/web';
-import { route } from '@rentfinder/collector/server/routes';
+import { route } from '@maioun/collector/server/routes';
 import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } from './auth.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress, ownsReadMailbox } from './alert-address.js';
-import { encryptSecret } from '@rentfinder/shared';
+import { encryptSecret } from '@maioun/shared';
 import {
   mailerConfigured,
   sendEmail,
   sendEmailResult,
   type SendOutcome,
-} from '@rentfinder/collector/notify/mailer';
+} from '@maioun/collector/notify/mailer';
 import { relayPhoto } from './photo-relay.js';
 import { triggerCollect } from './collect-trigger.js';
 import {
@@ -697,7 +697,7 @@ async function publicRoute(
       new URL(request.url).searchParams.get('url'),
       // On annonce qui l'on est, toujours (§10) — même en allant chercher une
       // image.
-      'RentFinderBot/0.1 (+https://github.com/WizyxGH/RentFinder)',
+      'MaiounBot/0.1 (+https://github.com/WizyxGH/RentFinder)',
       cors,
     );
   }

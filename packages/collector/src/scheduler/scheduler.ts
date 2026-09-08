@@ -11,7 +11,7 @@
  * sont donc directement testables (§59).
  */
 
-import type { SourceDescriptor, SourceRuntimeState } from '@rentfinder/shared';
+import type { SourceDescriptor, SourceRuntimeState } from '@maioun/shared';
 
 /** Décision prise pour une source lors d'un tick du scheduler. */
 export interface ScheduleDecision {

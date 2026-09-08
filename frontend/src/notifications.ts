@@ -26,10 +26,10 @@ export const NOTIFY_MAX_INDIVIDUAL = 3;
 /** Borne la taille de l'ensemble « déjà vu » persisté, pour ne pas gonfler. */
 const SEEN_CAP = 500;
 
-const SEEN_KEY = 'rentfinder.notifiedListingIds';
-const OPTIN_KEY = 'rentfinder.notificationsOptIn';
-const ALERTS_SEEN_KEY = 'rentfinder.alertsSeenAt';
-const ALERTS_DISMISSED_KEY = 'rentfinder.dismissedAlerts';
+const SEEN_KEY = 'maioun.notifiedListingIds';
+const OPTIN_KEY = 'maioun.notificationsOptIn';
+const ALERTS_SEEN_KEY = 'maioun.alertsSeenAt';
+const ALERTS_DISMISSED_KEY = 'maioun.dismissedAlerts';
 
 // ---------------------------------------------------------------------------
 // Capacités du navigateur
@@ -271,7 +271,7 @@ export function fireNotifications(
     const { title, body } = notificationContentFor(listing);
     // `tag` dédoublonne : deux sondages rapprochés ne montrent pas deux fois la
     // même annonce.
-    const notification = new Notification(title, { body, tag: `rentfinder-${listing.id}` });
+    const notification = new Notification(title, { body, tag: `maioun-${listing.id}` });
     notification.onclick = () => {
       window.focus();
       notification.close();
@@ -282,8 +282,8 @@ export function fireNotifications(
   const extra = fresh.length - shown.length;
   if (extra > 0) {
     new Notification(`+ ${extra} autre${extra > 1 ? 's' : ''} annonce${extra > 1 ? 's' : ''}`, {
-      body: 'Ouvrez RentFinder pour les voir.',
-      tag: 'rentfinder-more',
+      body: 'Ouvrez Maïoun pour les voir.',
+      tag: 'maioun-more',
     });
   }
 }

@@ -1,6 +1,6 @@
 /**
  * ENGENDRÉ — ne pas modifier à la main.
- * Reconstruire avec `pnpm --filter @rentfinder/frontend run sources`.
+ * Reconstruire avec `pnpm --filter @maioun/frontend run sources`.
  *
  * La table des sources, telle que le collecteur les déclare : un nom lisible et,
  * pour les agences qui ont leur propre site, son domaine.

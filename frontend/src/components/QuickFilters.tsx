@@ -9,7 +9,7 @@
  * doublon avec la modale.
  */
 
-import { MVP_CRITERIA, type PropertyType } from '@rentfinder/shared';
+import { MVP_CRITERIA, type PropertyType } from '@maioun/shared';
 import { formatPropertyType } from '../format.js';
 
 /** État des filtres rapides. `null`/vide = filtre inactif. */

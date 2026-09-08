@@ -23,8 +23,8 @@ import {
   silentLogger,
   type Database,
   type Repository,
-} from '@rentfinder/collector';
-import { MVP_CRITERIA, type ScoredListing } from '@rentfinder/shared';
+} from '@maioun/collector';
+import { MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
 import { makeAggregated, makeOccurrence } from '../helpers/factories.js';
 
 /** Fiche scorée minimale : ces tests portent sur la PERSISTANCE, pas le score. */

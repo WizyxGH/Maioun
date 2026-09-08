@@ -13,7 +13,7 @@
  * dans son descripteur (§5, §76).
  */
 
-import type { Scraper } from '@rentfinder/shared';
+import type { Scraper } from '@maioun/shared';
 import { agenceDuCentreScraper } from './agence-du-centre/index.js';
 import { agenceVictoireScraper } from './agence-victoire/index.js';
 import { bepScraper } from './bep/index.js';

@@ -15,8 +15,8 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import type { Guarantor, GuarantorKind, SearchCriteria, TenantProfile } from '@rentfinder/shared';
-import { MVP_CRITERIA, districtBySlug } from '@rentfinder/shared';
+import type { Guarantor, GuarantorKind, SearchCriteria, TenantProfile } from '@maioun/shared';
+import { MVP_CRITERIA, districtBySlug } from '@maioun/shared';
 import type { TravelMode } from './core/geo.js';
 
 // Le profil locataire est défini dans `shared` : le frontend l'utilise aussi
@@ -433,7 +433,7 @@ export function alertAddressTemplate(env: NodeJS.ProcessEnv = process.env): stri
 
 /** User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur (§10). */
 export function collectorUserAgent(env: NodeJS.ProcessEnv = process.env): string {
-  return env['COLLECTOR_USER_AGENT'] ?? 'RentFinderBot/0.1 (+https://github.com/)';
+  return env['COLLECTOR_USER_AGENT'] ?? 'MaiounBot/0.1 (+https://github.com/)';
 }
 
 /** Mode backfill, désactivé par défaut (§8). */

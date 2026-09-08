@@ -24,7 +24,7 @@ import {
 import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
-import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@rentfinder/shared';
+import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Flame, Heart, TrainFront } from './icons.js';

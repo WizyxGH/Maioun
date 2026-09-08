@@ -25,8 +25,8 @@ import {
   silentLogger,
   type Database,
   type Repository,
-} from '@rentfinder/collector';
-import { MVP_CRITERIA, type ScoredListing } from '@rentfinder/shared';
+} from '@maioun/collector';
+import { MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
 import { makeAggregated, makeOccurrence } from '../helpers/factories.js';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');

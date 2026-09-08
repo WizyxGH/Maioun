@@ -16,7 +16,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import type { RawListing } from '@rentfinder/shared';
+import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 
 /** Forme d'une URL de fiche : `/logement/location/{référence}-{slug}`. */

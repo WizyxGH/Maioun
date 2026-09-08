@@ -1,5 +1,5 @@
 {
-  "name": "@rentfinder/frontend",
+  "name": "@maioun/frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "app-icons": "node scripts/build-app-icons.mjs"
   },
   "dependencies": {
-    "@rentfinder/shared": "workspace:*",
+    "@maioun/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
@@ -24,7 +24,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@rentfinder/collector": "workspace:*",
+    "@maioun/collector": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@playwright/test": "^1.49.1",
     "@tailwindcss/vite": "^4.3.3",

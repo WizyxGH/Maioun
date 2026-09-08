@@ -36,12 +36,12 @@ vi.mock('@libsql/client/web', () => ({
  * intérêt pour ce qu on teste. On le remplace, ce qui a l avantage de couper
  * tout appel réseau au fournisseur d e-mails.
  */
-vi.mock('@rentfinder/collector/server/routes', () => ({
+vi.mock('@maioun/collector/server/routes', () => ({
   route: () => new Response('{}', { status: 404 }),
 }));
 
 const envoyes: { to: string; subject: string }[] = [];
-vi.mock('@rentfinder/collector/notify/mailer', () => ({
+vi.mock('@maioun/collector/notify/mailer', () => ({
   mailerConfigured: () => true,
   sendEmail: () => Promise.resolve(true),
   sendEmailResult: (_env: unknown, message: { to: string; subject: string }) => {
