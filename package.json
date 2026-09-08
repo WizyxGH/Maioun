@@ -30,7 +30,8 @@
     "db:migrate": "pnpm --filter @rentfinder/collector run db:migrate",
     "audit:data": "pnpm --filter @rentfinder/collector run audit:data",
     "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:frontend && pnpm run test:e2e && pnpm run check:secrets",
-    "publish:turso": "node packages/collector/scripts/publish-turso.mjs"
+    "publish:turso": "node packages/collector/scripts/publish-turso.mjs",
+    "contact:bep": "pnpm --filter @rentfinder/collector run contact:bep"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
