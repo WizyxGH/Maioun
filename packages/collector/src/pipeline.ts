@@ -350,8 +350,24 @@ async function missingWouldBeUnfounded(
 /**
  * Péremption des sources qui n'annoncent qu'une fois : au-delà, l'annonce a
  * toutes les chances d'être partie, sans qu'aucun passage ne puisse le dire.
+ *
+ * DIX ET VINGT-ET-UN JOURS N'AVAIENT AUCUN RAPPORT AVEC CE MARCHÉ. Mesuré le
+ * 2026-09-08 sur les annonces éteintes : soixante-huit sur cent quinze n'ont
+ * vécu qu'UN SEUL JOUR, et la durée moyenne est de 1,4 jour. La courbe de
+ * survie des sources qui se re-listent — les seules qu'on puisse observer
+ * honnêtement — donne une annonce FNAIM sur cinq déjà partie au troisième
+ * jour.
+ *
+ * Une annonce de digest gardée trois semaines n'est donc pas une précaution,
+ * c'est un lien mort qu'on fait visiter. Le coût des deux erreurs n'est pas le
+ * même : marquer « peut-être retirée » un bien encore libre se rattrape d'un
+ * clic, tandis qu'un déplacement pour rien ne se rattrape pas.
+ *
+ * Quatre jours pour le doute, dix pour le retrait : encore généreux au regard
+ * de ce qu'on observe, mais on ne re-vérifie jamais ces annonces — la prudence
+ * garde sa part.
  */
-const ONE_SHOT_EXPIRY = { possiblyInactiveAfterDays: 10, inactiveAfterDays: 21 } as const;
+const ONE_SHOT_EXPIRY = { possiblyInactiveAfterDays: 4, inactiveAfterDays: 10 } as const;
 
 interface LifecycleDeps {
   readonly rawBySource: ReadonlyMap<string, readonly RawListing[]>;
