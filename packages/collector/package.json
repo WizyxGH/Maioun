@@ -25,7 +25,8 @@
     "collect": "tsc --build && node dist/cli/collect.js",
     "draft": "tsc --build && node dist/cli/draft.js",
     "reprocess": "tsc --build && node dist/cli/reprocess.js",
-    "db:migrate": "tsc --build && node dist/cli/migrate.js"
+    "db:migrate": "tsc --build && node dist/cli/migrate.js",
+    "audit:data": "tsc --build && node dist/cli/audit.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
