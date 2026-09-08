@@ -70,7 +70,7 @@ export function ForgotPassword({ onBack }: { readonly onBack: () => void }): Rea
               <Input
                 type="text"
                 value={identifiant}
-                autoComplete="username email"
+                autoComplete="username"
                 autoFocus
                 onChange={(event) => setIdentifiant(event.target.value)}
                 className="w-full text-base"
