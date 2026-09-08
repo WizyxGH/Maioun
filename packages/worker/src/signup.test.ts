@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Client } from '@libsql/client/web';
 import { verifyPassword } from './auth.js';
 import { hashToken } from './password-reset.js';
-import { confirmEmail, confirmLink, createAccount, deleteAccount } from './signup.js';
+import { changeEmail, confirmEmail, confirmLink, createAccount, deleteAccount } from './signup.js';
 
 type Row = Record<string, unknown>;
 
@@ -47,6 +47,26 @@ function fakeDb(
         email: args[5],
         email_verified: 0,
       });
+      return [];
+    }
+    if (sql.includes('SELECT password_hash FROM users WHERE id = ?')) {
+      return users.filter((user) => user['id'] === args[0]);
+    }
+    if (sql.includes('FROM users WHERE lower(email) = ? AND id != ?')) {
+      return users.filter(
+        (user) => String(user['email'] ?? '').toLowerCase() === args[0] && user['id'] !== args[1],
+      );
+    }
+    if (sql.includes('UPDATE users SET email = ?, email_verified = 0')) {
+      const clash = users.some(
+        (user) => String(user['email'] ?? '').toLowerCase() === args[0] && user['id'] !== args[1],
+      );
+      if (clash) throw new Error('UNIQUE constraint failed');
+      const found = users.find((user) => user['id'] === args[1]);
+      if (found !== undefined) {
+        found['email'] = args[0];
+        found['email_verified'] = 0;
+      }
       return [];
     }
     if (sql.includes('INSERT INTO email_verifications')) {
@@ -222,5 +242,118 @@ describe('confirmLink', () => {
     expect(confirmLink('https://exemple.invalid/app', 'abc')).toBe(
       'https://exemple.invalid/app/confirm/abc',
     );
+  });
+});
+
+/**
+ * L'ADRESSE NE SE POSAIT QU'À L'INSCRIPTION. Un compte dont l'adresse était
+ * fautive ou abandonnée y restait pour toujours : plus de « mot de passe
+ * oublié », plus d'alertes, et aucun écran pour le corriger.
+ */
+describe('changeEmail', () => {
+  const account = async (): Promise<ReturnType<typeof fakeDb>> => {
+    const db = fakeDb();
+    await createAccount(db, GOOD, NOW);
+    return db;
+  };
+
+  it('écrit la nouvelle adresse et la remet À PROUVER', async () => {
+    const db = await account();
+    const id = String(db.users[0]?.['id']);
+    // On part d'une adresse déjà confirmée : c'est le cas qui compte.
+    if (db.users[0] !== undefined) db.users[0]['email_verified'] = 1;
+
+    const changed = await changeEmail(
+      db,
+      id,
+      { email: 'Nouvelle@example.com', password: 'unmotdepasse' }, // secret-scan-ignore
+      NOW,
+    );
+
+    expect(changed.ok).toBe(true);
+    expect(db.users[0]?.['email']).toBe('nouvelle@example.com');
+    // Une adresse SAISIE n'est pas une adresse PROUVÉE, même sur un compte
+    // dont la précédente l'était.
+    expect(db.users[0]?.['email_verified']).toBe(0);
+  });
+
+  it('exige le mot de passe : sinon une session ouverte suffirait à prendre le compte', async () => {
+    const db = await account();
+    const id = String(db.users[0]?.['id']);
+
+    const changed = await changeEmail(
+      db,
+      id,
+      { email: 'voleur@example.com', password: 'pas-le-bon' }, // secret-scan-ignore
+      NOW,
+    );
+
+    expect(changed).toEqual({ ok: false, problem: 'wrong-password' });
+    // Rien n'a bougé : ni l'adresse, ni son statut.
+    expect(db.users[0]?.['email']).toBe('florian@example.com');
+  });
+
+  it('ouvre une confirmation dont seule l’empreinte est gardée', async () => {
+    const db = await account();
+    const id = String(db.users[0]?.['id']);
+    db.verifications.length = 0;
+
+    const changed = await changeEmail(
+      db,
+      id,
+      { email: 'nouvelle@example.com', password: 'unmotdepasse' }, // secret-scan-ignore
+      NOW,
+    );
+    if (!changed.ok) throw new Error('le changement aurait dû aboutir');
+
+    expect(db.verifications).toHaveLength(1);
+    expect(db.verifications[0]?.['token_hash']).toBe(await hashToken(changed.token));
+    expect(db.verifications[0]?.['token_hash']).not.toBe(changed.token);
+  });
+
+  it('confirme la nouvelle adresse par le lien reçu', async () => {
+    const db = await account();
+    const id = String(db.users[0]?.['id']);
+
+    const changed = await changeEmail(
+      db,
+      id,
+      { email: 'nouvelle@example.com', password: 'unmotdepasse' }, // secret-scan-ignore
+      NOW,
+    );
+    if (!changed.ok) throw new Error('le changement aurait dû aboutir');
+
+    expect(await confirmEmail(db, changed.token, NOW)).toBe('ok');
+    expect(db.users[0]?.['email_verified']).toBe(1);
+  });
+
+  it('refuse une adresse déjà prise par un autre compte', async () => {
+    const db = await account();
+    const id = String(db.users[0]?.['id']);
+    db.users.push({ id: 'autre', login: 'autre', email: 'occupee@example.com' });
+
+    const changed = await changeEmail(
+      db,
+      id,
+      { email: 'Occupee@example.com', password: 'unmotdepasse' }, // secret-scan-ignore
+      NOW,
+    );
+
+    expect(changed).toEqual({ ok: false, problem: 'email-taken' });
+  });
+
+  it('refuse une adresse jetable ou malformée, sans rien écrire', async () => {
+    const db = await account();
+    const id = String(db.users[0]?.['id']);
+
+    const malformee = await changeEmail(
+      db,
+      id,
+      { email: 'pas-une-adresse', password: 'unmotdepasse' }, // secret-scan-ignore
+      NOW,
+    );
+
+    expect(malformee).toEqual({ ok: false, problem: 'shape' });
+    expect(db.users[0]?.['email']).toBe('florian@example.com');
   });
 });

@@ -9,10 +9,24 @@
  * réversible — une simple question suffit. Supprimer ne l'est pas : le MOT DE
  * PASSE reste exigé, comme avant. Ce n'est pas une formalité, c'est ce qui
  * protège un compte d'un téléphone laissé déverrouillé.
+ *
+ * L'ADRESSE E-MAIL LES REJOINT, et elle manquait cruellement : elle ne se
+ * posait qu'à l'inscription. Un compte dont l'adresse était fautive, abandonnée
+ * ou simplement mal tapée y restait pour toujours — plus de « mot de passe
+ * oublié », qui écrit à cette adresse-là, plus d'alertes par e-mail, et aucun
+ * écran pour le corriger. L'état de confirmation est montré : une adresse
+ * seulement saisie ne récupère aucun compte, et le taire ferait croire à une
+ * sécurité qui n'existe pas (§17).
  */
 
-import { useState } from 'react';
-import { deleteAccount, logout } from '../api/client.js';
+import { useEffect, useState } from 'react';
+import {
+  changeAccountEmail,
+  deleteAccount,
+  fetchAccountEmail,
+  logout,
+  type AccountEmail,
+} from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { SignOut, Trash2 } from './icons.js';
@@ -25,15 +39,42 @@ export function AccountActions({
    * cas il n'y a plus de session, et l'écran de connexion doit reprendre. */
   readonly onSignedOut: () => void;
 }): React.JSX.Element {
-  const [asking, setAsking] = useState<'signOut' | 'delete' | null>(null);
+  const [asking, setAsking] = useState<'signOut' | 'delete' | 'email' | null>(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [account, setAccount] = useState<AccountEmail | null>(null);
+  const [newEmail, setNewEmail] = useState('');
+  const [sent, setSent] = useState<'yes' | 'no' | null>(null);
+
+  useEffect(() => {
+    void fetchAccountEmail()
+      .then(setAccount)
+      .catch(() => setAccount(null));
+  }, []);
 
   const close = (): void => {
     setAsking(null);
     setPassword('');
     setError(null);
+    setNewEmail('');
+  };
+
+  const saveEmail = async (): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    const outcome = await changeAccountEmail(newEmail, password);
+    setBusy(false);
+    if (!outcome.ok) {
+      setError(outcome.error);
+      setPassword('');
+      return;
+    }
+    // La nouvelle adresse est écrite, mais NON prouvée : c'est le lien qui la
+    // prouve, et l'écran doit le dire plutôt que d'afficher un compte en règle.
+    setAccount({ email: outcome.email, verified: false });
+    setSent(outcome.confirmationSent ? 'yes' : 'no');
+    close();
   };
 
   const signOut = async (): Promise<void> => {
@@ -64,6 +105,40 @@ export function AccountActions({
 
   return (
     <>
+      {account !== null && (
+        <div className="border-border mt-2 rounded-xl border p-3">
+          <p className="text-[0.85rem] font-medium">Adresse e-mail du compte</p>
+          <p className="text-muted-foreground mt-0.5 text-[0.85rem] break-all">
+            {account.email ?? 'Aucune adresse enregistrée.'}
+          </p>
+          {account.email !== null && !account.verified && (
+            <p className="text-bad mt-1 text-[0.8rem]">
+              Non confirmée : tant qu’elle ne l’est pas, « mot de passe oublié » ne peut pas vous
+              écrire.
+            </p>
+          )}
+          {sent !== null && (
+            <p role="status" className="mt-1 text-[0.8rem]">
+              {sent === 'yes'
+                ? 'Un lien de confirmation vient de partir vers cette adresse.'
+                : 'Adresse enregistrée, mais l’envoi d’e-mails n’est pas configuré : aucun lien de confirmation ne partira.'}
+            </p>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => {
+              setSent(null);
+              setNewEmail(account.email ?? '');
+              setAsking('email');
+            }}
+          >
+            Changer d’adresse
+          </Button>
+        </div>
+      )}
+
       <div className="mt-2 flex justify-end gap-2">
         <Button
           variant="ghost"
@@ -93,6 +168,45 @@ export function AccountActions({
         onConfirm={() => void signOut()}
         onCancel={close}
       />
+
+      <ConfirmDialog
+        open={asking === 'email'}
+        title="Changer l’adresse du compte ?"
+        description="C’est à cette adresse que part le lien de réinitialisation. Elle devra être confirmée avant de pouvoir servir à récupérer votre compte."
+        confirmLabel={busy ? 'Enregistrement…' : 'Enregistrer'}
+        confirmDisabled={busy || newEmail.trim() === '' || password === ''}
+        onConfirm={() => void saveEmail()}
+        onCancel={close}
+      >
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.85rem] font-medium">Nouvelle adresse</span>
+          <Input
+            type="email"
+            value={newEmail}
+            autoComplete="email"
+            onChange={(event) => setNewEmail(event.target.value)}
+            className="w-full text-base"
+          />
+        </label>
+        <label className="mt-2 flex flex-col gap-1">
+          {/* LE MOT DE PASSE N'EST PAS UNE FORMALITÉ : déplacer l'adresse,
+              c'est déplacer où part le lien de réinitialisation. Sans lui, une
+              session laissée ouverte suffirait à prendre le compte. */}
+          <span className="text-[0.85rem] font-medium">Votre mot de passe</span>
+          <Input
+            type="password"
+            value={password}
+            autoComplete="current-password"
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full text-base"
+          />
+        </label>
+        {error !== null && (
+          <p role="alert" className="text-bad mt-2 text-[0.85rem]">
+            {error}
+          </p>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={asking === 'delete'}

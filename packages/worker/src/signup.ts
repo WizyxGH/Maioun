@@ -26,7 +26,7 @@
  */
 
 import type { Client } from '@libsql/client/web';
-import { hashPassword } from './auth.js';
+import { hashPassword, verifyPassword } from './auth.js';
 import { emailProblem, normalizeEmail, type EmailProblem } from './email-address.js';
 import { hashToken, newToken } from './password-reset.js';
 
@@ -109,6 +109,25 @@ export function signupProblemMessage(problem: SignupProblem): string {
       return 'Impossible de créer un compte avec cette adresse. Si elle est déjà la vôtre, utilisez « mot de passe oublié ».';
     case 'weak-password':
       return `Le mot de passe doit faire au moins ${MIN_PASSWORD} caractères.`;
+    case 'disposable':
+      return 'Les adresses jetables ne sont pas acceptées : sans adresse durable, vous ne pourriez pas récupérer votre compte.';
+    case 'shape':
+      return 'Cette adresse e-mail ne semble pas valide.';
+  }
+}
+
+/**
+ * Le message montré quand un changement d'adresse est refusé.
+ *
+ * `email-taken` peut se dire franchement ICI, contrairement à l'inscription :
+ * il faut déjà être connecté pour l'obtenir, donc rien n'en fait un annuaire.
+ */
+export function changeEmailProblemMessage(problem: ChangeEmailProblem): string {
+  switch (problem) {
+    case 'wrong-password':
+      return 'Mot de passe incorrect.';
+    case 'email-taken':
+      return 'Cette adresse est déjà utilisée par un autre compte.';
     case 'disposable':
       return 'Les adresses jetables ne sont pas acceptées : sans adresse durable, vous ne pourriez pas récupérer votre compte.';
     case 'shape':
@@ -207,6 +226,85 @@ export async function createAccount(
   }
 
   return { ok: true, account: { userId, token, email } };
+}
+
+export type ChangeEmailProblem = 'email-taken' | 'wrong-password' | EmailProblem;
+
+/**
+ * Change l'adresse d'un compte, en la remettant À PROUVER.
+ *
+ * L'ADRESSE NE SE POSAIT QU'À L'INSCRIPTION, et rien ne permettait d'en
+ * changer. Un compte dont l'adresse était fautive, abandonnée ou simplement
+ * mal tapée y restait pour toujours : plus de « mot de passe oublié » — la
+ * réinitialisation part à cette adresse-là —, plus d'alertes par e-mail, et
+ * aucun écran pour le corriger. Les comptes nés d'une migration sont les plus
+ * exposés : `email_verified` valait 1 PAR DÉFAUT DE COLONNE, si bien qu'une
+ * adresse que personne n'a jamais confirmée se présente comme prouvée.
+ *
+ * LE MOT DE PASSE EST EXIGÉ, et ce n'est pas une formalité : changer l'adresse
+ * d'un compte, c'est déplacer là où part son lien de réinitialisation. Sur une
+ * session laissée ouverte, ce seul geste suffirait à prendre le compte.
+ *
+ * `email_verified` RETOMBE À 0 jusqu'au clic sur le lien. Une adresse
+ * seulement saisie peut être celle de quelqu'un d'autre, par faute de frappe
+ * ou à dessein ; la marquer prouvée sur parole enverrait ensuite à un inconnu
+ * de quoi entrer dans le compte (§26).
+ */
+export async function changeEmail(
+  db: Client,
+  userId: string,
+  input: { readonly email: string; readonly password: string },
+  nowMs: number,
+): Promise<
+  { ok: true; token: string; email: string } | { ok: false; problem: ChangeEmailProblem }
+> {
+  const email = normalizeEmail(input.email);
+  const problem = emailProblem(email);
+  if (problem !== null) return { ok: false, problem };
+
+  const found = await db.execute({
+    sql: 'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
+    args: [userId],
+  });
+  const stored = found.rows[0]?.['password_hash'];
+  if (typeof stored !== 'string' || !(await verifyPassword(input.password, stored))) {
+    return { ok: false, problem: 'wrong-password' };
+  }
+
+  // L'unicité est vérifiée AVANT d'écrire, pour rendre un message utile plutôt
+  // que l'échec brut de l'index — mais l'index reste la vraie garantie, deux
+  // comptes pouvant viser la même adresse au même instant.
+  const taken = await db.execute({
+    sql: 'SELECT id FROM users WHERE lower(email) = ? AND id != ? LIMIT 1',
+    args: [email, userId],
+  });
+  if (taken.rows[0] !== undefined) return { ok: false, problem: 'email-taken' };
+
+  const token = newToken();
+  const tokenHash = await hashToken(token);
+  const now = new Date(nowMs).toISOString();
+  const expires = new Date(nowMs + VALID_HOURS * 3_600_000).toISOString();
+
+  try {
+    await db.batch(
+      [
+        {
+          sql: 'UPDATE users SET email = ?, email_verified = 0 WHERE id = ?',
+          args: [email, userId],
+        },
+        {
+          sql: `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
+                VALUES (?, ?, ?, ?)`,
+          args: [tokenHash, userId, now, expires],
+        },
+      ],
+      'write',
+    );
+  } catch {
+    return { ok: false, problem: 'email-taken' };
+  }
+
+  return { ok: true, token, email };
 }
 
 export type ConfirmOutcome = 'ok' | 'invalid';
