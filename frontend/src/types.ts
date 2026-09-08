@@ -13,6 +13,7 @@ import type {
   MergedField,
   PropertyType,
   ReferenceDistance,
+  ReferenceTravelMode,
   TrackingStatus,
 } from '@rentfinder/shared';
 
@@ -194,8 +195,23 @@ export interface FilterConfig {
   maxPrice: number;
   minPrice?: number;
   minArea: number;
-  /** Durée maximale du trajet domicile→travail, en minutes (§20). */
+  /**
+   * Durée maximale du trajet domicile→travail, en minutes (§20).
+   *
+   * EXPRIMÉE DANS LE MODE DU POINT DE REPÈRE, qui est celui où la collecte a
+   * calculé les durées. `commuteMode` ne dit que dans quel mode on la SAISIT :
+   * la conversion se fait à l’affichage, pour que le serveur continue de
+   * comparer des minutes comparables.
+   */
   maxCommuteMinutes?: number;
+  /**
+   * Mode de déplacement dans lequel la durée ci-dessus est saisie et relue.
+   *
+   * IL FALLAIT OUVRIR L’ÉCRAN DES POINTS DE REPÈRE pour le changer, alors que
+   * c’est un critère de recherche comme un autre : trente minutes à pied et
+   * trente minutes en voiture ne désignent pas la même ville.
+   */
+  commuteMode?: ReferenceTravelMode;
   excludeFlatShare?: boolean;
   excludeStudent?: boolean;
   /** Nature du bailleur : tous, particuliers (hors agences), ou agences. */

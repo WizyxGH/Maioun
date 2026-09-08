@@ -7,6 +7,8 @@
  * ville de la taille de Nice.
  */
 
+import { TRAVEL_SPEED_KMH, type ReferenceTravelMode } from '@rentfinder/shared';
+
 /** Rayon moyen de la Terre en kilomètres. */
 const EARTH_RADIUS_KM = 6371;
 
@@ -29,27 +31,11 @@ export function haversineKm(a: Coordinates, b: Coordinates): number {
 }
 
 /**
- * Vitesses moyennes retenues pour convertir une distance en durée, en km/h.
- *
- * Ces valeurs incluent volontairement une marge : en ville, le trajet réel est
- * plus long que la ligne droite. Le facteur de sinuosité ci-dessous corrige
- * cet écart de façon grossière mais honnête — l'interface affiche une
- * estimation, pas un itinéraire.
+ * Les vitesses sont DANS LE PAQUET PARTAGÉ : l’interface convertit désormais
+ * les durées d’un mode à l’autre pour le filtre de trajet, et elle ne peut pas
+ * importer le collecteur.
  */
-const SPEED_KMH = {
-  walking: 4.5,
-  cycling: 14,
-  transit: 18,
-  driving: 22,
-  // LE TRAIN N'EST PAS DU TRANSPORT URBAIN. Sur la Côte d'Azur, une commune
-  // desservie par le TER est souvent plus proche EN TEMPS qu'un quartier voisin
-  // aux heures de pointe, et la ranger sous `transit` à 18 km/h la faisait
-  // paraître inaccessible. La valeur reste prudente : elle inclut l'accès à la
-  // gare et l'attente, que la ligne droite ignore.
-  train: 45,
-} as const;
-
-export type TravelMode = keyof typeof SPEED_KMH;
+export type TravelMode = ReferenceTravelMode;
 
 /**
  * Facteur appliqué à la distance à vol d'oiseau pour approcher la distance
@@ -61,5 +47,5 @@ const URBAN_DETOUR_FACTOR = 1.3;
 /** Estime une durée de trajet, en minutes. */
 export function estimateDurationMinutes(distanceKm: number, mode: TravelMode): number {
   const realDistance = distanceKm * URBAN_DETOUR_FACTOR;
-  return Math.round((realDistance / SPEED_KMH[mode]) * 60);
+  return Math.round((realDistance / TRAVEL_SPEED_KMH[mode]) * 60);
 }

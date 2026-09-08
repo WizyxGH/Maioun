@@ -58,26 +58,19 @@ interface KindInfo {
  * CHAQUE LIGNE DIT CE QU'ON Y GAGNE ET CE QU'ON Y PERD, parce que c'est un
  * arbitrage et non une préférence : plus vite prévenu, plus souvent dérangé.
  */
+/**
+ * L'intitulé se suffit : « Dès que possible », « Une fois par heure », « Une
+ * fois par jour » disent déjà tout. La phrase qui les accompagnait ne faisait
+ * que les paraphraser, et trois paragraphes sous trois boutons radio donnaient
+ * à un choix évident l'air d'une décision à peser.
+ */
 const FREQUENCIES: readonly {
   readonly value: NotificationFrequency;
   readonly label: string;
-  readonly hint: string;
 }[] = [
-  {
-    value: 'each-run',
-    label: 'Dès que possible',
-    hint: 'À chaque collecte, soit environ toutes les 30 minutes. Le plus rapide.',
-  },
-  {
-    value: 'hourly',
-    label: 'Une fois par heure',
-    hint: 'Les annonces de l’heure écoulée arrivent groupées.',
-  },
-  {
-    value: 'daily',
-    label: 'Une fois par jour',
-    hint: 'Une seule salve par 24 heures. Rien n’est perdu, tout est regroupé.',
-  },
+  { value: 'each-run', label: 'Dès que possible' },
+  { value: 'hourly', label: 'Une fois par heure' },
+  { value: 'daily', label: 'Une fois par jour' },
 ];
 
 const KINDS: readonly KindInfo[] = [
@@ -193,6 +186,17 @@ export function NotificationSettingsPanel({
     );
   };
 
+  /**
+   * L'interrupteur principal : le canal de cet appareil ET le sujet.
+   *
+   * Les deux allaient toujours ensemble — on n'ouvre pas le canal pour ne rien
+   * y recevoir — mais il fallait deux gestes, dont l'un ressemblait à l'autre.
+   */
+  const toggleNewListings = async (value: boolean): Promise<void> => {
+    if (!preferences.newListings && value) toggleKind('newListings', true);
+    await toggleMaster();
+  };
+
   const toggleKind = (key: NotificationKind, value: boolean): void => {
     const next = { ...preferences, [key]: value };
     setPreferences(next);
@@ -213,36 +217,6 @@ export function NotificationSettingsPanel({
 
       <h1 className="mb-4 text-xl font-bold">Notifications</h1>
 
-      {/* LE GESTE UNIQUE D'ABORD. Sous le capot il y a deux mécanismes — la
-        préférence de ce navigateur pour le bandeau, et l'abonnement que le
-        navigateur conserve pour le site fermé. Ils s'allumaient séparément, ce
-        qui demandait de comprendre la plomberie pour être prévenu.
-
-        IL S'APPELAIT « RECEVOIR DES ALERTES », et on le prenait pour un doublon
-        de « Nouvelles annonces », juste en dessous. Les deux ne règlent pourtant
-        pas la même chose : celui-ci décide du CANAL sur cet appareil-ci — il
-        n'existe que dans ce navigateur —, ceux d'en dessous décident des SUJETS,
-        et suivent le compte partout. Deux intitulés qui commençaient pareil
-        cachaient cette différence : le titre dit maintenant de quoi il parle. */}
-      <div className="border-border flex items-center gap-3 rounded-xl border p-3">
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">Alertes sur cet appareil</span>
-          <span className="text-muted-foreground block text-sm">
-            {busy
-              ? 'Un instant…'
-              : on
-                ? 'Bandeau dans la page, et notification même site fermé.'
-                : 'Aucune alerte ne vous parviendra sur cet appareil.'}
-          </span>
-        </span>
-        <Switch
-          checked={on}
-          disabled={busy}
-          onCheckedChange={() => void toggleMaster()}
-          aria-label="Alertes sur cet appareil"
-        />
-      </div>
-
       {error !== null && (
         <p
           className="border-border mt-3 rounded-xl border px-3 py-2 text-[0.88rem] text-muted-foreground"
@@ -251,6 +225,44 @@ export function NotificationSettingsPanel({
           {error}
         </p>
       )}
+
+      {/* « NOUVELLES ANNONCES » EST L'INTERRUPTEUR PRINCIPAL.
+
+        Il y en avait deux, l'un au-dessus de l'autre : « Alertes sur cet
+        appareil » ouvrait le canal, « Nouvelles annonces » choisissait le
+        sujet. Deux interrupteurs pour un seul geste — personne n'active le
+        canal sans vouloir les nouvelles annonces —, et le premier passait pour
+        un doublon du second, qu'il commandait pourtant.
+
+        Il n'en reste qu'un. L'allumer abonne CET appareil et retient le sujet ;
+        l'éteindre coupe les deux. Les autres réglages attendent qu'il le soit :
+        ils ne veulent rien dire sans canal, et les montrer actifs promettrait
+        des alertes qui ne partiraient pas (§17). */}
+      <SettingsGroup title="Ce dont vous voulez être prévenu, sur tous vos appareils">
+        {KINDS.map(({ key, label, hint, Icon }) => {
+          const master = key === 'newListings';
+          return (
+            <SettingsRow
+              key={key}
+              Icon={Icon}
+              tone={(master ? on : preferences[key] && on) ? 'done' : 'muted'}
+              label={label}
+              hint={master && !on ? 'Active les alertes sur cet appareil.' : hint}
+              trailing={
+                <Switch
+                  checked={master ? on : preferences[key] && on}
+                  disabled={master ? busy : !on}
+                  onCheckedChange={(value) => {
+                    if (master) void toggleNewListings(value);
+                    else toggleKind(key, value);
+                  }}
+                  aria-label={label}
+                />
+              }
+            />
+          );
+        })}
+      </SettingsGroup>
 
       {on && (
         <SettingsGroup title="À quel rythme">
@@ -262,43 +274,19 @@ export function NotificationSettingsPanel({
             {FREQUENCIES.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-start gap-3 py-2 first:pt-0 last:pb-0"
+                className="flex min-h-11 cursor-pointer items-center gap-3 py-2 first:pt-0 last:pb-0"
               >
                 <input
                   type="radio"
                   name="notification-frequency"
-                  className="mt-1 size-4 shrink-0"
+                  className="size-4 shrink-0"
                   checked={preferences.frequency === option.value}
                   onChange={() => setFrequency(option.value)}
                 />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{option.label}</span>
-                  <span className="text-muted-foreground block text-[0.82rem]">{option.hint}</span>
-                </span>
+                <span className="min-w-0 flex-1 font-medium">{option.label}</span>
               </label>
             ))}
           </fieldset>
-        </SettingsGroup>
-      )}
-
-      {on && (
-        <SettingsGroup title="Ce dont vous voulez être prévenu, sur tous vos appareils">
-          {KINDS.map(({ key, label, hint, Icon }) => (
-            <SettingsRow
-              key={key}
-              Icon={Icon}
-              tone={preferences[key] ? 'done' : 'muted'}
-              label={label}
-              hint={hint}
-              trailing={
-                <Switch
-                  checked={preferences[key]}
-                  onCheckedChange={(value) => toggleKind(key, value)}
-                  aria-label={label}
-                />
-              }
-            />
-          ))}
         </SettingsGroup>
       )}
     </div>

@@ -24,7 +24,28 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { FilterConfig } from '../types.js';
-import { fetchDistricts, fetchFilters, saveFilters, type DistrictOption } from '../api/client.js';
+import {
+  fetchDistricts,
+  fetchFilters,
+  fetchReferencePoints,
+  saveFilters,
+  type DistrictOption,
+} from '../api/client.js';
+import {
+  convertEstimatedDuration,
+  REFERENCE_TRAVEL_MODES,
+  type ReferenceTravelMode,
+} from '@rentfinder/shared';
+import { Select } from '@/components/ui/select.js';
+
+/** Les modes, dits comme on les dit — « à pied », et non « walking ». */
+const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
+  walking: 'à pied',
+  cycling: 'à vélo',
+  transit: 'en transports',
+  train: 'en train',
+  driving: 'en voiture',
+};
 import { PanelSkeleton } from './Skeletons.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
 import { PillButton } from './QuickFilters.js';
@@ -134,6 +155,13 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
   const [status, setStatus] = useState<SaveStatus>('idle');
   /** Les quartiers de l'inventaire. Vide = le bloc « Zone de recherche » se tait. */
   const [districts, setDistricts] = useState<readonly DistrictOption[]>([]);
+  /**
+   * Le mode dans lequel la collecte a calculé les durées : celui du premier
+   * point de repère. C'est l'unité de `maxCommuteMinutes`, et donc ce vers quoi
+   * l'on convertit avant d'enregistrer. `transit` tant qu'on ne sait pas — la
+   * valeur que `parseReferencePoints` donne aussi par défaut.
+   */
+  const [storedMode, setStoredMode] = useState<ReferenceTravelMode>('transit');
 
   /**
    * La minuterie d'écriture différée, et ce qui reste à écrire tant qu'elle
@@ -145,6 +173,10 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
 
   useEffect(() => {
     void fetchFilters().then(setFilters);
+    void fetchReferencePoints().then((points) => {
+      const first = points?.[0];
+      if (first !== undefined) setStoredMode(first.mode);
+    });
     // Chargé à PART des critères : c'est un inventaire, pas un réglage, et il
     // ne doit pas retarder l'affichage du reste si l'API le refuse.
     void fetchDistricts().then(setDistricts);
@@ -162,6 +194,15 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
   );
 
   if (filters === null) return <PanelSkeleton rows={5} />;
+
+  // Le mode de SAISIE, et la durée telle qu on la lit dans ce mode. Le stockage
+  // reste dans l unité de la collecte ; on ne convertit qu au bord.
+  const commuteMode: ReferenceTravelMode = filters.commuteMode ?? storedMode;
+  const shownMinutes = convertEstimatedDuration(
+    filters.maxCommuteMinutes ?? 60,
+    storedMode,
+    commuteMode,
+  );
 
   const commit = async (next: FilterConfig): Promise<void> => {
     try {
@@ -193,17 +234,57 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
           montrer deux fois posait la question « lequel des deux compte ? », à
           laquelle il n'y avait pas de bonne réponse. C'est « Enregistrer cette
           recherche » qui reporte les valeurs des filtres sur les critères. */}
+        {/* LE MODE SE CHOISIT ICI, et non plus dans l'écran des points de
+          repère. Trente minutes à pied et trente minutes en voiture ne
+          désignent pas la même ville : le mode fait partie du critère, pas des
+          réglages.
+
+          LA DURÉE STOCKÉE NE CHANGE PAS DE MODE. La collecte l'a calculée dans
+          celui du point de repère ; on convertit à la saisie et à l'affichage,
+          pour que le serveur continue de comparer des minutes comparables. La
+          conversion est exacte : une estimation vaut distance ÷ vitesse, seule
+          la vitesse dépend du mode. */}
         <div className={ROW}>
-          <label htmlFor="maxCommuteMinutes">Trajet max domicile→travail (min)</label>
-          <Input
-            id="maxCommuteMinutes"
-            size="sm"
-            type="number"
-            min={0}
-            className={FIELD}
-            value={filters.maxCommuteMinutes ?? 60}
-            onChange={(e) => set({ maxCommuteMinutes: Number(e.target.value) })}
-          />
+          <label htmlFor="maxCommuteMinutes">Trajet max domicile→travail</label>
+          <span className="flex items-center gap-1.5">
+            <Select
+              size="sm"
+              aria-label="Mode de déplacement"
+              className="w-auto"
+              value={commuteMode}
+              onChange={(e) => {
+                const next = e.target.value as ReferenceTravelMode;
+                set({
+                  commuteMode: next,
+                  maxCommuteMinutes: convertEstimatedDuration(shownMinutes, next, storedMode),
+                });
+              }}
+            >
+              {REFERENCE_TRAVEL_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {MODE_LABELS[mode]}
+                </option>
+              ))}
+            </Select>
+            <Input
+              id="maxCommuteMinutes"
+              size="sm"
+              type="number"
+              min={0}
+              className={FIELD}
+              value={shownMinutes}
+              onChange={(e) =>
+                set({
+                  maxCommuteMinutes: convertEstimatedDuration(
+                    Number(e.target.value),
+                    commuteMode,
+                    storedMode,
+                  ),
+                })
+              }
+            />
+            <span className="text-muted-foreground text-[0.8rem]">min</span>
+          </span>
         </div>
         {/* LA DATE D'EMMÉNAGEMENT, et elle se lit dans les deux sens. Un
           logement libre APRÈS la date qu'on se fixe n'est pas une option ;
