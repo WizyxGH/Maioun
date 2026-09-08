@@ -90,3 +90,50 @@ export function parseReferencePoints(value: unknown): StoredReferencePoint[] | n
   }
   return points;
 }
+
+/**
+ * Vitesses moyennes retenues pour convertir une distance en durée, en km/h.
+ *
+ * ELLES VIVAIENT DANS LE COLLECTEUR, qui seul en avait besoin tant que la durée
+ * se calculait une fois pour toutes. Le filtre de trajet laisse maintenant
+ * choisir le mode : l'interface doit convertir, et elle ne peut pas importer le
+ * collecteur — d'où leur place ici, à côté des modes qu'elles chiffrent.
+ *
+ * Ces valeurs incluent volontairement une marge : en ville, le trajet réel est
+ * plus long que la ligne droite.
+ *
+ * LE TRAIN N'EST PAS DU TRANSPORT URBAIN. Sur la Côte d'Azur, une commune
+ * desservie par le TER est souvent plus proche EN TEMPS qu'un quartier voisin
+ * aux heures de pointe. La valeur reste prudente : elle inclut l'accès à la
+ * gare et l'attente, que la ligne droite ignore.
+ */
+export const TRAVEL_SPEED_KMH: Readonly<Record<ReferenceTravelMode, number>> = {
+  walking: 4.5,
+  cycling: 14,
+  transit: 18,
+  train: 45,
+  driving: 22,
+};
+
+/**
+ * Convertit une durée ESTIMÉE d'un mode vers un autre.
+ *
+ * C'EST EXACT, ET CE N'EST PAS UNE APPROXIMATION DE PLUS. Une estimation vaut
+ * `distance × détour ÷ vitesse` : la distance et le détour ne dépendent pas du
+ * mode, seule la vitesse change. Le rapport des deux vitesses suffit donc, et
+ * l'on n'a besoin ni de la distance — qui ne quitte pas le collecteur (§26) —
+ * ni d'un nouveau calcul d'itinéraire.
+ *
+ * NE VAUT QUE POUR UNE ESTIMATION. Un itinéraire réel en transports tient
+ * compte des lignes, des correspondances et des horaires : le remettre à
+ * l'échelle d'une marche à pied inventerait un trajet (§17). L'appelant vérifie
+ * `durationSource` avant d'y recourir.
+ */
+export function convertEstimatedDuration(
+  minutes: number,
+  from: ReferenceTravelMode,
+  to: ReferenceTravelMode,
+): number {
+  if (from === to) return minutes;
+  return Math.round((minutes * TRAVEL_SPEED_KMH[from]) / TRAVEL_SPEED_KMH[to]);
+}

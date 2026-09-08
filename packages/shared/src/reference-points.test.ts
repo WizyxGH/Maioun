@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReferencePoints } from './reference-points.js';
+import { convertEstimatedDuration, parseReferencePoints } from './reference-points.js';
 
 describe('parseReferencePoints', () => {
   it('garde un point complet', () => {
@@ -34,5 +34,33 @@ describe('parseReferencePoints', () => {
     expect(parseReferencePoints([' ', null, { label: ' Gare ', address: ' Nice ' }])).toEqual([
       { label: 'Gare', address: 'Nice', mode: 'transit' },
     ]);
+  });
+});
+
+/**
+ * TRENTE MINUTES À PIED ET TRENTE EN VOITURE ne désignent pas la même ville :
+ * le mode fait partie du critère. La collecte n'ayant calculé qu'une durée, le
+ * filtre convertit — et cette conversion doit être exacte, sinon elle inventerait
+ * un trajet (§17).
+ */
+describe('convertEstimatedDuration', () => {
+  it('ne touche à rien quand le mode ne change pas', () => {
+    expect(convertEstimatedDuration(42, 'transit', 'transit')).toBe(42);
+  });
+
+  it('applique le rapport des vitesses, et rien d’autre', () => {
+    // transit 18 km/h → walking 4,5 km/h : quatre fois plus long.
+    expect(convertEstimatedDuration(15, 'transit', 'walking')).toBe(60);
+    expect(convertEstimatedDuration(60, 'walking', 'transit')).toBe(15);
+  });
+
+  it('reste réversible aux arrondis près', () => {
+    const aller = convertEstimatedDuration(30, 'transit', 'cycling');
+    expect(convertEstimatedDuration(aller, 'cycling', 'transit')).toBe(30);
+  });
+
+  it('range le train à part des transports urbains', () => {
+    // 45 km/h contre 18 : un TER met deux fois et demie moins de temps.
+    expect(convertEstimatedDuration(50, 'transit', 'train')).toBe(20);
   });
 });
