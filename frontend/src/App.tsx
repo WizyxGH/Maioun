@@ -111,6 +111,9 @@ import { Input } from '@/components/ui/input.js';
 const DocumentsSection = lazy(() =>
   import('./components/DocumentsSection.js').then((m) => ({ default: m.DocumentsSection })),
 );
+const PaidSourcesPanel = lazy(() =>
+  import('./components/PaidSourcesPanel.js').then((m) => ({ default: m.PaidSourcesPanel })),
+);
 const ForwardingPanel = lazy(() =>
   import('./components/ForwardingPanel.js').then((m) => ({ default: m.ForwardingPanel })),
 );
@@ -1691,6 +1694,14 @@ function AppView(): React.JSX.Element {
         <Shell {...shell}>
           <BackToSettings onBack={() => setView('profile')} />
           <DocumentsSection profile={profile} />
+        </Shell>
+      );
+    }
+    if (view === 'paid-sources') {
+      return (
+        <Shell {...shell}>
+          <BackToSettings onBack={() => setView('profile')} />
+          <PaidSourcesPanel />
         </Shell>
       );
     }

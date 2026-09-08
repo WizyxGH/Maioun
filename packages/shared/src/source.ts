@@ -237,6 +237,12 @@ export interface FetchResult {
  * qui applique le rate limiting, le cache, les en-têtes conditionnels et
  * l'arrêt sur 429 (§10, §30).
  */
+/** Identifiants d'accès à une source payée (§6). */
+export interface SourceCredentials {
+  readonly user: string;
+  readonly password: string;
+}
+
 export interface ScrapeContext {
   readonly criteria: SearchCriteria;
   /** Mode `live` (nouveautés) ou `backfill` (historique, bridé) — §8. */
@@ -285,6 +291,17 @@ export interface ScrapeContext {
 
   /** Journalisation structurée, sans secret ni donnée personnelle (§62). */
   readonly log: (event: string, fields?: Record<string, unknown>) => void;
+
+  /**
+   * Identifiants déclarés pour cette source PAYÉE, ou `null`.
+   *
+   * ILS VENAIENT DE L'ENVIRONNEMENT, donc de la machine qui tient le `.env` :
+   * un abonnement payé à titre personnel n'était exploitable que par une seule
+   * personne, et un second compte ne pouvait même pas déclarer le sien. Ils se
+   * règlent maintenant depuis le site, compte par compte ; le pipeline les
+   * déchiffre et les passe ici, l'environnement ne servant plus que de secours.
+   */
+  readonly credentials: SourceCredentials | null;
 
   /** `true` quand le budget est épuisé : le scraper doit s'arrêter proprement. */
   readonly shouldStop: () => boolean;

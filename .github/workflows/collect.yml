@@ -87,7 +87,19 @@ jobs:
           EMAIL_API_KEY: ${{ secrets.EMAIL_API_KEY }}
           EMAIL_FROM: ${{ vars.EMAIL_FROM }}
 
-          # §6 : accès abonné BEP payé par l'utilisateur — optionnel.
+          # ACCÈS ABONNÉS : ILS SE DÉCLARENT DEPUIS LE SITE (§6, §26).
+          #
+          # Un abonnement est payé à titre PERSONNEL. Le ranger dans un secret
+          # de dépôt le réservait à qui tient ce dépôt : un second compte ne
+          # pouvait pas se servir de celui qu'il paie, ni même le déclarer.
+          # Chacun le pose maintenant dans Paramètres → Accès abonnés, où il est
+          # chiffré ; cette clé est ce qui permet au collecteur de le relire.
+          # Le Worker doit avoir EXACTEMENT la même valeur.
+          CREDENTIALS_KEY: ${{ secrets.CREDENTIALS_KEY }}
+
+          # Les deux variables ci-dessous ne servent plus qu'à l'AMORÇAGE :
+          # une machine qui collecte avant que quiconque ait ouvert l'écran.
+          # Un accès déclaré depuis le site les emporte toujours.
           BEP_SUBSCRIBER_USER: ${{ secrets.BEP_SUBSCRIBER_USER }}
           BEP_SUBSCRIBER_PASSWORD: ${{ secrets.BEP_SUBSCRIBER_PASSWORD }}
 

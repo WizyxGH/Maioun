@@ -1036,3 +1036,47 @@ export async function fetchChangelogSeen(): Promise<string | null> {
 export async function markChangelogSeen(id: string): Promise<void> {
   await writeSetting(CHANGELOG_SETTING, { id, at: new Date().toISOString() });
 }
+
+/**
+ * L'accès à une source PAYÉE, déclaré compte par compte (§6).
+ *
+ * `configured` sans le secret : il ne redescend jamais. L'écran dit sous quel
+ * identifiant l'abonnement est déclaré, et propose de le remplacer — on ne
+ * relit pas un mot de passe, on en pose un autre.
+ */
+export interface SourceAccess {
+  readonly configured: boolean;
+  readonly login: string | null;
+  /** `false` quand l'installation n'a pas de clé pour chiffrer le secret. */
+  readonly available: boolean;
+}
+
+export async function fetchSourceAccess(sourceId: string): Promise<SourceAccess> {
+  if (DEMO || API_URL === '') return { configured: false, login: null, available: false };
+  return await request<SourceAccess>(`/api/credentials/${encodeURIComponent(sourceId)}`);
+}
+
+/** Enregistre ou remplace l'accès. Rend un message d'erreur, ou `null`. */
+export async function saveSourceAccess(
+  sourceId: string,
+  login: string,
+  password: string,
+): Promise<string | null> {
+  if (DEMO || API_URL === '') return 'Fonctionnalité indisponible sur cette installation.';
+  const response = await fetch(`${API_URL}/api/credentials/${encodeURIComponent(sourceId)}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ login, password }),
+  }).catch(() => null);
+  if (response === null) return 'Connexion impossible. Vérifiez votre réseau, puis réessayez.';
+  if (response.ok) return null;
+  const body = (await response.json().catch(() => ({}))) as { error?: unknown };
+  return typeof body.error === 'string' ? body.error : 'L’enregistrement n’a pas abouti.';
+}
+
+/** Retire l'accès : la source redevient inactive pour ce compte. */
+export async function clearSourceAccess(sourceId: string): Promise<void> {
+  if (DEMO || API_URL === '') return;
+  await request(`/api/credentials/${encodeURIComponent(sourceId)}`, { method: 'DELETE' });
+}
