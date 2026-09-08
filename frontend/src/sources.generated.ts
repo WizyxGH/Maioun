@@ -97,6 +97,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   },
   mirabello: { name: 'Mirabello Immobilier', domain: 'mirabello-immobilier.com', logo: null },
   nousgerons: { name: 'NousGérons', domain: 'nousgerons.com', logo: null },
+  orea: { name: 'Oréa Immobilier', domain: 'orea-immobilier.fr', logo: null },
   orpi: { name: 'Orpi', domain: null, logo: null },
   'palais-immobilier': { name: 'Palais Immobilier', domain: 'palaisimmobilier.com', logo: null },
   pap: { name: 'PAP', domain: null, logo: null },
