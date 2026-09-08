@@ -34,42 +34,28 @@ import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { Check, Copy, Mail } from './icons.js';
 
 /**
- * Ce qu'il reste à faire — en deux gestes, pas trois.
+ * Deux gestes, et rien autour.
  *
- * LA RÈGLE DE TRANSFERT ÉTAIT DONNÉE COMME LA SEULE VOIE, et c'est la plus
- * pénible : il faut trouver les filtres de sa messagerie, écrire une condition
- * sur l'expéditeur, la tester. Or les portails envoient leurs alertes à
- * l'adresse du compte qu'on a chez EUX : coller celle-ci en s'y inscrivant
- * suffit, et le message arrive directement. La règle de transfert reste
- * expliquée dessous, pour des alertes déjà créées qu'on ne veut pas refaire.
+ * L'écran expliquait POURQUOI les portails imposent l'e-mail, POURQUOI on ne
+ * demande pas de mot de passe, et ce qu'il faut faire — trois discours pour une
+ * marche à suivre qui tient en deux lignes. Le reste a été coupé : qui ouvre
+ * cet écran veut brancher ses alertes, pas lire un exposé.
  */
 function Steps(): React.JSX.Element {
   return (
     <>
-      <ol className="mt-4 flex list-decimal flex-col gap-3 pl-5 text-[0.9rem]">
-        <li>
-          <strong>Sur chaque portail</strong> ({ALERT_SENDER_LABELS.join(', ')}),{' '}
-          <strong>créez une alerte avec vos critères</strong>.
-        </li>
-        <li>
-          <strong>Donnez-lui l’adresse ci-dessus</strong> comme adresse de réception. Les annonces
-          apparaîtront ici au passage suivant.
-        </li>
+      <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-[0.9rem]">
+        <li>Créez une alerte sur {ALERT_SENDER_LABELS.join(', ')}.</li>
+        <li>Donnez-lui l’adresse ci-dessus comme adresse de réception.</li>
       </ol>
 
       <details className="text-muted-foreground mt-3 text-[0.85rem]">
-        <summary className="cursor-pointer">Vos alertes existent déjà ailleurs ?</summary>
+        <summary className="cursor-pointer">Vos alertes existent déjà ?</summary>
         <p className="mt-1.5">
-          Inutile de les refaire : dans votre boîte mail, ajoutez une règle qui fait suivre les
-          messages de ces portails vers l’adresse ci-dessus. Cherchez « filtres » ou « règles » dans
-          les réglages — tous les fournisseurs le proposent.
+          Dans votre boîte mail, ajoutez une règle qui fait suivre ces portails vers l’adresse
+          ci-dessus — cherchez « filtres » ou « règles ».
         </p>
       </details>
-
-      <p className="text-muted-foreground mt-3 text-[0.82rem]">
-        Nous ne vous demandons jamais le mot de passe de votre boîte, et nous ne lisons que ce qui
-        arrive à cette adresse.
-      </p>
     </>
   );
 }
@@ -80,9 +66,7 @@ function NothingToDo(): React.JSX.Element {
     <div className="border-good/40 bg-good/10 mt-4 rounded-xl border p-3 text-[0.9rem]">
       <p className="font-medium">Rien à faire : vos alertes arrivent déjà.</p>
       <p className="text-muted-foreground mt-1">
-        Cette installation lit votre boîte directement — c’est la même adresse. Les alertes que les
-        portails vous envoient sont importées à chaque passage, sans règle de transfert ni adresse
-        particulière. L’adresse ci-dessous ne sert qu’à distinguer un autre compte du vôtre.
+        La collecte lit votre boîte directement. L’adresse ci-dessous ne sert qu’à un autre compte.
       </p>
     </div>
   );
@@ -103,8 +87,7 @@ function Reception({ state }: { state: AlertForwarding }): React.JSX.Element | n
     if (state.ownMailbox) return null;
     return (
       <p className="text-muted-foreground mt-2 text-[0.82rem]">
-        Aucune alerte reçue à ce jour sur cette adresse. Si vous venez de poser la règle, elle
-        apparaîtra ici dès le premier message transféré.
+        Aucune alerte reçue sur cette adresse pour l’instant.
       </p>
     );
   }
@@ -163,8 +146,7 @@ export function ForwardingPanel(): React.JSX.Element {
         Alertes des portails
       </h1>
       <p className="text-muted-foreground mt-1 text-[0.88rem]">
-        Leboncoin, SeLoger et Bien’ici interdisent qu’on visite leurs pages. Leur alerte par e-mail
-        est la seule voie qu’ils autorisent — faites-la suivre ici.
+        Ces portails n’autorisent que leur propre alerte par e-mail. Voici où l’envoyer.
       </p>
 
       {state === undefined && (
@@ -173,9 +155,8 @@ export function ForwardingPanel(): React.JSX.Element {
 
       {state !== undefined && address === null && (
         <p className="border-border mt-4 rounded-xl border p-3 text-[0.9rem]">
-          Cette fonctionnalité n’est pas encore configurée sur cette installation. Aucune adresse ne
-          vous est attribuée pour l’instant : mieux vaut ne rien vous donner qu’une adresse vers
-          laquelle vos alertes se perdraient en silence.
+          Fonctionnalité non configurée sur cette installation : aucune adresse ne vous est
+          attribuée.
         </p>
       )}
 
@@ -202,8 +183,7 @@ export function ForwardingPanel(): React.JSX.Element {
           <Reception state={state} />
 
           <p className="text-muted-foreground mt-2 text-[0.82rem]">
-            Cette adresse n’est qu’à vous. Ne la publiez pas : n’importe qui pourrait alors y
-            déverser ce qu’il veut — et si cela arrive, changez-en ci-dessous.
+            Cette adresse n’est qu’à vous. Ne la publiez pas.
           </p>
 
           <Button
