@@ -31,6 +31,8 @@ import { compactListing } from '../shared/raw-listing.js';
  * fiche RentFinder). Voir `docs/sources.md`.
  */
 const BULLETIN_URL = 'http://abonnes.beplogement.com/w_index_abonnes.php';
+/** Le formulaire de demande, une annonce à la fois. */
+const DEMANDE_URL = 'http://abonnes.beplogement.com/w_demande.php';
 
 /** Décode les entités HTML utiles et retire les balises. */
 function toText(html: string): string {
@@ -156,6 +158,28 @@ function parseBulletinEntry(
     ),
   ];
 
+  /**
+   * LE BOUTON « CONTACTER » DE CETTE ANNONCE-CI.
+   *
+   * On pointait toutes les annonces vers l'accueil du bulletin : arrivé là, il
+   * fallait retrouver le bien à la main dans une page qui en porte dix-huit.
+   * Chaque annonce a pourtant son propre formulaire — la page appelle
+   * `sendreq(<bref>)`, et `w_demande.php?bullref=<bref>` est ce même formulaire
+   * en accès direct.
+   *
+   * `bref` N'EST PAS LA RÉFÉRENCE DE L'ANNONCE : c'est un identifiant de
+   * bulletin, dans un tout autre espace de numérotation. On le LIT, on ne le
+   * calcule pas — les deux suites se suivent aujourd'hui à un décalage
+   * constant, ce qui est une coïncidence sur laquelle rien ne doit reposer.
+   *
+   * SON ABSENCE VEUT DIRE QUELQUE CHOSE : le bouton disparaît une fois la
+   * demande envoyée, l'annonce passant dans « vos dernières demandes ». On
+   * garde alors l'accueil du bulletin plutôt que d'inventer une adresse (§17).
+   */
+  const bulletinRef = /sendreq\((\d+)\)/.exec(block)?.[1];
+  const contactFormUrl =
+    bulletinRef === undefined ? BULLETIN_URL : `${DEMANDE_URL}?bullref=${bulletinRef}`;
+
   const place = splitLocation(location);
 
   return compactListing({
@@ -175,7 +199,7 @@ function parseBulletinEntry(
     cityText: place.city,
     roomsText,
     agencyName: 'BEP Logement',
-    contactFormUrl: BULLETIN_URL,
+    contactFormUrl,
     publishedAtText,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: {

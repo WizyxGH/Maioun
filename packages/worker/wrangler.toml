@@ -100,3 +100,15 @@ id = "de510f7eb71d40c9814b440d0e2b202e"
 # l'écrit dans le journal (`npx wrangler tail`).
 [triggers]
 crons = ["7,37 * * * *"]
+
+# --- Journal du Worker (§17) ---------------------------------------------------
+#
+# `wrangler tail` ne montre QUE ce qui passe pendant qu'on l'écoute : un refus
+# d'envoi survenu il y a dix minutes est déjà perdu. Or c'est exactement ce
+# qu'on cherche à comprendre — un message que le fournisseur a refusé ne laisse
+# aucune trace ailleurs, et l'écran ne peut en dire que ce que le Worker a
+# journalisé.
+#
+# Compris dans le plan gratuit, avec une rétention de trois jours.
+[observability]
+enabled = true

@@ -92,4 +92,26 @@ describe('parseBulletin — enrichissement', () => {
     expect(l?.cityText).toBe('NICE');
     expect(l?.extra?.['quartier']).toBe('GAMBETTA');
   });
+
+  /**
+   * ON ENVOYAIT TOUT LE MONDE SUR L'ACCUEIL DU BULLETIN. Arrivé là, il fallait
+   * retrouver le bien à la main dans une page qui en porte dix-huit — alors que
+   * chaque annonce a son propre formulaire de demande.
+   */
+  it('pointe le formulaire de demande DE CETTE annonce', () => {
+    expect(listings.find((l) => l.sourceRef === '9000001')?.contactFormUrl).toBe(
+      'http://abonnes.beplogement.com/w_demande.php?bullref=500001',
+    );
+    expect(listings.find((l) => l.sourceRef === '9000003')?.contactFormUrl).toBe(
+      'http://abonnes.beplogement.com/w_demande.php?bullref=500003',
+    );
+  });
+
+  it('garde l’accueil quand la demande a déjà été envoyée', () => {
+    // Le bouton disparaît du bulletin une fois la demande faite : on n'invente
+    // pas d'adresse à sa place (§17).
+    expect(listings.find((l) => l.sourceRef === '9000002')?.contactFormUrl).toBe(
+      'http://abonnes.beplogement.com/w_index_abonnes.php',
+    );
+  });
 });

@@ -55,29 +55,17 @@ describe('liste des annonces', () => {
     expect(cards).toHaveLength(matching.length);
   });
 
-  it('masque par défaut les annonces hors critères (§53 scénario 3)', async () => {
+  /**
+   * LA BASCULE « ANNONCES HORS CRITÈRES » A ÉTÉ RETIRÉE : élargir les critères
+   * suffit, et prix, surface et traits s'appliquent en direct. Ce qui reste
+   * vrai — et que ce test garde — c'est que la liste s'en tient aux critères.
+   */
+  it('s’en tient aux annonces qui répondent aux critères (§53 scénario 3)', async () => {
     await renderSearch();
     await screen.findAllByTestId('listing-card');
 
     // L'annonce à 750 € dépasse le budget : absente de la liste principale.
     expect(screen.queryByText(/750 €/)).not.toBeInTheDocument();
-  });
-
-  it('affiche les annonces hors critères sur demande', async () => {
-    const user = userEvent.setup();
-    await renderSearch();
-    await screen.findAllByTestId('listing-card');
-
-    // Le réglage vit dans la modale « Filtres », derrière le menu « Afficher » :
-    // quatre bascules dépliées remplaçaient un écran de défilement pour des
-    // options qu'on touche rarement.
-    await user.click(screen.getByRole('button', { name: /Filtres/ }));
-    await user.click(screen.getByRole('button', { name: /Afficher/ }));
-    await user.click(screen.getByLabelText(/hors critères/i));
-
-    const cards = await screen.findAllByTestId('listing-card');
-    expect(cards).toHaveLength(MOCK_LISTINGS.length);
-    expect(screen.getByText(/750 €/)).toBeInTheDocument();
   });
 
   it('classe par priorité d’action, pas par prix (§36)', async () => {

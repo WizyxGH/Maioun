@@ -29,7 +29,6 @@ export interface ViewState {
   readonly selectedSources: ReadonlySet<string>;
   readonly search: string;
   readonly hideUncertain: boolean;
-  readonly includeOutOfCriteria: boolean;
   readonly showArchived: boolean;
   readonly favoritesOnly: boolean;
   readonly displayMode: 'list' | 'map';
@@ -41,7 +40,6 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   selectedSources: new Set(),
   search: '',
   hideUncertain: false,
-  includeOutOfCriteria: false,
   showArchived: false,
   favoritesOnly: false,
   displayMode: 'list',
@@ -61,7 +59,6 @@ interface StoredViewState {
   selectedSources?: unknown;
   search?: unknown;
   hideUncertain?: unknown;
-  includeOutOfCriteria?: unknown;
   showArchived?: unknown;
   favoritesOnly?: unknown;
   displayMode?: unknown;
@@ -107,7 +104,6 @@ export function readViewState(): ViewState {
     selectedSources: new Set(strings(stored.selectedSources)),
     search: typeof stored.search === 'string' ? stored.search : '',
     hideUncertain: stored.hideUncertain === true,
-    includeOutOfCriteria: stored.includeOutOfCriteria === true,
     showArchived: stored.showArchived === true,
     favoritesOnly: stored.favoritesOnly === true,
     displayMode: stored.displayMode === 'map' ? 'map' : 'list',
