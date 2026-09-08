@@ -723,6 +723,36 @@ function shortestCommuteMinutes(listing: ScoredListing): number | null {
  */
 const REVISIT_PHOTOLESS_PER_RUN = 5;
 
+/**
+ * L URL de l occurrence qui appartient a l agence destinataire.
+ *
+ * On compare le DOMAINE de son adresse a celui de chaque lien : c est le seul
+ * rapprochement qui ne suppose rien. A defaut de correspondance — l agence
+ * ecrit depuis un autre domaine, ce qui arrive — on garde la premiere
+ * occurrence, comme avant.
+ */
+export function occurrenceMatching(
+  occurrences: readonly { sourceUrl?: unknown }[] | undefined,
+  email: string,
+): string | null {
+  const list = occurrences ?? [];
+  const domain = email.slice(email.lastIndexOf('@') + 1).toLowerCase();
+  const root = domain.split('.').slice(-2).join('.');
+  for (const occurrence of list) {
+    const url = occurrence.sourceUrl;
+    if (typeof url !== 'string') continue;
+    let host: string;
+    try {
+      host = new URL(url).hostname.toLowerCase();
+    } catch {
+      continue;
+    }
+    if (host === domain || host.endsWith('.' + root) || host === root) return url;
+  }
+  const first = list[0]?.sourceUrl;
+  return typeof first === 'string' ? first : null;
+}
+
 export function createRepository(db: Database): Repository {
   return {
     async knownRefs(sourceId) {
@@ -1792,10 +1822,16 @@ export function createRepository(db: Database): Repository {
      */
     async pendingDrafts() {
       const result = await db.execute(
+        // LES FAVORIS COMPTENT AUTANT QUE LES CRITÈRES, et même davantage : le
+        // critère est une règle écrite une fois, le favori est un choix fait
+        // devant l'annonce. On ne préparait pourtant de brouillon que pour les
+        // premiers — un logement mis de côté à la main n'en obtenait aucun, ce
+        // qui est l'inverse de ce qu'on attend d'un raccourci.
         `SELECT id, payload FROM listings
-         WHERE matches_criteria = 1 AND rented = 0 AND lifecycle != 'inactive'
+         WHERE (matches_criteria = 1 OR favorite = 1)
+           AND rented = 0 AND lifecycle != 'inactive'
            AND archived = 0 AND drafted = 0
-         ORDER BY action_priority DESC`,
+         ORDER BY favorite DESC, action_priority DESC`,
       );
       const out: DraftableListing[] = [];
       for (const row of result.rows) {
@@ -1826,7 +1862,16 @@ export function createRepository(db: Database): Repository {
         ) {
           continue;
         }
-        const first = payload.occurrences?.[0]?.sourceUrl;
+        // LE LIEN DOIT DÉSIGNER L'AGENCE À QUI L'ON ÉCRIT. Une fiche fusionnée
+        // porte plusieurs occurrences — le même studio publié par deux agences —
+        // et le contact retenu n'est pas forcément celui de la première. Relevé
+        // le 2026-09-08 : un bien de Giletta portait l'adresse d'Acropolis, qui
+        // le publie aussi. Écrire à l'une en pointant la page de l'autre, c'est
+        // envoyer un concurrent à son destinataire.
+        //
+        // Le DOMAINE DE L'ADRESSE tranche sans rien supposer : `providedBy` dit
+        // qui a fourni la fiche, jamais qui a fourni l'e-mail.
+        const first = occurrenceMatching(payload.occurrences, email);
         out.push({
           id: String(row['id']),
           email,
@@ -1838,7 +1883,7 @@ export function createRepository(db: Database): Repository {
             city: payload.city,
             price: payload.price,
             contact: payload.contact,
-            sourceUrl: typeof first === 'string' ? first : null,
+            sourceUrl: first,
           },
         });
       }
