@@ -157,6 +157,8 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
      * les scénarios end-to-end passaient donc, sur un historique bien rempli.
      */
     notifiedAt: row['notified_at'] ?? null,
+    goneNotifiedAt: row['gone_notified_at'] ?? null,
+    remindedAt: row['reminded_at'] ?? null,
     ...payload,
   };
 }
@@ -207,6 +209,8 @@ const USER_STATE_COLUMNS = `listings.*,
   COALESCE(us.tracking, 'new') AS tracking,
   COALESCE(us.notified, 0) AS notified,
   us.notified_at AS notified_at,
+  us.gone_notified_at AS gone_notified_at,
+  us.reminded_at AS reminded_at,
   COALESCE(us.drafted, 0) AS drafted`;
 
 /**
@@ -569,7 +573,13 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
   const result = await db.execute({
     sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN}
           WHERE us.notified_at IS NOT NULL
-          ORDER BY us.notified_at DESC LIMIT 200`,
+             OR us.gone_notified_at IS NOT NULL
+             OR us.reminded_at IS NOT NULL
+          ORDER BY MAX(
+            COALESCE(us.notified_at, ''),
+            COALESCE(us.gone_notified_at, ''),
+            COALESCE(us.reminded_at, '')
+          ) DESC LIMIT 200`,
     args: [userId, userId],
   });
   return { listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)) };

@@ -96,6 +96,10 @@ export interface ListingView {
    * ne s'invente pas (§17).
    */
   readonly notifiedAt?: string | null;
+  /** Date de l'alerte « ce favori a disparu », le cas échéant. */
+  readonly goneNotifiedAt?: string | null;
+  /** Date du rappel « vous n'avez pas encore candidaté », le cas échéant. */
+  readonly remindedAt?: string | null;
   /**
    * `true` si la fiche vient de la LISTE, donc allégée : sans description ni
    * détail des scores, retirés en SQL parce qu'ils pèsent les quatre

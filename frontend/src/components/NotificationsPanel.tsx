@@ -15,6 +15,7 @@ import { useRef, useState } from 'react';
 import { Check } from './icons.js';
 import { Button } from '@/components/ui/button.js';
 import type { ListingView } from '../types.js';
+import { ALERT_LABELS, alertEventOf, type AlertEvent } from '../alert-kind.js';
 import {
   formatArea,
   formatDay,
@@ -68,11 +69,13 @@ interface NotificationsPanelProps {
  */
 function HistoryRow({
   listing,
+  event,
   unread,
   onOpen,
   onDismiss,
 }: {
   readonly listing: ListingView;
+  readonly event: AlertEvent;
   readonly unread: boolean;
   readonly onOpen: (id: string) => void;
   readonly onDismiss: (id: string) => void;
@@ -144,8 +147,14 @@ function HistoryRow({
           <strong className="font-semibold">{formatPrice(listing.price.value)}</strong>
           <span className="text-sm text-muted-foreground">{formatArea(listing.area.value)}</span>
           <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-            {formatTime(listing.notifiedAt ?? '')}
+            {formatTime(event.at)}
           </span>
+        </span>
+        {/* POURQUOI CETTE ANNONCE A SONNÉ. Sans cela, un rappel de candidature et
+          une annonce proche des critères se lisaient comme une nouveauté —
+          alors que la notification, elle, le disait. */}
+        <span className="block truncate text-xs font-medium text-primary">
+          {ALERT_LABELS[event.kind]}
         </span>
         <span className="block truncate text-sm">{place}</span>
         <span className="block truncate text-xs text-muted-foreground">
@@ -183,24 +192,32 @@ export function NotificationsPanel({
   // inactives ne sont plus rapatriées et sortent donc de l'historique — c'est
   // le prix à payer pour ne coûter AUCUNE lecture Turso de plus.
   const horizon = nowMs - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+  /**
+   * TROIS FAMILLES, ET NON UNE. L'historique ne retenait que `notifiedAt` :
+   * « un favori n'est plus disponible » et « pas encore candidaté »
+   * s'horodatent ailleurs et n'y apparaissaient jamais. C'est l'événement le
+   * plus récent qui date et classe chaque ligne.
+   */
   const history = listings
-    .filter((listing) => {
-      if (dismissed.has(listing.id)) return false;
-      const at = listing.notifiedAt;
-      return at !== null && at !== undefined && Date.parse(at) >= horizon;
-    })
-    .sort((a, b) => Date.parse(b.notifiedAt ?? '') - Date.parse(a.notifiedAt ?? ''));
+    .map((listing) => ({ listing, event: alertEventOf(listing) }))
+    .filter(
+      (entry): entry is { listing: ListingView; event: AlertEvent } =>
+        entry.event !== null &&
+        !dismissed.has(entry.listing.id) &&
+        Date.parse(entry.event.at) >= horizon,
+    )
+    .sort((a, b) => Date.parse(b.event.at) - Date.parse(a.event.at));
 
   // Regroupement par jour, l'ordre des annonces étant déjà décroissant.
-  const days: { label: string; items: ListingView[] }[] = [];
-  for (const listing of history) {
-    const label = formatDay(listing.notifiedAt ?? '', nowMs);
+  const days: { label: string; items: { listing: ListingView; event: AlertEvent }[] }[] = [];
+  for (const entry of history) {
+    const label = formatDay(entry.event.at, nowMs);
     const last = days[days.length - 1];
-    if (last?.label === label) last.items.push(listing);
-    else days.push({ label, items: [listing] });
+    if (last?.label === label) last.items.push(entry);
+    else days.push({ label, items: [entry] });
   }
 
-  const unread = history.filter((listing) => isUnreadAlert(listing, seenAtMs)).length;
+  const unread = history.filter(({ listing }) => isUnreadAlert(listing, seenAtMs)).length;
 
   return (
     <section className="flex flex-col gap-5">
@@ -240,10 +257,11 @@ export function NotificationsPanel({
                   {day.label}
                 </h4>
                 <ul className="flex flex-col gap-1.5">
-                  {day.items.map((listing) => (
+                  {day.items.map(({ listing, event }) => (
                     <li key={listing.id}>
                       <HistoryRow
                         listing={listing}
+                        event={event}
                         unread={isUnreadAlert(listing, seenAtMs)}
                         onOpen={onOpen}
                         onDismiss={dismiss}
