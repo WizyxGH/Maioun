@@ -89,6 +89,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   laforet: { name: 'Laforêt', domain: null, logo: null },
   lamy: { name: 'Lamy Immobilier', domain: null, logo: null },
   'leprince-realty': { name: 'leprince realty', domain: 'leprincerealty.com', logo: null },
+  locservice: { name: 'LocService', domain: null, logo: null },
   lodgis: { name: 'Lodgis', domain: null, logo: null },
   'lt-immobilier': {
     name: 'LT Immobilier',
