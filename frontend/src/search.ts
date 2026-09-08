@@ -10,15 +10,31 @@
  * fréquent dans les annonces écrites en capitales.
  */
 
-/** Champs d'une annonce que la recherche inspecte. */
+/** Un champ fusionné, tel que l API le rend — ou rien du tout. */
+type Field = { readonly value: string | null } | undefined;
+
+/**
+ * Champs d une annonce que la recherche inspecte.
+ *
+ * TOUS FACULTATIFS, ET CE N EST PAS DE LA PRUDENCE DÉCORATIVE. La LISTE ne
+ * reçoit pas la fiche entière : le serveur en retire la description et les
+ * raisons de score (`json_remove`), pour ne pas transporter des centaines de
+ * kilo-octets que la liste n affiche pas. `listing.description.value` levait
+ * donc une exception dès la première frappe dans la barre de recherche, et
+ * l écran entier tombait sur « Cet écran n a pas pu s afficher ».
+ *
+ * La description n est donc PAS cherchée dans la liste — elle n y est pas. Le
+ * reste suffit à retrouver une annonce : titre, commune, quartier, rue, code
+ * postal et agence.
+ */
 export interface Searchable {
-  readonly title: { readonly value: string | null };
-  readonly description: { readonly value: string | null };
-  readonly city: { readonly value: string | null };
-  readonly district: { readonly value: string | null };
-  readonly address: { readonly value: string | null };
-  readonly postalCode: { readonly value: string | null };
-  readonly contact: { readonly agencyName: string | null };
+  readonly title?: Field;
+  readonly description?: Field;
+  readonly city?: Field;
+  readonly district?: Field;
+  readonly address?: Field;
+  readonly postalCode?: Field;
+  readonly contact?: { readonly agencyName: string | null } | undefined;
 }
 
 /** Minuscules sans accent, pour comparer « Libération » et « LIBERATION ». */
@@ -38,15 +54,15 @@ export function matchesSearch(listing: Searchable, query: string): boolean {
 
   const haystack = comparable(
     [
-      listing.title.value,
-      listing.description.value,
-      listing.city.value,
-      listing.district.value,
-      listing.address.value,
-      listing.postalCode.value,
-      listing.contact.agencyName,
+      listing.title?.value,
+      listing.description?.value,
+      listing.city?.value,
+      listing.district?.value,
+      listing.address?.value,
+      listing.postalCode?.value,
+      listing.contact?.agencyName,
     ]
-      .filter((part): part is string => part !== null && part !== '')
+      .filter((part): part is string => typeof part === 'string' && part !== '')
       .join(' '),
   );
 

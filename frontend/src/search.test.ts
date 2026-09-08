@@ -54,3 +54,29 @@ describe('matchesSearch', () => {
     expect(matchesSearch(sparse, 'gambetta')).toBe(false);
   });
 });
+
+/**
+ * LA LISTE N'A PAS LA FICHE ENTIÈRE. Le serveur en retire la description et les
+ * raisons de score pour ne pas transporter ce qu'elle n'affiche pas. La
+ * recherche les déréférençait quand même : la première frappe dans la barre
+ * levait une exception et faisait tomber tout l'écran (signalé le 2026-09-08).
+ */
+describe('matchesSearch sur une fiche allégée', () => {
+  it('ne tombe pas quand la description a été retirée', () => {
+    const allegee = {
+      title: { value: 'Studio meublé Gambetta' },
+      city: { value: 'Nice' },
+      district: { value: 'Gambetta' },
+      address: { value: null },
+      postalCode: { value: '06000' },
+      contact: { agencyName: 'Agence Test' },
+    };
+    expect(matchesSearch(allegee, 'gambetta')).toBe(true);
+    expect(matchesSearch(allegee, 'introuvable')).toBe(false);
+  });
+
+  it('ne tombe pas non plus sans aucun champ', () => {
+    expect(matchesSearch({}, 'nice')).toBe(false);
+    expect(matchesSearch({}, '')).toBe(true);
+  });
+});
