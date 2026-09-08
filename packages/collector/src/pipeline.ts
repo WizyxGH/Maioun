@@ -605,6 +605,27 @@ export async function regroupAndScore(
   return { groups, comparisonCount, listingReport };
 }
 
+/**
+ * Combien d'annonces chaque compte a apportées par son transfert d'alertes.
+ *
+ * Seule la source e-mail pose `forwardedBy`, et seulement quand l'adresse visée
+ * portait un jeton connu : une annonce arrivée sur l'adresse simple n'est
+ * comptée pour personne, ce qui est exact — on ignore qui l'a fait suivre.
+ */
+function countAlertsByToken(
+  rawBySource: ReadonlyMap<string, readonly RawListing[]>,
+): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  for (const raws of rawBySource.values()) {
+    for (const raw of raws) {
+      const token = raw.extra?.['forwardedBy'];
+      if (token === undefined || token === '') continue;
+      counts.set(token, (counts.get(token) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
   const startedMs = clock.now();
@@ -708,6 +729,15 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // --- 4. Persistance des occurrences --------------------------------------
   const occurrenceReport = await repository.upsertOccurrences(normalized);
   logger.info('pipeline.occurrences_written', { ...occurrenceReport });
+
+  // Ce que le transfert d'alertes de chaque compte a apporté (§6). Le jeton
+  // voyage sur l'annonce depuis la source e-mail ; c'est ici qu'il redevient
+  // une information utile à quelqu'un.
+  const alertsByToken = countAlertsByToken(rawBySource);
+  if (alertsByToken.size > 0) {
+    await repository.recordAlertReception(alertsByToken);
+    logger.info('pipeline.alerts_attributed', { accounts: alertsByToken.size });
+  }
 
   // Cycle de vie des annonces non revues, source par source (§32). Les refs
   // confirmées par la source sans re-téléchargement (sitemap) comptent comme

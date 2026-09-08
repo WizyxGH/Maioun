@@ -242,4 +242,57 @@ describe('cloisonnement entre comptes (§26)', () => {
     // L'inventaire total, lui, est le même pour les deux.
     expect(chezBob.at(-1)?.total).toBe(chezAlice.at(-1)?.total);
   });
+
+  /**
+   * LE TRANSFERT D'ALERTES EST PROPRE À CHAQUE COMPTE (§6). Chacun a son
+   * jeton ; ce que l'un fait suivre ne doit pas se lire comme une preuve que
+   * le transfert de l'autre marche.
+   */
+  it('n’attribue les alertes transférées qu’au compte qui les a fait suivre', async () => {
+    const repository = createRepository(db);
+    await db.batch(
+      [
+        { sql: "UPDATE users SET alert_token = 'jetonalice' WHERE id = 'alice'", args: [] },
+        { sql: "UPDATE users SET alert_token = 'jetonbob' WHERE id = 'bob'", args: [] },
+      ],
+      'write',
+    );
+
+    await repository.recordAlertReception(new Map([['jetonalice', 3]]));
+
+    const rows = await db.execute(
+      'SELECT id, alert_last_received_at, alert_received_count FROM users ORDER BY id',
+    );
+    const alice = rows.rows.find((row) => row['id'] === 'alice');
+    const bob = rows.rows.find((row) => row['id'] === 'bob');
+
+    expect(alice?.['alert_received_count']).toBe(3);
+    expect(alice?.['alert_last_received_at']).not.toBeNull();
+    // Bob n'a rien transféré : son écran doit continuer à dire « aucune ».
+    expect(bob?.['alert_received_count']).toBe(0);
+    expect(bob?.['alert_last_received_at']).toBeNull();
+  });
+
+  it('cumule les passages successifs plutôt que de les écraser', async () => {
+    const repository = createRepository(db);
+    await db.execute("UPDATE users SET alert_token = 'jetonalice' WHERE id = 'alice'");
+
+    await repository.recordAlertReception(new Map([['jetonalice', 2]]));
+    await repository.recordAlertReception(new Map([['jetonalice', 5]]));
+
+    const row = await db.execute("SELECT alert_received_count c FROM users WHERE id = 'alice'");
+    expect(row.rows[0]?.['c']).toBe(7);
+  });
+
+  it('ignore un jeton qui n’est à personne', async () => {
+    const repository = createRepository(db);
+    // La boîte reçoit tout ce qu'on lui envoie : un jeton inventé ne doit
+    // toucher aucune ligne, et surtout pas en créer une.
+    await repository.recordAlertReception(new Map([['jetoninvente', 9]]));
+
+    const row = await db.execute(
+      'SELECT COUNT(*) n FROM users WHERE alert_last_received_at IS NOT NULL',
+    );
+    expect(Number(row.rows[0]?.['n'])).toBe(0);
+  });
 });

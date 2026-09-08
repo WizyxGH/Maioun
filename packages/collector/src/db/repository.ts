@@ -249,6 +249,20 @@ export interface Repository {
   readonly verifiedEmailFor: (userId: string) => Promise<string | null>;
 
   /**
+   * Note ce que le transfert d'alertes d'un compte vient d'apporter (§6).
+   *
+   * Le compte a posé une règle dans SA boîte et n'a aucun retour : une règle
+   * mal filtrée ne produit pas d'erreur, seulement du silence — le même
+   * silence qu'un jour sans nouvelle annonce. C'est cette trace qui permet à
+   * l'écran de réglages de trancher entre les deux.
+   *
+   * Les clés sont des JETONS, pas des identifiants de compte : le collecteur
+   * ne lit que ce qui est écrit dans l'adresse, et un jeton inconnu ne
+   * correspond à personne — la requête ne touche alors aucune ligne.
+   */
+  readonly recordAlertReception: (countByToken: ReadonlyMap<string, number>) => Promise<void>;
+
+  /**
    * Écrit l'instantané du jour POUR CHAQUE COMPTE (une ligne par jour et par
    * compte, réécrite à chaque passage).
    */
@@ -1321,6 +1335,21 @@ export function createRepository(db: Database): Repository {
       });
       const row = result.rows[0];
       return row === undefined ? null : String(row['email']);
+    },
+
+    async recordAlertReception(countByToken) {
+      const now = new Date().toISOString();
+      for (const [token, count] of countByToken) {
+        // Le cumul s'incrémente, l'horodatage se remplace : « combien depuis
+        // toujours » et « est-ce que ça marche encore » sont deux questions.
+        await db.execute({
+          sql: `UPDATE users
+                SET alert_last_received_at = ?,
+                    alert_received_count = alert_received_count + ?
+                WHERE alert_token = ?`,
+          args: [now, count, token],
+        });
+      }
     },
 
     /**

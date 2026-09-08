@@ -19,12 +19,18 @@
  * L'ÉCRAN NE PROMET RIEN QU'IL NE PUISSE TENIR. Sans adresse configurée, il le
  * dit au lieu d'en inventer une : une règle de transfert vers le vide
  * n'échouerait jamais bruyamment, et l'utilisateur attendrait pour rien (§17).
+ *
+ * IL DIT AUSSI CE QUI EST ARRIVÉ. Une règle mal filtrée ne produit aucune
+ * erreur, seulement du silence — le même silence qu'une journée sans nouvelle
+ * annonce. Le compte pouvait attendre des semaines sans savoir lequel des deux
+ * il vivait. « Dernière alerte reçue » tranche.
  */
 
 import { useEffect, useState } from 'react';
 import { ALERT_SENDER_LABELS } from '@rentfinder/shared';
-import { fetchAlertAddress } from '../api/client.js';
+import { fetchAlertAddress, rotateAlertAddress, type AlertForwarding } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { Check, Copy, Mail } from './icons.js';
 
 /** Les trois gestes à faire, dans l'ordre où on les fait. */
@@ -49,18 +55,60 @@ function Steps(): React.JSX.Element {
   );
 }
 
+/**
+ * Ce que le transfert a apporté, ou l'aveu qu'il n'a rien apporté.
+ *
+ * Le compte a posé une règle dans sa boîte et n'avait aucun retour. Le nombre
+ * compte autant que la date : « 12 annonces » dit que la règle attrape la
+ * bonne chose, là où une date seule pourrait n'être qu'un message isolé.
+ */
+function Reception({ state }: { state: AlertForwarding }): React.JSX.Element {
+  if (state.lastReceivedAt === null) {
+    return (
+      <p className="text-muted-foreground mt-2 text-[0.82rem]">
+        Aucune alerte reçue à ce jour sur cette adresse. Si vous venez de poser la règle, elle
+        apparaîtra ici dès le premier message transféré.
+      </p>
+    );
+  }
+  const when = new Date(state.lastReceivedAt);
+  return (
+    <p className="mt-2 text-[0.82rem]">
+      <Check aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px]" />
+      Dernière alerte reçue le {when.toLocaleDateString('fr-FR')} — {state.receivedCount} annonce
+      {state.receivedCount > 1 ? 's' : ''} apportée{state.receivedCount > 1 ? 's' : ''} en tout.
+    </p>
+  );
+}
+
 export function ForwardingPanel(): React.JSX.Element {
-  const [address, setAddress] = useState<string | null | undefined>(undefined);
+  const [state, setState] = useState<AlertForwarding | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const address = state?.address ?? null;
 
   useEffect(() => {
     void fetchAlertAddress()
-      .then(setAddress)
-      .catch(() => setAddress(null));
+      .then(setState)
+      .catch(() => setState(null));
   }, []);
 
+  const rotate = (): void => {
+    setRotating(true);
+    void rotateAlertAddress()
+      .then(setState)
+      .catch(() => {
+        /* L'ancienne adresse reste affichée : elle est encore la bonne. */
+      })
+      .finally(() => {
+        setRotating(false);
+        setConfirming(false);
+      });
+  };
+
   const copy = (): void => {
-    if (address === null || address === undefined) return;
+    if (address === null) return;
     void navigator.clipboard
       ?.writeText(address)
       .then(() => {
@@ -82,11 +130,11 @@ export function ForwardingPanel(): React.JSX.Element {
         est la seule voie qu’ils autorisent — faites-la suivre ici.
       </p>
 
-      {address === undefined && (
+      {state === undefined && (
         <p className="text-muted-foreground mt-4 text-[0.9rem]">Chargement…</p>
       )}
 
-      {address === null && (
+      {state !== undefined && address === null && (
         <p className="border-border mt-4 rounded-xl border p-3 text-[0.9rem]">
           Cette fonctionnalité n’est pas encore configurée sur cette installation. Aucune adresse ne
           vous est attribuée pour l’instant : mieux vaut ne rien vous donner qu’une adresse vers
@@ -94,7 +142,7 @@ export function ForwardingPanel(): React.JSX.Element {
         </p>
       )}
 
-      {address !== null && address !== undefined && (
+      {state !== undefined && state !== null && address !== null && (
         <>
           <div className="border-border bg-card mt-4 flex items-center gap-2 rounded-xl border p-3">
             <Mail aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
@@ -112,11 +160,40 @@ export function ForwardingPanel(): React.JSX.Element {
               {copied ? 'Copiée' : 'Copier'}
             </Button>
           </div>
+          <Reception state={state} />
+
           <p className="text-muted-foreground mt-2 text-[0.82rem]">
             Cette adresse n’est qu’à vous. Ne la publiez pas : n’importe qui pourrait alors y
-            déverser ce qu’il veut.
+            déverser ce qu’il veut — et si cela arrive, changez-en ci-dessous.
           </p>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => setConfirming(true)}
+          >
+            Changer d’adresse
+          </Button>
+
           <Steps />
+
+          <ConfirmDialog
+            open={confirming}
+            title="Changer d’adresse de transfert ?"
+            description={
+              <>
+                L’adresse actuelle cessera <strong>immédiatement</strong> de fonctionner. Les
+                alertes qui y arriveront ensuite seront perdues : pensez à mettre à jour la règle de
+                transfert dans votre boîte mail avec la nouvelle adresse.
+              </>
+            }
+            confirmLabel="Changer d’adresse"
+            confirmDisabled={rotating}
+            onConfirm={rotate}
+            onCancel={() => setConfirming(false)}
+          />
         </>
       )}
     </section>

@@ -558,15 +558,56 @@ export default {
     // `/api/me` : `me` répond à chaque ouverture du site sans toucher la base,
     // et y ajouter une lecture de ligne la ferait payer à tout le monde pour un
     // écran de réglages qu'on ouvre une fois (§30).
-    if (segments[1] === 'alert-address' && request.method === 'GET') {
-      const row = await db.execute({
-        sql: 'SELECT alert_token FROM users WHERE id = ? LIMIT 1',
-        args: [userId],
-      });
-      return json(
-        { address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, row.rows[0]?.['alert_token']) },
-        cors,
-      );
+    if (segments[1] === 'alert-address') {
+      if (request.method === 'GET') {
+        const row = await db.execute({
+          sql: `SELECT alert_token, alert_last_received_at, alert_received_count
+                FROM users WHERE id = ? LIMIT 1`,
+          args: [userId],
+        });
+        const found = row.rows[0];
+        return json(
+          {
+            address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, found?.['alert_token']),
+            // CE QUE LE TRANSFERT A RÉELLEMENT APPORTÉ. Sans ces deux chiffres,
+            // une règle mal filtrée est indiscernable d'une journée calme :
+            // l'une comme l'autre ne produisent rien (§17).
+            lastReceivedAt: found?.['alert_last_received_at'] ?? null,
+            receivedCount: Number(found?.['alert_received_count'] ?? 0),
+          },
+          cors,
+        );
+      }
+
+      // CHANGER D'ADRESSE. L'écran prévient qu'il ne faut pas la publier — sans
+      // quoi n'importe qui peut y déverser ce qu'il veut — mais une adresse
+      // qu'on ne peut pas changer rend cet avertissement inutile le jour où
+      // elle fuite. Le nouveau jeton est tiré ICI : la base ne saurait pas le
+      // faire à chaque compte sans risquer de rejouer l'unicité.
+      if (request.method === 'POST' && segments[2] === 'rotate') {
+        const rotated = await db.execute({
+          // Neuf octets, comme à l'inscription et comme en migration : c'est la
+          // longueur qui rend l'adresse indevinable tout en restant recopiable
+          // à la main. Les compteurs repartent à zéro AVEC le jeton — ils
+          // décrivaient l'ancienne adresse, et les laisser ferait croire que la
+          // nouvelle a déjà servi.
+          sql: `UPDATE users
+                SET alert_token = lower(hex(randomblob(9))),
+                    alert_last_received_at = NULL,
+                    alert_received_count = 0
+                WHERE id = ?
+                RETURNING alert_token`,
+          args: [userId],
+        });
+        return json(
+          {
+            address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, rotated.rows[0]?.['alert_token']),
+            lastReceivedAt: null,
+            receivedCount: 0,
+          },
+          cors,
+        );
+      }
     }
 
     if (segments[1] === 'account' && request.method === 'DELETE') {
