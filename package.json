@@ -16,7 +16,7 @@
     "collect": "pnpm --filter @rentfinder/collector run collect",
     "draft": "pnpm --filter @rentfinder/collector run draft",
     "reprocess": "pnpm --filter @rentfinder/collector run reprocess",
-    "typecheck": "tsc --build --force && tsc --project tsconfig.test.json",
+    "typecheck": "tsc --build --force && tsc --project tsconfig.test.json && tsc --project packages/worker/tsconfig.test.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

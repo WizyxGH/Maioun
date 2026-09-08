@@ -119,7 +119,21 @@ export async function sendEmailResult(env: MailerEnv, message: EmailMessage): Pr
     // Le corps est lu puis journalisé, jamais rendu à l'appelant : il peut
     // nommer l'expéditeur configuré, qui ne regarde pas le navigateur.
     const detail = await response.text().catch(() => '');
-    console.error('email.refused', response.status, detail.slice(0, 500));
+    /**
+     * LA FORME DE LA CLÉ, JAMAIS LA CLÉ. « API key is invalid » ne dit pas si
+     * elle a été révoquée ou simplement mal recopiée — une valeur tronquée,
+     * des guillemets restés collés, un retour à la ligne. Sa longueur et son
+     * préfixe tranchent entre les deux, et ne permettent pas de la
+     * reconstituer : une clé Resend fait « re_ » suivi d une trentaine de
+     * caractères.
+     */
+    const key = env.EMAIL_API_KEY ?? '';
+    console.error('email.refused', response.status, detail.slice(0, 500), {
+      keyLength: key.length,
+      keyPrefix: key.slice(0, 3),
+      keyTrimmed: key === key.trim(),
+      keyQuoted: /^["']|["']$/.test(key),
+    });
     return 'refused';
   } catch (error) {
     console.error('email.unreachable', error instanceof Error ? error.message : String(error));

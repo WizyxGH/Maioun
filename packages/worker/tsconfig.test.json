@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["@cloudflare/workers-types", "node"],
+    "baseUrl": "../..",
+    "paths": {
+      "@rentfinder/shared": ["./packages/shared/src/index.ts"],
+      "@rentfinder/collector": ["./packages/collector/src/index.ts"],
+      "@rentfinder/collector/server/routes": ["./packages/collector/src/server/routes.ts"],
+      "@rentfinder/collector/notify/mailer": ["./packages/collector/src/notify/mailer.ts"]
+    },
+    "rootDir": "../.."
+  },
+  "include": ["src/**/*.ts"],
+  "references": []
+}
