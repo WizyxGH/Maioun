@@ -91,3 +91,10 @@ desktop.ini
 .turbo/
 tmp/
 temp/
+
+# Brouillons de fouille : un script jetable pour interroger la base, écrit le
+# temps d'un diagnostic. DEUX ONT DÉJÀ ÉTÉ COMMITÉS par un `git add -A`, dont
+# un qui a fait tomber la CI sur le formatage. Ils ne sont à personne.
+.q/
+.tmpq/
+.probe/
