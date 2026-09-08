@@ -12,6 +12,7 @@
  */
 
 import { listingUrl } from '@rentfinder/shared';
+import { imagePayload } from './photo.js';
 import webpush from 'web-push';
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
@@ -96,7 +97,7 @@ export function pushContentFor(
     body: lines.join('\n'),
     url: listingUrl(siteUrl, listing.id),
     tag: `rentfinder-${listing.id}`,
-    ...(listing.photoUrls[0] !== undefined ? { image: listing.photoUrls[0] } : {}),
+    ...imagePayload(listing.photoUrls[0]),
     listingId: listing.id,
     ...(listing.phone !== null ? { phone: listing.phone } : {}),
   };
@@ -207,7 +208,7 @@ export function nearMatchContentFor(
     url: listingUrl(siteUrl, listing.id),
     tag: `rentfinder-proche-${listing.id}`,
     listingId: listing.id,
-    ...(listing.photoUrls[0] !== undefined ? { image: listing.photoUrls[0] } : {}),
+    ...imagePayload(listing.photoUrls[0]),
     ...(listing.phone !== null ? { phone: listing.phone } : {}),
   };
 }

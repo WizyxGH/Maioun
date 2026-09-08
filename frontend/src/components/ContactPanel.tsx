@@ -28,6 +28,7 @@ import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 import { ChevronRight } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
+import { displayName } from '../dossier.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -314,14 +315,21 @@ function useAttachments(): { selected: readonly string[]; picker: React.JSX.Elem
         </legend>
         <ul className="flex flex-col gap-1">
           {documents.map((doc) => (
-            <li key={doc.name}>
-              <label className="flex items-center gap-2 text-[0.9rem]">
+            <li key={doc.name} className="min-w-0">
+              {/* DEUX CAUSES AU DÉBORDEMENT SUR TÉLÉPHONE, et il fallait les
+                deux. Le nom était affiché BRUT, préfixe de rangement compris —
+                « identite__Carte identité recto Prénom NOM.jpg » fait
+                cinquante caractères pour vingt de contenu. Et `truncate` ne
+                peut pas rétrécir un élément flex sans `min-w-0` : il gardait
+                sa largeur naturelle et poussait la carte hors de l écran. */}
+              <label className="flex min-w-0 items-center gap-2 text-[0.9rem]">
                 <input
                   type="checkbox"
+                  className="shrink-0"
                   checked={selected.has(doc.name)}
                   onChange={() => toggle(doc.name)}
                 />
-                <span className="truncate">{doc.name}</span>
+                <span className="min-w-0 flex-1 truncate">{displayName(doc.name)}</span>
               </label>
             </li>
           ))}

@@ -80,6 +80,12 @@ jobs:
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           SITE_URL: ${{ vars.SITE_URL }}
 
+          # LE RELAIS DE PHOTOS, pour les notifications (§11). BEP publie ses
+          # cliches en http ; un service worker ne charge pas une image http, et
+          # la notification s affichait nue. Le Worker va la chercher et la rend
+          # en https — encore faut-il savoir ou il est.
+          API_URL: ${{ vars.API_URL }}
+
           # ALERTES PAR E-MAIL (§29), le canal qui double le push. Sans ces
           # deux valeurs, il reste silencieux et le journal le dit : rien ne
           # part, et surtout rien ne prétend être parti. Ce sont les mêmes que
