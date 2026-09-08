@@ -35,3 +35,37 @@ export function alertAddress(template: string | undefined, token: unknown): stri
   if (!template.includes('{token}')) return null;
   return template.trim().replace('{token}', token.trim());
 }
+
+/**
+ * La boîte que le collecteur lit, déduite du gabarit.
+ *
+ * `alertes+{token}@example.invalid` désigne la boîte `alertes@example.invalid` :
+ * le sous-adressage `+` fait arriver au même endroit. On retire donc le `+` et
+ * ce qui suit, jusqu'à l'arobase.
+ */
+export function readMailbox(template: string | undefined): string | null {
+  if (template === undefined || template.trim() === '') return null;
+  const at = template.lastIndexOf('@');
+  if (at <= 0) return null;
+  const local = template.slice(0, at);
+  const plus = local.indexOf('+');
+  const base = plus === -1 ? local : local.slice(0, plus);
+  return base === '' ? null : `${base}${template.slice(at)}`.trim().toLowerCase();
+}
+
+/**
+ * `true` quand le compte EST le propriétaire de la boîte lue.
+ *
+ * IL N'A ALORS RIEN À FAIRE, et le lui demander était le plus sûr moyen de
+ * faire passer la fonctionnalité pour compliquée : ses alertes arrivent déjà
+ * dans cette boîte, le collecteur les lit déjà, et l'écran lui réclamait
+ * pourtant de créer des alertes puis de poser une règle de transfert vers
+ * lui-même. Trois étapes pour un résultat déjà acquis.
+ *
+ * La comparaison est exacte : rien n'est deviné (§17).
+ */
+export function ownsReadMailbox(template: string | undefined, email: unknown): boolean {
+  const mailbox = readMailbox(template);
+  if (mailbox === null || typeof email !== 'string') return false;
+  return email.trim().toLowerCase() === mailbox;
+}

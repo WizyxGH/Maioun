@@ -100,18 +100,27 @@ function DocumentRow({
   return (
     <li className="flex items-center gap-2 py-1.5">
       <DocumentThumbnail doc={doc} />
-      {/* L'œil dit que ça s'ouvre : un nom souligné pouvait passer pour un
-        simple intitulé. */}
-      <a
-        href={documentUrl(doc.name)}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-[0.9rem] text-primary underline"
-      >
-        <Eye aria-hidden="true" className="size-4 shrink-0" />
-        <span className="truncate">{label}</span>
-      </a>
-      <span className="shrink-0 text-[0.8rem] text-muted-foreground">{formatSize(doc.size)}</span>
+
+      {/* LE POIDS PASSE SOUS LE NOM. Sur la même ligne, il prenait — avec la
+        vignette et la corbeille — près de cent pixels des trois cents
+        disponibles sur un téléphone : il ne restait « Carte identité re… » d'un
+        nom qui en fait quarante-six. Le nom est ce qu'on lit, le poids ce qu'on
+        vérifie ; l'un ne doit pas manger l'autre. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* L'œil dit que ça s'ouvre : un nom souligné pouvait passer pour un
+          simple intitulé. */}
+        <a
+          href={documentUrl(doc.name)}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex min-w-0 items-center gap-1.5 text-[0.9rem] text-primary underline"
+        >
+          <Eye aria-hidden="true" className="size-4 shrink-0" />
+          <span className="truncate">{label}</span>
+        </a>
+        <span className="text-muted-foreground text-[0.78rem]">{formatSize(doc.size)}</span>
+      </div>
+
       <Button
         type="button"
         variant="ghost"

@@ -41,7 +41,7 @@ export function ConfirmDialog({
   confirmDisabled = false,
   children,
 }: ConfirmDialogProps): React.JSX.Element | null {
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -49,11 +49,25 @@ export function ConfirmDialog({
       if (event.key === 'Escape') onCancel();
     };
     document.addEventListener('keydown', onKey);
-    // Le focus entre dans le dialogue : sans cela, la tabulation continue
-    // derrière lui, sur une page qu'on ne peut pourtant plus utiliser.
-    panel.current?.focus();
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onCancel]);
+
+  /**
+   * LE FOCUS N'ENTRE QU'À L'OUVERTURE, et il a fallu l'isoler ici.
+   *
+   * Il vivait dans l'effet ci-dessus, qui dépend d'`onCancel` — une fonction
+   * recréée à chaque rendu par l'appelant. Chaque frappe dans un champ du
+   * dialogue provoquait donc un rendu, l'effet rejouait, et le panneau
+   * REPRENAIT le focus : on tapait un caractère et l'on était éjecté du champ.
+   * Impossible de saisir une adresse ou un mot de passe.
+   *
+   * Ne dépendre que d'`open` suffit : on ne veut ce geste qu'une fois, quand le
+   * dialogue paraît, pour que la tabulation ne continue pas derrière lui sur
+   * une page qu'on ne peut plus utiliser.
+   */
+  useEffect(() => {
+    if (open) panel.current?.focus();
+  }, [open]);
 
   if (!open) return null;
 
@@ -64,26 +78,35 @@ export function ConfirmDialog({
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <div
+      {/* UN FORMULAIRE, ET NON UN SIMPLE PANNEAU. Les dialogues qui demandent
+        un mot de passe le posaient hors de tout `form` : le navigateur s'en
+        plaignait (« Password field is not contained in a form »), les
+        gestionnaires de mots de passe ne savaient pas quoi enregistrer, et la
+        touche Entrée ne validait rien — il fallait viser le bouton. */}
+      <form
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!confirmDisabled) onConfirm();
+        }}
         className="rf-rise flex w-full flex-col gap-3 rounded-t-2xl border border-border bg-card p-5 shadow-xl outline-none sm:max-w-md sm:rounded-2xl"
       >
         <h2 className="text-lg font-semibold">{title}</h2>
         <div className="text-[0.9rem] text-muted-foreground">{description}</div>
         {children}
         <div className="mt-1 flex flex-wrap justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Annuler
           </Button>
-          <Button variant={variant} onClick={onConfirm} disabled={confirmDisabled}>
+          <Button type="submit" variant={variant} disabled={confirmDisabled}>
             {confirmLabel}
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

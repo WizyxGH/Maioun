@@ -33,25 +33,58 @@ import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { Check, Copy, Mail } from './icons.js';
 
-/** Les trois gestes à faire, dans l'ordre où on les fait. */
+/**
+ * Ce qu'il reste à faire — en deux gestes, pas trois.
+ *
+ * LA RÈGLE DE TRANSFERT ÉTAIT DONNÉE COMME LA SEULE VOIE, et c'est la plus
+ * pénible : il faut trouver les filtres de sa messagerie, écrire une condition
+ * sur l'expéditeur, la tester. Or les portails envoient leurs alertes à
+ * l'adresse du compte qu'on a chez EUX : coller celle-ci en s'y inscrivant
+ * suffit, et le message arrive directement. La règle de transfert reste
+ * expliquée dessous, pour des alertes déjà créées qu'on ne veut pas refaire.
+ */
 function Steps(): React.JSX.Element {
   return (
-    <ol className="mt-4 flex list-decimal flex-col gap-3 pl-5 text-[0.9rem]">
-      <li>
-        <strong>Créez vos alertes sur les portails</strong> ({ALERT_SENDER_LABELS.join(', ')}) avec
-        vos critères. Ce sont eux qui vous enverront les nouvelles annonces.
-      </li>
-      <li>
-        <strong>Dans votre boîte mail, ajoutez une règle de transfert</strong> vers l’adresse
-        ci-dessus, pour les messages venant de ces portails. Tous les fournisseurs le proposent —
-        cherchez « filtres » ou « règles » dans les réglages.
-      </li>
-      <li>
-        <strong>C’est tout.</strong> Les annonces apparaîtront ici au passage suivant du collecteur.
-        Nous ne vous demandons jamais le mot de passe de votre boîte, et nous ne lisons que ce que
-        vous nous faites suivre.
-      </li>
-    </ol>
+    <>
+      <ol className="mt-4 flex list-decimal flex-col gap-3 pl-5 text-[0.9rem]">
+        <li>
+          <strong>Sur chaque portail</strong> ({ALERT_SENDER_LABELS.join(', ')}),{' '}
+          <strong>créez une alerte avec vos critères</strong>.
+        </li>
+        <li>
+          <strong>Donnez-lui l’adresse ci-dessus</strong> comme adresse de réception. Les annonces
+          apparaîtront ici au passage suivant.
+        </li>
+      </ol>
+
+      <details className="text-muted-foreground mt-3 text-[0.85rem]">
+        <summary className="cursor-pointer">Vos alertes existent déjà ailleurs ?</summary>
+        <p className="mt-1.5">
+          Inutile de les refaire : dans votre boîte mail, ajoutez une règle qui fait suivre les
+          messages de ces portails vers l’adresse ci-dessus. Cherchez « filtres » ou « règles » dans
+          les réglages — tous les fournisseurs le proposent.
+        </p>
+      </details>
+
+      <p className="text-muted-foreground mt-3 text-[0.82rem]">
+        Nous ne vous demandons jamais le mot de passe de votre boîte, et nous ne lisons que ce qui
+        arrive à cette adresse.
+      </p>
+    </>
+  );
+}
+
+/** Le compte est la boîte lue : ses alertes entrent déjà, sans rien faire. */
+function NothingToDo(): React.JSX.Element {
+  return (
+    <div className="border-good/40 bg-good/10 mt-4 rounded-xl border p-3 text-[0.9rem]">
+      <p className="font-medium">Rien à faire : vos alertes arrivent déjà.</p>
+      <p className="text-muted-foreground mt-1">
+        Cette installation lit votre boîte directement — c’est la même adresse. Les alertes que les
+        portails vous envoient sont importées à chaque passage, sans règle de transfert ni adresse
+        particulière. L’adresse ci-dessous ne sert qu’à distinguer un autre compte du vôtre.
+      </p>
+    </div>
   );
 }
 
@@ -62,8 +95,12 @@ function Steps(): React.JSX.Element {
  * compte autant que la date : « 12 annonces » dit que la règle attrape la
  * bonne chose, là où une date seule pourrait n'être qu'un message isolé.
  */
-function Reception({ state }: { state: AlertForwarding }): React.JSX.Element {
+function Reception({ state }: { state: AlertForwarding }): React.JSX.Element | null {
   if (state.lastReceivedAt === null) {
+    // RIEN À DIRE quand le compte est lui-même la boîte lue : « aucune alerte
+    // reçue sur cette adresse » est vrai du sous-adressage et faux de ce qui
+    // compte — ses alertes entrent, simplement pas par là.
+    if (state.ownMailbox) return null;
     return (
       <p className="text-muted-foreground mt-2 text-[0.82rem]">
         Aucune alerte reçue à ce jour sur cette adresse. Si vous venez de poser la règle, elle
@@ -144,6 +181,8 @@ export function ForwardingPanel(): React.JSX.Element {
 
       {state !== undefined && state !== null && address !== null && (
         <>
+          {state.ownMailbox && <NothingToDo />}
+
           <div className="border-border bg-card mt-4 flex items-center gap-2 rounded-xl border p-3">
             <Mail aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
             {/* `select-all` : l'adresse se recopie d'un geste même quand le
@@ -177,7 +216,7 @@ export function ForwardingPanel(): React.JSX.Element {
             Changer d’adresse
           </Button>
 
-          <Steps />
+          {!state.ownMailbox && <Steps />}
 
           <ConfirmDialog
             open={confirming}
