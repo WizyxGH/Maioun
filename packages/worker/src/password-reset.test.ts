@@ -27,7 +27,13 @@ function fakeDb(users: Row[]): Client & { resets: Row[]; passwords: Row[] } {
       // `email_verified = 1` FAIT PARTIE DE LA REQUÊTE : le double doit
       // refuser ce que la vraie base refuse, sinon le test valide une règle
       // qui n'existe pas.
-      return users.filter((user) => user['login'] === args[0] && user['email_verified'] === 1);
+      // Identifiant OU adresse : les comptes créés depuis que l'adresse est
+      // l'identifiant n'ont pas de `login`, ceux d'avant en ont un.
+      return users.filter(
+        (user) =>
+          (user['login'] === args[0] || String(user['email'] ?? '').toLowerCase() === args[1]) &&
+          user['email_verified'] === 1,
+      );
     }
     if (sql.includes('SELECT user_id, expires_at, used_at FROM password_resets')) {
       return resets.filter((reset) => reset['token_hash'] === args[0]);
@@ -105,6 +111,18 @@ describe('jetons', () => {
 });
 
 describe('openReset', () => {
+  /**
+   * L'ADRESSE EST DEVENUE L'IDENTIFIANT : c'est elle qu'on retient, et c'est
+   * donc elle qu'on tape quand on a oublié son mot de passe. Un compte créé
+   * depuis n'a d'ailleurs plus de `login` du tout — exiger l'identifiant lui
+   * fermerait la porte définitivement.
+   */
+  it('accepte l’adresse aussi bien que l’identifiant', async () => {
+    const db = fakeDb(USERS);
+    const parAdresse = await openReset(db, 'Florian@example.invalid', NOW);
+    expect(parAdresse?.email).toBe('florian@example.invalid');
+  });
+
   it('ouvre une demande pour un compte connu et adressable', async () => {
     const db = fakeDb(USERS);
     const pending = await openReset(db, 'florian', NOW);

@@ -34,6 +34,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-09-08-adresse',
+    date: '2026-09-08',
+    title: 'Votre adresse e-mail suffit',
+    body: 'L’inscription ne demande plus d’identifiant à inventer : votre adresse en tient lieu. Vous pouvez maintenant vous connecter avec l’une ou l’autre. Et l’adresse du compte se change enfin, dans Paramètres — jusqu’ici elle était figée à l’inscription, ce qui privait de « mot de passe oublié » quiconque s’était trompé en la saisissant.',
+  },
+  {
+    id: '2026-09-08-alertes',
+    date: '2026-09-08',
+    title: 'Les alertes des portails disent si elles arrivent',
+    body: 'L’écran des alertes affiche la date de la dernière reçue et combien d’annonces elles ont apportées — une règle de transfert mal réglée ne produisait jusqu’ici aucun signe. Un bouton permet aussi de changer d’adresse de transfert si la vôtre a fuité.',
+  },
+  {
     id: '2026-09-05-mdp',
     date: '2026-09-05',
     title: 'Un mot de passe oublié ne perd plus le compte',

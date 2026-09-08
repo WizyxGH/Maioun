@@ -115,8 +115,13 @@ export async function openReset(
   // qu'elle appartient à celui qui l'a tapée. Écrire à une adresse non prouvée,
   // c'est offrir le compte à qui a saisi l'adresse d'un autre.
   const found = await db.execute({
-    sql: 'SELECT id, email FROM users WHERE login = ? AND email_verified = 1 LIMIT 1',
-    args: [login.trim()],
+    // Identifiant OU adresse, comme à la connexion : l'adresse est désormais
+    // ce qu'on crée, et c'est aussi ce dont on se souvient quand on a oublié
+    // son mot de passe. Exiger l'identifiant fermerait la porte aux comptes
+    // qui n'en ont pas.
+    sql: `SELECT id, email FROM users
+          WHERE (login = ? OR lower(email) = ?) AND email_verified = 1 LIMIT 1`,
+    args: [login.trim(), login.trim().toLowerCase()],
   });
   const row = found.rows[0];
   const userId = row?.['id'];

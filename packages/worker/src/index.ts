@@ -163,8 +163,12 @@ async function login(db: Client, request: Request, env: Env, cors: Record<string
   }
 
   const found = await db.execute({
-    sql: 'SELECT id, password_hash FROM users WHERE login = ?',
-    args: [identifiant],
+    // L'UN OU L'AUTRE. Les comptes créés depuis que l'adresse est l'identifiant
+    // n'ont pas de `login` ; ceux d'avant en ont un et doivent continuer
+    // d'entrer avec. La casse de l'adresse ne doit rien changer — on ne se
+    // souvient pas d'avoir tapé une majuscule.
+    sql: 'SELECT id, password_hash FROM users WHERE login = ? OR lower(email) = ?',
+    args: [identifiant, identifiant.toLowerCase()],
   });
   const row = found.rows[0];
   const stored = typeof row?.['password_hash'] === 'string' ? row['password_hash'] : DUMMY_HASH;
@@ -340,15 +344,13 @@ async function signup(
   }
 
   const body = (await request.json().catch(() => ({}))) as {
-    login?: unknown;
     email?: unknown;
     password?: unknown;
   };
-  const login = typeof body.login === 'string' ? body.login : '';
   const email = typeof body.email === 'string' ? body.email : '';
   const password = typeof body.password === 'string' ? body.password : '';
 
-  const created = await createAccount(db, { login, email, password }, Date.now());
+  const created = await createAccount(db, { email, password }, Date.now());
   if (!created.ok) return json({ error: signupProblemMessage(created.problem) }, cors, 400);
 
   // LE MESSAGE EST SECONDAIRE, le compte existe déjà. Un envoi impossible —

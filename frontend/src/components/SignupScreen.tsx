@@ -36,7 +36,6 @@ export function SignupScreen({
   readonly onSignedIn: () => void;
   readonly onBack: () => void;
 }): React.JSX.Element {
-  const [login, setLogin] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
@@ -47,7 +46,7 @@ export function SignupScreen({
   const submit = async (): Promise<void> => {
     setBusy(true);
     setError(null);
-    const outcome = await signup({ login, email, password });
+    const outcome = await signup({ email, password });
     setBusy(false);
     if (outcome.ok) {
       setCreated({ confirmationSent: outcome.confirmationSent });
@@ -105,32 +104,18 @@ export function SignupScreen({
           }}
         >
           <label className="flex flex-col gap-1">
-            <span className="text-[0.85rem] font-medium">Identifiant</span>
-            <Input
-              type="text"
-              value={login}
-              autoComplete="username"
-              autoFocus
-              onChange={(event) => setLogin(event.target.value)}
-              className="w-full text-base"
-            />
-            <span className="text-muted-foreground text-[0.78rem]">
-              3 à 32 caractères, sans espace ni accent. C’est lui qui vous connectera.
-            </span>
-          </label>
-
-          <label className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-medium">Adresse e-mail</span>
             <Input
               type="email"
               value={email}
               autoComplete="email"
+              autoFocus
               onChange={(event) => setEmail(event.target.value)}
               className="w-full text-base"
             />
             <span className="text-muted-foreground text-[0.78rem]">
-              Le seul moyen de récupérer votre compte si vous oubliez votre mot de passe. Elle ne
-              sert qu’à cela.
+              C’est elle qui vous connectera, et le seul moyen de récupérer votre compte si vous
+              oubliez votre mot de passe.
             </span>
           </label>
 
@@ -169,10 +154,7 @@ export function SignupScreen({
             </p>
           )}
 
-          <Button
-            type="submit"
-            disabled={busy || login.trim() === '' || email.trim() === '' || password === ''}
-          >
+          <Button type="submit" disabled={busy || email.trim() === '' || password === ''}>
             <UserPlus aria-hidden="true" className="size-4" />
             {busy ? 'Création…' : 'Créer mon compte'}
           </Button>
