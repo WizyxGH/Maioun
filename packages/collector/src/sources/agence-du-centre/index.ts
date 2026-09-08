@@ -12,5 +12,7 @@ export const agenceDuCentreScraper = makeHektorScraper({
   id: 'agence-du-centre',
   name: 'Agence du Centre',
   domain: 'agenceducentrenice.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://www.agenceducentrenice.com/images/favicon.png',
   listUrls: ['https://www.agenceducentrenice.com/location/1'],
 });

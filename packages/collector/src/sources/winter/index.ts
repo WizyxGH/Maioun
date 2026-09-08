@@ -20,6 +20,8 @@ export const WINTER_DESCRIPTOR: SourceDescriptor = {
   id: 'winter',
   name: 'Winter Immobilier',
   domain: 'agence-winter.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://www.agence-winter.com/favicons/favicon.ico',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

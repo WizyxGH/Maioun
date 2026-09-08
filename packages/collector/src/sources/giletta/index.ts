@@ -14,6 +14,8 @@ export const gilettaScraper = makeHektorScraper({
   id: 'giletta',
   name: 'Giletta Immobilier',
   domain: 'giletta-properties.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://www.giletta-properties.com/images/favicon.png',
   listUrls: [
     'https://www.giletta-properties.com/location/1',
     'https://www.giletta-properties.com/location/2',

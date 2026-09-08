@@ -69,11 +69,15 @@ export function sameAgency(a: string, b: string): boolean {
  * et celui de la source doivent désigner la même maison. Dans le doute, l'icône
  * neutre (§17).
  */
-export function agencyDomain(sources: readonly string[], name: string): string | null {
+export function agencyLogoUrl(sources: readonly string[], name: string): string | null {
   for (const sourceId of sources) {
     const source = SOURCES[sourceId];
     if (source?.domain === undefined || source.domain === null) continue;
-    if (sameAgency(source.name, name)) return source.domain;
+    if (!sameAgency(source.name, name)) continue;
+    // L ADRESSE DECLAREE D ABORD. Neuf agences sur trente-sept ne servent rien
+    // a /favicon.ico : elles pointaient vers une image inexistante, et l ecran
+    // retombait sur l icone neutre alors que leur logo est public.
+    return source.logo ?? `https://${source.domain}/favicon.ico`;
   }
   return null;
 }
@@ -87,18 +91,18 @@ export function AgencyLogo({
   readonly name: string;
   readonly className?: string;
 }): React.JSX.Element {
-  const domain = agencyDomain(sources, name);
+  const logo = agencyLogoUrl(sources, name);
   // Une image qui ne charge pas laisserait un carré vide, plus laid que
   // l'icône qu'elle remplace : on repasse à celle-ci.
   const [broken, setBroken] = useState(false);
 
-  if (domain === null || broken) {
+  if (logo === null || broken) {
     return <Agency aria-hidden="true" className={`text-muted-foreground shrink-0 ${className}`} />;
   }
 
   return (
     <img
-      src={`https://${domain}/favicon.ico`}
+      src={logo}
       alt=""
       aria-hidden="true"
       loading="lazy"

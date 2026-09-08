@@ -15,5 +15,7 @@ export const immoSudScraper = makeHektorScraper({
   id: 'immo-sud',
   name: 'Immo-Sud Nice',
   domain: 'agenceimmosud.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://www.agenceimmosud.com/images/favicon.png',
   listUrls: ['https://www.agenceimmosud.com/location/1-nice/appartement/1'],
 });

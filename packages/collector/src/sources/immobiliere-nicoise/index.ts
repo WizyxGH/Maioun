@@ -23,5 +23,7 @@ export const immobiliereNicoiseScraper = makeHektorScraper({
   id: 'immobiliere-nicoise',
   name: "L'Immobilière Niçoise",
   domain: 'immobiliere-nicoise.com',
+  // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
+  logo: 'https://www.immobiliere-nicoise.com/images/favicon.png',
   listUrls: ['https://www.immobiliere-nicoise.com/location/1'],
 });
