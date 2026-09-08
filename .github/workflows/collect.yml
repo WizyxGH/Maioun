@@ -105,6 +105,12 @@ jobs:
           IMAP_HOST: ${{ vars.IMAP_HOST }}
           IMAP_MAILBOX: ${{ vars.IMAP_MAILBOX }}
 
+          # Le MÊME gabarit que le Worker (§6). Le Worker MONTRE l'adresse à
+          # chaque compte ; le collecteur s'en sert pour ROUTER ce qui arrive.
+          # Configuré d'un seul côté, l'écran affiche une adresse dont les
+          # messages n'appartiendraient à personne.
+          ALERT_ADDRESS_TEMPLATE: ${{ vars.ALERT_ADDRESS_TEMPLATE }}
+
           # Identification honnête du collecteur (§10).
           COLLECTOR_USER_AGENT: ${{ vars.COLLECTOR_USER_AGENT }}
 

@@ -86,7 +86,25 @@ export function forwardingToken(recipients: readonly string[], template: string)
   return null;
 }
 
-/** `true` si ce message peut entrer dans la base commune. */
-export function acceptsRecipients(recipients: readonly string[], template: string): boolean {
-  return template.trim() === '' || forwardingToken(recipients, template) !== null;
+/**
+ * `true` si ce message peut entrer dans la base commune.
+ *
+ * Trois cas : gabarit non configuré (on n'exige rien), jeton reconnu (le
+ * message est attribué à son compte), ou message adressé à la BOÎTE ELLE-MÊME.
+ *
+ * Ce dernier cas est ce qui rend le gabarit posable sans rien casser : les
+ * alertes déjà configurées chez les portails visent l'adresse simple, et les
+ * couper le jour où l'on renseigne le gabarit ferait disparaître la source
+ * sans que rien ne le dise. Elles entrent donc comme avant, sans jeton, donc
+ * sans être attribuées — le temps de repointer les portails.
+ */
+export function acceptsRecipients(
+  recipients: readonly string[],
+  template: string,
+  mailbox = '',
+): boolean {
+  if (template.trim() === '') return true;
+  if (forwardingToken(recipients, template) !== null) return true;
+  const own = mailbox.trim().toLowerCase();
+  return own !== '' && recipients.some((address) => address.trim().toLowerCase() === own);
 }

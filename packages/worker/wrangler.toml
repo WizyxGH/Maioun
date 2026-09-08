@@ -27,7 +27,7 @@ ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 # Laissée vide, l'écran des réglages dit que la fonctionnalité n'est pas
 # configurée au lieu d'afficher une adresse vers laquelle les alertes se
 # perdraient en silence (§17).
-ALERT_ADDRESS_TEMPLATE = ""
+ALERT_ADDRESS_TEMPLATE = "floriangertner0+{token}@gmail.com"
 
 # --- Mot de passe oublié (§26) ------------------------------------------------
 #
