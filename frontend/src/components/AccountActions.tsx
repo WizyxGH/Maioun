@@ -49,8 +49,12 @@ const SEND_MESSAGE: Readonly<Record<SendOutcome, string>> = {
   sent: 'Un lien de confirmation vient de partir vers cette adresse.',
   unconfigured:
     'Adresse enregistrée, mais l’envoi d’e-mails n’est pas configuré sur cette installation : aucun lien ne partira.',
+  // ON NE DEVINE PLUS LA CAUSE. Ce message affirmait un domaine non vérifié ;
+  // le journal du Worker a montré tout autre chose — « API key is invalid ».
+  // Nommer une cause fausse envoie chercher le problème là où il n est pas
+  // (§17) : on dit ce qu on sait, et où lire le reste.
   refused:
-    'Adresse enregistrée, mais le service d’envoi a refusé le message. C’est le cas si l’expéditeur n’a pas de domaine vérifié : il ne peut alors écrire qu’à l’adresse du compte qui l’héberge.',
+    'Adresse enregistrée, mais le service d’envoi a refusé le message. La raison exacte est dans le journal du serveur.',
   unreachable:
     'Adresse enregistrée, mais le service d’envoi n’a pas répondu. Réessayez dans un instant.',
 };
