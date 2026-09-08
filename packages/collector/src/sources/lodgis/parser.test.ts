@@ -88,6 +88,12 @@ describe('parseDetail (Lodgis)', () => {
     expect(detail?.imageUrls?.some((url) => url.includes('sejour-G11'))).toBe(false);
   });
 
+  it('lit le nombre de pièces, que la carte ne comptait pas', () => {
+    // La carte titre « Appartement meublé 1 chambre » : la fiche s'affichait
+    // « 1 chambre — · 65 m² », ce tiret étant les pièces manquantes.
+    expect(detail?.roomsText).toBe('2 pièces dont 1 chambre');
+  });
+
   it('ne conclut rien d’une page sans description ni photo (§17)', () => {
     expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
   });
