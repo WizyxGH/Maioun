@@ -519,3 +519,63 @@ describe('similarité — la photo', () => {
     expect(vide.signals.map((s) => s.code)).not.toContain('image');
   });
 });
+
+/**
+ * LES CLICHÉS DE CATALOGUE, et pourquoi ils coûtaient si cher.
+ *
+ * Une agence illustre volontiers dix biens avec la même photo de façade ou de
+ * hall. Retrouver ce fichier ailleurs ne dit pas « le même logement » mais
+ * « la même agence » — et comme la photo pèse plus qu'aucun autre signal, deux
+ * appartements distincts finissaient par n'en faire qu'un.
+ *
+ * Mesuré sur l'inventaire du 2026-09-09 : 183 photos reliaient des fiches
+ * restées séparées, aux prix et surfaces divergents. La règle en écarte 111,
+ * sans perdre aucun des 39 clichés qui rapprochaient réellement deux sources.
+ */
+describe('photos génériques', () => {
+  const FACADE = 'https://cdn.invalid/agence/facade.jpg';
+  const VRAIE = 'https://cdn.invalid/biens/interieur-42.jpg';
+
+  it('ignore une photo qu’une même source pose sur plusieurs annonces', () => {
+    // Trois biens de la même agence, tous illustrés par la façade. Le T3 et le
+    // studio du portail ne sont PAS le même logement.
+    const groups = dedupe([
+      listing({ id: 'agence:1', sourceId: 'agence', price: 900, area: 60, imageUrls: [FACADE] }),
+      listing({ id: 'agence:2', sourceId: 'agence', price: 500, area: 20, imageUrls: [FACADE] }),
+      listing({ id: 'portail:9', sourceId: 'portail', price: 900, area: 60, imageUrls: [FACADE] }),
+    ]).groups;
+
+    // Sans la règle, la façade valait 45 points et suffisait, avec la
+    // concordance prix/surface, à fusionner agence:1 et portail:9 — mais elle
+    // aurait aussi rapproché agence:2, un studio de 20 m².
+    const avecStudio = groups.find((g) => g.occurrences.some((o) => o.id === 'agence:2'));
+    expect(avecStudio?.occurrences).toHaveLength(1);
+  });
+
+  it('garde une photo qui n’illustre qu’UN bien par source', () => {
+    // Le cas utile : le même fichier chez l'agence et chez le portail qui la
+    // relaie. C'est le signal qu'on ne doit surtout pas perdre.
+    const groups = dedupe([
+      listing({ id: 'agence:1', sourceId: 'agence', price: 900, area: 60, imageUrls: [VRAIE] }),
+      listing({ id: 'portail:9', sourceId: 'portail', price: 900, area: 60, imageUrls: [VRAIE] }),
+    ]).groups;
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.occurrences).toHaveLength(2);
+  });
+
+  it('ne disqualifie pas une photo sur le seul fait qu’un doublon la partage', () => {
+    // LE PIÈGE ÉVITÉ. Compter les annonces toutes sources confondues se
+    // saborderait : un vrai doublon partage sa photo, elle apparaîtrait donc
+    // deux fois et serait écartée comme un cliché de catalogue. On compte
+    // DANS UNE SOURCE, où un bien n'a qu'une annonce.
+    const groups = dedupe([
+      listing({ id: 'a:1', sourceId: 'a', price: 700, area: 30, imageUrls: [VRAIE] }),
+      listing({ id: 'b:1', sourceId: 'b', price: 700, area: 30, imageUrls: [VRAIE] }),
+      listing({ id: 'c:1', sourceId: 'c', price: 700, area: 30, imageUrls: [VRAIE] }),
+    ]).groups;
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.occurrences).toHaveLength(3);
+  });
+});
