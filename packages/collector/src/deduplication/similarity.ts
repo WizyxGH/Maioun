@@ -133,7 +133,7 @@ function findBlocker(a: NormalizedListing, b: NormalizedListing): string | null 
  * MÊME fichier ne se ressemblent pas caractère pour caractère. On ne garde donc
  * que l'hôte et le chemin.
  */
-function imageIdentity(url: string): string | null {
+export function imageIdentity(url: string): string | null {
   try {
     const parsed = new URL(url);
     return `${parsed.host}${parsed.pathname}`;
@@ -159,13 +159,16 @@ function sharesImage(
   a: NormalizedListing,
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean,
+  stockPhotos: ReadonlySet<string>,
 ): boolean {
   if (a.sourceId === b.sourceId && !relaysListings(a.sourceId)) return false;
-  const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
+  const left = new Set(
+    a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null && !stockPhotos.has(x)),
+  );
   if (left.size === 0) return false;
   return b.imageUrls.some((url) => {
     const identity = imageIdentity(url);
-    return identity !== null && left.has(identity);
+    return identity !== null && !stockPhotos.has(identity) && left.has(identity);
   });
 }
 
@@ -174,11 +177,12 @@ function collectStrongSignals(
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
   relaysListings: (sourceId: string) => boolean,
+  stockPhotos: ReadonlySet<string>,
 ): void {
-  // Une PHOTO commune entre deux sources est le signal le plus sûr dont on
-  // dispose, et il est gratuit : on compare des URL déjà collectées, sans
-  // télécharger d'image.
-  if (sharesImage(a, b, relaysListings)) {
+  // Une PHOTO commune entre deux sources reste le signal le plus fort, et il
+  // est gratuit : on compare des URL déjà collectées, sans télécharger
+  // d'image. Les clichés de catalogue en sont exclus — voir `stockPhotos`.
+  if (sharesImage(a, b, relaysListings, stockPhotos)) {
     push({ code: 'image', label: 'photo identique', points: 45 });
   }
 
@@ -359,6 +363,11 @@ export function similarity(
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean = () => false,
   operatorOf: (sourceId: string) => string | null = () => null,
+  /**
+   * Les photos qui n'identifient RIEN : celles qu'une même source pose sur
+   * plusieurs annonces. Vide par défaut, hypothèse la plus prudente.
+   */
+  stockPhotos: ReadonlySet<string> = new Set(),
 ): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
@@ -380,7 +389,7 @@ export function similarity(
     signals.push(signal);
   };
 
-  collectStrongSignals(a, b, push, relaysListings);
+  collectStrongSignals(a, b, push, relaysListings, stockPhotos);
   collectMediumSignals(a, b, push);
 
   /**

@@ -11,7 +11,7 @@
 
 import type { NormalizedListing } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
-import { similarity, type SimilarityResult } from './similarity.js';
+import { imageIdentity, similarity, type SimilarityResult } from './similarity.js';
 
 /** Groupe d'occurrences désignant le même logement. */
 export interface DuplicateGroup {
@@ -152,6 +152,8 @@ interface CompareContext {
   readonly mergeAmbiguous: boolean;
   readonly relaysListings: (sourceId: string) => boolean;
   readonly operatorOf: (sourceId: string) => string | null;
+  /** Photos génériques, sans valeur d’identification. */
+  readonly stockPhotos: ReadonlySet<string>;
 }
 
 /**
@@ -168,7 +170,7 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
   const right = ctx.byId.get(rightId);
   if (left === undefined || right === undefined) return 0;
 
-  const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf);
+  const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf, ctx.stockPhotos);
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
     ctx.unionFind.union(leftId, rightId);
   } else if (result.verdict === 'ambiguous') {
@@ -196,11 +198,48 @@ function comparePairsInBucket(bucket: readonly string[], ctx: CompareContext): n
 }
 
 /** Regroupe un lot d'occurrences en logements uniques. */
+/**
+ * Les photos qui n’identifient RIEN : celles qu’une même source pose sur
+ * PLUSIEURS de ses annonces.
+ *
+ * Une agence illustre volontiers une dizaine de biens avec le même cliché de
+ * façade ou de hall. Retrouver ce fichier ailleurs ne dit alors pas « le même
+ * logement », mais « la même agence » — et la photo pesant plus qu’aucun autre
+ * signal, deux appartements distincts finissaient par n’en faire qu’un.
+ *
+ * ON COMPTE PAR SOURCE, ET C’EST CE QUI REND LA RÈGLE UTILISABLE. Compter sur
+ * l’ensemble se saborderait : un vrai doublon partage sa photo, elle
+ * apparaîtrait donc deux fois et serait écartée comme un cliché de catalogue.
+ * Au sein d’UNE source, en revanche, un bien n’a qu’une annonce : une photo
+ * qui en illustre deux est forcément générique.
+ *
+ * Mesuré sur l’inventaire du 2026-09-09 : 183 photos reliaient des fiches
+ * restées séparées, aux prix et surfaces divergents — donc des biens
+ * différents. Cette règle en écarte 111, et n’en perd aucun des 39 clichés qui
+ * servaient réellement à rapprocher deux sources.
+ */
+function stockPhotosIn(listings: readonly NormalizedListing[]): ReadonlySet<string> {
+  const parSource = new Map<string, Set<string>>();
+  const stock = new Set<string>();
+  for (const listing of listings) {
+    for (const url of new Set(listing.imageUrls)) {
+      const identity = imageIdentity(url);
+      if (identity === null) continue;
+      const cle = `${listing.sourceId}|${identity}`;
+      const vues = parSource.get(cle);
+      if (vues === undefined) parSource.set(cle, new Set([listing.id]));
+      else if (!vues.has(listing.id)) stock.add(identity);
+    }
+  }
+  return stock;
+}
+
 export function dedupe(
   listings: readonly NormalizedListing[],
   options: DedupeOptions = {},
 ): DedupeResult {
   const byId = new Map(listings.map((listing) => [listing.id, listing]));
+  const stockPhotos = stockPhotosIn(listings);
   const unionFind = new UnionFind();
   for (const listing of listings) unionFind.add(listing.id);
 
@@ -216,6 +255,7 @@ export function dedupe(
 
   const ctx: CompareContext = {
     byId,
+    stockPhotos,
     unionFind,
     comparedPairs: new Set<string>(),
     ambiguousByRoot: new Map<string, AmbiguousPair[]>(),
