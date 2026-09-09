@@ -62,7 +62,17 @@ export async function enrichNewListings(
 
   for (const listing of listings) {
     if (budget <= 0 || context.shouldStop()) break;
-    if (context.isKnown(listing.sourceRef)) continue;
+    /**
+     * UNE ANNONCE DÉJÀ CONNUE GARDAIT SA DESCRIPTION TRONQUÉE À VIE. Elle
+     * n'était visitée qu'au jour de sa découverte ; celles collectées avant
+     * que la source ne visite les fiches n'avaient donc aucune chance de
+     * s'enrichir, et le stock existant restait à la demi-phrase de la liste.
+     *
+     * Le rattrapage les reprend — c'est exactement ce pour quoi il existe, et
+     * il demande déjà une intention explicite : l'argument `--backfill` ET
+     * l'autorisation d'environnement (§8). En marche courante, rien ne change.
+     */
+    if (context.isKnown(listing.sourceRef) && context.mode !== 'backfill') continue;
     const url = options.detailUrl(listing);
     if (url === null) continue;
 

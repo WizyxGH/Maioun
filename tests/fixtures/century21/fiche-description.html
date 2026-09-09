@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <body>
+    <!--
+      Extrait d'une fiche century21.fr, relevé le 2026-09-08 et réduit au bloc
+      « Description ». La structure et le texte sont ceux du site ; seuls le
+      téléphone et l'adresse e-mail ont été remplacés par des valeurs
+      d'exemple (§26).
+
+      LE BLOC PORTE DEUX VERSIONS, française et anglaise, dans deux `span`
+      qu'un script montre à tour de rôle. La française est celle qui s'affiche
+      au chargement (`x-show="!show"`). Les lire toutes les deux donnerait une
+      description bilingue, deux fois plus longue et à moitié inutile.
+    -->
+    <section class="c-the-property-detail-description" data-is-for-carto="0">
+      <h2 class="c-text-theme-heading-2 tw-mb-5 has-line-on-right">Description</h2>
+      <div class="has-formated-text md:tw-pl-9">
+        <div x-data="{ show: false }">
+          <span class="tw-w-3 tw-h-3 tw-cursor-pointer" @click="show = !show" data-lang-1=".desc-fr" data-lang-2=".desc-uk">
+            <svg xmlns="http://www.w3.org/2000/svg" width="35" height="18"></svg>
+            <span x-show="!show">
+              Nice EST  - 23 boulevard saint Roch<br>Appartement de 2/3 pièces loué vide, en location longue durée, disponible immédiatement.<br>L'appartement se compose d'un couloir d'entrée desservant une cuisine indépendante aménagée et partiellement équipée, un salon, 2 chambres dont une de moins de 9 m², un toilette séparé et une salle de douches.<br>A visiter sans tarder!<br>CONTACT : 06 00 00 00 01<br>POUR CANDIDATER A UNE VISITE, merci de bien vouloir nous adresser par email votre dossier locataire (Cf liste des documents en dernière photo) à l'adresse email suivante : gestion@example.invalid
+            </span>
+            <span x-show="show">  Nice EAST - 23 boulevard saint Roch<br>1/2 bedroom apartment rented empty, for long term rental, available immediately.<br>The apartment consists of an entrance hall leading to a fitted and partially equipped independent kitchen, a living room, 2 bedrooms, one of which is less than 9 m², a separate toilet and a shower room.<br>The apartment has just been completely repainted and the kitchen is new.<br>To visit without delay!  </span>
+          </span>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

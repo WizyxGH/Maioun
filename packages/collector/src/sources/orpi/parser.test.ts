@@ -6,6 +6,7 @@ import {
   extractAreaText,
   extractPriceText,
   extractRoomsText,
+  parseDetail,
   parseEulerianData,
   parseListingUrl,
   parseSearchPage,
@@ -223,5 +224,38 @@ describe('parseSearchPage — page entièrement sans prix (§61)', () => {
     const page = parseSearchPage(stripped, PAGE_URL);
     expect(page.listings.length).toBeGreaterThan(0);
     expect(page.warnings.some((w) => w.includes('structure probablement modifiée'))).toBe(true);
+  });
+});
+
+describe('parseDetail — la description entière, lue sur la fiche', () => {
+  const fiche = readFileSync(
+    join(import.meta.dirname, '../../../../../tests/fixtures/orpi/fiche-description.html'),
+    'utf8',
+  );
+
+  it('rend bien plus que les 152 caractères auxquels la carte coupe', () => {
+    const description = parseDetail(fiche)?.description ?? '';
+    expect(description.length).toBeGreaterThan(600);
+  });
+
+  it('garde l’adresse de rue, que la liste ne donne jamais', () => {
+    // Elle seule permet de placer le bien sur la carte (§20) et de le
+    // reconnaître sur une autre source (§14).
+    expect(parseDetail(fiche)?.description).toContain('22bis BOULEVARD MONTREAL');
+  });
+
+  it('garde les conditions de revenu, absentes de la carte', () => {
+    const description = parseDetail(fiche)?.description ?? '';
+    expect(description).toContain('Revenu minimum');
+    expect(description).toContain("CDI hors période d'essai");
+  });
+
+  it('sépare les lignes marquées par un <br>', () => {
+    expect(parseDetail(fiche)?.description).toContain('\n');
+  });
+
+  it('rend null quand la fiche ne porte pas le bloc attendu (§17)', () => {
+    expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
+    expect(parseDetail('<div class="s-cms"></div>')).toBeNull();
   });
 });
