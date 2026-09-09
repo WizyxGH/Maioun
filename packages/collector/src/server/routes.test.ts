@@ -248,3 +248,52 @@ describe('consultation sans compte', () => {
     expect(executed.join(' ')).not.toContain('"moi"');
   });
 });
+
+/**
+ * L'HISTORIQUE DES NOTIFICATIONS S'ARRÊTAIT NET, sans erreur.
+ *
+ * La requête ajoutait `us.notified_at AS notified_at` à un `listings.*` qui
+ * apporte déjà une colonne de ce nom. Deux homonymes dans un même résultat :
+ * c'est la première qui l'emporte, donc celle de `listings`, figée au jour de
+ * la bascule multi-compte. Toute annonce signalée depuis revenait à `null`, et
+ * l'écran — qui ne garde que les fiches portant cette date — affichait un
+ * historique arrêté trois jours plus tôt.
+ */
+describe('date de notification — celle du compte, pas celle d’avant', () => {
+  it('préfère la valeur du compte à la colonne héritée', () => {
+    const listing = rowToListing({
+      id: 'fnaim:1',
+      payload: '{}',
+      notified_at: '2026-09-06T22:53:50.379Z',
+      user_notified_at: '2026-09-09T11:24:35.914Z',
+    });
+    expect(listing['notifiedAt']).toBe('2026-09-09T11:24:35.914Z');
+  });
+
+  it('rend la date du compte même quand l’héritée est vide', () => {
+    // Le cas qui cassait : signalée après la bascule, donc absente de
+    // `listings.notified_at`.
+    const listing = rowToListing({
+      id: 'fnaim:2',
+      payload: '{}',
+      notified_at: null,
+      user_notified_at: '2026-09-08T12:02:05.135Z',
+    });
+    expect(listing['notifiedAt']).toBe('2026-09-08T12:02:05.135Z');
+  });
+
+  it('retombe sur l’héritée pour les fiches d’avant la bascule', () => {
+    // Leur état personnel n'a pas été recopié : sans ce repli, leur historique
+    // disparaîtrait de l'écran.
+    const listing = rowToListing({
+      id: 'fnaim:3',
+      payload: '{}',
+      notified_at: '2026-09-01T08:00:00.000Z',
+    });
+    expect(listing['notifiedAt']).toBe('2026-09-01T08:00:00.000Z');
+  });
+
+  it('rend null quand aucune des deux n’existe', () => {
+    expect(rowToListing({ id: 'fnaim:4', payload: '{}' })['notifiedAt']).toBeNull();
+  });
+});

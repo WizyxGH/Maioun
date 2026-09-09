@@ -180,7 +180,15 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
      * silence. Les données fictives de la démonstration, elles, le portaient :
      * les scénarios end-to-end passaient donc, sur un historique bien rempli.
      */
-    notifiedAt: row['notified_at'] ?? null,
+    /**
+     * LA DATE DU COMPTE D'ABORD, celle de la fiche à défaut.
+     *
+     * `user_notified_at` vient de `listing_user_state` ; `notified_at` est la
+     * colonne d'avant le multi-compte, que la migration a laissée en place et
+     * qui ne bouge plus. Elle sert encore de repli pour les fiches signalées
+     * avant la bascule, dont l'état personnel n'a pas été recopié.
+     */
+    notifiedAt: row['user_notified_at'] ?? row['notified_at'] ?? null,
     goneNotifiedAt: row['gone_notified_at'] ?? null,
     remindedAt: row['reminded_at'] ?? null,
     ...payload,
@@ -197,9 +205,18 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
  *
  * D'où la jointure GAUCHE et les `COALESCE` : une annonce que vous n'avez
  * jamais touchée n'a pas de ligne, et vaut donc « ni vue, ni archivée, ni
- * favorite, statut nouveau ». Les colonnes de même nom sur `listings` sont
- * masquées par celles-ci — c'est voulu : elles ne servent plus qu'à la
- * collecte, qui ne connaît qu'un utilisateur.
+ * favorite, statut nouveau ».
+ *
+ * ATTENTION AUX HOMONYMES. Ce commentaire affirmait que les colonnes de même
+ * nom sur `listings` étaient « masquées par celles-ci ». C'était faux, et
+ * exactement l'inverse : deux colonnes du même nom dans un même résultat, et
+ * c'est la PREMIÈRE qui l'emporte à la lecture — donc celle de `listings`,
+ * figée au jour de la migration multi-compte.
+ *
+ * Toute annonce signalée depuis revenait avec `notified_at` à `null` : l'écran
+ * des notifications ne garde que les fiches qui portent cette date, il
+ * affichait donc un historique arrêté net, sans la moindre erreur pour le
+ * signaler. Les alias personnels portent depuis un préfixe qui leur est propre.
  */
 /**
  * L'état PERSONNEL et le SCORE personnel, joints ensemble.
@@ -231,8 +248,8 @@ const USER_STATE_COLUMNS = `listings.*,
   COALESCE(us.archived, 0) AS archived,
   COALESCE(us.favorite, 0) AS favorite,
   COALESCE(us.tracking, 'new') AS tracking,
-  COALESCE(us.notified, 0) AS notified,
-  us.notified_at AS notified_at,
+  COALESCE(us.notified, 0) AS user_notified,
+  us.notified_at AS user_notified_at,
   us.gone_notified_at AS gone_notified_at,
   us.reminded_at AS reminded_at,
   COALESCE(us.drafted, 0) AS drafted`;

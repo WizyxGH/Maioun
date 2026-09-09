@@ -809,6 +809,52 @@ const FEATURE_IN_STREET =
   /\b(terrasse|balcon|ascenseur|meubl[ée]e?|vide|r[ée]nov[ée]e?|climatis[ée]e?|calme|[ée]tage|pi[èe]ces?|vue mer|jardin|cave|piscine)\b/i;
 
 /** `true` si le segment fraîchement extrait est bien une voie, et rien de plus. */
+/**
+ * Au-delà de ce nombre de mots après le type de voie, on lit de la prose.
+ *
+ * « rue Hérold » en a un, « ROUTE DE TURIN » deux. Les noms plus longs
+ * existent — « rue du Maréchal de Lattre de Tassigny » — mais ce seuil ne sert
+ * QUE de rattrapage : sans lui ces adresses seraient perdues de toute façon.
+ */
+const MAX_STREET_NAME_WORDS = 3;
+
+/**
+ * L'adresse d'un candidat qui a mordu sur la phrase suivante, coupée net.
+ *
+ * L'extraction rejetait le tout dès qu'un mot de prose apparaissait, ce qui
+ * jetait l'adresse avec la phrase : « 36 rue Hérold studio vide dans résidence
+ * récente » ne rendait rien, alors que la voie est là, complète, en tête.
+ *
+ * On coupe donc AVANT le premier mot de prose et l'on revérifie. Le résultat
+ * n'est accepté que s'il ressemble encore à une adresse : un numéro, un type de
+ * voie, et un nom assez court pour en être un. « 1 rue de Orestis Très bel
+ * appartement » reste écarté — couper devant « appartement » laisserait
+ * « 1 rue de Orestis Très bel », et une rue fausse vaut moins que pas de rue.
+ *
+ * Ce chemin ne peut que RÉCUPÉRER : il ne s'emprunte que sur des candidats
+ * déjà refusés.
+ */
+function trimAtProse(candidate: string): string | null {
+  const prose = PROSE_AFTER_STREET.exec(candidate);
+  if (prose?.index === undefined || prose.index === 0) return null;
+
+  const trimmed = candidate
+    .slice(0, prose.index)
+    .trim()
+    .replace(/[,\s]+$/, '');
+  const kind = new RegExp(
+    `^\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+`,
+    'i',
+  );
+  const head = kind.exec(trimmed);
+  if (head === null) return null;
+
+  const name = trimmed.slice(head[0].length).trim();
+  if (name.length < 2) return null;
+  if (name.split(/\s+/).length > MAX_STREET_NAME_WORDS) return null;
+  return trimmed;
+}
+
 function isCleanStreet(candidate: string): boolean {
   return (
     !NOT_A_STREET.test(candidate) &&
@@ -1095,10 +1141,13 @@ export function extractStreetAddress(text: string | null | undefined): string | 
 
   const numbered = STREET_ADDRESS.exec(cleaned.slice(0, ADDRESS_HEAD));
   // Le même garde-fou que pour une voie sans numéro : quand la ponctuation
-  // manque, l'adresse mordait sur la phrase suivante — « 1 rue de Orestis Très
-  // bel appartement de ». Un numéro ne rachète pas une adresse fausse (§17).
-  if (numbered?.[1] !== undefined && isCleanStreet(numbered[1])) {
-    return cleanText(numbered[1]);
+  // manque, l'adresse mord sur la phrase suivante — « 1 rue de Orestis Très
+  // bel appartement de ». Un numéro ne rachète pas une adresse fausse.
+  if (numbered?.[1] !== undefined) {
+    if (isCleanStreet(numbered[1])) return cleanText(numbered[1]);
+    // Rattrapage : couper devant la prose plutôt que tout jeter avec elle.
+    const salvaged = trimAtProse(numbered[1]);
+    if (salvaged !== null && isCleanStreet(salvaged)) return cleanText(salvaged);
   }
 
   // Les segments sont découpés sur le texte ENTIER puis bornés par leur position
