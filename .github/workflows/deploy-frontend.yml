@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'landing/**'
       - 'packages/shared/**'
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
@@ -46,8 +47,12 @@ jobs:
       - name: Construire l'application
         run: pnpm --filter @maioun/frontend run build
         env:
-          # GitHub Pages sert le site depuis /<nom-du-depot>/.
-          BASE_PATH: /${{ github.event.repository.name }}/
+          # L'APPLICATION VIT SOUS /app/, la page de présentation à la racine.
+          # Consulter est libre : un visiteur arrive sur le pitch et entre dans
+          # la liste d'un clic, sans compte. Deux publics, deux poids — celui
+          # qui découvre le projet n'a pas à télécharger React et Leaflet pour
+          # lire trois paragraphes.
+          BASE_PATH: /${{ github.event.repository.name }}/app/
           VITE_API_URL: ${{ vars.API_URL }}
           # Clé PUBLIQUE du serveur de push : elle doit entrer dans le bundle,
           # sans quoi le navigateur ne peut pas s'abonner. Ce n'est pas un
@@ -73,9 +78,34 @@ jobs:
       # dans Settings → Pages → Source « GitHub Actions ».
       - uses: actions/configure-pages@v5
 
+      # LA PAGE DE PRÉSENTATION N'ÉTAIT PUBLIÉE NULLE PART. Elle existait,
+      # soignée, avec son tarif et ses garanties — et le déploiement ne montait
+      # que `frontend/dist`. Personne ne pouvait l'atteindre, et ses liens
+      # « Accéder » ne menaient qu'à une ancre de la page elle-même.
+      - name: Construire la page de présentation
+        run: pnpm --filter @maioun/landing run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      # LA RACINE D'ABORD, L'APPLICATION DEDANS. On assemble les deux sorties
+      # dans un seul dossier : la présentation à la racine, l'application sous
+      # `/app/`. Un seul artefact, un seul déploiement, une seule origine —
+      # donc rien à ajouter aux règles de cookies ni au CORS du Worker.
+      - name: Assembler le site publié
+        run: |
+          rm -rf site
+          cp -r landing/dist site
+          cp -r frontend/dist site/app
+          # ON VÉRIFIE QUE LES DEUX SONT LÀ. Une copie muette qui échoue
+          # publierait une racine sans application, ou l'inverse, et le
+          # déploiement passerait au vert.
+          test -f site/index.html || { echo "::error::page de présentation absente"; exit 1; }
+          test -f site/app/index.html || { echo "::error::application absente"; exit 1; }
+          find site -maxdepth 2 -name '*.html'
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/dist
+          path: site
 
   deploy:
     name: Déploiement

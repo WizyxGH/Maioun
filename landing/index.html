@@ -38,7 +38,7 @@
         <a href="#fonctionnement" class="hidden hover:underline sm:inline">Comment ça marche</a>
         <a href="#tarif" class="hidden hover:underline sm:inline">Tarif</a>
         <a
-          href="#acces"
+          href="app/"
           class="rounded-full bg-[var(--color-primary)] px-4 py-2 font-medium text-[var(--color-primary-foreground)]"
           >Accéder</a
         >
@@ -57,7 +57,7 @@
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-3">
           <a
-            href="#acces"
+            href="app/"
             class="rounded-full bg-[var(--color-primary)] px-6 py-3 font-medium text-[var(--color-primary-foreground)]"
             >Commencer</a
           >
@@ -192,19 +192,28 @@
       <section id="tarif" class="mx-auto max-w-5xl px-5 py-16">
         <h2 class="text-2xl font-bold tracking-tight">Tarif</h2>
         <p class="mt-2 max-w-xl text-[0.95rem] text-[var(--color-muted-foreground)]">
-          Une recherche de logement dure rarement plus de quelques mois. Le tarif suit ce rythme :
-          on paie pendant qu’on cherche.
+          Chercher ne coûte rien. Ce qui sera payant, c’est de candidater à votre place — et cette
+          option n’existe pas encore.
         </p>
 
-        <!-- LE PRIX N'EST ÉCRIT QU'ICI. Il n'est pas définitif : le répéter en
-          en-tête, dans le héros et dans le pied ferait quatre endroits à
-          corriger, et trois occasions d'en oublier un. -->
+        <!-- CETTE SECTION ANNONÇAIT « 50 € PAR MOIS » pour la liste ci-dessous.
+          Elle était vraie du modèle d'alors ; elle ne l'est plus. Consulter est
+          libre, le compte est gratuit, et la seule chose destinée à être payée
+          — la candidature automatisée — n'est pas construite.
+
+          ON N'ÉCRIT DONC PAS DE PRIX. En afficher un pour une fonctionnalité
+          qui n'existe pas serait une promesse, et en afficher un pour ce qui
+          est gratuit serait un mensonge (§17). Le montant s'écrira ici, à un
+          seul endroit, le jour où il sera arrêté. -->
         <div
           class="mt-6 max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-6"
         >
           <p class="flex items-baseline gap-1.5">
-            <span class="text-4xl font-bold tracking-tight">50 €</span>
-            <span class="text-[var(--color-muted-foreground)]">par mois</span>
+            <span class="text-4xl font-bold tracking-tight">Gratuit</span>
+          </p>
+          <p class="mt-1 text-[0.9rem] text-[var(--color-muted-foreground)]">
+            Un compte, lui aussi gratuit, est demandé pour ce qui vous appartient : vos favoris,
+            votre dossier, vos alertes.
           </p>
 
           <ul class="mt-5 flex flex-col gap-2.5 text-[0.95rem]">
@@ -214,11 +223,11 @@
             </li>
             <li class="flex gap-2.5">
               <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
-              <span>Alertes sur votre téléphone, application fermée</span>
+              <span>Doublons écartés, prix divergents signalés</span>
             </li>
             <li class="flex gap-2.5">
               <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
-              <span>Doublons écartés, prix divergents signalés</span>
+              <span>Alertes sur votre téléphone, application fermée</span>
             </li>
             <li class="flex gap-2.5">
               <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
@@ -231,26 +240,39 @@
           </ul>
 
           <a
-            href="#acces"
+            href="app/"
             class="mt-6 inline-block w-full rounded-full bg-[var(--color-primary)] px-6 py-3 text-center font-medium text-[var(--color-primary-foreground)]"
             >Commencer</a
           >
         </div>
+
+        <p class="mt-6 max-w-xl text-[0.9rem] text-[var(--color-muted-foreground)]">
+          Une option payante est prévue : préparer et déposer vos candidatures à votre place. Elle
+          n’est pas encore disponible, et son prix n’est pas fixé — il sera écrit ici quand il le
+          sera.
+        </p>
       </section>
 
       <!-- ACCÈS ------------------------------------------------------------ -->
       <section id="acces" class="border-t border-[var(--color-border)]">
         <div class="mx-auto max-w-5xl px-5 py-16">
-          <h2 class="text-2xl font-bold tracking-tight">Accéder à l’application</h2>
+          <h2 class="text-2xl font-bold tracking-tight">Voir les annonces</h2>
+          <!-- CETTE PAGE DISAIT LE CONTRAIRE, et c'était vrai à l'époque :
+            « l'accès se fait par identifiant et mot de passe, il n'y a pas
+            d'inscription libre ». Le modèle a changé sous elle. Consulter est
+            désormais libre, l'inscription aussi, et le compte ne sert qu'à ce
+            qui APPARTIENT à quelqu'un : ses favoris, son dossier, son suivi. -->
           <p class="mt-2 max-w-xl text-[0.95rem] text-[var(--color-muted-foreground)]">
-            L’application vit sur son propre sous-domaine. L’accès se fait par identifiant et mot de
-            passe : il n’y a pas d’inscription libre.
+            Sans compte, sans inscription : la liste s’ouvre directement. Un compte ne devient
+            nécessaire que pour garder une annonce en favori, déposer votre dossier ou suivre vos
+            démarches — ces choses-là vous appartiennent, il faut savoir à qui.
           </p>
-          <!-- L'adresse définitive n'existe pas encore : le lien est
-            volontairement laissé à `#`, plutôt que de pointer vers un domaine
-            qui renverrait une erreur. -->
+          <!-- RELATIF, ET NON ABSOLU. L'application est publiée sous `/app/`
+            du même site : un chemin relatif suit le dépôt où qu'il soit
+            hébergé, là où une adresse en dur casserait au premier changement
+            de domaine — celui-là même qui approche. -->
           <a
-            href="#"
+            href="app/"
             class="mt-6 inline-block rounded-full bg-[var(--color-primary)] px-6 py-3 font-medium text-[var(--color-primary-foreground)]"
             >Ouvrir Maïoun</a
           >
