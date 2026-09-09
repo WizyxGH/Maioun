@@ -185,7 +185,7 @@ async function notifyOne(deps: {
     return;
   }
 
-  const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/';
+  const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/app/';
   const common = { repository, config: vapid, siteUrl, logger, userId };
   /** Ce qui est RÉELLEMENT parti : sans envoi, la fenêtre ne se referme pas. */
   let sentAnything = false;

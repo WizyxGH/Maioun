@@ -56,8 +56,12 @@ ALERT_ADDRESS_TEMPLATE = "floriangertner0+{token}@gmail.com"
 
 # --- Mot de passe oublié (§26) ------------------------------------------------
 #
-# Adresse publique du site : c'est elle qui compose le lien de réinitialisation.
-SITE_URL = "https://wizyxgh.github.io/RentFinder/"
+# Adresse publique de l'APPLICATION — pas celle de la page de présentation.
+# C'est elle qui compose les liens de réinitialisation et de confirmation :
+# envoyés vers la racine, ils déposeraient les gens sur le pitch, sans le jeton
+# que l'application attend dans son adresse. Depuis que la présentation occupe
+# la racine, l'application vit sous `/app/`.
+SITE_URL = "https://wizyxgh.github.io/RentFinder/app/"
 
 # Expéditeur des messages. La CLÉ d'API, elle, est un secret et se dépose à part :
 #

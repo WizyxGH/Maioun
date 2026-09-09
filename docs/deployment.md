@@ -371,7 +371,7 @@ npx wrangler secret put EMAIL_API_KEY   # la clé, jamais dans un fichier versio
 
 ```toml
 EMAIL_FROM = "Maïoun <onboarding@resend.dev>" # secret-scan-ignore
-SITE_URL = "https://<vous>.github.io/RentFinder/"
+SITE_URL = "https://<vous>.github.io/RentFinder/app/"
 ```
 
 Puis `npx wrangler deploy`.
@@ -417,10 +417,42 @@ pnpm --filter @maioun/landing dev
 ```
 
 Elle n'importe **aucun paquet du dépôt** — ses couleurs sont recopiées, pas
-partagées — et c'est ce qui lui permet d'être publiée seule, sur un autre
-domaine. La cible : la page à la racine, l'application sur un sous-domaine.
+partagées — et c'est ce qui lui permet d'être publiée seule.
 
-Deux endroits attendent une décision, et le disent plutôt que d'inventer :
-la grille **tarifaire** (aucun prix n'est arrêté) et le lien **« Ouvrir
-Maïoun »**, laissé inerte tant que le sous-domaine n'existe pas — pointer vers
-une adresse qui renvoie une erreur serait pire que ne pas pointer.
+**ELLE N'ÉTAIT PUBLIÉE NULLE PART.** Le workflow ne montait que `frontend/dist` :
+la page existait, soignée, et personne ne pouvait l'atteindre. Ses boutons
+« Accéder » ne menaient qu'à une ancre d'elle-même, et la section d'accès
+renvoyait à un sous-domaine qui n'existe pas. Corrigé le 2026-09-09.
+
+**La structure publiée :**
+
+| Adresse                                 | Contenu                 |
+| --------------------------------------- | ----------------------- |
+| `https://<vous>.github.io/<dépôt>/`     | la page de présentation |
+| `https://<vous>.github.io/<dépôt>/app/` | l'application           |
+
+Un seul artefact, un seul déploiement, **une seule origine** — donc rien à
+ajouter aux règles de cookies ni au CORS du Worker. Le workflow construit les
+deux, les assemble, et refuse de publier si l'un des deux manque : une copie
+muette qui échoue publierait une racine sans application, au vert.
+
+Les liens de la page sont **relatifs** (`app/`) : ils suivent le dépôt où qu'il
+soit hébergé, là où une adresse en dur casserait au premier changement de
+domaine.
+
+**CE QUI CASSE EN DÉPLAÇANT L'APPLICATION SOUS `/app/`**, et qu'il faut savoir :
+les favoris de navigateur pointant l'ancienne adresse, la PWA déjà installée (à
+réinstaller) et les abonnements Web Push (à refaire — ils sont liés au chemin du
+service worker). `SITE_URL` a été recalé dans `wrangler.toml` et dans
+`cli/collect.ts` : sans cela, les liens de réinitialisation et les
+notifications déposeraient les gens sur le pitch, sans le jeton attendu.
+
+**Le tarif attend toujours une décision.** La page annonçait « 50 € par mois »
+pour un ensemble de fonctionnalités devenues gratuites, et affirmait qu'« il n'y
+a pas d'inscription libre » — deux affirmations que le changement de modèle a
+rendues fausses. Elles sont corrigées : la page dit ce qui est vrai aujourd'hui
+— consulter est libre, le compte est gratuit — et **n'écrit aucun prix** pour la
+candidature automatisée, qui n'existe pas encore. En afficher un pour une
+fonctionnalité absente serait une promesse ; en afficher un pour ce qui est
+gratuit serait un mensonge (§17). Le montant s'écrira à un seul endroit, dans la
+section « Tarif ».

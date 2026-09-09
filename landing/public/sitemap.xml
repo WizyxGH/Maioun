@@ -9,13 +9,18 @@
   et un plan de site rempli de liens morts dessert le référencement qu'il
   prétend servir.
 
+  L'ADRESSE EST CELLE D'AUJOURD'HUI, pas celle qu'on espère. Ce plan
+  annonçait `maioun.fr`, un domaine qui n'existe pas : un moteur qui suit ce
+  lien ne trouve rien, et la page qu'on voulait faire connaître reste
+  invisible. Elle changera le jour où le domaine existera (§17).
+
   `lastmod` reste à la main : cette page change quelques fois par an, et une
   date engendrée à chaque publication ferait croire à une fraîcheur qu'elle n'a
   pas.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://maioun.fr/</loc>
+    <loc>https://wizyxgh.github.io/RentFinder/</loc>
     <lastmod>2026-09-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
