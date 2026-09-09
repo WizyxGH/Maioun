@@ -247,7 +247,7 @@ entrée.
 
 `pnpm reprocess` ne peut rien y faire non plus : il rejoue l'extraction sur le
 texte STOCKÉ, et le bloc de critères n'a jamais été stocké — il n'était pas
-extrait. Seul un passage en mode backfill (§8, `BACKFILL_ENABLED=true`)
+extrait. Seul un passage en mode backfill (`pnpm collect -- --backfill`)
 re-visiterait ces fiches. Décision à prendre en connaissance du coût : environ
 130 requêtes vers des sites d'agences, pour un gain qui viendra de toute façon
 au fil du renouvellement des annonces.

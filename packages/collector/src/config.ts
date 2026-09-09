@@ -435,8 +435,3 @@ export function alertAddressTemplate(env: NodeJS.ProcessEnv = process.env): stri
 export function collectorUserAgent(env: NodeJS.ProcessEnv = process.env): string {
   return env['COLLECTOR_USER_AGENT'] ?? 'MaiounBot/0.1 (+https://github.com/)';
 }
-
-/** Mode backfill, désactivé par défaut (§8). */
-export function backfillEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env['BACKFILL_ENABLED'] === 'true';
-}

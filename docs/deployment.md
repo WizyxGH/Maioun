@@ -45,7 +45,6 @@ sans distances ni message pré-rempli.
 | `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY` / `_SUBJECT` | Notifications Web Push des nouvelles annonces (§29, voir ci-dessous). |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`        | Base cloud. Absents, la collecte écrit dans le fichier local.         |
 | `COLLECTOR_USER_AGENT`                           | User-Agent du collecteur (identifiable, honnête — §10).               |
-| `BACKFILL_ENABLED`                               | Mode backfill, `false` par défaut (§8).                               |
 
 `.env` est chargé automatiquement par les commandes de collecte. Ces valeurs
 sont privées : jamais committées, jamais journalisées (§26). Les secrets du
@@ -117,14 +116,14 @@ base à jeton, jamais dans le dépôt (§26).
 
 ## Commandes utiles
 
-| Commande                     | Effet                                                     |
-| ---------------------------- | --------------------------------------------------------- |
-| `pnpm collect`               | un cycle de collecte                                      |
-| `pnpm collect -- --verbose`  | collecte avec journalisation détaillée                    |
-| `pnpm collect -- --backfill` | descend dans l'historique (exige `BACKFILL_ENABLED=true`) |
-| `pnpm publish:turso`         | pousse l'inventaire local vers la base cloud              |
-| `pnpm dev`                   | interface seule, en mode démonstration                    |
-| `pnpm verify`                | format + lint + types + tests + end-to-end + secrets      |
+| Commande                     | Effet                                                |
+| ---------------------------- | ---------------------------------------------------- |
+| `pnpm collect`               | un cycle de collecte                                 |
+| `pnpm collect -- --verbose`  | collecte avec journalisation détaillée               |
+| `pnpm collect -- --backfill` | descend dans l’historique                            |
+| `pnpm publish:turso`         | pousse l'inventaire local vers la base cloud         |
+| `pnpm dev`                   | interface seule, en mode démonstration               |
+| `pnpm verify`                | format + lint + types + tests + end-to-end + secrets |
 
 La page « Sources » du site montre l'état et le dernier passage de chaque
 source : c'est là qu'on vérifie que tout tourne.

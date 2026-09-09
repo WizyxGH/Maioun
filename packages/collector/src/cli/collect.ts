@@ -27,7 +27,6 @@ import { systemClock } from '../core/clock.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
 import { runPipeline } from '../pipeline.js';
 import {
-  backfillEnabled,
   collectorUserAgent,
   loadDotEnv,
   loadPublicConfig,
@@ -373,12 +372,20 @@ async function main(): Promise<void> {
     return;
   }
 
-  const mode = args.has('--backfill') && backfillEnabled() ? 'backfill' : 'live';
-  if (args.has('--backfill') && mode === 'live') {
-    logger.warn('backfill.refused', {
-      reason: 'BACKFILL_ENABLED n’est pas à true — exécution en mode live',
-    });
-  }
+  /**
+   * LE DRAPEAU SUFFIT, ET IL EST L'INTENTION.
+   *
+   * Le rattrapage exigeait EN PLUS une variable d'environnement : on tapait
+   * « --backfill », la commande répondait qu'elle passait en mode normal, et il
+   * fallait connaître l'existence d'un fichier pour comprendre pourquoi. Un
+   * second verrou qui ne protège de rien — la collecte écrit dans les deux
+   * modes, et les budgets bornent le coût dans les deux — mais qui transforme
+   * une commande explicite en devinette.
+   *
+   * Le commentaire juste en dessous disait déjà le principe : un réglage à deux
+   * domiciles est un réglage dont personne ne sait lequel fait autorité.
+   */
+  const mode = args.has('--backfill') ? 'backfill' : 'live';
 
   // §66 : défauts du projet, que les critères réglés depuis le site
   // remplacent juste en dessous. Il n’y a plus de fichier de configuration :
