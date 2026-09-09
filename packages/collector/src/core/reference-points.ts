@@ -1,28 +1,29 @@
 /**
- * Résolution des points de référence privés (§20).
+ * Résolution des points de référence privés : d'où l'on part pour calculer un
+ * temps de trajet.
  *
- * Deux façons de les déclarer dans `.env`, et l'utilisateur peut mélanger :
- *   - `REFERENCE_*_LAT` / `_LON` : des coordonnées, prises telles quelles ;
- *   - `REFERENCE_*_ADDRESS`      : une adresse, géocodée une fois puis mise en
- *     cache — on saisit « 12 rue X, Nice » sans aller chercher son GPS.
+ * ILS SE RÈGLENT DEPUIS L'ÉCRAN PARAMÈTRES, et de nulle part ailleurs. On y
+ * saisit une adresse — « 12 rue X, Nice » — géocodée une fois puis mise en
+ * cache, sans avoir à chercher ses coordonnées.
  *
- * ET DEPUIS LE SITE. Les points réglés dans l'écran Paramètres priment sur
- * `.env` : sans cela, une adresse saisie sur le téléphone aurait paru sans
- * effet, silencieusement écrasée par un fichier posé sur la machine de
- * collecte. Rien de réglé = `.env`, comme avant.
+ * Ils ont eu un second domicile dans des variables d'environnement, avec leurs
+ * propres coordonnées. Une adresse saisie sur le téléphone pouvait alors
+ * paraître sans effet, silencieusement doublée par un fichier posé sur la
+ * machine qui collecte — et ces coordonnées-là révèlent un domicile et un lieu
+ * de travail, ce qui rend le doublon d'autant moins souhaitable.
  *
  * POURQUOI UN MODULE À PART. Cette résolution vivait dans la commande de
- * collecte. Une seconde commande (`reprocess`) s'est contentée des seules
- * coordonnées explicites — et comme l'utilisateur ne déclare qu'une ADRESSE,
- * elle a rescoré tout l'inventaire avec ZÉRO point de référence : les distances
- * et les coordonnées géocodées ont été effacées des fiches. Un calcul dont
- * l'oubli EFFACE des données n'a pas sa place dans un appelant.
+ * collecte. Une seconde commande s'est contentée des seules coordonnées
+ * explicites — et comme l'utilisateur ne déclarait qu'une ADRESSE, elle a
+ * rescoré tout l'inventaire avec ZÉRO point de référence : distances et
+ * coordonnées géocodées effacées des fiches. Un calcul dont l'oubli EFFACE des
+ * données n'a pas sa place dans un appelant.
  */
 
 import { parseReferencePoints, type StoredReferencePoint } from '@maioun/shared';
 import type { Logger } from './logger.js';
 import type { ReferencePoint } from '../config.js';
-import { collectorUserAgent, loadReferenceAddresses, loadReferencePoints } from '../config.js';
+import { collectorUserAgent } from '../config.js';
 import { createGeocoder } from './geocode.js';
 import type { GeocodeCacheStore } from './geocode.js';
 
@@ -30,26 +31,32 @@ export interface ReferencePointsDeps {
   readonly cache: GeocodeCacheStore;
   readonly nowMs: number;
   readonly logger: Logger;
-  /**
-   * Ce que l'écran Paramètres a enregistré (JSON brut de `app_settings`).
-   * Absent ou illisible, on retombe sur `.env`.
-   */
+  /** Ce que l'écran Paramètres a enregistré (JSON brut de `app_settings`). */
   readonly stored?: string | null;
 }
 
 /**
- * Les points déclarés : ceux du site s'ils existent, ceux de `.env` sinon.
+ * Les points déclarés depuis l'écran Paramètres.
  *
- * Un tableau VIDE enregistré depuis le site est une décision — « je ne veux
- * aucune distance » — et non une absence de réglage : il ne fait pas
- * retomber sur `.env`.
+ * TROIS RÉPONSES, ET NON DEUX. Une liste, `'absent'` quand rien n'a jamais été
+ * enregistré, `'illisible'` quand une valeur existe mais ne se relit pas.
+ *
+ * Confondre les deux derniers coûterait cher. Un tableau VIDE est une décision
+ * — « je ne veux aucune distance » — et un rescoring peut alors effacer les
+ * durées de trajet sans rien détruire. Une valeur ILLISIBLE dit l'inverse :
+ * quelqu'un a réglé quelque chose qu'on n'arrive plus à lire, et effacer ses
+ * distances serait détruire ce qu'on ne sait pas relire.
  */
-function declaredAddresses(stored: string | null | undefined): StoredReferencePoint[] | null {
-  if (typeof stored !== 'string') return null;
+type Declared = StoredReferencePoint[] | 'absent' | 'illisible';
+
+function declaredAddresses(stored: string | null | undefined): Declared {
+  if (typeof stored !== 'string' || stored.trim() === '') return 'absent';
   try {
-    return parseReferencePoints(JSON.parse(stored));
+    // `parseReferencePoints` rend `null` sur une forme inattendue : du JSON
+    // valide qui ne décrit pas des points. C'est illisible au même titre.
+    return parseReferencePoints(JSON.parse(stored)) ?? 'illisible';
   } catch {
-    return null;
+    return 'illisible';
   }
 }
 
@@ -61,12 +68,13 @@ function declaredAddresses(stored: string | null | undefined): StoredReferencePo
  * il ne l'est pas quand on s'apprête à réécrire des fiches existantes.
  */
 export async function resolveReferencePoints(deps: ReferencePointsDeps): Promise<ReferencePoint[]> {
-  const fromSite = declaredAddresses(deps.stored);
-  // Les coordonnées explicites de `.env` sont exactes ; on les garde tant que
-  // le site ne s'est pas prononcé.
-  const points = fromSite === null ? [...loadReferencePoints()] : [];
-  const toGeocode = fromSite ?? loadReferenceAddresses();
-  if (toGeocode.length === 0) return points;
+  const points: ReferencePoint[] = [];
+  const declared = declaredAddresses(deps.stored);
+  // Rien de réglé, ou une valeur qu'on ne sait plus relire : aucun point à
+  // résoudre. C'est `referencePointsDeclared` qui dit à l'appelant si ce vide
+  // est une décision ou un incident.
+  if (!Array.isArray(declared) || declared.length === 0) return points;
+  const toGeocode = declared;
 
   const geocoder = createGeocoder({
     cache: deps.cache,
@@ -97,7 +105,11 @@ export async function resolveReferencePoints(deps: ReferencePointsDeps): Promise
  * les distances de tout l'inventaire.
  */
 export function referencePointsDeclared(stored?: string | null): boolean {
-  const fromSite = declaredAddresses(stored);
-  if (fromSite !== null) return fromSite.length > 0;
-  return loadReferencePoints().length > 0 || loadReferenceAddresses().length > 0;
+  const declared = declaredAddresses(stored);
+  // Une valeur illisible compte comme DÉCLARÉE : quelqu'un a réglé quelque
+  // chose. Mieux vaut interrompre un rescoring que d'effacer les distances de
+  // tout l'inventaire sur une lecture ratée.
+  if (declared === 'illisible') return true;
+  if (declared === 'absent') return false;
+  return declared.length > 0;
 }

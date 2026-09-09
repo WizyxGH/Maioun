@@ -6,13 +6,13 @@ seulement la vigilance de celui qui commite.
 
 ## Cartographie des données
 
-| Donnée                                             | Où elle vit                                                    | Où elle ne va JAMAIS                                                                                  |
-| -------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Profil locataire (nom, revenus, garant…) (§25)     | `localStorage` du navigateur ; ou `TENANT_*` dans `.env` local | dépôt, bundle                                                                                         |
-| Points de référence — travail, gare (§20)          | `REFERENCE_*` dans `.env` local                                | dépôt ; l'interface n'affiche que des libellés neutres (« Travail : 17 min »), jamais les coordonnées |
-| Identifiants privés (accès abonné BEP)             | `BEP_SUBSCRIBER_*` dans `.env` local                           | dépôt, logs (expurgés)                                                                                |
-| Annonces collectées, statuts, contacts             | fichier SQLite local `data/local.db`                           | le dépôt (`data/` est gitignoré)                                                                      |
-| Coordonnées des annonceurs (téléphones d'agences…) | SQLite local                                                   | logs (expurgation automatique), fixtures (anonymisées)                                                |
+| Donnée                                             | Où elle vit                                                     | Où elle ne va JAMAIS                                                                                  |
+| -------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Profil locataire (nom, revenus, garant…) (§25)     | base de données du compte (écran Paramètres → Profil locataire) | dépôt, bundle                                                                                         |
+| Points de référence — travail, gare (§20)          | `REFERENCE_*` dans `.env` local                                 | dépôt ; l'interface n'affiche que des libellés neutres (« Travail : 17 min »), jamais les coordonnées |
+| Identifiants privés (accès abonné BEP)             | `BEP_SUBSCRIBER_*` dans `.env` local                            | dépôt, logs (expurgés)                                                                                |
+| Annonces collectées, statuts, contacts             | fichier SQLite local `data/local.db`                            | le dépôt (`data/` est gitignoré)                                                                      |
+| Coordonnées des annonceurs (téléphones d'agences…) | SQLite local                                                    | logs (expurgation automatique), fixtures (anonymisées)                                                |
 
 ## Les barrières
 

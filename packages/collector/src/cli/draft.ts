@@ -7,17 +7,13 @@
  * éventuel) et on dépose un brouillon dans le dossier « Brouillons » de la boîte
  * IMAP configurée. RIEN N'EST ENVOYÉ : l'utilisateur relit et envoie lui-même.
  *
- * LE PROFIL VIENT DE LA BASE, celui que règle l'écran « Profil locataire ». Il
- * ne venait QUE des variables `TENANT_*`, et c'est un piège qui ne se voit pas :
- * l'écran écrit dans `app_settings`, cette commande lisait le `.env`. Qui
- * corrige son téléphone ou ses revenus dans l'application, puis lance
- * `pnpm draft`, obtenait des brouillons portant les ANCIENNES valeurs — et
- * ces brouillons-là partent à des agences. Rien ne pouvait le signaler : le
- * `.env` était rempli, la commande n'avait aucune raison de se plaindre.
- *
- * Le `.env` reste accepté EN SECOURS, pour une machine qui collecte sans que
- * personne ait ouvert l'écran, et la commande dit laquelle des deux sources
- * elle a retenue.
+ * LE PROFIL VIENT DE LA BASE, et de nulle part ailleurs : c'est là qu'écrit
+ * l'écran « Profil locataire ». Il a longtemps eu un second domicile dans des
+ * variables d'environnement, et c'est un piège qui ne se voit pas — qui
+ * corrigeait son téléphone ou ses revenus dans l'application obtenait des
+ * brouillons portant les ANCIENNES valeurs, et ces brouillons-là partent à des
+ * agences. Rien ne pouvait le signaler : le fichier était rempli, la commande
+ * n'avait aucune raison de se plaindre.
  *
  * Nécessite IMAP_*. Idempotent : un brouillon n'est créé qu'une fois par
  * annonce (colonne `drafted`).
@@ -31,7 +27,7 @@ import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createLogger } from '../core/logger.js';
-import { loadDotEnv, loadImapConfig, loadTenantProfile } from '../config.js';
+import { loadDotEnv, loadImapConfig } from '../config.js';
 import { createGmailDrafts, locationClause, type DraftContent } from '../notify/gmail-draft.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -51,20 +47,15 @@ async function main(): Promise<void> {
     await migrate(db, MIGRATIONS_DIR, logger);
     const repository = createRepository(db);
 
-    const { profile, source, storedUnreadable } = await resolveTenantProfile(
-      repository,
-      loadTenantProfile,
-    );
+    const { profile, storedUnreadable } = await resolveTenantProfile(repository);
     if (storedUnreadable) {
-      console.log('⚠️  Profil illisible en base : on retombe sur le `.env`.');
+      console.log('⚠️  Profil illisible en base — impossible de composer un message.');
+      return;
     }
-    if (source === 'application') console.log('👤 Profil lu dans l’application.');
-    if (source === 'env') console.log('👤 Profil lu dans le `.env` (TENANT_*).');
     if (profile === null) {
       console.log(
-        '⚠️  Profil locataire non renseigné — ni dans l’application (Paramètres →\n' +
-          '   Profil locataire), ni dans le `.env` (TENANT_*). Impossible de composer\n' +
-          '   un message.',
+        '⚠️  Profil locataire non renseigné. Remplissez-le dans l’application\n' +
+          '   (Paramètres → Profil locataire), puis relancez.',
       );
       return;
     }
