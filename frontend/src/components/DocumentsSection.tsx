@@ -62,11 +62,19 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic';
  * rangement (`garant-caution__…`). La vignette rend la pièce reconnaissable, et
  * permet de repérer celle qu'on a déposée de travers.
  *
- * Les PDF gardent une icône : le navigateur ne sait pas les rendre dans un
- * `img`.
+ * LES PDF N'AVAIENT AUCUN APERÇU, et c'est presque tout le dossier : bulletins
+ * de salaire, avis d'imposition, attestations. La vignette ne montrait donc
+ * rien précisément là où elle sert — trois « fiche de paie » de suite, et
+ * aucune façon de savoir laquelle est laquelle sans les ouvrir une à une.
+ *
+ * Le navigateur SAIT rendre un PDF, simplement pas dans un `<img>` : un
+ * `<object>` le fait nativement, sans bibliothèque. Là où il ne le fait pas —
+ * Safari sur téléphone — le contenu de repli de l'`<object>` prend le relais,
+ * qui est l'icône d'avant. On ne perd rien, on gagne partout ailleurs.
  */
 function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.Element {
   const isImage = /\.(jpe?g|png|webp|heic)$/i.test(doc.name);
+  const isPdf = /\.pdf$/i.test(doc.name);
   const [src, setSrc] = useState<string | null>(null);
 
   /**
@@ -85,7 +93,7 @@ function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.E
    * chaque ouverture de l'écran retiendrait quelques mégaoctets.
    */
   useEffect(() => {
-    if (!isImage) return undefined;
+    if (!isImage && !isPdf) return undefined;
     let objectUrl: string | null = null;
     let cancelled = false;
 
@@ -104,15 +112,26 @@ function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.E
       cancelled = true;
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
     };
-  }, [doc.name, isImage]);
+  }, [doc.name, isImage, isPdf]);
 
-  // L'ICÔNE NEUTRE COUVRE LES TROIS CAS : ce n'est pas une image, elle n'est
-  // pas encore arrivée, ou elle n'arrivera pas. Un cadre vide ne disait rien
-  // de ces trois-là.
-  if (src === null) {
+  // L'ICÔNE NEUTRE COUVRE LES TROIS CAS : le format ne se rend pas, la pièce
+  // n'est pas encore arrivée, ou elle n'arrivera pas. Un cadre vide ne disait
+  // rien de ces trois-là.
+  if (src === null) return <ThumbnailFallback />;
+
+  if (isPdf) {
     return (
-      <span className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md">
-        <FileText aria-hidden="true" className="text-muted-foreground size-5" />
+      <span className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-md">
+        {/* `pointer-events-none` : la vignette montre, elle n'ouvre pas. Sans
+          cela, le lecteur PDF happerait le clic destiné à la ligne. */}
+        <object
+          data={`${src}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+          type="application/pdf"
+          aria-label=""
+          className="pointer-events-none absolute inset-0 size-full"
+        >
+          <ThumbnailFallback />
+        </object>
       </span>
     );
   }
@@ -121,11 +140,20 @@ function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.E
     <img
       src={src}
       alt=""
-      className="bg-muted size-10 shrink-0 rounded-md object-cover"
+      className="bg-muted size-12 shrink-0 rounded-md object-cover"
       // Un format que le navigateur ne sait pas rendre — le HEIC d'un iPhone,
       // le plus souvent — repasse à l'icône plutôt que de laisser un cadre cassé.
       onError={() => setSrc(null)}
     />
+  );
+}
+
+/** L'icône neutre, quand aucun aperçu n'est possible. */
+function ThumbnailFallback(): React.JSX.Element {
+  return (
+    <span className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-md">
+      <FileText aria-hidden="true" className="text-muted-foreground size-5" />
+    </span>
   );
 }
 

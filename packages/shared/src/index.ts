@@ -22,3 +22,4 @@ export * from './credentials.js';
 export * from './notification-preferences.js';
 export * from './alert-senders.js';
 export * from './subscription.js';
+export * from './rent-reference.js';

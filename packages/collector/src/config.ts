@@ -16,7 +16,7 @@
 
 import { fileURLToPath } from 'node:url';
 import type { SearchCriteria } from '@maioun/shared';
-import { MVP_CRITERIA, districtBySlug } from '@maioun/shared';
+import { MVP_CRITERIA, NICE_RENT_REFERENCE, districtBySlug } from '@maioun/shared';
 import type { TravelMode } from './core/geo.js';
 
 // ---------------------------------------------------------------------------
@@ -53,7 +53,11 @@ export function loadDotEnv(): void {
 export const PUBLIC_CONFIG: PublicConfig = {
   criteria: MVP_CRITERIA,
   maxSourcesPerRun: 6,
-  referencePricePerSqm: 20,
+  // Le repère par défaut, pour ce qui n'est pas niçois. Nice a le sien, calé
+  // sur la Carte des loyers de l'État et découpé par taille de logement (voir
+  // `rent-reference.ts`) : un nombre unique faisait passer le petit logement,
+  // qui se loue plus cher au m², pour une affaire suspecte.
+  referencePricePerSqm: NICE_RENT_REFERENCE.all.perSqm,
   // Réactivité voulue (décision 2026-08-22, seuil assoupli à 2/3 pour éviter les
   // faux « peut-être retirée » sur un simple raté de source) : absente 2
   // collectes → « peut-être plus disponible » ; 3 → retirée de la liste. Une

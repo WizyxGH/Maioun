@@ -68,3 +68,94 @@ export function matchesSearch(listing: Searchable, query: string): boolean {
 
   return terms.every((term) => haystack.includes(term));
 }
+
+/**
+ * Ce que la barre de recherche propose pendant qu'on tape.
+ *
+ * ON NE PROPOSE QUE CE QUI EXISTE. Chaque suggestion est tirée des annonces
+ * DÉJÀ CHARGÉES, avec le nombre qu'elle laisserait passer : aucune ne peut
+ * donc mener à une liste vide, et le compte dit d'avance si l'effort en vaut
+ * la peine. Une liste de quartiers en dur aurait proposé Cimiez un jour où
+ * Cimiez n'a rien.
+ *
+ * QUATRE FAMILLES, dans l'ordre où elles servent : le quartier — c'est ainsi
+ * qu'on cherche un logement —, la rue, l'agence, la commune.
+ */
+export type SuggestionKind = 'district' | 'street' | 'agency' | 'city';
+
+export interface SearchSuggestion {
+  /** Le texte qui remplacera la saisie. */
+  readonly value: string;
+  readonly kind: SuggestionKind;
+  /** Nombre d'annonces chargées qui portent cette valeur. */
+  readonly count: number;
+}
+
+/** Poids d'affichage : le quartier d'abord, la commune en dernier. */
+const KIND_ORDER: Readonly<Record<SuggestionKind, number>> = {
+  district: 0,
+  street: 1,
+  agency: 2,
+  city: 3,
+};
+
+/**
+ * La VOIE seule, sans son numéro.
+ *
+ * « 12 rue Barla » et « 48 rue Barla » sont deux adresses et une seule rue :
+ * proposer les deux remplirait la liste de doublons pour qui cherche la rue.
+ */
+function streetName(address: string): string {
+  return address.replace(/^\s*\d{1,4}(?:[-/]\d{1,3})?\s*(?:bis|ter)?[,]?\s*/i, '').trim();
+}
+
+/**
+ * Les suggestions correspondant à `query`, les plus fournies d'abord.
+ *
+ * Une saisie vide ne propose RIEN : la barre est alors au repos, et dérouler
+ * une liste sous le curseur au premier clic gênerait plus qu'elle n'aiderait.
+ */
+export function suggestSearch(
+  listings: readonly Searchable[],
+  query: string,
+  limit = 6,
+): readonly SearchSuggestion[] {
+  const needle = comparable(query.trim());
+  if (needle === '') return [];
+
+  /** Clé de dédoublonnage : la forme comparable, pour ne pas lister deux casses. */
+  const counts = new Map<string, { value: string; kind: SuggestionKind; count: number }>();
+  const add = (raw: string | null | undefined, kind: SuggestionKind): void => {
+    if (typeof raw !== 'string') return;
+    const value = raw.trim();
+    if (value === '') return;
+    const key = `${kind}:${comparable(value)}`;
+    const found = counts.get(key);
+    if (found === undefined) counts.set(key, { value, kind, count: 1 });
+    else found.count += 1;
+  };
+
+  for (const listing of listings) {
+    add(listing.district?.value, 'district');
+    const address = listing.address?.value;
+    if (typeof address === 'string') add(streetName(address), 'street');
+    add(listing.contact?.agencyName, 'agency');
+    add(listing.city?.value, 'city');
+  }
+
+  return (
+    [...counts.values()]
+      // Le terme doit se trouver DANS la suggestion : « barla » propose « rue
+      // Barla », « rue » ne propose pas les trois cents rues du fichier — il en
+      // proposerait un échantillon arbitraire, ce qui ne guide personne.
+      .filter((one) => comparable(one.value).includes(needle) && comparable(one.value) !== needle)
+      .sort(
+        (a, b) =>
+          KIND_ORDER[a.kind] - KIND_ORDER[b.kind] ||
+          b.count - a.count ||
+          a.value.localeCompare(b.value, 'fr'),
+      )
+      .slice(0, limit)
+      .map(({ value, kind, count }) => ({ value, kind, count }))
+  );
+}

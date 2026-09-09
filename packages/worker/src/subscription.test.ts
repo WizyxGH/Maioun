@@ -13,7 +13,7 @@ import { applyWebhook, planView, readSubscription, stripeConfigured } from './su
 type Row = Record<string, unknown>;
 
 const NOW = Date.parse('2026-09-09T10:00:00.000Z');
-const SECRET = 'whsec_exemple';
+const SECRET = 'whsec_exemple'; // secret-scan-ignore
 
 /** Une base réduite à la table `users`, dont seules trois colonnes comptent. */
 function fakeDb(users: Row[]): Client & { users: Row[] } {

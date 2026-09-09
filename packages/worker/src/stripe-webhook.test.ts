@@ -10,7 +10,9 @@
 import { describe, expect, it } from 'vitest';
 import { subscriptionChange, verifyStripeEvent } from './stripe-webhook.js';
 
-const SECRET = 'whsec_exemple_de_secret_de_webhook';
+// Faux, et l'analyseur de secrets a raison de le demander : la marque
+// `whsec_` est celle d'un vrai secret de webhook Stripe.
+const SECRET = 'whsec_exemple_de_secret_de_webhook'; // secret-scan-ignore
 const NOW = Date.parse('2026-09-09T10:00:00.000Z');
 
 /** Le HMAC-SHA256 hexadécimal, comme le calcule Stripe. */
@@ -60,7 +62,7 @@ describe('vérification de la signature', () => {
   });
 
   it('refuse une signature calculée avec un autre secret', async () => {
-    const signature = await header(EVENT, { secret: 'whsec_celui_du_voisin' });
+    const signature = await header(EVENT, { secret: 'whsec_celui_du_voisin' }); // secret-scan-ignore
     expect(await verifyStripeEvent(EVENT, signature, SECRET, NOW)).toBeNull();
   });
 
@@ -94,7 +96,7 @@ describe('vérification de la signature', () => {
   it('accepte quand UNE des signatures correspond', async () => {
     // Pendant une rotation de secret, Stripe envoie les deux.
     const timestamp = Math.floor(NOW / 1000);
-    const ancienne = await sign('whsec_ancien', `${timestamp}.${EVENT}`);
+    const ancienne = await sign('whsec_ancien', `${timestamp}.${EVENT}`); // secret-scan-ignore
     const nouvelle = await sign(SECRET, `${timestamp}.${EVENT}`);
     const signature = `t=${timestamp},v1=${ancienne},v1=${nouvelle}`;
     expect(await verifyStripeEvent(EVENT, signature, SECRET, NOW)).not.toBeNull();

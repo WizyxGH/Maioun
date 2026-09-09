@@ -64,16 +64,9 @@ import {
   toSavedView,
   type SavedSearch,
 } from './saved-searches.js';
-import {
-  ArrowLeft,
-  Bell,
-  Flame,
-  List,
-  Map,
-  Search,
-  SlidersHorizontal,
-} from './components/icons.js';
+import { ArrowLeft, Bell, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
+import { SearchBox } from './components/SearchBox.js';
 import { BottomNav, type BottomTab } from './components/BottomNav.js';
 import {
   ListingDetailSkeleton,
@@ -98,7 +91,6 @@ import type { View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
-import { Input } from '@/components/ui/input.js';
 
 /**
  * LES ÉCRANS SECONDAIRES NE PARTENT PLUS AVEC LA PREMIÈRE PAGE. Ils étaient
@@ -2174,22 +2166,11 @@ function AppView(): React.JSX.Element {
           Deux rangées explicites valent mieux qu'un `flex-wrap` dont le
           résultat dépend de la largeur. */}
           <div className="flex items-center gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher (quartier, rue, agence…)"
-                aria-label="Rechercher une annonce"
-                // 16 px (`text-base`) sur mobile : en dessous, iOS zoome
-                // automatiquement à la mise au point et désaligne la page.
-                className="w-full rounded-full pr-3 pl-9 text-base sm:min-h-9 sm:py-1.5 sm:text-sm"
-              />
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-            </div>
+            {/* LES SUGGESTIONS VIENNENT DES ANNONCES CHARGÉES, pas d'une liste
+              en dur : chacune porte son compte, et aucune ne mène à une liste
+              vide. On tapait jusqu'ici à l'aveugle — « borigl » ne donnait
+              rien, « Borriglione » tout. */}
+            <SearchBox value={search} onChange={setSearch} listings={listings} />
 
             {/* LE TRI N'EST PLUS ICI. Il vivait dans cette modale, en tête d'une
               liste de filtres : on l'ouvrait pour changer d'ordre, ce qui
