@@ -56,6 +56,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
   },
+  arthurimmo: { name: 'Arthurimmo.com Nice', domain: null, logo: null, paidContact: false },
   'ashley-parker': {
     name: 'Ashley & Parker',
     domain: 'ashley-parker.fr',

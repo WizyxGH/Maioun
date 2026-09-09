@@ -53,6 +53,7 @@ import { oreaScraper } from './orea/index.js';
 import { votreAgenceImmoScraper } from './votre-agence-immo/index.js';
 import { locserviceScraper } from './locservice/index.js';
 import { bieniciScraper } from './bienici/index.js';
+import { arthurimmoScraper } from './arthurimmo/index.js';
 import { partnersImmoScraper } from './partners-immo/index.js';
 import { agenceLongchampScraper } from './agence-longchamp/index.js';
 import { cimiezBoulevardScraper } from './cimiez-boulevard/index.js';
@@ -120,6 +121,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   votreAgenceImmoScraper,
   locserviceScraper,
   bieniciScraper,
+  arthurimmoScraper,
   partnersImmoScraper,
   agenceLongchampScraper,
   cimiezBoulevardScraper,
