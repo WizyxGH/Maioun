@@ -116,9 +116,22 @@ export const locserviceScraper: Scraper = {
         }
         for (const listing of parsed.listings) bySourceRef.set(listing.sourceRef, listing);
 
-        // ARRÊT ANTICIPÉ (§9) : une page entièrement connue signale qu'on est
-        // retombé dans le stock déjà collecté.
-        if (parsed.listings.every((listing) => context.isKnown(listing.sourceRef))) {
+        /**
+         * ARRÊT ANTICIPÉ : une page entièrement connue signale qu'on est
+         * retombé dans le stock déjà collecté.
+         *
+         * SAUF EN RATTRAPAGE, et c'est tout l'objet du rattrapage. La liste
+         * est triée par fraîcheur : les premières pages sont donc les plus
+         * susceptibles d'être connues, et l'arrêt se déclenchait dès la
+         * deuxième — avant d'avoir atteint les dix-huit suivantes, celles qui
+         * portent les sept cent cinquante annonces qu'on venait chercher.
+         * Relevé le 2026-09-09, au premier passage après avoir porté la limite
+         * de quatre à vingt pages : « 94 annonces, 2 requêtes, knownTerritory ».
+         */
+        if (
+          context.mode !== 'backfill' &&
+          parsed.listings.every((listing) => context.isKnown(listing.sourceRef))
+        ) {
           stopReason = 'knownTerritory';
           break;
         }

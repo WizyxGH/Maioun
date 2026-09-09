@@ -58,6 +58,15 @@ export const arthurimmoScraper: Scraper = {
 
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const listings: RawListing[] = [];
+    /**
+     * Les fiches VUES mais déjà connues.
+     *
+     * Sans elles, une source dont rien n'a bougé paraît ne plus rien découvrir
+     * et se fait marquer « dégradée » — alors qu'elle vient précisément de
+     * confirmer que son stock tient toujours. C'est aussi ce qui empêche ces
+     * annonces de vieillir vers « peut-être retirée ».
+     */
+    const confirmedRefs: string[] = [];
     const warnings: string[] = [];
     let requestCount = 0;
     let pagesFetched = 0;
@@ -107,7 +116,10 @@ export const arthurimmoScraper: Scraper = {
         stopReason = 'maxPages';
         break;
       }
-      if (context.isKnown(link.reference)) continue;
+      if (context.isKnown(link.reference)) {
+        confirmedRefs.push(link.reference);
+        continue;
+      }
       budget -= 1;
 
       try {
@@ -131,6 +143,7 @@ export const arthurimmoScraper: Scraper = {
     return {
       sourceId: ARTHURIMMO_DESCRIPTOR.id,
       listings,
+      confirmedRefs,
       requestCount,
       pagesFetched,
       stopReason,

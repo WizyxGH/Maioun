@@ -81,6 +81,8 @@ export interface PipelineOptions {
   readonly referencePoints: readonly ReferencePoint[];
   readonly userAgent: string;
   readonly mode: 'live' | 'backfill';
+  /** Ciblage manuel : la ou les sources tournent sans attendre leur tour. */
+  readonly force?: boolean;
   readonly clock: Clock;
   readonly logger: Logger;
   /** Injection de `fetch` — les tests n'accèdent jamais au réseau (§59). */
@@ -698,7 +700,10 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     })),
   );
 
-  const plan = planRun(entries, clock.now(), { maxSourcesPerRun: config.maxSourcesPerRun });
+  const plan = planRun(entries, clock.now(), {
+    maxSourcesPerRun: options.force === true ? entries.length : config.maxSourcesPerRun,
+    ...(options.force === true ? { force: true } : {}),
+  });
   logger.info('scheduler.plan', {
     selected: plan.selected.map((decision) => decision.sourceId),
     skipped: plan.skipped.length,

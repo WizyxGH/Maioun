@@ -3,6 +3,7 @@
  *
  *   pnpm collect                 collecte normale
  *   pnpm collect -- --backfill   récupération volontaire d'annonces plus anciennes
+ *   pnpm collect -- --source=<id> ne fait tourner que cette source-là
  *   pnpm collect -- --verbose    ajoute le détail technique au journal
  *
  * Il n'y a PAS de `--dry-run` ici. L'en-tête en promettait un, que rien
@@ -387,6 +388,35 @@ async function main(): Promise<void> {
    */
   const mode = args.has('--backfill') ? 'backfill' : 'live';
 
+  /**
+   * VISER UNE SOURCE, plutôt que d'attendre son tour.
+   *
+   *   pnpm collect -- --backfill --source=locservice
+   *
+   * L'ordonnanceur ne retient que six sources par passage, et il a raison : on
+   * ne martèle pas cinquante sites d'affilée. Mais quand on vient de corriger
+   * une source précise et qu'on veut la voir tourner, attendre son tour parmi
+   * cinquante-sept revient à ne pas pouvoir la vérifier — c'est exactement ce
+   * qui s'est produit le 2026-09-09 en rattrapant LocService.
+   *
+   * Les budgets, délais et plafonds de la source restent ceux de son
+   * descripteur : on choisit QUI tourne, jamais à quelle cadence.
+   */
+  const cible = [...args].find((a) => a.startsWith('--source='))?.slice('--source='.length);
+  const chosen =
+    cible === undefined
+      ? ALL_SCRAPERS
+      : ALL_SCRAPERS.filter((s) => s.descriptor.id === cible.toLowerCase());
+  if (cible !== undefined && chosen.length === 0) {
+    logger.warn('source.unknown', {
+      source: cible,
+      connues: ALL_SCRAPERS.map((s) => s.descriptor.id).join(', '),
+    });
+    process.exitCode = 2;
+    return;
+  }
+  if (cible !== undefined) logger.info('source.targeted', { source: cible });
+
   // §66 : défauts du projet, que les critères réglés depuis le site
   // remplacent juste en dessous. Il n’y a plus de fichier de configuration :
   // un réglage à deux domiciles est un réglage dont personne ne sait lequel
@@ -445,12 +475,13 @@ async function main(): Promise<void> {
     }
 
     const report = await runPipeline({
-      registry: createRegistry(ALL_SCRAPERS),
+      registry: createRegistry(chosen),
       repository,
       config,
       referencePoints,
       userAgent: collectorUserAgent(),
       mode,
+      ...(cible !== undefined ? { force: true } : {}),
       clock: systemClock,
       logger,
       ...(transitConfig !== null ? { transitConfig } : {}),
