@@ -1085,7 +1085,18 @@ export function parseDistrict(text: string | null | undefined): string | null {
   return knownNiceDistrict(cleaned);
 }
 
-/** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */
+/**
+ * Jusqu'où, dans une description, une adresse reste crédible.
+ *
+ * C'est une limite de POSITION, pas de texte : l'adresse doit COMMENCER avant
+ * ce point, mais le texte est lu en entier.
+ *
+ * On coupait la description à cette longueur avant de chercher, et une adresse
+ * à cheval sur la limite ressortait amputée : « situé au 132 corniche fleurie,
+ * 06200 Nice » rendait « 132 corniche fle », le cent-vingtième signe tombant au
+ * milieu du nom de la voie. Une rue qui n'existe pas ne se géocode pas — la
+ * fiche perdait donc à la fois son point sur la carte et son temps de trajet.
+ */
 const ADDRESS_HEAD = 120;
 
 /**
@@ -1139,7 +1150,11 @@ export function extractStreetAddress(text: string | null | undefined): string | 
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
 
-  const numbered = STREET_ADDRESS.exec(cleaned.slice(0, ADDRESS_HEAD));
+  // On cherche dans le texte ENTIER, et l'on vérifie ENSUITE que l'adresse
+  // commence assez tôt. Couper d'abord amputait celles qui chevauchaient la
+  // limite.
+  const numbered = STREET_ADDRESS.exec(cleaned);
+  if (numbered !== null && numbered.index > ADDRESS_HEAD) return null;
   // Le même garde-fou que pour une voie sans numéro : quand la ponctuation
   // manque, l'adresse mord sur la phrase suivante — « 1 rue de Orestis Très
   // bel appartement de ». Un numéro ne rachète pas une adresse fausse.
