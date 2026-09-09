@@ -139,8 +139,17 @@ export function HomePanel({
 }: HomePanelProps): React.JSX.Element {
   const active = listings.filter((listing) => listing.lifecycle === 'active');
 
-  // Nouveautés : signalées depuis la dernière visite, ou apparues dans les
-  // deux derniers jours si l'on n'avait encore jamais ouvert la page.
+  /**
+   * Nouveautés : signalées depuis la dernière visite, ou apparues dans les
+   * deux derniers jours si l'on n'avait encore jamais ouvert la page.
+   *
+   * CE N'EST PAS LE MÊME ENSEMBLE QUE L'HISTORIQUE, et le lien ne doit donc
+   * pas le laisser croire. Ici on retombe sur la date de DÉCOUVERTE quand
+   * l'annonce n'a jamais été signalée — sans quoi la section serait vide pour
+   * qui n'a pas activé les notifications. L'historique, lui, ne liste que de
+   * vraies alertes envoyées. Une annonce peut donc paraître ici sans s'y
+   * trouver.
+   */
   const freshFrom = Math.max(seenAtMs, nowMs - FRESH_HOURS * 60 * 60 * 1000);
   const fresh = active
     .filter((listing) => Date.parse(listing.notifiedAt ?? listing.firstSeenAt) >= freshFrom)
@@ -176,7 +185,7 @@ export function HomePanel({
               onClick={onOpenAlerts}
               className="text-primary cursor-pointer text-sm underline"
             >
-              Tout l’historique
+              Historique des alertes
             </button>
           )}
         </div>
