@@ -13,7 +13,7 @@
  */
 
 import type { AggregatedListing, ExplainedScore, MergedField, ScoreReason } from '@maioun/shared';
-import { clampScore } from '@maioun/shared';
+import { clampScore, referenceRentPerSqm } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
 
 /**
@@ -117,6 +117,23 @@ function isDwelling(listing: AggregatedListing): boolean {
 }
 
 /** Évalue le risque d'une annonce et énumère ses raisons. */
+/**
+ * Le loyer au m² auquel comparer celui de l'annonce.
+ *
+ * LE REPÈRE DÉPEND DE LA TAILLE, et l'ignorer faisait passer le petit logement
+ * pour le suspect. Un studio se loue 22,7 €/m² à Nice, un trois-pièces 19,7 :
+ * quinze pour cent d'écart, exactement dans la zone où la règle bascule. Les
+ * deux valeurs viennent de la Carte des loyers publiée par l'État.
+ *
+ * Hors de Nice, on garde le repère de la configuration : on ne prête pas à une
+ * autre commune les loyers de celle-ci.
+ */
+function marketReference(listing: AggregatedListing, options: RiskOptions): number {
+  return listing.city.value === 'nice'
+    ? referenceRentPerSqm(listing.rooms.value)
+    : options.referencePricePerSqm;
+}
+
 export function scoreRisk(listing: AggregatedListing, options: RiskOptions): ExplainedScore {
   const reasons: ScoreReason[] = [];
   const unknownSignals: string[] = [];
@@ -149,7 +166,7 @@ export function scoreRisk(listing: AggregatedListing, options: RiskOptions): Exp
     unknownSignals.push(price === null ? 'loyer' : 'surface');
   } else if (area > 0) {
     const pricePerSqm = price / area;
-    const ratio = pricePerSqm / options.referencePricePerSqm;
+    const ratio = pricePerSqm / marketReference(listing, options);
     if (ratio < 0.4) {
       total += 40;
       reasons.push({

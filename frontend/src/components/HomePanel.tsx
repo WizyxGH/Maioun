@@ -19,6 +19,7 @@
  */
 
 import type { ListingView, SourceStateView } from '../types.js';
+import { NICE_RENT_REFERENCE, RENT_REFERENCE_SOURCE, RENT_REFERENCE_YEAR } from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
@@ -347,6 +348,42 @@ export function HomePanel({
             ))}
           </ul>
         )}
+      </section>
+
+      {/* LE REPÈRE DU MARCHÉ, ET D'OÙ IL VIENT. Sans lui, « 700 € pour 25 m² »
+        ne se juge que par comparaison avec les autres annonces du site — donc
+        avec un marché qu'on observe déjà à travers un filtre. Ce chiffre-là est
+        indépendant : l'État le publie chaque année à partir de toutes les
+        annonces déposées en France, et nous ne faisons que le citer.
+
+        La fourchette compte autant que la valeur : un loyer au m² qui varie
+        du simple au double sur une même commune dit qu'un chiffre unique ne
+        décide de rien à lui seul. */}
+      <section>
+        <h2 className="mb-2 text-lg font-bold">Repère de loyer</h2>
+        <Card className="text-[0.92rem]">
+          <p>
+            À Nice, un studio ou deux-pièces se loue autour de{' '}
+            <strong>{NICE_RENT_REFERENCE.small.perSqm.toFixed(1).replace('.', ',')} €/m²</strong>{' '}
+            charges comprises, un trois-pièces ou plus{' '}
+            {NICE_RENT_REFERENCE.large.perSqm.toFixed(1).replace('.', ',')} €/m².
+          </p>
+          <p className="text-muted-foreground mt-1 text-[0.82rem]">
+            Fourchette pour les petites surfaces :{' '}
+            {NICE_RENT_REFERENCE.small.low.toFixed(1).replace('.', ',')} à{' '}
+            {NICE_RENT_REFERENCE.small.high.toFixed(1).replace('.', ',')} €/m². Loyers d’annonce
+            observés,{' '}
+            <a
+              href={RENT_REFERENCE_SOURCE}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary underline"
+            >
+              Carte des loyers {RENT_REFERENCE_YEAR}
+            </a>{' '}
+            — {NICE_RENT_REFERENCE.all.observations.toLocaleString('fr-FR')} annonces.
+          </p>
+        </Card>
       </section>
 
       {/* La santé des sources ne s'affiche QUE si elle cloche : « tout va

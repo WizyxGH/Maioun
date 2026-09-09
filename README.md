@@ -35,6 +35,10 @@ Ouvert sur un téléphone, il répond à une seule question :
   jamais bloquantes.
 - **Distances** vers des points de référence privés (travail, gare), libellés
   neutres, coordonnées jamais versionnées.
+- **Repère de loyer officiel** : le €/m² d'annonce publié chaque année par
+  l'État (Carte des loyers, DHUP/ANIL), découpé par taille de logement. Il sert
+  d'ancre au score de risque et s'affiche sur l'accueil avec sa fourchette —
+  une valeur qu'on peut vérifier vaut mieux qu'un nombre écrit à la main.
 - **Contact en mode manuel** : coordonnées + message prêt à envoyer
   ([Modifier] [Copier] [Ouvrir] [J'ai envoyé]) — rien ne part sans votre geste.
   Un mode automatique optionnel existe sous garde-fous stricts, **désactivé par
@@ -57,9 +61,15 @@ Ouvert sur un téléphone, il répond à une seule question :
   — une candidature s'envoie d'où l'on est. Elles sont dans l'espace de
   fichiers du Worker, séparées par compte, et **jamais envoyées
   automatiquement** : c'est vous qui joignez.
-- **Coût : 0 €.** La collecte tourne où vous voulez — votre machine (fichier
-  SQLite) ou GitHub Actions (Turso). Le site, lui, est servi par GitHub Pages et
-  parle à un Worker Cloudflare, seul détenteur du jeton de la base. Tout cela
+- **Consulter est libre, agir demande un compte, candidater à votre place se
+  paie.** Les annonces, la carte, les scores et les statistiques s'ouvrent sans
+  rien créer. Favoris, suivi, alertes et dossier demandent un compte gratuit.
+  Seule la candidature envoyée à votre place relève de l'offre payante — dont le
+  péage est posé mais la vente pas encore ouverte : aucune clé de paiement n'est
+  branchée, rien n'est encaissé, et l'écran le dit.
+- **Hébergement : 0 €.** La collecte tourne où vous voulez — votre machine
+  (fichier SQLite) ou GitHub Actions (Turso). Le site est servi par GitHub Pages
+  et parle à un Worker Cloudflare, seul détenteur du jeton de la base. Tout cela
   tient dans les paliers gratuits.
 
 ## Architecture en bref
@@ -69,6 +79,10 @@ pnpm collect : Scheduler → Scrapers → Normalisation → Dédoublonnage
              → Scoring + distances → SQLite (local) ou Turso (publié)
 le site      : GitHub Actions → Turso ← Worker Cloudflare ← Pages
 ```
+
+Le site publié tient en deux étages : la **page de présentation** à la racine,
+l'**application** sous `/app/`. Une seule origine, donc rien à ajouter aux
+règles de cookies ni au CORS du Worker.
 
 Quatre destinations, les mêmes sur téléphone et sur grand écran — Accueil,
 Recherche, Favoris, Paramètres. L'accueil fait le point (ce qui est arrivé, ce
@@ -107,7 +121,7 @@ pnpm dev          # → http://localhost:5173, interface seule (pas de base)
 C'est aussi l'environnement des tests. Installation détaillée et configuration
 privée (`.env`) : [docs/deployment.md](docs/deployment.md).
 
-### Notifications + collecte automatique (§29)
+### Notifications + collecte automatique
 
 Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
 critères, sans lancer la collecte à la main :
@@ -139,7 +153,7 @@ critères, sans lancer la collecte à la main :
 | Commande                      | Effet                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------- |
 | `pnpm dev`                    | frontend en mode démo                                                           |
-| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`) + notifications          |
+| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --source=<id>`, `-- --verbose`)      |
 | `schedule-collect.ps1`        | planifie `pnpm collect` (Windows) pour des notifs automatiques (voir ci-dessus) |
 | `pnpm db:migrate`             | applique les migrations                                                         |
 | `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                               |
@@ -174,57 +188,59 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 
 ## Limites connues
 
-- Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
-  seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
-- 23 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
-  ERA, les adaptateurs génériques Apimo et La Boîte Immo/Hektor, et Studapart
-  par API) ;
-  PAP est implémentée mais désactivée (son WAF refuse les clients
-  non-navigateurs, qu'on ne contourne pas) — l'[étude des
-  sources](docs/sources.md) détaille chaque verdict.
+- Le mode automatique de contact n'a **pas d'envoi implémenté** : les
+  garde-fous existent et sont éprouvés — abonnement, interrupteur global,
+  seuils, quotas, cooldown — mais rien ne part encore. C'est ce que l'offre
+  payante couvrira, et c'est pourquoi elle n'est pas mise en vente.
+- **L'offre payante n'encaisse rien** : aucune clé de paiement n'est branchée.
+  La route de paiement répond franchement « pas configuré » plutôt que
+  d'ouvrir une page qui échouerait.
+- 57 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
+  Century 21, Orpi, Arthurimmo, LocService, les adaptateurs génériques Apimo et
+  La Boîte Immo/Hektor, et Studapart par API) ; PAP est implémentée mais
+  désactivée (son WAF refuse les clients non-navigateurs, qu'on ne contourne
+  pas) — l'[étude des sources](docs/sources.md) détaille chaque verdict.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
 - Leboncoin, SeLoger et Bien'ici restent **écartés** : DataDome + interdiction
-  explicite de l'accès automatisé (Leboncoin), qu'on ne contourne pas (§10).
-  Seule voie restante : l'import d'alertes e-mail, non construite à ce jour.
+  explicite de l'accès automatisé (Leboncoin), qu'on ne contourne pas. La voie
+  conforme — l'import de leurs alertes e-mail — est en service : leurs annonces
+  arrivent, sans que leurs pages soient jamais visitées.
 - Les notifications ne sont pas de l'instantané : elles partent au rythme des
-  collectes (tâche planifiée + intervalles adaptatifs par source, §7).
+  collectes (tâche planifiée + intervalles adaptatifs par source).
 - En mode local, la collecte tourne sur votre machine : ordinateur éteint, pas
   de collecte ni de notification. Le mode publié (GitHub Actions) lève cette
   limite.
-- **Multi-compte** : possible depuis que l'API passe par un Worker Cloudflare,
-  seul détenteur du jeton Turso. Les annonces sont communes, les décisions
-  (favori, statut, archivage, recherches enregistrées) appartiennent à chacun.
-  Les comptes se créent en ligne de commande — un site ouvert à l'inscription
-  est un site que n'importe qui remplit (§26). Sans le Worker, le site reste
-  utilisable en accès direct, mais sans comptes séparés.
+- **Multi-compte** : les annonces sont communes, les décisions (favori, statut,
+  archivage, recherches enregistrées) appartiennent à chacun. L'inscription est
+  ouverte, par mot de passe ou avec un compte Google.
 
 ## Roadmap
 
-- **Actuel** : pipeline complet, 23 sources actives (portails + réseaux +
+- **Actuel** : pipeline complet, 57 sources actives (portails + réseaux +
   agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
   par API publique) + PAP prête mais désactivée ; mode local zéro-cloud et mode
   publié (Actions + Pages + Turso) ; dédoublonnage multi-signaux ; contact
   manuel + relance et trace des pièces envoyées ; affinité et statistiques ;
-  notifications Web Push ; recherches enregistrées ; documents de candidature
-  locaux ; frontend mobile ET grand écran (Tailwind CSS + shadcn/ui) ; docs et
-  suite Vitest + Playwright.
-- **Ensuite** : import d'alertes e-mail (seule voie conforme pour
-  Leboncoin/SeLoger/Bien'ici, et pour Jinka), davantage d'agences, relances
-  automatisées,
-  historique des prix enrichi.
+  notifications Web Push et e-mail ; recherches enregistrées ; dossier de
+  candidature partagé entre appareils ; import d'alertes e-mail ; comptes avec
+  ou sans Google ; page de présentation publique ; frontend mobile ET grand
+  écran (Tailwind CSS + shadcn/ui) ; docs et suite Vitest + Playwright.
+- **Ensuite** : ouvrir réellement l'offre payante (les clés de paiement, puis
+  l'envoi automatisé qu'elle couvre), davantage d'agences, relances
+  automatisées, historique des prix enrichi.
 - **Plus tard** : scores calibrés sur les résultats réels, scheduler optimisé
   dynamiquement.
 
 ## Troubleshooting
 
-| Symptôme                                                                       | Cause probable et remède                                                                                                                                                                      |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources (Paramètres → Sources) ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle. |
-| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).                                |
-| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans Paramètres → Sources), les autres sources continuent.                                                                                           |
-| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                                     |
-| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                                   |
-| Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que les alertes sont activées depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation.            |
+| Symptôme                                                                       | Cause probable et remède                                                                                                                                                           |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due. Vérifier la page Sources (Paramètres → Sources) ; pour en forcer une : `pnpm collect -- --source=<id>`.                                   |
+| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement. Voir son verdict dans [docs/sources.md](docs/sources.md).                           |
+| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans Paramètres → Sources), les autres sources continuent.                                                                                |
+| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 20 m², Nice). Ouvrir « Filtres » et élargir, ou décocher les restrictions.                                                             |
+| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                        |
+| Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que les alertes sont activées depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation. |
 
 ## Licence
 
