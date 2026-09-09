@@ -149,11 +149,24 @@ export const bepAbonnesScraper: Scraper = {
       // Le POST de connexion renvoie DIRECTEMENT le bulletin (pas de redirection).
       const html = await login.text();
 
-      // Échec d'authentification : le formulaire de connexion réapparaît.
+      /**
+       * Échec d'authentification : le formulaire de connexion réapparaît.
+       *
+       * ON NOMME L'IDENTIFIANT QUI A ÉCHOUÉ, jamais son mot de passe. Le
+       * message renvoyait à `.env` — vrai avant que l'abonnement se déclare
+       * compte par compte, faux depuis, et trompeur : on allait corriger un
+       * fichier qui ne sert plus qu'à une machine sans écran. Sur une
+       * installation à plusieurs, il ne disait pas non plus LEQUEL des
+       * abonnements avait expiré, ce qui laissait à chacun le soin de
+       * soupçonner le sien (§17, §26).
+       */
       if (/name="abonpassword"/i.test(html)) {
-        context.log('bep_abonnes.auth_failed');
+        context.log('bep_abonnes.auth_failed', { login: credentials.user });
         return {
-          ...empty('blocked', ['Connexion BEP refusée — vérifier les identifiants (.env)']),
+          ...empty('blocked', [
+            `Connexion BEP refusée pour « ${credentials.user} » — abonnement expiré ou ` +
+              'identifiants à corriger (Paramètres → Accès supplémentaires)',
+          ]),
           requestCount,
         };
       }
