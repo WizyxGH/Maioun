@@ -22,6 +22,7 @@
 import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@maioun/collector/server/routes';
 import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } from './auth.js';
+import { verifyGoogleToken } from './google-auth.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
@@ -63,6 +64,18 @@ export interface Env {
   readonly SESSION_SECRET: string;
   /** Origine autorisée à appeler l'API (le site). */
   readonly ALLOWED_ORIGIN?: string;
+  /**
+   * Identifiant OAuth de l'application, côté Google.
+   *
+   * PUBLIC, ET CE N'EST PAS UN OUBLI : il voyage dans la page, Google le
+   * publie. Ce n'est pas un secret mais une IDENTITÉ — c'est en la comparant à
+   * celle que porte le jeton qu'on refuse un jeton émis pour une AUTRE
+   * application, la vérification qu'on oublie et la plus traître.
+   *
+   * Absent, la connexion Google répond 501 et le dit, plutôt que d'afficher un
+   * bouton qui ne mène nulle part (§17).
+   */
+  readonly GOOGLE_CLIENT_ID?: string;
   /**
    * Espace des pièces du dossier (§25), dans le stockage clé-valeur des
    * Workers. Absent = la fonctionnalité répond 501 et le dit, plutôt que
@@ -207,6 +220,100 @@ async function login(db: Client, request: Request, env: Env, cors: Record<string
   }
 
   const userId = String(row['id']);
+  const token = await issueSession(userId, env.SESSION_SECRET, Date.now());
+  return new Response(JSON.stringify({ userId }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Set-Cookie': sessionCookie(token),
+      ...cors,
+    },
+  });
+}
+
+/**
+ * Entrer avec un compte Google (§26).
+ *
+ * TROIS CAS, ET UN SEUL EST UNE CRÉATION :
+ *
+ *   1. ce compte Google est déjà rattaché — on ouvre la session ;
+ *   2. l'adresse existe chez nous sans rattachement — on RELIE, plutôt que de
+ *      fabriquer un second compte à la même personne, qui trouverait ses
+ *      favoris et son dossier disparus. Sûr parce que `verifyGoogleToken`
+ *      exige `email_verified` : Google atteste l'adresse, et il faut la
+ *      contrôler pour obtenir ce jeton ;
+ *   3. personne — on crée, avec l'adresse DÉJÀ vérifiée. C'est tout l'intérêt :
+ *      ni mot de passe à choisir, ni courriel de confirmation à attendre.
+ *
+ * `password_hash` RESTE NUL sur un compte créé ainsi, et il le faut : une
+ * empreinte inventée pour « remplir » la colonne serait un mot de passe que
+ * personne ne connaît mais que la vérification accepterait peut-être. Le
+ * compte n'a pas de mot de passe, la base le dit.
+ */
+async function loginWithGoogle(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const clientId = env.GOOGLE_CLIENT_ID ?? '';
+  if (clientId === '') {
+    // §17 : on ne fait pas croire à un chemin qui n'est pas configuré.
+    return json({ error: 'La connexion Google n’est pas configurée.' }, cors, 501);
+  }
+
+  let body: { credential?: unknown };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return json({ error: 'Requête illisible' }, cors, 400);
+  }
+  const credential = typeof body.credential === 'string' ? body.credential : '';
+  if (credential === '') return json({ error: 'Jeton manquant' }, cors, 400);
+
+  const identity = await verifyGoogleToken(credential, clientId, Date.now());
+  // UNE SEULE RAISON DE REFUS, quelle que soit la cause : signature fausse,
+  // mauvaise application, jeton périmé, adresse non prouvée. Dire laquelle
+  // n'aiderait que celui qui cherche laquelle contourner.
+  if (identity === null) return json({ error: 'Connexion Google refusée' }, cors, 401);
+
+  const now = new Date().toISOString();
+  const existing = await db.execute({
+    sql: 'SELECT id, google_sub FROM users WHERE google_sub = ? OR lower(email) = ? LIMIT 1',
+    args: [identity.sub, identity.email],
+  });
+
+  let userId: string;
+  const row = existing.rows[0];
+  if (row !== undefined) {
+    userId = String(row['id']);
+    if (row['google_sub'] !== identity.sub) {
+      // Le rattachement, et la confirmation de l'adresse avec lui : Google
+      // vient de l'attester, un compte qui attendait encore son courriel de
+      // vérification n'a plus rien à prouver.
+      await db.execute({
+        sql: 'UPDATE users SET google_sub = ?, email_verified = 1 WHERE id = ?',
+        args: [identity.sub, userId],
+      });
+    }
+  } else {
+    userId = crypto.randomUUID();
+    await db.execute({
+      // `alert_token` tiré ici, comme à l'inscription : sans lui, le compte
+      // naîtrait privé de son adresse de transfert (§6).
+      sql: `INSERT INTO users (id, login, password_hash, display_name, created_at,
+                               alert_token, email, email_verified, google_sub)
+            VALUES (?, NULL, NULL, ?, ?, lower(hex(randomblob(9))), ?, 1, ?)`,
+      args: [
+        userId,
+        identity.name ?? identity.email.split('@')[0] ?? identity.email,
+        now,
+        identity.email,
+        identity.sub,
+      ],
+    });
+  }
+
   const token = await issueSession(userId, env.SESSION_SECRET, Date.now());
   return new Response(JSON.stringify({ userId }), {
     status: 200,
@@ -715,6 +822,16 @@ async function publicRoute(
   }
   if (segments[1] === 'signup' && request.method === 'POST' && segments[2] === undefined) {
     return signup(db, request, env, cors);
+  }
+  // ENTRER AVEC GOOGLE. Même seau de limitation que le mot de passe : la
+  // vérification d'un jeton coûte une signature RSA et, la première fois, un
+  // aller-retour vers Google.
+  if (segments[1] === 'auth' && segments[2] === 'google' && request.method === 'POST') {
+    const bucket = await bucketFor('login', callerKey(request));
+    if (!(await allow(db, bucket, LIMITS.login, Date.now()))) {
+      return json({ error: 'Trop de tentatives. Réessayez dans une heure.' }, cors, 429);
+    }
+    return loginWithGoogle(db, request, env, cors);
   }
   // La confirmation d'adresse : avant la lecture de session, car on peut
   // suivre le lien depuis un autre appareil que celui de l'inscription.

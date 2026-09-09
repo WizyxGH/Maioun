@@ -48,6 +48,13 @@ export default defineConfig(() => {
       'import.meta.env.VITE_VAPID_PUBLIC_KEY': JSON.stringify(
         process.env['VAPID_PUBLIC_KEY'] ?? '',
       ),
+      // Identifiant OAuth de l'application. PUBLIC comme la clé de push, et
+      // pour la même raison : c'est le navigateur qui s'en sert. Ce n'est pas
+      // un secret mais une identité — c'est le Worker qui la CONTRÔLE, en la
+      // comparant à celle que porte le jeton rendu par Google.
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(
+        process.env['GOOGLE_CLIENT_ID'] ?? '',
+      ),
     },
     build: {
       // §39 : le frontend doit rester léger. Un dépassement signale une

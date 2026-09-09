@@ -213,6 +213,35 @@ export async function login(identifiant: string, password: string): Promise<stri
   }
 }
 
+/**
+ * Entrer avec un compte Google.
+ *
+ * LE JETON N'EST PAS UNE PREUVE À LUI SEUL : il ne vaut que par la
+ * vérification que le Worker en fait — signature, application destinataire,
+ * expiration, adresse attestée. Cette fonction ne fait que le porter.
+ *
+ * @returns `null` si la session est ouverte, sinon le message à afficher.
+ */
+export async function loginWithGoogle(credential: string): Promise<string | null> {
+  try {
+    await request<{ userId: string }>('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ credential }),
+    });
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 501) {
+      // §17 : ne pas laisser croire à une panne passagère quand la
+      // fonctionnalité n'est simplement pas configurée de ce côté-ci.
+      return 'La connexion Google n’est pas disponible sur cette installation.';
+    }
+    if (error instanceof ApiError && error.status === 401) {
+      return 'Google n’a pas confirmé cette identité. Réessayez.';
+    }
+    return 'La connexion a échoué. Réessayez dans un instant.';
+  }
+}
+
 export async function logout(): Promise<void> {
   if (!requiresLogin()) return;
   await fetch(`${API_URL}/api/logout`, { method: 'POST', credentials: 'include' }).catch(() => {

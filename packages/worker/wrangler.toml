@@ -29,6 +29,31 @@ ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 # perdraient en silence (§17).
 ALERT_ADDRESS_TEMPLATE = "floriangertner0+{token}@gmail.com"
 
+# --- Entrer avec un compte Google (§26) ---------------------------------------
+#
+# UNE VARIABLE, PAS UN SECRET : Google le publie, il voyage dans la page. Ce
+# n'est pas une clé mais une IDENTITÉ — c'est en la comparant à celle que porte
+# le jeton qu'on refuse un jeton émis pour une AUTRE application. C'est la
+# vérification qu'on oublie, et la plus traître : sans elle, n'importe quel site
+# utilisant Google pourrait rejouer les jetons de ses visiteurs pour entrer ici.
+#
+# OÙ LE TROUVER : console.cloud.google.com → API et services → Identifiants →
+# Créer un ID client OAuth → Application Web. Y déclarer comme « origine
+# JavaScript autorisée » l'adresse EXACTE du site (schéma et hôte, sans chemin
+# ni barre finale) :
+#
+#   https://wizyxgh.github.io
+#
+# Aucun « URI de redirection » n'est nécessaire : le jeton est rendu dans la
+# page, sans redirection (voir `google-auth.ts`).
+#
+# La MÊME valeur doit être donnée au site à sa construction, en variable de
+# dépôt GitHub `GOOGLE_CLIENT_ID`. Absente ici, la route répond 501 ; absente
+# là-bas, le bouton ne s'affiche pas. Dans les deux cas le mot de passe reste
+# disponible, et rien ne ment (§17).
+#
+# GOOGLE_CLIENT_ID = "….apps.googleusercontent.com"
+
 # --- Mot de passe oublié (§26) ------------------------------------------------
 #
 # Adresse publique du site : c'est elle qui compose le lien de réinitialisation.

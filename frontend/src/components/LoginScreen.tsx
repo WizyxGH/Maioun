@@ -21,6 +21,7 @@ import { useState } from 'react';
 import { LogIn, UserPlus } from './icons.js';
 import { login } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { GoogleSignIn } from './GoogleSignIn.js';
 import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
 
@@ -117,6 +118,12 @@ export function LoginScreen({
             </button>
           )}
         </form>
+
+        {/* GOOGLE APRÈS LE MOT DE PASSE, et non avant. Cet écran s'adresse à
+          qui a DÉJÀ un compte : celui-là sait comment il est entré la première
+          fois, et le lui redemander en tête le ferait hésiter. Le composant ne
+          rend rien si la connexion Google n'est pas configurée (§17). */}
+        <GoogleSignIn onSignedIn={onSignedIn} onError={setError} />
       </Card>
 
       {/* L'INSCRIPTION EST UNE PORTE, PAS UN LIEN DISCRET. « Mot de passe

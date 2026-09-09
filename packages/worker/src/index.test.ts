@@ -60,6 +60,17 @@ vi.mock('@maioun/collector/server/routes', () => ({
   },
 }));
 
+/**
+ * LA VERIFICATION DU JETON EST TESTEE POUR DE VRAI AILLEURS, avec de vraies
+ * cles RSA (google-auth.test.ts). Ici on teste ce que la ROUTE fait de son
+ * verdict : rattacher, creer, ou refuser.
+ */
+let identiteGoogle: { sub: string; email: string; name: string | null } | null = null;
+vi.mock('./google-auth.js', () => ({
+  verifyGoogleToken: () => Promise.resolve(identiteGoogle),
+  resetGoogleKeyCache: () => undefined,
+}));
+
 const envoyes: { to: string; subject: string }[] = [];
 vi.mock('@maioun/collector/notify/mailer', () => ({
   mailerConfigured: () => true,
@@ -257,5 +268,116 @@ describe('adresse du compte', () => {
     rows = [{ email: null, email_verified: 0 }];
     const response = await call('POST', '/api/account/email/resend', { session: 'moi' });
     expect(response.status).toBe(400);
+  });
+});
+
+/**
+ * ENTRER AVEC GOOGLE. La vérification cryptographique du jeton est éprouvée
+ * ailleurs, avec de vraies clés RSA ; ici on vérifie ce que la route FAIT de
+ * son verdict — et surtout qu'elle ne fabrique pas un second compte à
+ * quelqu'un qui en a déjà un.
+ */
+describe('connexion Google', () => {
+  const IDENTITE = { sub: 'sub-google-1', email: 'quelquun@example.invalid', name: 'Quelqu’un' };
+  const sql = (): string => executed.map((one) => one.sql).join(' | ');
+
+  beforeEach(() => {
+    identiteGoogle = { ...IDENTITE };
+  });
+
+  const ENV_GOOGLE = {
+    ...ENV,
+    GOOGLE_CLIENT_ID: 'exemple.apps.googleusercontent.com',
+  } as unknown as Parameters<typeof worker.fetch>[1];
+
+  const appeler = async (credential = 'jeton'): Promise<Response> =>
+    await worker.fetch(
+      new Request('https://api.invalid/api/auth/google', {
+        method: 'POST',
+        headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      }),
+      ENV_GOOGLE,
+    );
+
+  it('ouvre la session d’un compte déjà rattaché, sans rien réécrire', async () => {
+    rows = [{ id: 'utilisateur-1', google_sub: 'sub-google-1' }];
+    const response = await appeler();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Set-Cookie')).toContain('session=');
+    expect(sql()).not.toContain('INSERT INTO users');
+    expect(sql()).not.toContain('UPDATE users SET google_sub');
+  });
+
+  /**
+   * LE CAS QUI COMPTE. Sans ce rattachement, quelqu'un inscrit par mot de passe
+   * qui cliquerait un jour « continuer avec Google » se retrouverait dans un
+   * compte NEUF : favoris, dossier et historique envolés, sans un mot
+   * d'explication.
+   */
+  it('rattache le compte existant qui porte la même adresse, au lieu d’en créer un', async () => {
+    rows = [{ id: 'utilisateur-1', google_sub: null }];
+    const response = await appeler();
+
+    expect(response.status).toBe(200);
+    expect(sql()).toContain('UPDATE users SET google_sub');
+    expect(sql()).not.toContain('INSERT INTO users');
+    // L'adresse est attestée par Google : un compte qui attendait encore son
+    // courriel de confirmation n'a plus rien à prouver.
+    expect(sql()).toContain('email_verified = 1');
+  });
+
+  it('crée un compte quand personne ne correspond, avec l’adresse déjà vérifiée', async () => {
+    rows = [];
+    const response = await appeler();
+
+    expect(response.status).toBe(200);
+    const creation = executed.find((one) => one.sql.includes('INSERT INTO users'));
+    expect(creation).toBeDefined();
+    // Le mot de passe reste NUL : une empreinte inventée pour remplir la
+    // colonne serait un mot de passe que personne ne connaît, et que la
+    // vérification accepterait peut-être.
+    expect(creation?.sql).toContain('password_hash');
+    expect(creation?.sql).toContain('NULL, NULL');
+    // Et l'adresse de transfert des alertes est tirée à la création (§6).
+    expect(creation?.sql).toContain('randomblob(9)');
+  });
+
+  it('refuse un jeton que la vérification rejette, sans toucher aux comptes', async () => {
+    identiteGoogle = null;
+    const response = await appeler();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('Set-Cookie')).toBeNull();
+    expect(sql()).not.toContain('INSERT INTO users');
+    expect(sql()).not.toContain('UPDATE users');
+  });
+
+  it('refuse une requête sans jeton', async () => {
+    const response = await worker.fetch(
+      new Request('https://api.invalid/api/auth/google', {
+        method: 'POST',
+        headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+      ENV_GOOGLE,
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it('le dit franchement quand la connexion Google n’est pas configurée (§17)', async () => {
+    // Sans identifiant d'application, un `aud` ne se compare à rien : mieux
+    // vaut refuser que d'ouvrir une session sans savoir pour qui.
+    const response = await worker.fetch(
+      new Request('https://api.invalid/api/auth/google', {
+        method: 'POST',
+        headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: 'jeton' }),
+      }),
+      ENV,
+    );
+    expect(response.status).toBe(501);
+    expect(sql()).not.toContain('INSERT INTO users');
   });
 });
