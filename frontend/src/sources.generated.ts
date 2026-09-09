@@ -191,6 +191,12 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
   },
+  pujol: {
+    name: 'Immobilière Pujol',
+    domain: 'immobiliere-pujol.fr',
+    logo: null,
+    paidContact: false,
+  },
   rentumo: { name: 'Rentumo', domain: null, logo: null, paidContact: false },
   'saint-roch': {
     name: 'Saint Roch Immobilier',
