@@ -16,7 +16,8 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { cleanText } from '../../normalization/text.js';
+import type { RawDraft } from '../shared/raw-listing.js';
+import { cleanMultiline, cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 
 /** Forme d'une URL de fiche : `/trouver_logement/detail/{uid}/`. */
@@ -133,4 +134,47 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   // La page ville liste tout le stock d'un coup (19 annonces observées) :
   // pas de pagination à suivre.
   return { listings, hasNextPage: false, warnings };
+}
+
+/**
+ * La description ENTIÈRE, lue sur la fiche de l'annonce.
+ *
+ * LA CARTE TRONQUE, et le site le dit lui-même : le fragment qu'elle affiche
+ * porte la classe `tw-truncate-safe`. Relevé du 2026-09-08 sur les
+ * trente-quatre annonces en base — 238 caractères de moyenne, coupés en plein
+ * mot (« disponible en location longue dur »). La fiche en porte 577 pour
+ * l'annonce mesurée — plus du double — et commence souvent par SON ADRESSE DE
+ * RUE (« Nice EST - 23 boulevard saint Roch ») : de quoi géocoder le bien
+ * (§20) et le rapprocher de ses jumelles (§14), là où la carte ne laissait
+ * qu'une demi-phrase.
+ *
+ * DEUX LANGUES DANS LE MÊME BLOC, et c'est le piège. Century 21 y range la
+ * version française ET sa traduction anglaise, dans deux `span` qu'un script
+ * montre à tour de rôle. Prendre le texte du bloc entier rendait une
+ * description bilingue de 985 caractères là où le français seul en fait 577 —
+ * la moitié inutile, et deux fois le même bien décrit. On ne garde que celle
+ * qui s'affiche au chargement (`x-show="!show"`).
+ *
+ * @returns le complément à fusionner, ou `null` si la fiche n'apprend rien —
+ *          auquel cas on garde ce que la carte avait donné (§17).
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  const block = $('.c-the-property-detail-description').first();
+  if (block.length === 0) return null;
+
+  // La version française d'abord ; à défaut, le bloc sans son titre — une
+  // fiche monolingue reste lisible, et mieux vaut ce texte que rien.
+  const french = block.find('[x-show="!show"]').first();
+  let target: cheerio.Cheerio<never>;
+  if (french.length > 0) {
+    target = french as cheerio.Cheerio<never>;
+  } else {
+    const whole = block.clone();
+    whole.find('h2').remove();
+    target = whole as cheerio.Cheerio<never>;
+  }
+
+  const description = cleanMultiline(htmlToText($, target));
+  return description.length > 0 ? { description } : null;
 }

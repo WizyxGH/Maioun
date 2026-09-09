@@ -346,3 +346,28 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
 
   return { listings, hasNextPage, warnings };
 }
+
+/**
+ * La description ENTIÈRE, lue sur la fiche de l'annonce.
+ *
+ * LA CARTE TRONQUE À CENT CINQUANTE-DEUX CARACTÈRES, et toujours au même
+ * endroit : sur les quarante-neuf annonces Orpi en base le 2026-09-08, la plus
+ * longue en faisait 152 et la moyenne 151. Un plafond aussi net n'est pas une
+ * coïncidence, c'est une coupe — souvent en plein mot.
+ *
+ * La fiche porte le texte complet sous « L'avis de l'agent », dans l'unique
+ * bloc `.s-cms` de la page : 903 caractères pour l'annonce mesurée, six fois
+ * plus, et surtout AVEC SON ADRESSE DE RUE (« 22bis BOULEVARD MONTREAL »).
+ * C'est elle qui permet de placer le bien sur la carte (§20) et de le
+ * reconnaître ailleurs (§14) — Orpi ne la donne nulle part sur la liste.
+ *
+ * @returns le complément à fusionner, ou `null` si la fiche n'apprend rien —
+ *          auquel cas on garde ce que la carte avait donné (§17).
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  const block = $('.s-cms').first();
+  if (block.length === 0) return null;
+  const description = htmlToText($, block as cheerio.Cheerio<never>);
+  return description.length > 0 ? { description } : null;
+}

@@ -27,7 +27,26 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseSearchPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetail, parseSearchPage } from './parser.js';
+
+/**
+ * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.
+ *
+ * Le stock niçois d'Orpi tourne autour de cinquante annonces : douze visites
+ * par cycle couvrent une première collecte en quatre passages, puis il n'en
+ * reste qu'une poignée à chaque parution (§30).
+ */
+const MAX_DETAILS = 12;
+
+/**
+ * Pages de LISTE parcourues en rattrapage.
+ *
+ * Distinct du budget de la source, qui compte toutes les requêtes — pages de
+ * liste ET fiches. Les confondre ferait paginer seize pages de résultats dès
+ * qu'on augmente le nombre de fiches visitées.
+ */
+const MAX_LIST_PAGES = 4;
 
 /**
  * Point d'entrée unique : la page ville agrège tous les codes postaux de Nice
@@ -47,13 +66,13 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
   budget: budgetFor('agencyNetwork', {
     // Une page couvre ~15 annonces triées nouveautés en tête : en mode live,
     // deux pages absorbent largement le flux de nouveautés entre deux runs.
-    maxPagesPerRun: 4,
+    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
   // Le premier contact passe par le formulaire d'agence (§23).
   manualOnly: true,
-  allowedPaths: ['/location-immobiliere-*'],
+  allowedPaths: ['/location-immobiliere-*', '/annonce-location-*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : /recherche/* interdit, page ville et ' +
     'pagination ?page=N autorisées ; les paramètres agency/sujet/contact/orderBy ' +
@@ -78,8 +97,8 @@ export const orpiScraper: Scraper = {
     let requestCount = 0;
     let stopReason: StopReason = 'completed';
 
-    // Mode live : 2 pages maximum ; backfill : le budget de la source (§8).
-    const maxPages = context.mode === 'backfill' ? ORPI_DESCRIPTOR.budget.maxPagesPerRun : 2;
+    // Mode live : 2 pages maximum ; backfill : toutes les pages de liste (§8).
+    const maxPages = context.mode === 'backfill' ? MAX_LIST_PAGES : 2;
 
     for (let page = 1; page <= maxPages; page += 1) {
       if (context.shouldStop()) {
@@ -150,6 +169,20 @@ export const orpiScraper: Scraper = {
 
       if (!parsed.hasNextPage) break;
     }
+
+    // LA CARTE COUPE À CENT CINQUANTE-DEUX CARACTÈRES ; la fiche des annonces
+    // NOUVELLES porte le texte entier, avec l'adresse de rue qu'Orpi ne publie
+    // nulle part ailleurs. Une fois la pagination finie, pour ne visiter chaque
+    // annonce qu'une fois.
+    const enriched = await enrichNewListings(context, listings.splice(0), {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetail(html),
+    });
+    listings.push(...enriched.listings);
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
 
     return {
       sourceId: ORPI_DESCRIPTOR.id,

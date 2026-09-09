@@ -2,12 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseListingUrl, parseSearchPage } from './parser.js';
+import { parseDetail, parseListingUrl, parseSearchPage } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/century21');
 const PAGE_URL = 'https://www.century21.fr/annonces/location-appartement/v-nice/';
 
 const nominal = readFileSync(join(FIXTURES, 'nice-page1.html'), 'utf8');
+const fiche = readFileSync(join(FIXTURES, 'fiche-description.html'), 'utf8');
 
 describe('parseListingUrl', () => {
   it('décompose une URL de fiche', () => {
@@ -59,5 +60,41 @@ describe('chaîne complète avec la normalisation', () => {
     expect(normalized?.city).toBe('nice');
     expect(normalized?.furnished).toBe(true);
     expect(normalized?.contact.reference).not.toBeNull();
+  });
+});
+
+describe('parseDetail — la description entière, lue sur la fiche', () => {
+  it('rend un texte bien plus long que le fragment de la carte', () => {
+    const detail = parseDetail(fiche);
+    expect(detail?.description).toBeDefined();
+    expect(detail?.description?.length).toBeGreaterThan(300);
+  });
+
+  it('NE MÊLE PAS la traduction anglaise à la description française', () => {
+    // Le bloc porte les deux versions dans deux `span` montrés à tour de rôle.
+    // Les lire ensemble donnait un texte bilingue, deux fois trop long.
+    const description = parseDetail(fiche)?.description ?? '';
+    expect(description).toContain("L'appartement se compose");
+    expect(description).not.toContain('bedroom apartment');
+    expect(description).not.toContain('without delay');
+  });
+
+  it('garde l’adresse de rue que la fiche met en tête', () => {
+    // C'est elle qui permet de géocoder le bien (§20) et de le rapprocher de
+    // ses jumelles (§14) — la carte ne la donnait jamais.
+    expect(parseDetail(fiche)?.description).toContain('23 boulevard saint Roch');
+  });
+
+  it('sépare les lignes que le site marque par un <br>', () => {
+    const description = parseDetail(fiche)?.description ?? '';
+    expect(description).toContain('\n');
+    // Sans rupture, « saint Roch » et « Appartement » se collaient en un mot
+    // introuvable, et l'extraction d'adresse butait dessus.
+    expect(description).not.toContain('RochAppartement');
+  });
+
+  it('rend null quand la fiche ne porte pas de bloc description (§17)', () => {
+    expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
+    expect(parseDetail('<section class="c-the-property-detail-description"></section>')).toBeNull();
   });
 });
