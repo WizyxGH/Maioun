@@ -42,11 +42,24 @@ const MAX_DETAILS = 12;
 /**
  * Pages de LISTE parcourues en rattrapage.
  *
+ * QUATRE NE SUFFISAIENT PAS, et le manque était mesurable. Relevé du
+ * 2026-09-09 sur la page ville : la pagination affichée s'arrête à quatre, mais
+ * les pages suivantes RÉPONDENT et portent d'autres biens. En dénombrant les
+ * références uniques — pages 1 à 4 : 89 annonces ; pages 5 à 8 : 60 de plus,
+ * dont 42 inédites ; **131 au total**. Un tiers du stock niçois d'Orpi restait
+ * donc invisible, sans que rien ne le signale : la source paraissait complète
+ * puisqu'elle atteignait sa propre limite.
+ *
+ * CELA NE COÛTE RIEN UNE FOIS LE CATALOGUE CONNU. `KNOWN_RATIO_STOP` coupe la
+ * pagination dès qu'une page est déjà vue à 80 % : les quatre pages ajoutées ne
+ * sont réellement lues qu'au premier rattrapage, puis quand du neuf paraît
+ * assez loin dans la liste (§9, §30).
+ *
  * Distinct du budget de la source, qui compte toutes les requêtes — pages de
  * liste ET fiches. Les confondre ferait paginer seize pages de résultats dès
  * qu'on augmente le nombre de fiches visitées.
  */
-const MAX_LIST_PAGES = 4;
+const MAX_LIST_PAGES = 8;
 
 /**
  * Point d'entrée unique : la page ville agrège tous les codes postaux de Nice
@@ -64,8 +77,10 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 45 }),
   budget: budgetFor('agencyNetwork', {
-    // Une page couvre ~15 annonces triées nouveautés en tête : en mode live,
-    // deux pages absorbent largement le flux de nouveautés entre deux runs.
+    // Une page porte 37 annonces (relevé du 2026-09-09 ; le commentaire disait
+    // ~15), triées nouveautés en tête : en mode live, deux pages absorbent
+    // largement le flux de parutions entre deux runs. C'est le RATTRAPAGE qui
+    // avait besoin d'aller plus loin, pas la veille.
     maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
