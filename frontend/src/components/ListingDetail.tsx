@@ -23,7 +23,6 @@ import {
   formatTracking,
   TRACKING_ORDER,
   UNKNOWN,
-  UNKNOWN_LABEL,
 } from '../format.js';
 import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
@@ -382,11 +381,7 @@ export function ListingDetail({
 
         <dt className={FACT_LABEL}>Meublé</dt>
         <dd>
-          {listing.furnished.value === null
-            ? UNKNOWN_LABEL
-            : listing.furnished.value
-              ? 'Oui'
-              : 'Non'}
+          {listing.furnished.value === null ? UNKNOWN : listing.furnished.value ? 'Oui' : 'Non'}
         </dd>
 
         <dt className={FACT_LABEL}>Colocation</dt>
@@ -411,7 +406,7 @@ export function ListingDetail({
         )}
 
         <dt className={FACT_LABEL}>DPE</dt>
-        <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN_LABEL}</dd>
+        <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN}</dd>
 
         <dt className={FACT_LABEL}>Localisation</dt>
         <dd>

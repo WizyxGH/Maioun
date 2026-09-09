@@ -3,10 +3,12 @@ import {
   UNKNOWN,
   formatAddress,
   formatAge,
+  formatArea,
   formatDay,
   formatDistrict,
   formatPhone,
   formatPostalAddress,
+  formatPrice,
   formatTime,
   telHref,
 } from './format.js';
@@ -230,5 +232,16 @@ describe('formatPostalAddress — format Google Maps', () => {
         district: 'GAMBETTA',
       }),
     ).toBe('19 Rue Michelet, 06100 Nice');
+  });
+});
+
+describe('valeur absente', () => {
+  it('s’écrit « N/A », jamais un tiret', () => {
+    // Un tiret cadratin a l'air d'une valeur : on ne sait pas s'il dit
+    // « inconnu », « zéro », ou s'il sépare deux champs — d'autant qu'il sert
+    // aussi de séparateur ailleurs dans l'écran.
+    expect(UNKNOWN).toBe('N/A');
+    expect(formatPrice(null)).toBe('N/A');
+    expect(formatArea(null)).toBe('N/A');
   });
 });

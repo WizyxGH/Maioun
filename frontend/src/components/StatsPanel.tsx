@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import type { StatsData } from '../types.js';
 import { fetchStats } from '../api/client.js';
-import { formatSourceName, formatTracking } from '../format.js';
+import { UNKNOWN, formatSourceName, formatTracking } from '../format.js';
 import type { TrackingStatus } from '../types.js';
 import { HistoryChart } from './HistoryChart.js';
 import { PanelSkeleton } from './Skeletons.js';
@@ -36,7 +36,7 @@ function SurvivalBlock({
   if (survival === undefined || survival.completed === 0) return null;
 
   const share = (value: number | null): string =>
-    value === null ? '—' : `${Math.round(value * 100)} %`;
+    value === null ? UNKNOWN : `${Math.round(value * 100)} %`;
 
   return (
     <div>
@@ -144,7 +144,7 @@ export function StatsPanel(): React.JSX.Element {
     (contacts.byOutcome['visited'] ?? 0);
   const visits = contacts.byOutcome['visited'] ?? 0;
   const rate = (n: number): string =>
-    contacts.total > 0 ? `${Math.round((n / contacts.total) * 100)} %` : '—';
+    contacts.total > 0 ? `${Math.round((n / contacts.total) * 100)} %` : UNKNOWN;
 
   return (
     <section className="flex flex-col gap-5">

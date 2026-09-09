@@ -13,13 +13,13 @@ import { formatCommune, formatLocation } from '@maioun/shared';
 /**
  * Valeur non fournie par la source.
  *
- * Deux formes, selon la place : le tiret dans les lignes DENSES d'une carte
- * (« 650 € · — · 1 pièce »), où une phrase noierait l'information utile ; le
- * libellé « N/A » dans les listes de caractéristiques, où un tiret laisse le
- * lecteur se demander si la donnée manque ou vaut zéro.
+ * UNE SEULE FORME, ET C'EST « N/A ». Il y en avait deux : un tiret cadratin
+ * dans les lignes denses d'une carte, ce libellé dans les listes de
+ * caractéristiques. Le tiret a l'air d'une valeur — on ne sait pas s'il dit
+ * « inconnu », « zéro » ou simplement « séparateur », d'autant qu'il en sert
+ * aussi ailleurs. « N/A » ne se confond avec rien.
  */
-export const UNKNOWN = '—';
-export const UNKNOWN_LABEL = 'N/A';
+export const UNKNOWN = 'N/A';
 
 export function formatPrice(price: number | null): string {
   return price === null ? UNKNOWN : `${Math.round(price)} €`;
