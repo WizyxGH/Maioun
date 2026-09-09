@@ -127,6 +127,14 @@ export interface PlanOptions {
    * Borne la durée du job et la consommation de minutes gratuites (§29, §30).
    */
   readonly maxSourcesPerRun: number;
+  /**
+   * Passer outre l'intervalle : la source tourne maintenant.
+   *
+   * Réservé au ciblage manuel (« --source »). Une mise au repos après erreur ou
+   * refus n'est PAS levée pour autant : ce drapeau dit « c'est le moment »,
+   * jamais « ignore ce que le site a répondu ».
+   */
+  readonly force?: boolean;
 }
 
 export interface SchedulePlan {
@@ -188,10 +196,17 @@ export function planRun(
   nowMs: number,
   options: PlanOptions,
 ): SchedulePlan {
-  const decisions = entries.map(({ descriptor, state }) => ({
-    decision: decideForSource(descriptor, state, nowMs),
-    state,
-  }));
+  const decisions = entries.map(({ descriptor, state }) => {
+    const decision = decideForSource(descriptor, state, nowMs);
+    // Le ciblage manuel ne force QUE l'attente : un refus ou une mise au repos
+    // vient du site, et lui passer outre serait insister là où il a dit non.
+    const forced =
+      options.force === true && !decision.shouldRun && /prochaine exécution/i.test(decision.reason);
+    return {
+      decision: forced ? { ...decision, shouldRun: true, reason: 'ciblée manuellement' } : decision,
+      state,
+    };
+  });
 
   const eligible = decisions
     .filter((entry) => entry.decision.shouldRun)

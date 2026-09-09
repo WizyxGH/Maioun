@@ -1256,6 +1256,25 @@ export function createRepository(db: Database): Repository {
     async saveUserScores(userId, listings) {
       if (listings.length === 0) return 0;
 
+      /**
+       * ON NE SCORE QUE DES FICHES QUI EXISTENT ENCORE.
+       *
+       * Le regroupement peut faire disparaître une fiche entre le moment où
+       * elle est scorée et celui où le score s'écrit : `saveListings` purge les
+       * fiches orphelines, celles qu'aucune occurrence ne réclame plus après
+       * une fusion. Écrire un score pour l'une d'elles viole la clé étrangère
+       * et fait ÉCHOUER LA COLLECTE ENTIÈRE — relevé le 2026-09-09, après une
+       * collecte qui avait pourtant abouti à ses 2 594 fiches.
+       *
+       * Le score d'une fiche supprimée n'a aucun lecteur : l'ignorer ne perd
+       * rien, là où l'exception perdait tout le passage.
+       */
+      const vivantes = await db.execute('SELECT id FROM listings');
+      const connues = new Set(vivantes.rows.map((row) => String(row['id'])));
+      const listingsVivantes = listings.filter((listing) => connues.has(listing.id));
+      if (listingsVivantes.length === 0) return 0;
+      listings = listingsVivantes;
+
       const existing = await db.execute({
         sql: `SELECT listing_id, content_hash FROM listing_user_score WHERE user_id = ?`,
         args: [userId],

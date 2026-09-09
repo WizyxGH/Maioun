@@ -61,6 +61,8 @@ export const pujolScraper: Scraper = {
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const listings: RawListing[] = [];
     const rentedRefs: string[] = [];
+    /** Les fiches vues mais déjà connues : sans elles, la source paraît morte. */
+    const confirmedRefs: string[] = [];
     const warnings: string[] = [];
     let requestCount = 0;
     let pagesFetched = 0;
@@ -99,7 +101,11 @@ export const pujolScraper: Scraper = {
         break;
       }
       const reference = referenceOf(url);
-      if (reference === null || context.isKnown(reference)) continue;
+      if (reference === null) continue;
+      if (context.isKnown(reference)) {
+        confirmedRefs.push(reference);
+        continue;
+      }
       budget -= 1;
 
       try {
@@ -125,6 +131,7 @@ export const pujolScraper: Scraper = {
     return {
       sourceId: PUJOL_DESCRIPTOR.id,
       listings,
+      confirmedRefs,
       rentedRefs,
       requestCount,
       pagesFetched,
