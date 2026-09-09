@@ -165,6 +165,24 @@ export interface SourceDescriptor {
   readonly operator?: string;
 
   /**
+   * `true` quand la source FAIT PAYER la mise en relation.
+   *
+   * LocService en est le cas : ses annonces viennent de propriétaires
+   * particuliers — précisément ce qui manque à un inventaire presque
+   * entièrement agence — mais son modèle est de vendre le contact. Les
+   * coordonnées ne sont donc pas publiques, et le projet ne cherche pas à les
+   * extraire (§10, §21).
+   *
+   * On le dit AVANT le clic plutôt qu'après. Une annonce qui promet un contact
+   * et présente un péage est une déception qu'on peut éviter d'un mot ; la
+   * taire ferait passer le silence pour de l'ignorance.
+   *
+   * Ce n'est pas une supposition sur une annonce : c'est un fait sur la
+   * source, comme `relaysListings` et `operator` au-dessus.
+   */
+  readonly paidContact?: boolean;
+
+  /**
    * Contact GÉNÉRAL de l'agence, tel qu'elle le publie sur son propre site.
    *
    * Beaucoup d'agences ne mettent aucune coordonnée sur leurs annonces — elles

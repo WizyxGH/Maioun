@@ -23,6 +23,7 @@ import {
   type TenantProfile,
 } from '@maioun/shared';
 import type { ListingView, OccurrenceView } from '../types.js';
+import { SOURCES } from '../sources.generated.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
@@ -56,6 +57,32 @@ function actionLink(
 }
 
 const MUTED_NOTE = 'my-1.5 text-[0.82rem] text-muted-foreground';
+
+/**
+ * Les sources de cette annonce qui VENDENT la mise en relation.
+ *
+ * LocService en est une : ses annonces viennent de propriétaires particuliers
+ * — précisément ce qui manque à un inventaire presque entièrement agence — mais
+ * son métier est de facturer le contact. Le propriétaire ne publie donc aucune
+ * coordonnée, et le projet n'en cherche pas (§10, §21).
+ *
+ * On le dit AVANT le clic. Sans cela l'écran affichait « ouvrez l'annonce
+ * d'origine pour utiliser le canal prévu par le site » — vrai à la lettre, et
+ * trompeur : le canal prévu est un péage, et le silence passait pour de
+ * l'ignorance.
+ *
+ * Le fait vient du descripteur de la source, pas d'une liste tenue ici : une
+ * liste dans l'interface dérive dès qu'une source change de modèle.
+ */
+function paidContactSources(occurrences: readonly OccurrenceView[]): readonly string[] {
+  const names = new Set<string>();
+  for (const occurrence of occurrences) {
+    if (SOURCES[occurrence.sourceId]?.paidContact === true) {
+      names.add(formatSourceName(occurrence.sourceId));
+    }
+  }
+  return [...names];
+}
 
 /** Libellé du bouton d'ouverture, explicite selon le canal disponible. */
 function openButtonLabel(channel: string, recipient: string | null): string {
@@ -158,6 +185,7 @@ function ContactDetails({
   // Le formulaire mène souvent à l'annonce elle-même : la ligne « Source »
   // ci-dessous porte alors déjà ce lien, et la répéter n'apprend rien (§15).
   const formIsSource = formUrl !== null && occurrences.some((o) => o.sourceUrl === formUrl);
+  const paidSources = paidContactSources(occurrences);
   return (
     <>
       <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
@@ -261,8 +289,19 @@ function ContactDetails({
           sameName(providedBy[0], agencyName)
         ) && <p className={MUTED_NOTE}>Coordonnées issues de : {providedBy.join(', ')}</p>}
 
+      {/* Le péage, dit avant le clic (§17). Remplace le message générique
+        ci-dessous : ici l'absence de coordonnées n'est pas un manque de la
+        source, c'est son modèle. */}
+      {paidSources.length > 0 && (
+        <p className={MUTED_NOTE} data-testid="paid-contact-note">
+          {paidSources.join(', ')} {paidSources.length > 1 ? 'facturent' : 'facture'} la mise en
+          relation : le propriétaire n’y publie pas ses coordonnées. L’annonce reste consultable
+          librement.
+        </p>
+      )}
+
       {/* §17 : ne pas faire croire à une coordonnée qui n'existe pas. */}
-      {!hasAnyContact && (
+      {!hasAnyContact && paidSources.length === 0 && (
         <p className={MUTED_NOTE}>
           Aucune coordonnée n’est publiée par les sources. Ouvrez l’annonce d’origine pour utiliser
           le canal prévu par le site.

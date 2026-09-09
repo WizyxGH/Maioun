@@ -42,9 +42,12 @@ const entries = [...ALL_SCRAPERS]
     // Le logo n'est transporté que pour une agence : il n'a de sens qu'avec le
     // domaine qui l'accompagne.
     const logo = ownSite ? (descriptor.logo ?? null) : null;
+    // Une source qui FAIT PAYER la mise en relation doit le dire à l'écran,
+    // avant le clic. C'est un fait sur la source, il vient donc d'elle.
+    const paidContact = descriptor.paidContact === true;
     return `  '${descriptor.id}': { name: ${JSON.stringify(descriptor.name)}, domain: ${JSON.stringify(
       ownSite ? domain : null,
-    )}, logo: ${JSON.stringify(logo)} },`;
+    )}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)} },`;
   });
 
 const file = `/**
@@ -60,12 +63,17 @@ const file = `/**
  *
  * \`logo\` n'est renseigné que pour les agences dont l'icône N'EST PAS à
  * \`/favicon.ico\` — c'est l'adresse que leur site déclare lui-même.
+ *
+ * \`paidContact\` marque les sources qui FONT PAYER la mise en relation :
+ * l'écran le dit avant le clic, plutôt que de laisser découvrir le péage.
  */
 
 export interface SourceInfo {
   readonly name: string;
   readonly domain: string | null;
   readonly logo: string | null;
+  /** La source vend la mise en relation : ses coordonnées ne sont pas libres. */
+  readonly paidContact: boolean;
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {
