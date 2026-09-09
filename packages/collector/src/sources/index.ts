@@ -54,6 +54,7 @@ import { votreAgenceImmoScraper } from './votre-agence-immo/index.js';
 import { locserviceScraper } from './locservice/index.js';
 import { bieniciScraper } from './bienici/index.js';
 import { arthurimmoScraper } from './arthurimmo/index.js';
+import { pujolScraper } from './pujol/index.js';
 import { partnersImmoScraper } from './partners-immo/index.js';
 import { agenceLongchampScraper } from './agence-longchamp/index.js';
 import { cimiezBoulevardScraper } from './cimiez-boulevard/index.js';
@@ -122,6 +123,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   locserviceScraper,
   bieniciScraper,
   arthurimmoScraper,
+  pujolScraper,
   partnersImmoScraper,
   agenceLongchampScraper,
   cimiezBoulevardScraper,
