@@ -55,6 +55,7 @@ import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
+import { AccountRequired } from './components/AccountRequired.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
 import {
   newSearchId,
@@ -185,6 +186,29 @@ const MapView = lazy(() => import('./components/MapView.js'));
  * source de vérité à côté de `favoritesOnly`, que la modale règle aussi.
  */
 type NavTarget = View | 'favorites';
+
+/**
+ * LES ÉCRANS QUI PARLENT DE QUELQU'UN, et qu'un visiteur ne peut donc pas voir.
+ *
+ * Le partage est net : le CATALOGUE décrit le marché — les annonces, les
+ * quartiers, les sources, les agences — et s'ouvre à tous. Ceux-ci décrivent
+ * une personne : son dossier, ses alertes, ses recherches, ses statistiques.
+ * L'API applique la même coupure de son côté, et c'est elle qui fait foi ;
+ * cette liste ne fait qu'éviter d'envoyer quelqu'un vers un écran qui
+ * répondrait « connexion requise » sans expliquer pourquoi.
+ */
+const PERSONAL_VIEWS: ReadonlySet<View> = new Set<View>([
+  'stats',
+  'profile',
+  'tenant',
+  'documents',
+  'reference',
+  'saved',
+  'notifications',
+  'access',
+  'alerts',
+  'onboarding',
+]);
 
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
@@ -722,6 +746,13 @@ function AppView(): React.JSX.Element {
   const [favoritesOnly, setFavoritesOnly] = useState(
     route.view === 'list' ? route.favoritesOnly === true : restored.favoritesOnly,
   );
+  /**
+   * Le geste qu'un visiteur vient de tenter sans compte, dit à la première
+   * personne (« garder une annonce en favori »). `null` le reste du temps.
+   * Il n'est PAS mémorisé d'une session à l'autre : c'est le motif d'un écran,
+   * pas un réglage.
+   */
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   // Filtre par source : ensemble vide = toutes les sources affichées. Une
   // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(
@@ -1105,13 +1136,19 @@ function AppView(): React.JSX.Element {
   // session, dont l'accueil a besoin dès son ouverture. Un échec n'est pas une
   // erreur d'écran — on affiche simplement une liste vide (§69).
   useEffect(() => {
-    void fetchSavedSearches()
-      .then(setSavedSearches)
-      .catch(() => undefined);
+    // Les recherches enregistrées appartiennent à un compte ; l'état des
+    // sources décrit le marché et se lit sans. Demander les premières à un
+    // visiteur ne rendrait qu'un 401 attrapé en silence — une requête pour
+    // rien, à chaque ouverture (§30).
+    if (currentUser !== null && currentUser !== undefined) {
+      void fetchSavedSearches()
+        .then(setSavedSearches)
+        .catch(() => undefined);
+    }
     void fetchSources()
       .then((response) => setSources(response.sources))
       .catch(() => undefined);
-  }, []);
+  }, [currentUser]);
 
   // Intentions venues d'une NOTIFICATION (§29). Le service worker ne peut pas
   // écrire en base — les identifiants de connexion vivent dans le stockage de
@@ -1264,7 +1301,26 @@ function AppView(): React.JSX.Element {
   // si bien que la déclaration qui suivait n'était jamais atteinte. Le cœur de
   // la fiche capturait alors une liaison non initialisée, et le clic levait une
   // `ReferenceError` au lieu d'enregistrer le favori.
+  /**
+   * LE VERROU DES GESTES, en une ligne à poser en tête de chacun.
+   *
+   * Un favori, une archive, un suivi, un contact appartiennent à quelqu'un :
+   * sans compte, il n'y a personne à qui les attacher. L'API les refuse déjà —
+   * c'est elle qui protège — mais un refus silencieux ressemblerait à une
+   * panne. On retient CE QU'ON ESSAYAIT DE FAIRE pour le dire à l'écran : une
+   * demande de compte qui ne rappelle pas son motif paraît surgir de nulle
+   * part.
+   *
+   * @returns `true` si le geste est bloqué : l'appelant sort aussitôt.
+   */
+  const needsAccount = (action: string): boolean => {
+    if (currentUser !== null) return false;
+    setPendingAction(action);
+    return true;
+  };
+
   const handleFavorite = async (id: string, favorite: boolean): Promise<void> => {
+    if (needsAccount('garder une annonce en favori')) return;
     // Optimiste ; si on n'affiche que les favoris, retirer un favori le fait
     // disparaître de la liste.
     setListings((current) =>
@@ -1280,6 +1336,7 @@ function AppView(): React.JSX.Element {
   };
 
   const handleArchive = async (id: string, archived: boolean): Promise<void> => {
+    if (needsAccount('archiver une annonce')) return;
     // Optimiste : si on archive et qu'on ne montre pas les archivées, l'annonce
     // disparaît de la liste ; sinon on met simplement à jour son état.
     setListings((current) =>
@@ -1296,6 +1353,7 @@ function AppView(): React.JSX.Element {
     }
   };
   const handleTrackingChange = async (status: TrackingStatus): Promise<void> => {
+    if (needsAccount('suivre où en est une candidature')) return;
     if (selected === null) return;
     setListings((current) =>
       current.map((listing) =>
@@ -1314,6 +1372,7 @@ function AppView(): React.JSX.Element {
     message: string,
     documents: readonly string[],
   ): Promise<void> => {
+    if (needsAccount('garder la trace d’un contact')) return;
     if (selected === null) return;
     const sourceId = selected.occurrences[0]?.sourceId ?? 'unknown';
     setListings((current) =>
@@ -1521,6 +1580,9 @@ function AppView(): React.JSX.Element {
    * l'image un instant de plus, juste après l'avoir validé.
    */
   const enterSession = (): void => {
+    // Le motif qui a mené ici a été servi : sans cela, il resurgirait à la
+    // prochaine déconnexion, pour un geste oublié depuis longtemps.
+    setPendingAction(null);
     setCurrentUser('inconnu');
     void fetchCurrentUser()
       .then(setCurrentUser)
@@ -1584,6 +1646,32 @@ function AppView(): React.JSX.Element {
       if (view === 'forgot') {
         return <ForgotPassword onBack={() => replace({ view: 'home' })} />;
       }
+      /**
+       * CONSULTER EST LIBRE. L'écran de connexion ne s'impose plus à l'arrivée :
+       * il vient quand on le demande, ou quand on tente un geste qui appartient
+       * à quelqu'un. Le catalogue, lui, s'affiche sans rien demander — c'est
+       * l'API qui garantit que rien de personnel ne part avec (§26).
+       */
+      if (pendingAction !== null || PERSONAL_VIEWS.has(view)) {
+        const clear = (): void => setPendingAction(null);
+        return (
+          <AccountRequired
+            {...(pendingAction !== null ? { action: pendingAction } : {})}
+            onLogin={() => {
+              clear();
+              go({ view: 'login' });
+            }}
+            onSignup={() => {
+              clear();
+              go({ view: 'signup' });
+            }}
+            onBack={() => {
+              clear();
+              if (PERSONAL_VIEWS.has(view)) replace({ view: 'list' });
+            }}
+          />
+        );
+      }
       // L'INSCRIPTION OUVRE DÉJÀ LA SESSION : le serveur pose le cookie avec
       // le compte. On relit donc `/api/me` exactement comme après une
       // connexion, plutôt que de renvoyer vers l'écran de connexion pour y
@@ -1599,15 +1687,24 @@ function AppView(): React.JSX.Element {
           />
         );
       }
-      return (
-        <LoginScreen
-          onForgot={() => go({ view: 'forgot' })}
-          onSignup={() => go({ view: 'signup' })}
-          onSignedIn={enterSession}
-        />
-      );
+      if (view === 'login') {
+        return (
+          <LoginScreen
+            onForgot={() => go({ view: 'forgot' })}
+            onSignup={() => go({ view: 'signup' })}
+            onSignedIn={enterSession}
+          />
+        );
+      }
+      // Tout le reste est du catalogue : on laisse l'application s'afficher.
+      return null;
     }
 
+    /**
+     * L'ACCUEIL NE S'IMPOSE QU'À QUI A UN COMPTE. Il demande des critères et un
+     * dossier — des choses qui n'ont de sens qu'attachées à quelqu'un. Un
+     * visiteur y arriverait avant même d'avoir vu une annonce.
+     */
     if (onboardingDone === false) {
       return (
         <OnboardingPanel

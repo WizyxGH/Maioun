@@ -797,7 +797,18 @@ export default {
     // pas être connecté.
     if (segments[1] === 'me') return json({ user: userId }, cors);
 
-    if (userId === null) return json({ error: 'Connexion requise' }, cors, 401);
+    /**
+     * SANS SESSION, ON PEUT ENCORE CONSULTER.
+     *
+     * Le catalogue part quand même — c'est `route` qui dit lesquelles de ses
+     * ressources s'ouvrent à un inconnu, et qui refuse tout le reste. Les
+     * routes que le Worker traite lui-même (adresse de transfert, compte,
+     * identifiants d'abonnement, pièces du dossier) sont TOUTES en dessous de
+     * cette ligne : elles restent donc fermées sans qu'il faille les nommer.
+     */
+    if (userId === null) {
+      return withCors(await route(db, request, url, segments, cors, null), cors);
+    }
 
     // L'adresse de transfert des alertes (§6). Route À PART, et non un champ de
     // `/api/me` : `me` répond à chaque ouverture du site sans toucher la base,

@@ -33,6 +33,7 @@ import type { Client } from '@libsql/client';
 import { traitConditions } from '../core/trait-filters.js';
 import { shareAlive, survivalCurve } from '../core/survival.js';
 import {
+  ANONYMOUS_USER,
   CURRENT_USER,
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
@@ -72,6 +73,29 @@ export interface LiveFilters {
   readonly availableBy?: string;
   readonly districts?: readonly string[];
 }
+
+/**
+ * CE QU'ON PEUT LIRE SANS COMPTE — le catalogue, et rien de plus.
+ *
+ * Consulter est libre : demander une inscription pour savoir ce qu'il y a à
+ * louer ferait fuir avant d'avoir montré quoi que ce soit. Ces quatre
+ * ressources décrivent le MARCHÉ, pas une personne : les annonces, les
+ * quartiers où il y en a, les sources d'où elles viennent, les agences qui les
+ * publient.
+ *
+ * TOUT LE RESTE EXIGE UNE SESSION, y compris en lecture. Les statistiques, les
+ * alertes, les réglages et les critères disent quelque chose de QUELQU'UN —
+ * les servir à un inconnu serait les publier.
+ *
+ * En GET uniquement, et le vérificateur l'impose à côté : une ressource de
+ * cette liste ne devient pas modifiable pour autant.
+ */
+const ANONYMOUS_READS: ReadonlySet<string> = new Set([
+  'listings',
+  'districts',
+  'sources',
+  'agencies',
+]);
 
 /** Statuts de suivi acceptés par l'API (§35). */
 const TRACKING_STATUSES = new Set([
@@ -1288,10 +1312,32 @@ export async function route(
    * transmet l'identifiant lu dans le cookie de session : c'est là que le
    * multi-compte prend son sens.
    */
-  userId: string = CURRENT_USER,
+  userId: string | null = CURRENT_USER,
 ): Promise<Response> {
   const method = request.method;
   const resource = segments[1];
+
+  /**
+   * LE VERROU DE LA CONSULTATION LIBRE, en un seul endroit.
+   *
+   * `null` veut dire « personne n'est connecté ». On sert alors le catalogue —
+   * les annonces, les quartiers, les sources, les agences — et rien d'autre :
+   * ni lecture personnelle (statistiques, alertes, réglages), ni la moindre
+   * écriture. Consulter est libre ; agir appartient à quelqu'un.
+   *
+   * UN SEUL POINT DE CONTRÔLE PLUTÔT QUE CINQUANTE. Éparpiller la vérification
+   * dans chaque gestionnaire aurait fait dépendre la sécurité de ce que
+   * personne n'oublie ; ici, ce qui n'est pas nommé est refusé, et la liste
+   * tient en trois lignes qu'on relit.
+   */
+  if (userId === null) {
+    if (method !== 'GET' || !ANONYMOUS_READS.has(resource ?? '')) {
+      return json({ error: 'Connexion requise' }, cors, 401);
+    }
+  }
+  // À partir d'ici, une identité qui ne possède rien tient lieu de visiteur :
+  // les jointures externes rendent naturellement zéro favori et zéro score.
+  const identity = userId ?? ANONYMOUS_USER;
   // Le chemin n'est pas décodé par le transport : un id d'annonce contient un
   // « : » (`source:référence`), encodé `%3A` par certains appels du client.
   // On décode ici une fois pour toutes, sinon la fiche ne correspond plus.
@@ -1305,25 +1351,28 @@ export async function route(
     return jsonError(501, "Ce transport n'héberge pas les pièces du dossier.");
   }
   if (resource === 'config') {
-    return handleConfigRoute(db, method, request, cors, userId);
+    return handleConfigRoute(db, method, request, cors, identity);
   }
   if (resource === 'settings') {
-    return handleSettingsRoute(db, method, id, request, cors, userId);
+    return handleSettingsRoute(db, method, id, request, cors, identity);
   }
   if (resource === 'push') {
-    return handlePushRoute(db, method, id, request, cors, userId);
+    return handlePushRoute(db, method, id, request, cors, identity);
   }
   if (resource === 'agencies' && method === 'GET') {
-    return json(id === undefined ? await listAgencies(db) : await getAgency(db, id, userId), cors);
+    return json(
+      id === undefined ? await listAgencies(db) : await getAgency(db, id, identity),
+      cors,
+    );
   }
   if (resource === 'alerts' && method === 'GET') {
-    return json(await listAlerts(db, userId), cors);
+    return json(await listAlerts(db, identity), cors);
   }
   if (resource === 'districts' && method === 'GET') return json(await listDistricts(db), cors);
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
-  if (resource === 'stats' && method === 'GET') return json(await getStats(db, userId), cors);
+  if (resource === 'stats' && method === 'GET') return json(await getStats(db, identity), cors);
   if (resource === 'listings') {
-    return handleListingsRoute(db, method, id, segments[3], url, request, cors, userId);
+    return handleListingsRoute(db, method, id, segments[3], url, request, cors, identity);
   }
   return json({ error: 'Route inconnue' }, cors, 404);
 }

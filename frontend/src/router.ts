@@ -42,6 +42,7 @@ export type View =
   | 'agencies'
   | 'agency'
   | 'alerts'
+  | 'login'
   | 'forgot'
   | 'reset'
   | 'signup'
@@ -80,6 +81,7 @@ const VIEW_PRESENCE: Record<View, true> = {
   agencies: true,
   agency: true,
   alerts: true,
+  login: true,
   forgot: true,
   reset: true,
   signup: true,
@@ -125,6 +127,7 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   sources: 'sources',
   agencies: 'agencies',
   welcome: 'onboarding',
+  login: 'login',
   forgot: 'forgot',
   signup: 'signup',
 };
