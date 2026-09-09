@@ -37,7 +37,27 @@ vi.mock('@libsql/client/web', () => ({
  * tout appel réseau au fournisseur d e-mails.
  */
 vi.mock('@maioun/collector/server/routes', () => ({
-  route: () => new Response('{}', { status: 404 }),
+  /**
+   * LE DOUBLE REPRODUIT LE SEUL COMPORTEMENT QUI COMPTE ICI : sans session,
+   * `route` refuse tout ce qui n'est pas le catalogue. Le Worker lui délègue
+   * désormais les visiteurs anonymes — un double qui répondrait 200 à tout
+   * ferait passer pour ouvertes des routes qui ne le sont pas.
+   *
+   * Le catalogue lui-même est vérifié sur le vrai module, dans
+   * `collector/src/server/routes.test.ts`.
+   */
+  route: (
+    _db: unknown,
+    _request: unknown,
+    _url: unknown,
+    segments: readonly string[],
+    _cors: unknown,
+    userId: string | null,
+  ) => {
+    const open = ['listings', 'districts', 'sources', 'agencies'].includes(segments[1] ?? '');
+    if (userId === null && !open) return new Response('{}', { status: 401 });
+    return new Response('{}', { status: 404 });
+  },
 }));
 
 const envoyes: { to: string; subject: string }[] = [];

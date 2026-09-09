@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildListQuery, rowToListing } from './routes.js';
+import { buildListQuery, route, rowToListing } from './routes.js';
 
 const query = (search: string) =>
   buildListQuery(new URL(`https://exemple.invalid/api/listings${search}`));
@@ -151,5 +151,100 @@ describe('fiche allégée', () => {
       row({ payload: '{"title":{"value":"Studio"},"description":{"value":"Texte"}}' }),
     );
     expect(full['description']).toEqual({ value: 'Texte' });
+  });
+});
+
+/**
+ * LA CONSULTATION EST LIBRE, L'ACTION NE L'EST PAS.
+ *
+ * On ne demande pas de s'inscrire pour savoir ce qu'il y a à louer. Mais un
+ * favori, un contact, une archive appartiennent à quelqu'un — et les réglages,
+ * les alertes et les statistiques DISENT quelque chose de quelqu'un : les
+ * servir à un inconnu reviendrait à les publier.
+ *
+ * Ce test vise le verrou lui-même. Il ne touche pas la base : tout ce qui est
+ * refusé l'est AVANT la moindre requête, et c'est vérifié ici.
+ */
+describe('consultation sans compte', () => {
+  const executed: string[] = [];
+  const db = {
+    execute: (statement: unknown) => {
+      executed.push(typeof statement === 'string' ? statement : JSON.stringify(statement));
+      return Promise.resolve({ rows: [] });
+    },
+  } as unknown as Parameters<typeof route>[0];
+
+  const call = async (method: string, path: string): Promise<Response> => {
+    const url = new URL(`https://exemple.invalid${path}`);
+    const segments = url.pathname.split('/').filter((part) => part !== '');
+    return await route(
+      db,
+      new Request(url, { method }),
+      url,
+      segments,
+      {},
+      // `null` : personne n'est connecté.
+      null,
+    );
+  };
+
+  const refusees = [
+    ['GET', '/api/stats'],
+    ['GET', '/api/alerts'],
+    ['GET', '/api/config'],
+    ['GET', '/api/settings/saved-searches'],
+    ['GET', '/api/documents'],
+  ] as const;
+
+  for (const [method, path] of refusees) {
+    it(`refuse ${method} ${path} — cette lecture est personnelle`, async () => {
+      executed.length = 0;
+      const response = await call(method, path);
+      expect(response.status).toBe(401);
+      // Rien n'est allé jusqu'à la base.
+      expect(executed).toHaveLength(0);
+    });
+  }
+
+  const ecritures = [
+    ['PATCH', '/api/listings/bienici%3Aabc'],
+    ['POST', '/api/listings/bienici%3Aabc/contact'],
+    ['PUT', '/api/config'],
+    ['POST', '/api/push'],
+  ] as const;
+
+  for (const [method, path] of ecritures) {
+    it(`refuse ${method} ${path} — agir appartient à quelqu'un`, async () => {
+      executed.length = 0;
+      const response = await call(method, path);
+      expect(response.status).toBe(401);
+      expect(executed).toHaveLength(0);
+    });
+  }
+
+  it("refuse une ressource du catalogue dès qu'on tente de l'écrire", async () => {
+    // `listings` est consultable ; cela n'en fait pas une ressource modifiable.
+    expect((await call('DELETE', '/api/listings/x')).status).toBe(401);
+    expect((await call('PUT', '/api/sources')).status).toBe(401);
+  });
+
+  it('laisse passer le catalogue en lecture', async () => {
+    for (const path of ['/api/listings', '/api/districts', '/api/sources', '/api/agencies']) {
+      executed.length = 0;
+      const response = await call('GET', path);
+      expect(response.status, path).not.toBe(401);
+      // Et là, on va bien chercher les données.
+      expect(executed.length, path).toBeGreaterThan(0);
+    }
+  });
+
+  it('sert le catalogue sous une identité qui ne possède rien', async () => {
+    executed.length = 0;
+    await call('GET', '/api/listings');
+    // Les états personnels sont attachés par jointure externe sur
+    // l'identifiant : c'est LUI qui garantit zéro favori et zéro score, sans
+    // qu'une seule requête ait à connaître le cas du visiteur.
+    expect(executed.join(' ')).toContain('anonyme');
+    expect(executed.join(' ')).not.toContain('"moi"');
   });
 });
