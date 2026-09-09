@@ -29,7 +29,10 @@ const SEARCH: SavedSearch = {
   },
 } as unknown as SavedSearch;
 
-function renderPanel(onUpdate = vi.fn()): { onUpdate: ReturnType<typeof vi.fn> } {
+function renderPanel(
+  onUpdate = vi.fn(),
+  onEdit = vi.fn(),
+): { onUpdate: ReturnType<typeof vi.fn>; onEdit: ReturnType<typeof vi.fn> } {
   render(
     <SavedSearchesPanel
       searches={[SEARCH]}
@@ -41,11 +44,12 @@ function renderPanel(onUpdate = vi.fn()): { onUpdate: ReturnType<typeof vi.fn> }
       onDelete={() => {}}
       onRename={() => {}}
       onUpdate={onUpdate}
+      onEdit={onEdit}
       onSaveCurrent={() => {}}
       suggestion="Ma recherche"
     />,
   );
-  return { onUpdate };
+  return { onUpdate, onEdit };
 }
 
 describe('mettre à jour une recherche enregistrée', () => {
@@ -111,5 +115,22 @@ describe('accusé de mise à jour', () => {
     await user.click(screen.getByRole('button', { name: 'Remplacer les réglages' }));
 
     expect(screen.getByText('Réglages remplacés')).toBeVisible();
+  });
+});
+
+describe('modifier les critères sur place', () => {
+  it('ouvre les réglages DE CETTE recherche', async () => {
+    // Le geste qu'on cherche en arrivant ici : corriger une borne de loyer
+    // demandait jusqu'ici de rappeler la recherche, de régler l'écran, de
+    // revenir, puis de mettre à jour — trois écrans pour retrouver son chemin.
+    const user = userEvent.setup();
+    const { onEdit } = renderPanel();
+
+    await user.click(
+      screen.getByRole('button', { name: /Modifier les critères de « Studio Libération »/ }),
+    );
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit.mock.calls[0]?.[0]).toMatchObject({ name: 'Studio Libération' });
   });
 });

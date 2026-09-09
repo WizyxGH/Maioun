@@ -16,14 +16,7 @@ import { Check } from './icons.js';
 import { Button } from '@/components/ui/button.js';
 import type { ListingView } from '../types.js';
 import { ALERT_LABELS, alertEventOf, type AlertEvent } from '../alert-kind.js';
-import {
-  formatArea,
-  formatDay,
-  formatPostalAddress,
-  formatPrice,
-  formatSourceName,
-  formatTime,
-} from '../format.js';
+import { formatArea, formatDay, formatPostalAddress, formatPrice, formatTime } from '../format.js';
 import {
   isUnreadAlert,
   readDismissedAlerts,
@@ -91,7 +84,6 @@ function HistoryRow({
     city: listing.city.value,
     district: listing.district.value,
   });
-  const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   // La ligne s'efface à mesure qu'on la pousse : le geste dit ce qu'il fera
   // avant qu'on le relâche.
   const fade = Math.max(0.25, 1 - Math.abs(offset) / (DISMISS_MIN_PX * 2));
@@ -156,10 +148,10 @@ function HistoryRow({
         <span className="block truncate text-xs font-medium text-primary">
           {ALERT_LABELS[event.kind]}
         </span>
+        {/* LA SOURCE A QUITTÉ CETTE LIGNE. Elle n'aide pas à décider s'il faut
+          ouvrir : on choisit un logement, pas un site. Elle reste sur la fiche,
+          où l'on vient précisément pour savoir d'où vient l'annonce. */}
         <span className="block truncate text-sm">{place}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {sources.map(formatSourceName).join(', ')}
-        </span>
       </span>
     </button>
   );

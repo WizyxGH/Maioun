@@ -524,6 +524,47 @@ export async function rotateAlertAddress(): Promise<AlertForwarding> {
 }
 
 /**
+ * L'offre du compte.
+ *
+ * `unconfigured` N'EST PAS UN ÉTAT DE L'UTILISATEUR mais de l'installation :
+ * aucune clé de paiement n'est branchée, donc personne ne peut s'abonner. Le
+ * dire vaut mieux qu'un bouton qui échouerait au clic.
+ */
+export interface PlanView {
+  readonly plan: 'paid' | 'expired' | 'free' | 'unconfigured';
+  /** Fin de la période payée, en ISO. `null` quand il n'y en a pas. */
+  readonly until: string | null;
+}
+
+const PLAN_HORS_LIGNE: PlanView = { plan: 'unconfigured', until: null };
+
+export async function fetchPlan(): Promise<PlanView> {
+  // En démonstration comme sans API, personne ne paie : le dire franchement
+  // évite d'afficher une offre qui ne mène nulle part.
+  if (DEMO || API_URL === '') return PLAN_HORS_LIGNE;
+  return await request<PlanView>('/api/subscription');
+}
+
+/**
+ * Ouvre la page de paiement, chez Stripe.
+ *
+ * @returns l'adresse à visiter, ou `null` si la vente n'est pas configurée —
+ * le Worker répond alors 501, et il a raison de le dire plutôt que de faire
+ * semblant.
+ */
+export async function startCheckout(): Promise<string | null> {
+  if (DEMO || API_URL === '') return null;
+  try {
+    const { url } = await request<{ url: string }>('/api/subscription/checkout', {
+      method: 'POST',
+    });
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Inscription.
  *
  * LE MESSAGE DU SERVEUR EST REPRIS TEL QUEL, contrairement à toutes les autres

@@ -18,7 +18,18 @@
  */
 
 import { useState } from 'react';
-import { ArrowLeft, Check, Copy, Pencil, Play, Plus, Search, Trash2, Upload } from './icons.js';
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  Pencil,
+  Play,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+} from './icons.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge } from '../format.js';
@@ -45,6 +56,15 @@ interface SavedSearchesPanelProps {
    * de supprimer la bonne des deux.
    */
   readonly onUpdate: (id: string) => void;
+  /**
+   * Ouvre les réglages de CETTE recherche, pour les corriger sur place.
+   *
+   * « Mettre à jour avec les filtres actuels » suppose qu'on soit déjà allé
+   * régler l'écran de recherche : quatre écrans pour corriger une borne de
+   * loyer, dont trois qui ne servent qu'à retrouver son chemin. Celui-ci mène
+   * directement aux critères de la recherche, et les y renvoie.
+   */
+  readonly onEdit: (search: SavedSearch) => void;
   /** Enregistre l'état courant de la recherche sous le nom donné. */
   readonly onSaveCurrent: (name: string) => void;
   /** Nom proposé pour l'état courant, calculé à partir des réglages actifs. */
@@ -113,6 +133,7 @@ export function SavedSearchesPanel({
   onDelete,
   onRename,
   onUpdate,
+  onEdit,
   onSaveCurrent,
   suggestion,
   available,
@@ -311,10 +332,21 @@ export function SavedSearchesPanel({
                               date de création restent : ce qu'on corrige, c'est
                               un budget ou une surface, pas l'identité de la
                               recherche. */}
+                            {/* MODIFIER LES CRITÈRES, SUR PLACE. Le geste
+                              qu'on cherche en arrivant ici, et qui n'existait
+                              pas : il ouvre les réglages DE CETTE recherche. */}
                             <Button
                               variant="ghost"
                               size="sm"
                               className="ml-auto"
+                              aria-label={`Modifier les critères de « ${search.name} »`}
+                              onClick={() => onEdit(search)}
+                            >
+                              <SlidersHorizontal aria-hidden="true" className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               aria-label={`Mettre à jour « ${search.name} » avec les filtres actuels`}
                               onClick={() => setReplacing(search.id)}
                             >

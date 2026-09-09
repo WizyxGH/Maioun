@@ -17,7 +17,9 @@ import type {
   ContactAttempt,
   ScoredListing,
   SourceDescriptor,
+  SubscriptionState,
 } from '@maioun/shared';
+import { hasPaidPlan } from '@maioun/shared';
 
 export interface AutoContactDecision {
   readonly allowed: boolean;
@@ -32,12 +34,28 @@ export interface AutoContactInput {
   readonly descriptors: readonly SourceDescriptor[];
   /** Journal des envois, tous listings confondus (§23). */
   readonly history: readonly ContactAttempt[];
+  /**
+   * L'abonnement du compte pour qui l'on candidaterait.
+   *
+   * CHAMP OBLIGATOIRE, ET C'EST VOULU. Optionnel, il vaudrait « autorisé » par
+   * défaut : le droit qu'on oublie de retirer. Ici tout appelant doit dire ce
+   * que Stripe a annoncé, et le compiler le lui rappelle.
+   */
+  readonly subscription: SubscriptionState;
   readonly nowMs: number;
 }
 
 /** Refuse ou autorise un envoi automatique. */
 export function evaluateAutoContact(input: AutoContactInput): AutoContactDecision {
-  const { listing, limits, descriptors, history, nowMs } = input;
+  const { listing, limits, descriptors, history, subscription, nowMs } = input;
+
+  // 0. L'abonnement. Consulter est libre, agir demande un compte, candidater à
+  //    votre place se paie — et c'est ici que la troisième marche se vérifie,
+  //    au seul endroit qui puisse répondre « oui » à un envoi. Le droit se
+  //    déduit de l'état et de la date : un abonnement expiré se referme seul.
+  if (!hasPaidPlan(subscription, nowMs)) {
+    return { allowed: false, reason: 'candidature automatisée réservée à l’offre payante' };
+  }
 
   // 1. Interrupteur global — la première barrière, et la plus importante.
   if (!limits.enabled) {

@@ -384,13 +384,20 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
     expect(extractStreetAddress('97 boulevard Carnot " Le President"')).toBe('97 boulevard Carnot');
   });
 
-  it('refuse une adresse qui a mordu sur la phrase suivante, sans rien laisser de sûr', () => {
+  it('coupe devant l’accroche commerciale, pas seulement devant la prose', () => {
     // Relevés tels quels : 14 adresses en base emportaient le début du texte
     // qui les suit, faute de ponctuation entre les deux.
     //
-    // Couper devant « appartement » laisserait « 1 rue de Orestis Très bel » :
-    // toujours faux, et une rue fausse vaut moins que pas de rue.
-    expect(extractStreetAddress('1 rue de Orestis Très bel appartement de 40 m²')).toBeNull();
+    // On coupait devant « appartement », ce qui laissait « 1 rue de Orestis
+    // Très bel » — deux mots de trop — et l'adresse était donc jetée entière.
+    // La coupe se fait maintenant devant le PREMIER mot d'accroche, et la voie
+    // ressort intacte.
+    expect(extractStreetAddress('1 rue de Orestis Très bel appartement de 40 m²')).toBe(
+      '1 rue de Orestis',
+    );
+    expect(extractStreetAddress('1 boulevard Lech Walesa Joli studio meublé')).toBe(
+      '1 boulevard Lech Walesa',
+    );
   });
 
   it('ne coupe pas une adresse à cheval sur la limite de lecture', () => {
@@ -442,12 +449,16 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
   it('n’emporte pas la phrase qui suit une voie sans ponctuation', () => {
     // Relevés tels quels : sans garde, l'adresse retenue était
     // « rue Dr Barety Dans résidence sécurisée » — ingéocodable, et fausse.
+    //
+    // La voie sans numéro est coupée comme la voie numérotée depuis le
+    // 2026-09-09 : la phrase tombe, la rue reste. Les deux sont réelles et se
+    // géocodent — les jeter perdait une adresse juste par excès de prudence.
     expect(
       extractStreetAddress('Carré d’Or - rue Dr Barety Dans résidence sécurisée, parking'),
-    ).toBeNull();
+    ).toBe('rue Dr Barety');
     expect(
       extractStreetAddress('NICE VAUBAN - AVENUE MARECHAL VAUBAN Dans une résidence sécurisée'),
-    ).toBeNull();
+    ).toBe('AVENUE MARECHAL VAUBAN');
   });
 });
 

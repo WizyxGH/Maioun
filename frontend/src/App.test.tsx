@@ -295,7 +295,12 @@ describe('préparation du contact (§22)', () => {
     expect(screen.getByRole('button', { name: 'Copier' })).toBeInTheDocument();
     // Le libellé du lien explicite désormais le canal (« Ouvrir l'e-mail »,
     // « Appeler », « Contacter via SeLoger »…) plutôt qu'un « Ouvrir » muet.
-    expect(screen.getByRole('link', { name: /Ouvrir|Appeler|Contacter via/ })).toBeInTheDocument();
+    //
+    // `getAllBy` : la fiche porte aussi un bouton « Appeler <numéro> » au-dessus
+    // du message, pour le geste qui obtient une visite sans rien rédiger.
+    expect(
+      screen.getAllByRole('link', { name: /Ouvrir|Appeler|Contacter via/ }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'J’ai envoyé' })).toBeInTheDocument();
   });
 

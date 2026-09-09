@@ -55,6 +55,13 @@ import {
   signupProblemMessage,
 } from './signup.js';
 import { allow, bucketFor, callerKey, LIMITS } from './rate-limit.js';
+import {
+  applyWebhook,
+  checkoutUrl,
+  planView,
+  stripeConfigured,
+  type StripeConfig,
+} from './subscription.js';
 
 export interface Env {
   /** URL `libsql://…` de la base. Secret de la plateforme, jamais publié. */
@@ -124,6 +131,31 @@ export interface Env {
    * MÊME valeur, sans quoi il ne saura rien relire.
    */
   readonly CREDENTIALS_KEY?: string;
+  /**
+   * Clé secrète Stripe (`sk_…`). Absente, la vente n'existe pas : la route de
+   * paiement répond 501 et l'écran n'affiche pas de bouton, plutôt que d'ouvrir
+   * une page qui échouerait.
+   */
+  readonly STRIPE_SECRET_KEY?: string;
+  /** Tarif de l'abonnement chez Stripe (`price_…`). C'est LUI qui fixe le prix. */
+  readonly STRIPE_PRICE_ID?: string;
+  /**
+   * Secret de signature du webhook (`whsec_…`).
+   *
+   * SANS LUI, LE WEBHOOK REFUSE TOUT. Son adresse est publique par nécessité :
+   * seule la signature distingue Stripe de n'importe qui d'autre.
+   */
+  readonly STRIPE_WEBHOOK_SECRET?: string;
+}
+
+/** La configuration de paiement, rassemblée depuis l'environnement. */
+function stripeConfig(env: Env): StripeConfig {
+  return {
+    secretKey: env.STRIPE_SECRET_KEY,
+    priceId: env.STRIPE_PRICE_ID,
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET,
+    siteUrl: env.SITE_URL,
+  };
 }
 
 /**
@@ -776,6 +808,155 @@ async function deleteAccountRoute(
 }
 
 /**
+ * L'adresse de transfert des alertes (§6) : la lire, et en changer.
+ *
+ * Route À PART, et non un champ de `/api/me` : `me` répond à chaque ouverture
+ * du site sans toucher la base, et y ajouter une lecture de ligne la ferait
+ * payer à tout le monde pour un écran de réglages qu'on ouvre une fois.
+ *
+ * @returns la réponse, ou `null` si la requête ne relève pas de ces routes.
+ */
+async function alertAddressRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+  action: string | undefined,
+): Promise<Response | null> {
+  if (request.method === 'GET') {
+    const row = await db.execute({
+      sql: `SELECT alert_token, alert_last_received_at, alert_received_count, email
+            FROM users WHERE id = ? LIMIT 1`,
+      args: [userId],
+    });
+    const found = row.rows[0];
+    return json(
+      {
+        address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, found?.['alert_token']),
+        // CE QUE LE TRANSFERT A RÉELLEMENT APPORTÉ. Sans ces deux chiffres, une
+        // règle mal filtrée est indiscernable d'une journée calme : l'une comme
+        // l'autre ne produisent rien.
+        lastReceivedAt: found?.['alert_last_received_at'] ?? null,
+        receivedCount: Number(found?.['alert_received_count'] ?? 0),
+        // Le compte EST la boite que le collecteur lit : ses alertes y arrivent
+        // deja, il n a aucune regle a poser.
+        ownMailbox: ownsReadMailbox(env.ALERT_ADDRESS_TEMPLATE, found?.['email']),
+      },
+      cors,
+    );
+  }
+
+  // CHANGER D'ADRESSE. L'écran prévient qu'il ne faut pas la publier — sans quoi
+  // n'importe qui peut y déverser ce qu'il veut — mais une adresse qu'on ne peut
+  // pas changer rend cet avertissement inutile le jour où elle fuite. Le nouveau
+  // jeton est tiré ICI : la base ne saurait pas le faire à chaque compte sans
+  // risquer de rejouer l'unicité.
+  if (request.method === 'POST' && action === 'rotate') {
+    const rotated = await db.execute({
+      // Neuf octets, comme à l'inscription et comme en migration : c'est la
+      // longueur qui rend l'adresse indevinable tout en restant recopiable à la
+      // main. Les compteurs repartent à zéro AVEC le jeton — ils décrivaient
+      // l'ancienne adresse, et les laisser ferait croire que la nouvelle a déjà
+      // servi.
+      sql: `UPDATE users
+            SET alert_token = lower(hex(randomblob(9))),
+                alert_last_received_at = NULL,
+                alert_received_count = 0
+            WHERE id = ?
+            RETURNING alert_token`,
+      args: [userId],
+    });
+    return json(
+      {
+        address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, rotated.rows[0]?.['alert_token']),
+        lastReceivedAt: null,
+        receivedCount: 0,
+      },
+      cors,
+    );
+  }
+
+  return null;
+}
+
+/**
+ * LE WEBHOOK DE STRIPE, PUBLIC PAR NÉCESSITÉ.
+ *
+ * Stripe n'a pas de session et ne porte pas notre cookie : cette route ne peut
+ * pas être fermée par l'authentification. Elle se défend par sa signature,
+ * vérifiée sur le corps BRUT — d'où le `text()` et non le `json()`.
+ *
+ * @returns la réponse, ou `null` si la requête ne relève pas de cette route.
+ */
+async function stripeRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  action: string | undefined,
+): Promise<Response | null> {
+  if (action !== 'webhook' || request.method !== 'POST') return null;
+  const outcome = await applyWebhook(
+    db,
+    await request.text(),
+    request.headers.get('Stripe-Signature'),
+    stripeConfig(env),
+    Date.now(),
+  );
+  // 400 sur un refus, 200 sinon : Stripe réessaie sur les erreurs, et l'on ne
+  // veut pas qu'il réessaie un événement qu'on a délibérément ignoré.
+  return outcome === 'rejected'
+    ? json({ error: 'signature refusée' }, cors, 400)
+    : json({ outcome }, cors);
+}
+
+/**
+ * L'abonnement, vu du compte connecté : le lire, et demander à payer.
+ *
+ * @returns la réponse, ou `null` si la requête ne relève pas de ces routes.
+ */
+async function subscriptionRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+  action: string | undefined,
+): Promise<Response | null> {
+  const config = stripeConfig(env);
+
+  if (action === undefined && request.method === 'GET') {
+    return json(await planView(db, userId, config, Date.now()), cors);
+  }
+
+  if (action === 'checkout' && request.method === 'POST') {
+    if (!stripeConfigured(config)) {
+      // On ne fait pas croire à un chemin qui n'existe pas : aucune clé n'est
+      // branchée, donc personne ne peut s'abonner, et le dire vaut mieux qu'une
+      // page de paiement qui échouerait au clic.
+      return json({ error: 'Le paiement n’est pas configuré.' }, cors, 501);
+    }
+    const row = await db.execute({
+      sql: 'SELECT stripe_customer_id, email FROM users WHERE id = ? LIMIT 1',
+      args: [userId],
+    });
+    const found = row.rows[0];
+    const url = await checkoutUrl(
+      config,
+      userId,
+      typeof found?.['stripe_customer_id'] === 'string' ? found['stripe_customer_id'] : null,
+      typeof found?.['email'] === 'string' ? found['email'] : null,
+    );
+    return url === null
+      ? json({ error: 'Stripe a refusé d’ouvrir la page de paiement.' }, cors, 502)
+      : json({ url }, cors);
+  }
+
+  return null;
+}
+
+/**
  * Les routes qui n'exigent AUCUNE session, réunies.
  *
  * Elles étaient en ligne dans `fetch`, qui a fini par dépasser le seuil de
@@ -844,6 +1025,11 @@ async function publicRoute(
       ? new Response(null, { status: 204, headers: cors })
       : json({ error: 'invalid' }, cors, 400);
   }
+  if (segments[1] === 'stripe') {
+    const answered = await stripeRoute(db, request, env, cors, segments[2]);
+    if (answered !== null) return answered;
+  }
+
   if (segments[1] === 'logout') {
     return new Response(null, {
       status: 204,
@@ -927,63 +1113,16 @@ export default {
       return withCors(await route(db, request, url, segments, cors, null), cors);
     }
 
-    // L'adresse de transfert des alertes (§6). Route À PART, et non un champ de
-    // `/api/me` : `me` répond à chaque ouverture du site sans toucher la base,
-    // et y ajouter une lecture de ligne la ferait payer à tout le monde pour un
-    // écran de réglages qu'on ouvre une fois (§30).
+    // L'adresse de transfert des alertes.
     if (segments[1] === 'alert-address') {
-      if (request.method === 'GET') {
-        const row = await db.execute({
-          sql: `SELECT alert_token, alert_last_received_at, alert_received_count, email
-                FROM users WHERE id = ? LIMIT 1`,
-          args: [userId],
-        });
-        const found = row.rows[0];
-        return json(
-          {
-            address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, found?.['alert_token']),
-            // CE QUE LE TRANSFERT A RÉELLEMENT APPORTÉ. Sans ces deux chiffres,
-            // une règle mal filtrée est indiscernable d'une journée calme :
-            // l'une comme l'autre ne produisent rien (§17).
-            lastReceivedAt: found?.['alert_last_received_at'] ?? null,
-            receivedCount: Number(found?.['alert_received_count'] ?? 0),
-            // Le compte EST la boite que le collecteur lit : ses alertes y
-            // arrivent deja, il n a aucune regle a poser.
-            ownMailbox: ownsReadMailbox(env.ALERT_ADDRESS_TEMPLATE, found?.['email']),
-          },
-          cors,
-        );
-      }
+      const answered = await alertAddressRoute(db, request, env, cors, userId, segments[2]);
+      if (answered !== null) return answered;
+    }
 
-      // CHANGER D'ADRESSE. L'écran prévient qu'il ne faut pas la publier — sans
-      // quoi n'importe qui peut y déverser ce qu'il veut — mais une adresse
-      // qu'on ne peut pas changer rend cet avertissement inutile le jour où
-      // elle fuite. Le nouveau jeton est tiré ICI : la base ne saurait pas le
-      // faire à chaque compte sans risquer de rejouer l'unicité.
-      if (request.method === 'POST' && segments[2] === 'rotate') {
-        const rotated = await db.execute({
-          // Neuf octets, comme à l'inscription et comme en migration : c'est la
-          // longueur qui rend l'adresse indevinable tout en restant recopiable
-          // à la main. Les compteurs repartent à zéro AVEC le jeton — ils
-          // décrivaient l'ancienne adresse, et les laisser ferait croire que la
-          // nouvelle a déjà servi.
-          sql: `UPDATE users
-                SET alert_token = lower(hex(randomblob(9))),
-                    alert_last_received_at = NULL,
-                    alert_received_count = 0
-                WHERE id = ?
-                RETURNING alert_token`,
-          args: [userId],
-        });
-        return json(
-          {
-            address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, rotated.rows[0]?.['alert_token']),
-            lastReceivedAt: null,
-            receivedCount: 0,
-          },
-          cors,
-        );
-      }
+    // L'abonnement : ce que le compte paie, et comment il commence à payer.
+    if (segments[1] === 'subscription') {
+      const answered = await subscriptionRoute(db, request, env, cors, userId, segments[2]);
+      if (answered !== null) return answered;
     }
 
     if (segments[1] === 'account' && request.method === 'DELETE') {

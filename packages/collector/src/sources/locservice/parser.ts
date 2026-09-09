@@ -24,6 +24,34 @@ import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 /** « Nice (06000) » — la commune et son code postal, d'un seul tenant. */
 const CITY_AND_CODE = /^(.+?)\s*\((\d{5})\)$/;
 
+/**
+ * La photo d'une carte, prise dans son `<picture>`.
+ *
+ * AUCUNE PHOTO N'ÉTAIT RÉCUPÉRÉE, et ce n'était pas un oubli anodin : le
+ * parser ne regardait tout simplement pas les images. LocService les sert en
+ * `<picture>` — un `<source>` par format (AVIF, WebP) et par largeur, puis un
+ * `<img>` de repli. Chaque `srcset` est une liste « adresse largeur ».
+ *
+ * ON PREND LE JPEG DE REPLI, pas le premier `<source>` : l'AVIF est plus léger,
+ * mais toutes les visionneuses ne l'affichent pas, et les photos sont POINTÉES
+ * chez la source, jamais recopiées — c'est donc le navigateur du visiteur qui
+ * doit savoir la lire, pas le collecteur.
+ *
+ * LA PLUS GRANDE LARGEUR, tant qu'à faire : la carte affiche une vignette de
+ * 167 px, la fiche ouverte mérite mieux, et c'est la même requête.
+ */
+function largestFromSrcset(srcset: string): string | null {
+  let best: { url: string; width: number } | null = null;
+  for (const candidate of srcset.split(',')) {
+    const [url, descriptor] = candidate.trim().split(/\s+/);
+    if (url === undefined || url === '') continue;
+    const width = Number.parseInt(descriptor ?? '', 10);
+    const measured = Number.isFinite(width) ? width : 0;
+    if (best === null || measured > best.width) best = { url, width: measured };
+  }
+  return best?.url ?? null;
+}
+
 export function parseListPage(html: string, pageUrl: string): ParsedList {
   const $ = cheerio.load(html);
   const listings: RawListing[] = [];
@@ -60,10 +88,17 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
       return;
     }
 
+    // L'`<img>` de repli d'abord — c'est le JPEG, lisible partout. Son `srcset`
+    // offre plusieurs largeurs ; à défaut, son `src` fait l'affaire.
+    const photo = card.find('.accommodation-ad-photo img').first();
+    const imageUrl =
+      largestFromSrcset(photo.attr('srcset') ?? '') ?? photo.attr('src')?.trim() ?? null;
+
     listings.push(
       compactListing({
         sourceRef: reference,
         sourceUrl,
+        ...(imageUrl !== null && imageUrl !== '' ? { imageUrls: [imageUrl] } : {}),
         title: link.text().trim() || undefined,
         priceText: card.find('.accommodation-ad-characteristic-price').text().trim() || undefined,
         description: card.find('.accommodation-ad-description').text().trim() || undefined,

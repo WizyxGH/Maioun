@@ -39,6 +39,15 @@ describe('parseSearchPage — fixture nominale', () => {
     expect(f3?.extra?.['agencyRef']).toBe('90001');
   });
 
+  it('garde les photos écrites en chemin relatif, et laisse l’habillage', () => {
+    // Century 21 écrit ses photos « /imagesBien/s3/… ». On n'acceptait que les
+    // adresses commençant par `http` : TOUTES les fiches arrivaient sans photo.
+    const bare = page.listings.find((l) => l.sourceRef === '16000000003');
+    expect(bare?.imageUrls).toEqual([
+      'https://www.century21.fr/imagesBien/s3/202/579/fixture-c21-photo-3.jpg',
+    ]);
+  });
+
   it('omet les champs absents (§17)', () => {
     const bare = page.listings.find((l) => l.sourceRef === '16000000003');
     expect(bare?.priceText).toBeUndefined();

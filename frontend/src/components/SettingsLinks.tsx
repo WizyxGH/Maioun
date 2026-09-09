@@ -21,6 +21,7 @@
 import { AccountActions } from './AccountActions.js';
 import {
   Agency,
+  BadgeEuro,
   BarChart3,
   Bell,
   Bookmark,
@@ -61,6 +62,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Dossier de candidature',
         hint: 'Déposez vos pièces une fois, joignez-les partout.',
         Icon: FileText,
+      },
+      {
+        // SOUS « VOUS », et non sous « Application ». Ce n'est pas un réglage
+        // de l'outil mais l'état de votre compte : ce que vous pouvez faire.
+        key: 'plan',
+        label: 'Votre offre',
+        hint: 'Ce qui est gratuit, et ce que couvre l’offre payante.',
+        Icon: BadgeEuro,
       },
     ],
   },

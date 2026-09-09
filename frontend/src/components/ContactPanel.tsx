@@ -25,9 +25,9 @@ import {
 import type { ListingView, OccurrenceView } from '../types.js';
 import { SOURCES } from '../sources.generated.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
-import { Button, ButtonLink } from '@/components/ui/button.js';
+import { Button, ButtonLink, buttonVariants } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { ChevronRight } from './icons.js';
+import { ChevronRight, PhoneCall } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { displayName } from '../dossier.js';
 
@@ -278,6 +278,20 @@ function ContactDetails({
           </>
         )}
       </dl>
+
+      {/* APPELER, EN UN GESTE. Le numéro n'était qu'un lien dans une liste de
+        définitions : sur téléphone, il fallait viser dix caractères au milieu
+        d'un tableau. Or l'appel est LE geste qui fait obtenir une visite sur ce
+        marché — bien avant l'e-mail, souvent lu le lendemain. */}
+      {phone !== null && (
+        <a
+          href={telHref(phone)}
+          className={buttonVariants({ className: 'mb-4 w-full gap-2 no-underline' })}
+        >
+          <PhoneCall aria-hidden="true" className="size-4" />
+          Appeler {formatPhone(phone)}
+        </a>
+      )}
 
       {/* La provenance ne s'affiche que si elle APPREND quelque chose : quand
         l'agence est déjà nommée au-dessus, « issues de : foncia » ne fait que

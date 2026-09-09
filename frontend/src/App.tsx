@@ -128,6 +128,9 @@ const NotificationSettingsPanel = lazy(() =>
 const ThemePanel = lazy(() =>
   import('./components/ThemePanel.js').then((m) => ({ default: m.ThemePanel })),
 );
+const PlanPanel = lazy(() =>
+  import('./components/PlanPanel.js').then((m) => ({ default: m.PlanPanel })),
+);
 const ProfileForm = lazy(() =>
   import('./components/ProfileForm.js').then((m) => ({ default: m.ProfileForm })),
 );
@@ -206,6 +209,7 @@ const PERSONAL_VIEWS: ReadonlySet<View> = new Set<View>([
   'saved',
   'notifications',
   'access',
+  'plan',
   'alerts',
   'onboarding',
 ]);
@@ -734,6 +738,14 @@ function AppView(): React.JSX.Element {
   const [restored] = useState(readViewState);
   const [sort, setSort] = useState<SortMode>(restored.sort);
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
+  /**
+   * La recherche enregistrée dont on est en train de corriger les critères.
+   *
+   * `null` la plupart du temps : la modale sert d'abord à filtrer l'écran. Quand
+   * elle porte un identifiant, le pied de la modale le dit et son bouton
+   * principal enregistre dans cette recherche-là.
+   */
+  const [editingSearchId, setEditingSearchId] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const [search, setSearch] = useState(restored.search);
   const [hideUncertain, setHideUncertain] = useState(restored.hideUncertain);
@@ -1510,6 +1522,13 @@ function AppView(): React.JSX.Element {
     }
   };
 
+  /** Rappelle une recherche ET ouvre ses réglages, pour les corriger sur place. */
+  const editSavedSearch = async (saved: SavedSearch): Promise<void> => {
+    await applySavedSearch(saved);
+    setEditingSearchId(saved.id);
+    setSortFilterOpen(true);
+  };
+
   const deleteSavedSearch = async (id: string): Promise<void> => {
     const next = savedSearches.filter((saved) => saved.id !== id);
     setSavedSearches(next);
@@ -1806,6 +1825,13 @@ function AppView(): React.JSX.Element {
         </Shell>
       );
     }
+    if (view === 'plan') {
+      return (
+        <Shell {...shell}>
+          <PlanPanel onBack={() => setView('profile')} />
+        </Shell>
+      );
+    }
     if (view === 'theme') {
       return (
         <Shell {...shell}>
@@ -1922,6 +1948,7 @@ function AppView(): React.JSX.Element {
             onDelete={(id) => void deleteSavedSearch(id)}
             onRename={(id, name) => void renameSavedSearch(id, name)}
             onUpdate={(id) => void updateSavedSearch(id)}
+            onEdit={(saved) => void editSavedSearch(saved)}
             onSaveCurrent={(name) => void saveCurrentSearch(name)}
             suggestion={suggestName(
               {
@@ -2260,7 +2287,20 @@ function AppView(): React.JSX.Element {
 
           <SortFilterModal
             open={sortFilterOpen}
-            onClose={() => setSortFilterOpen(false)}
+            onClose={() => {
+              setSortFilterOpen(false);
+              setEditingSearchId(null);
+            }}
+            editingName={savedSearches.find((one) => one.id === editingSearchId)?.name}
+            onSaveEdit={() => {
+              if (editingSearchId !== null) void updateSavedSearch(editingSearchId);
+              setEditingSearchId(null);
+              setSortFilterOpen(false);
+            }}
+            onCancelEdit={() => {
+              setEditingSearchId(null);
+              setSortFilterOpen(false);
+            }}
             toggles={[
               ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
               ['Favoris uniquement', favoritesOnly, setFavoritesOnly],

@@ -46,6 +46,7 @@ import {
 } from '@maioun/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
+import type { Scraper } from '@maioun/shared';
 import type { NearMatch, NotifiableListing, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
@@ -342,6 +343,44 @@ async function notifyOne(deps: {
   }
 }
 
+/**
+ * VISER UNE SOURCE, plutôt que d'attendre son tour.
+ *
+ *   pnpm collect -- --backfill --source=locservice
+ *
+ * L'ordonnanceur ne retient que six sources par passage, et il a raison : on ne
+ * martèle pas cinquante sites d'affilée. Mais quand on vient de corriger une
+ * source précise et qu'on veut la voir tourner, attendre son tour parmi
+ * cinquante-sept revient à ne pas pouvoir la vérifier — c'est exactement ce qui
+ * s'est produit le 2026-09-09 en rattrapant LocService.
+ *
+ * Les budgets, délais et plafonds de la source restent ceux de son descripteur :
+ * on choisit QUI tourne, jamais à quelle cadence.
+ *
+ * `force` accompagne le choix : viser une source sans passer outre son
+ * intervalle ne ferait que la remettre dans la file d'attente.
+ *
+ * @returns les sources à faire tourner, ou `null` si le nom donné n'existe pas.
+ */
+function sourcesVisees(
+  args: ReadonlySet<string>,
+  logger: Logger,
+): { readonly scrapers: readonly Scraper[]; readonly force: boolean } | null {
+  const cible = [...args].find((a) => a.startsWith('--source='))?.slice('--source='.length);
+  if (cible === undefined) return { scrapers: ALL_SCRAPERS, force: false };
+
+  const scrapers = ALL_SCRAPERS.filter((s) => s.descriptor.id === cible.toLowerCase());
+  if (scrapers.length === 0) {
+    logger.warn('source.unknown', {
+      source: cible,
+      connues: ALL_SCRAPERS.map((s) => s.descriptor.id).join(', '),
+    });
+    return null;
+  }
+  logger.info('source.targeted', { source: cible });
+  return { scrapers, force: true };
+}
+
 async function main(): Promise<void> {
   // Charge la configuration privée locale (.env) avant toute lecture d'env.
   loadDotEnv();
@@ -388,34 +427,11 @@ async function main(): Promise<void> {
    */
   const mode = args.has('--backfill') ? 'backfill' : 'live';
 
-  /**
-   * VISER UNE SOURCE, plutôt que d'attendre son tour.
-   *
-   *   pnpm collect -- --backfill --source=locservice
-   *
-   * L'ordonnanceur ne retient que six sources par passage, et il a raison : on
-   * ne martèle pas cinquante sites d'affilée. Mais quand on vient de corriger
-   * une source précise et qu'on veut la voir tourner, attendre son tour parmi
-   * cinquante-sept revient à ne pas pouvoir la vérifier — c'est exactement ce
-   * qui s'est produit le 2026-09-09 en rattrapant LocService.
-   *
-   * Les budgets, délais et plafonds de la source restent ceux de son
-   * descripteur : on choisit QUI tourne, jamais à quelle cadence.
-   */
-  const cible = [...args].find((a) => a.startsWith('--source='))?.slice('--source='.length);
-  const chosen =
-    cible === undefined
-      ? ALL_SCRAPERS
-      : ALL_SCRAPERS.filter((s) => s.descriptor.id === cible.toLowerCase());
-  if (cible !== undefined && chosen.length === 0) {
-    logger.warn('source.unknown', {
-      source: cible,
-      connues: ALL_SCRAPERS.map((s) => s.descriptor.id).join(', '),
-    });
+  const vise = sourcesVisees(args, logger);
+  if (vise === null) {
     process.exitCode = 2;
     return;
   }
-  if (cible !== undefined) logger.info('source.targeted', { source: cible });
 
   // §66 : défauts du projet, que les critères réglés depuis le site
   // remplacent juste en dessous. Il n’y a plus de fichier de configuration :
@@ -475,13 +491,13 @@ async function main(): Promise<void> {
     }
 
     const report = await runPipeline({
-      registry: createRegistry(chosen),
+      registry: createRegistry(vise.scrapers),
       repository,
       config,
       referencePoints,
       userAgent: collectorUserAgent(),
       mode,
-      ...(cible !== undefined ? { force: true } : {}),
+      ...(vise.force ? { force: true } : {}),
       clock: systemClock,
       logger,
       ...(transitConfig !== null ? { transitConfig } : {}),

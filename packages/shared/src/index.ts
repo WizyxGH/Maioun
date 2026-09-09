@@ -21,3 +21,4 @@ export * from './reference-points.js';
 export * from './credentials.js';
 export * from './notification-preferences.js';
 export * from './alert-senders.js';
+export * from './subscription.js';

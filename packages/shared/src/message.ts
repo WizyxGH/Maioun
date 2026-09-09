@@ -154,7 +154,17 @@ export interface TenantProfile {
    * obligeait à taire la moitié de ce qu'on a.
    */
   readonly guarantors: readonly Guarantor[];
-  /** Date d'entrée souhaitée, au format `AAAA-MM-JJ`. */
+  /**
+   * Entrée souhaitée : une date `AAAA-MM-JJ`, `'asap'`, ou `null`.
+   *
+   * `'asap'` MANQUAIT, ET SON ABSENCE FAISAIT VIEILLIR LE PROFIL. Une date est
+   * vraie le jour où on la pose et fausse trois mois plus tard : le message
+   * partait en annonçant une disponibilité PASSÉE, ce qui se lit comme un
+   * dossier abandonné. La plupart des candidats sont disponibles tout de suite
+   * et n'ont aucune date à donner — il leur fallait pourtant en inventer une.
+   *
+   * `null` reste « non précisé » : le message n'écrit alors rien du tout (§17).
+   */
   readonly moveInDate: string | null;
   /**
    * Message de candidature UNIQUE, écrit une fois et envoyé tel quel pour
@@ -299,6 +309,41 @@ function formatFrenchDate(iso: string): string {
   }).format(date);
 }
 
+/** Ce que porte `moveInDate` quand on peut emménager tout de suite. */
+export const MOVE_IN_ASAP = 'asap';
+
+/**
+ * La disponibilité, telle qu'on l'écrit — ou `null` quand on ne dit rien.
+ *
+ * UNE DATE PASSÉE NE S'ÉCRIT PAS. Elle a été vraie ; elle ne l'est plus, et
+ * l'envoyer telle quelle annonce une disponibilité révolue — un dossier qui a
+ * l'air abandonné. On la lit alors comme ce qu'elle est devenue : disponible
+ * tout de suite.
+ *
+ * @param nowMs injecté, pour que le message d'un jour donné soit reproductible.
+ */
+export function moveInPhrase(
+  moveInDate: string | null,
+  nowMs: number,
+  formulation: 'agency' | 'private',
+): string | null {
+  if (moveInDate === null || moveInDate === '') return null;
+
+  const immediate =
+    formulation === 'agency'
+      ? 'Je suis disponible immédiatement'
+      : 'Je peux emménager tout de suite';
+  if (moveInDate === MOVE_IN_ASAP) return `${immediate}.`;
+
+  const date = new Date(`${moveInDate}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.getTime() <= nowMs) return `${immediate}.`;
+
+  return formulation === 'agency'
+    ? `Je suis disponible à partir du ${formatFrenchDate(moveInDate)}.`
+    : `Je peux emménager dès le ${formatFrenchDate(moveInDate)}.`;
+}
+
 export interface TemplateContext {
   readonly listing: MessageListing;
   readonly profile: TenantProfile;
@@ -341,10 +386,8 @@ export const AGENCY_TEMPLATE: MessageTemplate = {
   label: 'Premier contact — agence',
   subject: ({ profile }) => subjectWithName('Demande de visite', profile),
   body: ({ listing, profile }) => {
-    const availability =
-      profile.moveInDate !== null
-        ? ` Je suis disponible à partir du ${formatFrenchDate(profile.moveInDate)}.`
-        : '';
+    const phrase = moveInPhrase(profile.moveInDate, Date.now(), 'agency');
+    const availability = phrase === null ? '' : ` ${phrase}`;
 
     return tidy([
       'Bonjour,',
@@ -369,10 +412,8 @@ export const PRIVATE_TEMPLATE: MessageTemplate = {
   label: 'Premier contact — particulier',
   subject: ({ profile }) => subjectWithName('Votre annonce de location', profile),
   body: ({ listing, profile }) => {
-    const availability =
-      profile.moveInDate !== null
-        ? ` Je peux emménager dès le ${formatFrenchDate(profile.moveInDate)}.`
-        : '';
+    const phrase = moveInPhrase(profile.moveInDate, Date.now(), 'private');
+    const availability = phrase === null ? '' : ` ${phrase}`;
 
     return tidy([
       'Bonjour,',

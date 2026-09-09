@@ -170,46 +170,56 @@ function StatusBadges({
 }
 
 /**
- * Localisation la plus précise disponible : rue > quartier > (rien).
+ * L'ADRESSE, ÉCRITE COMME SUR UNE ENVELOPPE.
  *
- * Le quartier passe par le même formateur que la voie : les sources le
- * publient en capitales, parfois précédé d'un tiret de liste (« - BELLET »),
- * ce qui jurait à côté d'adresses correctement capitalisées.
+ * La voie était dans le titre, tronquée, et la ville sur la ligne d'en dessous :
+ * deux morceaux d'une même information, dont le plus utile ne tenait pas. Les
+ * voici réunis — « 230 Av. de la Californie, 06200 Nice ».
+ *
+ * Sans voie connue, la ligne se réduit à la ville : mieux vaut une adresse
+ * courte qu'une adresse inventée (§17).
  */
-function pickNeighborhood(listing: ListingView): string | null {
+function postalLine(listing: ListingView, cityLine: string): string {
   const street = listing.address.value !== null ? formatAddress(listing.address.value) : null;
-  if (street !== null) return street;
-  const district = listing.district?.value ?? null;
-  return district !== null ? formatDistrict(district) : null;
+  return street !== null ? `${street}, ${cityLine}` : cityLine;
 }
 
-/** En-tête d'une carte : titre (rue ou ville), sous-ligne ville/CP, prix. */
+/**
+ * En-tête d'une carte : titre, adresse, prix.
+ *
+ * LA RUE A QUITTÉ LE TITRE. Elle y était, et la ville juste en dessous : la
+ * même localisation écrite deux fois, en deux morceaux, dont le plus précis
+ * était tronqué par le titre — « Appartement · 230 Av. de la Cali… ». Le titre
+ * dit maintenant CE QUE C'EST et où, en gros ; la ligne d'adresse dit OÙ, tout
+ * entière, dans l'ordre où on l'écrirait sur une enveloppe.
+ *
+ * Le quartier reste au titre quand on l'a : il situe sans répéter la voie.
+ */
 function CardHeading({
   listing,
-  neighborhood,
-  cityLine,
+  addressLine,
 }: {
   readonly listing: ListingView;
-  readonly neighborhood: string | null;
-  readonly cityLine: string;
+  /** Adresse postale la plus complète disponible. Jamais vide. */
+  readonly addressLine: string;
 }): React.JSX.Element {
+  const district = listing.district?.value ?? null;
+  const place = district !== null ? formatDistrict(district) : formatCity(listing.city.value);
   return (
     <div className="min-w-0 flex-1">
-      {/* La RUE prime dans le titre quand on l'a (plus utile que « Nice »,
-          toujours identique) ; sinon la ville. La ville/CP reste en dessous. */}
       <h2 className="truncate text-base font-semibold">
-        {formatPropertyType(listing.propertyType.value)} ·{' '}
-        {neighborhood ?? formatCity(listing.city.value)}
+        {formatPropertyType(listing.propertyType.value)} · {place}
       </h2>
-      {neighborhood !== null && (
-        <p className="truncate text-[0.8rem] text-muted-foreground">{cityLine}</p>
-      )}
+      <p className="truncate text-[0.8rem] text-muted-foreground">{addressLine}</p>
       <p className="mt-1 flex items-baseline gap-1.5">
         <strong className="text-xl font-extrabold tracking-tight">
           {formatPrice(listing.price.value)}
         </strong>
+        {/* « / mois » : un loyer se lit par mois, et rien ne le disait. Un
+            montant nu se confondait avec un prix de vente sur les fiches où la
+            source hésite elle-même. */}
         <span className="text-[0.9rem] text-muted-foreground">
-          {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
+          / mois · {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
         </span>
       </p>
     </div>
@@ -231,14 +241,11 @@ export function ListingCard({
   const uncertain = listing.lifecycle === 'possiblyInactive';
   const favorite = listing.favorite === true;
   const publishedAt = listing.publishedAt.value;
-  // Localisation la plus précise pour le titre : rue si connue, sinon quartier
-  // (ex. Orpi « Madeleine »), sinon la ville seule.
-  const neighborhood = pickNeighborhood(listing);
-  // Sous-ligne ville + code postal (affichée sous le titre quand la rue/quartier
-  // occupe le titre). Précalculée pour garder le rendu simple.
   const postal = listing.postalCode?.value ?? null;
   // Format postal français, comme partout ailleurs (§20) : « 06000 Nice ».
   const cityLine = `${postal !== null ? `${postal} ` : ''}${formatCity(listing.city.value)}`;
+
+  const addressLine = postalLine(listing, cityLine);
 
   // La carte reste épurée : pas de pastilles DPE/atouts (réservées à la
   // fiche) ; seule la disponibilité, décisive pour agir, est affichée.
@@ -266,9 +273,9 @@ export function ListingCard({
 
   // Résumé lu à voix haute par les lecteurs d'écran : sans lui, la carte
   // n'annoncerait qu'un amas de chiffres.
-  const label = `${formatPrice(listing.price.value)}, ${formatArea(listing.area.value)}, ${
-    neighborhood ?? cityLine
-  } — ouvrir la fiche`;
+  const label = `${formatPrice(listing.price.value)} par mois, ${formatArea(
+    listing.area.value,
+  )}, ${addressLine} — ouvrir la fiche`;
 
   return (
     <Card
@@ -310,7 +317,7 @@ export function ListingCard({
           sous le titre, joue ce rôle et laisse l'image entière. */}
       {photos.length > 0 && <PhotoCarousel urls={photos} />}
       <header className="flex items-start gap-3">
-        <CardHeading listing={listing} neighborhood={neighborhood} cityLine={cityLine} />
+        <CardHeading listing={listing} addressLine={addressLine} />
 
         <span className="flex shrink-0 flex-col items-end gap-1">
           {onFavorite !== undefined && (

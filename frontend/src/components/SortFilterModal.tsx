@@ -96,6 +96,22 @@ export interface SortFilterModalProps {
   readonly onCriteriaSaved?: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
   readonly dirty: boolean;
+
+  /**
+   * Nom de la recherche enregistrée en cours de modification, s'il y en a une.
+   *
+   * ÉDITER UNE RECHERCHE ENREGISTRÉE DEMANDAIT QUATRE ÉCRANS : la rappeler, la
+   * régler ici, revenir à la liste des recherches, appuyer sur « mettre à
+   * jour ». Trois d'entre eux ne servaient qu'à retrouver son chemin, et rien
+   * ne disait, pendant qu'on réglait, à quelle recherche cela reviendrait.
+   *
+   * Quand ce nom est là, la modale le dit et son bouton de sortie enregistre.
+   */
+  readonly editingName?: string | undefined;
+  /** Enregistre les réglages dans la recherche en cours de modification. */
+  readonly onSaveEdit?: (() => void) | undefined;
+  /** Referme sans rien enregistrer dans la recherche modifiée. */
+  readonly onCancelEdit?: (() => void) | undefined;
 }
 
 /** Intitulé d'un réglage, à l'intérieur d'une famille. */
@@ -118,6 +134,9 @@ export function SortFilterModal({
   onReset,
   onCriteriaSaved,
   dirty,
+  editingName,
+  onSaveEdit,
+  onCancelEdit,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
 
@@ -368,11 +387,30 @@ export function SortFilterModal({
           seul écran où l'on voit tous les réglages ensemble, et c'est en le
           refermant qu'on sait si la recherche est la bonne. */}
         <div className="flex flex-col gap-2 border-t border-border px-5 py-3">
-          <Button className="w-full" onClick={onClose}>
-            {resultCount === 0
-              ? 'Aucun résultat'
-              : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
+          {/* ON MODIFIE UNE RECHERCHE ENREGISTRÉE : le pied le dit, et son
+            bouton principal enregistre au lieu de simplement fermer. Sans
+            cela, rien n'indiquait pendant le réglage à quelle recherche les
+            changements reviendraient — ni comment y revenir. */}
+          {editingName !== undefined && (
+            <p className="text-center text-[0.82rem] text-muted-foreground">
+              Vous modifiez « {editingName} »
+            </p>
+          )}
+          <Button
+            className="w-full"
+            onClick={editingName !== undefined && onSaveEdit !== undefined ? onSaveEdit : onClose}
+          >
+            {editingName !== undefined
+              ? `Enregistrer « ${editingName} »`
+              : resultCount === 0
+                ? 'Aucun résultat'
+                : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
           </Button>
+          {editingName !== undefined && onCancelEdit !== undefined && (
+            <Button variant="ghost" className="w-full" onClick={onCancelEdit}>
+              Fermer sans enregistrer
+            </Button>
+          )}
           {/* EN DESSOUS, et discret. Côte à côte, les deux boutons se
             disputaient la largeur d'un téléphone et le geste de sortie —
             celui qu'on fait à chaque ouverture — se retrouvait rétréci par
