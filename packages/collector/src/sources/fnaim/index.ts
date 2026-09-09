@@ -25,8 +25,24 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { listUrl, parseDetail, parseListPage } from './parser.js';
 
-/** Vingt-cinq annonces par page, du moins cher au plus cher. */
-const MAX_PAGES = 3;
+/**
+ * TROIS PAGES COUVRAIENT MOINS DE LA MOITIÉ DU STOCK.
+ *
+ * La limite se justifiait par le tri : les résultats vont du moins cher au plus
+ * cher, « trois pages suffisent donc à couvrir la tranche recherchée ». Le
+ * raisonnement tenait tant que l'inventaire ne servait qu'à UN budget. Il ne
+ * tient plus : consulter est libre, et la liste s'ouvre à des gens dont on ne
+ * connaît pas les critères. Une source triée par prix et coupée au tiers ne
+ * montre pas « les moins chers », elle CACHE tout le reste.
+ *
+ * Dénombrement du 2026-09-09, par titre canonique : sept pages réelles, la
+ * huitième vide. Cent vingt-trois annonces au total, contre cinquante-six pour
+ * les trois premières. Plus de la moitié manquait.
+ *
+ * Une page porte une vingtaine d'annonces — le commentaire en annonçait
+ * vingt-cinq.
+ */
+const MAX_PAGES = 8;
 
 /**
  * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.

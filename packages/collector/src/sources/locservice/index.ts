@@ -28,7 +28,28 @@ import { pageUrlFor, parseListPage } from './parser.js';
 /** La page « toutes natures » d'une commune : appartements, studios, maisons. */
 const NICE_BASE = 'https://www.locservice.fr/alpes-maritimes-06/location-nice';
 
-const MAX_PAGES = 4;
+/**
+ * QUATRE PAGES SUR VINGT : nous ne voyions qu'un cinquième de la source.
+ *
+ * Le chiffre en base le criait sans que personne l'entende — 188 annonces,
+ * soit EXACTEMENT quatre pages de quarante-sept. Un compte qui tombe juste sur
+ * un multiple de sa propre limite n'est pas un inventaire, c'est un plafond.
+ * L'en-tête de ce fichier annonçait d'ailleurs « neuf cent cinquante logements
+ * référencés pour Nice », sans que rien ne rapproche les deux nombres.
+ *
+ * Dénombrement du 2026-09-09, par identifiant d'annonce : quarante-sept par
+ * page jusqu'à la dix-neuvième, quarante-deux sur la vingtième, et au-delà le
+ * site resert la vingtième — c'est donc la dernière. Soit **935 annonces**, là
+ * où nous en prenions 188. Sept cent cinquante logements DE PARTICULIERS
+ * échappaient à un inventaire qui, sans eux, est presque entièrement agence.
+ *
+ * CELA NE COÛTE PAS VINGT REQUÊTES PAR PASSAGE. La liste est triée par
+ * fraîcheur et la boucle s'arrête sur la première page entièrement connue
+ * (§9) : le prix des vingt pages n'est payé qu'au premier rattrapage, puis
+ * deux pages suffisent — celle des nouveautés, et la suivante qui confirme
+ * qu'on est retombé dans le connu (§30).
+ */
+const MAX_PAGES = 20;
 
 export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
   id: 'locservice',
@@ -39,7 +60,13 @@ export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
   // Priorité haute : du particulier, que les autres sources n'apportent pas.
   priority: 1,
   schedule: scheduleFor('portal'),
-  budget: budgetFor('portal', { maxPagesPerRun: MAX_PAGES, maxListingsPerRun: 250 }),
+  budget: budgetFor('portal', {
+    maxPagesPerRun: MAX_PAGES,
+    maxListingsPerRun: 1_000,
+    // Deux secondes entre deux pages : le rattrapage en demande vingt d'un
+    // coup, ce qui n'arrive qu'une fois mais mérite d'être poli (§10).
+    delayBetweenRequestsMs: 2_000,
+  }),
   enabled: true,
   // LEUR MÉTIER EST LA MISE EN RELATION, contre paiement. On ne cherche donc
   // ni adresse ni téléphone, et l'on n'écrit jamais à leur place (§23, §24).
