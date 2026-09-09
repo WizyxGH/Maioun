@@ -58,6 +58,7 @@ import {
 } from '../notify/web-push.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { sendEmailAlert } from '../notify/email-alerts.js';
+import { mailerConfigured } from '../notify/mailer.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
 
@@ -227,6 +228,27 @@ async function notifyOne(deps: {
     // Demandé mais impossible : le dire, sinon le canal reste muet sans raison
     // visible — et l'écran, lui, affiche que l'e-mail est actif.
     logger.warn('email.no_verified_address', { userId });
+  }
+
+  /**
+   * DEUX EXPÉDITEURS DIFFÉRENTS, ET C'EST LE PIÈGE.
+   *
+   * Le Worker a sa propre clé, déposée en secret de plateforme : elle sert aux
+   * mots de passe oubliés et aux confirmations d'adresse. Les alertes, elles,
+   * partent d'ICI — de la machine qui collecte — et exigent donc la clé dans
+   * SON fichier d'environnement. Avoir configuré l'un ne configure pas l'autre,
+   * et rien ne le disait.
+   *
+   * Sans clé, l'envoi se contentait d'une trace de mise au point, invisible au
+   * niveau où tourne la collecte : la case cochée à l'écran, l'adresse
+   * vérifiée, et un silence complet. Quelqu'un qui a demandé le canal mérite
+   * qu'on lui dise pourquoi il ne reçoit rien.
+   */
+  if (preferences.email && !mailerConfigured(mailer)) {
+    logger.warn('email.mailer_unconfigured', {
+      userId,
+      aide: 'EMAIL_API_KEY et EMAIL_FROM manquent dans le .env de cette machine',
+    });
   }
 
   /**
