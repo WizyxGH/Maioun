@@ -83,7 +83,6 @@ describe('.env.example', () => {
       'BEP_SUBSCRIBER_USER',
       'BEP_SUBSCRIBER_PASSWORD',
       'COLLECTOR_USER_AGENT',
-      'BACKFILL_ENABLED',
       'AUTO_CONTACT_ENABLED',
       'REFERENCE_WORK_LAT',
       'REFERENCE_STATION_LAT',
@@ -93,8 +92,11 @@ describe('.env.example', () => {
     }
   });
 
-  it('laisse le backfill et le contact automatique désactivés (§8, §23)', () => {
-    expect(example).toMatch(/^BACKFILL_ENABLED=false$/m);
+  it('laisse le contact automatique désactivé', () => {
+    // Le rattrapage, lui, n’a plus de variable : « --backfill » suffit et EST
+    // l’intention. Un second verrou dans un fichier transformait une commande
+    // explicite en devinette.
+    expect(example).not.toContain('BACKFILL_ENABLED');
     expect(example).toMatch(/^AUTO_CONTACT_ENABLED=false$/m);
   });
 });
