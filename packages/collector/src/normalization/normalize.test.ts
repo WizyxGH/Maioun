@@ -141,6 +141,35 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
     expect(rederiveFromText(stored())?.address).toBe('Rue Smolett');
   });
 
+  it('remplace une adresse AMPUTÉE que le texte prolonge', () => {
+    // Relevé le 2026-09-09 : la description était tronquée à cent vingt signes
+    // avant la recherche, et le 120e tombait au milieu du nom de voie. « 132
+    // corniche fle » a toutes les apparences d’une rue — ni parking, ni prose —
+    // donc elle passait chaque contrôle et le rejeu la gardait à jamais.
+    // Corriger l’extraction ne suffisait pas : les fiches en base restaient
+    // fausses, sans point sur la carte ni temps de trajet.
+    const rejoue = rederiveFromText(
+      stored({
+        address: '132 corniche fle',
+        title: 'Fabron 06200 Nice - Studio avec terrasse',
+        description:
+          'Nice Ouest , studio de 23 m² au rez de chaussée avec terrasse et place de ' +
+          "parking en sous-sol, situé au 132 corniche fleurie, 06200 Nice au sein d'une copropriété",
+      }),
+    );
+    expect(rejoue?.address).toBe('132 corniche fleurie');
+  });
+
+  it('ne remplace pas une adresse par une AUTRE, seulement par sa version entière', () => {
+    // Hors du cas « le texte prolonge la stockée », la stockée prime : elle
+    // vient souvent d’un champ structuré que le texte n’égale pas.
+    expect(
+      rederiveFromText(
+        stored({ address: '12 Avenue de la Californie', description: '45 Rue Smolett, au port.' }),
+      ),
+    ).toBeNull();
+  });
+
   it('n’écrase JAMAIS une adresse publiée par la source', () => {
     expect(rederiveFromText(stored({ address: '12 Avenue de la Californie' }))).toBeNull();
   });

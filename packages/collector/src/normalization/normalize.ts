@@ -542,6 +542,29 @@ function fillGaps(
  *
  * @returns l'occurrence corrigée, ou `null` si rien ne change.
  */
+/**
+ * L'adresse à retenir au rejeu : celle déjà stockée, ou celle que le texte rend.
+ *
+ * UNE ADRESSE STOCKÉE QUE LE TEXTE PROLONGE EST UNE ADRESSE AMPUTÉE. Le cas
+ * relevé le 2026-09-09 : « 132 corniche fle », coupée au milieu du nom de voie
+ * parce que la description était tronquée avant la recherche. Elle a toutes les
+ * apparences d'une rue — ni parking, ni prose — donc elle passait chaque
+ * contrôle, et le rejeu la gardait à jamais. Corriger l'extraction ne suffisait
+ * pas : les fiches déjà en base restaient fausses.
+ *
+ * Quand le texte rend « 132 corniche fleurie », qui CONTIENT la stockée en
+ * préfixe, il n'y a pas deux adresses possibles : il y en a une, et l'autre
+ * s'arrête au milieu d'un mot. Hors de ce cas précis, la stockée continue de
+ * primer — elle vient souvent d'un champ structuré que le texte n'égale pas.
+ */
+function bestAddress(stored: string | null, fromText: string | null): string | null {
+  if (stored === null || !looksLikeStreet(stored)) return fromText;
+  if (fromText === null) return stored;
+  const court = comparable(stored);
+  const long = comparable(fromText);
+  return long.length > court.length && long.startsWith(court) ? fromText : stored;
+}
+
 export function rederiveFromText(
   occurrence: NormalizedListing,
   nowMs: number = Date.now(),
@@ -553,10 +576,7 @@ export function rederiveFromText(
   const fromText = dedupeStreetAddress(
     extractStreetAddress(occurrence.description) ?? extractStreetAddress(occurrence.title),
   );
-  const address =
-    occurrence.address !== null && looksLikeStreet(occurrence.address)
-      ? occurrence.address
-      : fromText;
+  const address = bestAddress(occurrence.address, fromText);
 
   // Le type ne se corrige que DANS UN SENS : un « parking » que le titre
   // dément. Le recalculer librement le dégraderait — le scraper le tenait
