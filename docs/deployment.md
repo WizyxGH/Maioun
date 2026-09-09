@@ -276,6 +276,65 @@ UNE CONTREPARTIE À CONNAÎTRE : KV est _éventuellement cohérent_. Une pièce 
 juste déposée peut ne pas figurer dans la liste pendant quelques secondes —
 l'écran l'ajoute donc à sa liste sans attendre de relire.
 
+### Entrer avec un compte Google (§26) — option gratuite à activer
+
+**Ce qu'elle apporte.** Consulter est libre : le moment où l'on demande un
+compte n'est plus l'arrivée sur le site mais le premier geste — un favori. À
+cet instant, réclamer un mot de passe à choisir puis une confirmation par
+courriel à attendre fait renoncer. Google rend une adresse **déjà vérifiée** :
+un seul geste, rien à recevoir. C'est aussi le seul chemin d'inscription qui
+fonctionne tant que l'envoi d'e-mails n'est pas configuré.
+
+**Ce qu'elle coûte.** Google saura quand quelqu'un se connecte à Maïoun. C'est
+modeste pour une recherche de logement, mais ce n'est pas rien, et c'est
+irréversible pour les comptes créés ainsi. Le mot de passe reste le second
+chemin, toujours disponible : sans identifiant d'application configuré, le
+bouton ne s'affiche simplement pas.
+
+**1. Créer l'identifiant OAuth.** Sur
+[console.cloud.google.com](https://console.cloud.google.com) → _API et
+services_ → _Identifiants_ → _Créer des identifiants_ → _ID client OAuth_ →
+type **Application Web**. Y déclarer comme **origine JavaScript autorisée**
+l'adresse EXACTE du site, schéma et hôte, sans chemin ni barre finale :
+
+```
+https://wizyxgh.github.io
+```
+
+Aucun **URI de redirection** n'est nécessaire : le jeton est rendu dans la
+page, sans redirection. Google demandera aussi de remplir l'écran de
+consentement — nom de l'application et adresse de contact suffisent tant que
+les portées restent `openid`, `email` et `profile`.
+
+**2. Le donner au Worker**, qui VÉRIFIE les jetons :
+
+```toml
+# packages/worker/wrangler.toml
+GOOGLE_CLIENT_ID = "….apps.googleusercontent.com"
+```
+
+Ce n'est pas un secret — Google le publie, il voyage dans la page — mais ce
+n'est pas décoratif pour autant : c'est en comparant cette identité à celle
+que porte le jeton qu'on refuse un jeton émis pour une **autre** application.
+Sans ce contrôle, n'importe quel site utilisant Google pourrait rejouer les
+jetons de ses propres visiteurs pour entrer ici. C'est la vérification qu'on
+oublie, et la plus traître.
+
+**3. Le donner au site**, qui l'AFFICHE. Dans le dépôt GitHub → _Settings_ →
+_Secrets and variables_ → _Actions_ → onglet **Variables** (et non _Secrets_) →
+`GOOGLE_CLIENT_ID`, même valeur. Puis relancer le déploiement du site.
+
+**Si l'un des deux manque**, rien ne ment : absent côté Worker, la route répond
+501 ; absent côté site, le bouton ne s'affiche pas. Dans les deux cas le mot de
+passe continue de fonctionner (§17).
+
+**Un compte existant est RELIÉ, jamais dupliqué.** Quelqu'un inscrit par mot de
+passe qui clique un jour « Continuer avec Google » retrouve son compte, ses
+favoris et son dossier : le rattachement se fait sur l'adresse, et il est sûr
+parce que Google atteste l'avoir vérifiée. Le lien est ensuite tenu par
+l'identifiant stable du compte Google, jamais par l'adresse — celle-ci peut
+changer, le compte reste le même.
+
 ### Mot de passe oublié (§26) — option gratuite à activer
 
 Sans elle, un mot de passe perdu est un compte perdu : ses favoris, son suivi,

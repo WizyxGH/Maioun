@@ -27,6 +27,7 @@ import { signup } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
+import { GoogleSignIn } from './GoogleSignIn.js';
 
 export function SignupScreen({
   onSignedIn,
@@ -94,6 +95,16 @@ export function SignupScreen({
         Les annonces sont communes à tous les comptes ; vos favoris, votre suivi et vos recherches
         n’appartiennent qu’à vous.
       </p>
+
+      {/* GOOGLE EN PREMIER, ET SEULEMENT ICI. C'est sur cet écran qu'il fait
+        gagner quelque chose : un mot de passe à choisir et un courriel de
+        confirmation à attendre, contre un seul geste et une adresse déjà
+        vérifiée. Sur l'écran de connexion il vient après — celui qui a déjà un
+        compte sait comment il est entré. Rien ne s'affiche si la connexion
+        Google n'est pas configurée (§17). */}
+      <div className="mb-4 flex flex-col items-center gap-3">
+        <GoogleSignIn onSignedIn={onSignedIn} onError={setError} />
+      </div>
 
       <Card>
         <form

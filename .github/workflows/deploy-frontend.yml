@@ -53,6 +53,10 @@ jobs:
           # sans quoi le navigateur ne peut pas s'abonner. Ce n'est pas un
           # secret — la clé privée, elle, ne sert qu'à la collecte.
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          # Identifiant OAuth de l'application. Une VARIABLE et non un secret :
+          # Google le publie, il voyage dans la page. Absent, le bouton
+          # « Continuer avec Google » ne s'affiche simplement pas.
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
 
       - name: Vérifier qu'aucun secret n'a été embarqué
         # Un jeton glissé dans le bundle serait publié définitivement (§26).
