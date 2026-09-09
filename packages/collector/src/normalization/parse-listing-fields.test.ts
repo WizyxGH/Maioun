@@ -384,11 +384,28 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
     expect(extractStreetAddress('97 boulevard Carnot " Le President"')).toBe('97 boulevard Carnot');
   });
 
-  it('refuse une adresse qui a mordu sur la phrase suivante', () => {
+  it('refuse une adresse qui a mordu sur la phrase suivante, sans rien laisser de sûr', () => {
     // Relevés tels quels : 14 adresses en base emportaient le début du texte
     // qui les suit, faute de ponctuation entre les deux.
+    //
+    // Couper devant « appartement » laisserait « 1 rue de Orestis Très bel » :
+    // toujours faux, et une rue fausse vaut moins que pas de rue.
     expect(extractStreetAddress('1 rue de Orestis Très bel appartement de 40 m²')).toBeNull();
-    expect(extractStreetAddress('33 ROUTE DE TURIN Appartement rénové')).toBeNull();
+  });
+
+  it('COUPE devant la prose quand ce qui précède est une adresse entière', () => {
+    // Ces deux-là rendaient `null` : le garde-fou jetait l'adresse avec la
+    // phrase qu'elle avait happée. La voie est pourtant là, complète, en tête.
+    // Relevé sur une annonce Bien'ici le 2026-09-09.
+    expect(
+      extractStreetAddress('Coeur de Nice, 36 rue Hérold studio vide dans résidence récente'),
+    ).toBe('36 rue Hérold');
+    expect(extractStreetAddress('33 ROUTE DE TURIN Appartement rénové')).toBe('33 ROUTE DE TURIN');
+  });
+
+  it('ne coupe pas quand il ne resterait qu’un début de voie', () => {
+    // Le mot de prose colle au type de voie : il n'y a pas d'adresse à sauver.
+    expect(extractStreetAddress('12 rue résidence Les Oliviers proche du port')).toBeNull();
   });
 
   it('ne prend pas une DATE pour un numéro de voie', () => {
