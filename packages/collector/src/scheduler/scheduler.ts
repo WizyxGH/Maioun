@@ -137,11 +137,51 @@ export interface SchedulePlan {
 }
 
 /**
+ * Au-delà de ce multiple de SON PROPRE intervalle, une source est affamée.
+ *
+ * Le seuil se compte en intervalles et non en heures : une source relevée
+ * toutes les vingt minutes est en retard bien avant une source quotidienne, et
+ * un seuil absolu punirait la seconde pour la lenteur qu'on lui a choisie.
+ */
+const STARVATION_FACTOR = 4;
+
+/**
+ * De combien de fois son intervalle une source a-t-elle dépassé son tour.
+ *
+ * `Infinity` pour une source jamais exécutée : elle n'a pas un retard, elle a
+ * une dette entière, et rien ne doit passer devant.
+ */
+function overdueRatio(
+  decision: ScheduleDecision,
+  state: SourceRuntimeState,
+  nowMs: number,
+): number {
+  if (state.lastRunAt === null) return Number.POSITIVE_INFINITY;
+  const intervalMs = Math.max(1, decision.effectiveIntervalMinutes) * 60_000;
+  return (nowMs - Date.parse(state.lastRunAt)) / intervalMs;
+}
+
+/**
  * Construit le plan d'exécution d'un tick.
  *
- * Les sources éligibles sont triées par priorité croissante (1 = prioritaire),
- * puis par ancienneté d'exécution, de sorte qu'aucune source ne soit
- * indéfiniment évincée par une voisine plus prioritaire.
+ * LA PRIORITÉ NE DOIT PAS ÊTRE ABSOLUE, et elle l'était. Ce commentaire
+ * promettait « qu'aucune source ne soit indéfiniment évincée par une voisine
+ * plus prioritaire » ; le tri ne le tenait pas. Il classait d'abord par
+ * priorité, et ne départageait par ancienneté qu'À PRIORITÉ ÉGALE — si bien
+ * qu'avec six places par tick, cinq sources de priorité 1 et dix-neuf de
+ * priorité 2, celles de priorité 3 et 4 ne passaient jamais.
+ *
+ * Relevé du 2026-09-09, et il ne laisse aucun doute : `inli` et `nousgerons`
+ * (priorité 3) n'avaient pas tourné depuis huit jours, en bonne santé, sans
+ * erreur et sans mise au repos ; `rentumo` (priorité 4) n'avait JAMAIS tourné
+ * une seule fois — pas même une ligne d'état en base. Rien ne le signalait :
+ * une source jamais élue ne produit ni erreur, ni avertissement, ni trace.
+ *
+ * D'où une BANDE DE FAMINE devant les autres. Une source qui a dépassé quatre
+ * fois son propre intervalle passe avant tout le monde, la plus affamée en
+ * tête ; le reste garde l'ordre habituel — priorité, puis ancienneté. La
+ * priorité continue donc de décider du RYTHME ORDINAIRE, sans pouvoir
+ * condamner personne au silence.
  */
 export function planRun(
   entries: readonly { descriptor: SourceDescriptor; state: SourceRuntimeState }[],
@@ -155,7 +195,21 @@ export function planRun(
 
   const eligible = decisions
     .filter((entry) => entry.decision.shouldRun)
+    .map((entry) => ({ ...entry, overdue: overdueRatio(entry.decision, entry.state, nowMs) }))
     .sort((a, b) => {
+      // La bande de famine d'abord, la plus affamée en tête.
+      const aStarving = a.overdue >= STARVATION_FACTOR;
+      const bStarving = b.overdue >= STARVATION_FACTOR;
+      if (aStarving !== bStarving) return aStarving ? -1 : 1;
+      if (aStarving) {
+        // DEUX SOURCES JAMAIS EXÉCUTÉES ONT LE MÊME RETARD INFINI, et
+        // `Infinity - Infinity` vaut `NaN` — un comparateur qui rend `NaN`
+        // laisse l'ordre au hasard de l'implémentation. À dette égale, on
+        // retombe donc sur les règles ordinaires, plus bas.
+        const ecart = b.overdue - a.overdue;
+        if (Number.isFinite(ecart) && ecart !== 0) return ecart;
+      }
+
       if (a.decision.priority !== b.decision.priority) {
         return a.decision.priority - b.decision.priority;
       }
