@@ -656,6 +656,16 @@ function countAlertsByToken(
  * Un secret qu on ne sait plus lire — cle changee, ligne d une autre
  * installation — est traite comme absent, jamais comme une panne (§17) : on
  * passe au suivant, et l environnement reste le dernier recours.
+ *
+ * CE QU ON NE FAIT PAS, ET POURQUOI. Le premier qui se dechiffre n est pas
+ * forcement celui qui FONCTIONNE : un abonnement expire depuis, et la source
+ * echoue alors que les identifiants d un autre compte attendent juste
+ * derriere. La correction evidente — essayer le suivant sur echec — serait
+ * pire que le mal : enchainer des tentatives de connexion sur un site
+ * d abonnes, c est exactement ce qui declenche un verrouillage de compte ou un
+ * bannissement d adresse (§10). On prefere echouer clairement, en NOMMANT
+ * l identifiant fautif dans l avertissement, pour que la personne concernee
+ * corrige le sien depuis l ecran.
  */
 async function resolveCredentials(
   repository: Repository,
