@@ -10,7 +10,7 @@
  * navigateur a stocké, rien d'autre (§26).
  */
 
-import { TENANT_SITUATIONS, type TenantProfile } from '@maioun/shared';
+import { MOVE_IN_ASAP, TENANT_SITUATIONS, type TenantProfile } from '@maioun/shared';
 import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from './icons.js';
 import { UNKNOWN, formatPhone } from '../format.js';
 import { guarantorsLabel } from '../profile.js';
@@ -65,12 +65,26 @@ function lines(profile: TenantProfile): readonly {
       key: 'moveIn',
       Icon: CalendarDays,
       label: 'Entrée souhaitée',
-      value:
-        profile.moveInDate === null
-          ? null
-          : new Date(profile.moveInDate).toLocaleDateString('fr-FR'),
+      // « Dès que possible » n'est pas une date : la formater en produirait une
+      // fausse (« Invalid Date », ou pire, aujourd'hui).
+      value: moveInLabel(profile.moveInDate),
     },
   ];
+}
+
+/**
+ * L'entrée souhaitée, telle qu'on la lit.
+ *
+ * Une date passée est signalée comme telle : elle a été vraie, elle ne l'est
+ * plus, et la montrer sans le dire laisse croire que le profil est à jour.
+ */
+function moveInLabel(value: string | null): string | null {
+  if (value === null || value === '') return null;
+  if (value === MOVE_IN_ASAP) return 'Dès que possible';
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  const written = date.toLocaleDateString('fr-FR', { timeZone: 'UTC' });
+  return date.getTime() < Date.now() ? `${written} (passée)` : written;
 }
 
 /** L intitulé d une situation, ou le texte libre quand elle n est pas listée. */

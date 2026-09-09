@@ -774,6 +774,58 @@ export const NUMBERED_STREET = new RegExp(
  */
 const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45}$`, 'i');
 
+/** Une adresse qui COMMENCE par un type de voie, numéro ou non. */
+const STARTS_WITH_KIND = new RegExp(`^(?:${STREET_KINDS})\\b`, 'i');
+
+/**
+ * CE QUE VAUT UNE ADRESSE, en trois marches.
+ *
+ * Deux adresses désignent souvent le même bien sans se valoir : la source
+ * publie « avenue Sainte Colette » quand sa description écrit « 31, avenue
+ * Sainte Colette ». Le champ structuré l'emportait toujours — c'est une bonne
+ * règle générale — et le numéro était perdu à chaque fois. Or c'est LUI qui
+ * place le point sur la carte : sans numéro, le géocodeur vise le milieu de la
+ * voie, et le temps de trajet affiché est celui d'un autre logement.
+ *
+ * Trois marches, parce que trois choses différentes se ressemblent :
+ *
+ *   2  un numéro ET un type de voie — « 230 avenue de la Californie » ;
+ *   1  un type de voie seul — « Corniche Fleurie » ;
+ *   0  ni l'un ni l'autre — « Californie, Nice », qui nomme un QUARTIER.
+ *
+ * La marche 0 est celle qui trompe : elle a l'air d'une adresse, elle se range
+ * dans le champ « adresse » de la source, et elle ne situe rien de plus précis
+ * que le quartier déjà connu par ailleurs.
+ */
+export function addressGrade(address: string): 0 | 1 | 2 {
+  const clean = address.replace(/\s+/g, ' ').trim();
+  if (NUMBERED_STREET.test(clean)) return 2;
+  return STARTS_WITH_KIND.test(clean) ? 1 : 0;
+}
+
+/**
+ * `true` si les deux adresses nomment la MÊME voie, l'une avec son numéro.
+ *
+ * On compare les noms débarrassés du numéro et du type de voie : « avenue
+ * Sainte Colette » et « 31, avenue Sainte Colette » se rejoignent, « avenue
+ * Sainte Colette » et « 31 rue Barla » non. Sans cette vérification, un numéro
+ * croisé dans la description serait recollé à une voie qui n'est pas la sienne
+ * — une adresse fausse, et plausible, ce qui est le pire des deux.
+ */
+export function sameStreet(a: string, b: string): boolean {
+  const noyau = (address: string): string =>
+    comparable(address)
+      .replace(/^\d{1,4}(?:[-/]\d{1,3})?\s*(?:bis|ter)?[,]?\s*/, '')
+      .replace(new RegExp(`^(?:${STREET_KINDS})\\s+`, 'i'), '')
+      .replace(/^(?:de\s+la|de\s+l|du|des|de|d)\s+/, '')
+      .replace(/[^a-z0-9 ]/g, '')
+      .trim();
+  const gauche = noyau(a);
+  const droite = noyau(b);
+  if (gauche === '' || droite === '') return false;
+  return gauche === droite || gauche.startsWith(droite) || droite.startsWith(gauche);
+}
+
 /**
  * FAUX AMIS : un segment qui commence par un type de voie sans désigner une
  * adresse — « Place de parking », « Passage couvert », « Box fermé ».
@@ -795,6 +847,22 @@ const NOT_A_STREET = /\b(parking|stationnement|garage|box|voiture|moto|velo|vél
  */
 const PROSE_AFTER_STREET =
   /\b(dans|proche|avec|situ[ée]e?|id[ée]ale?|entre|r[ée]sidence|immeuble|appartement|studio|villa|copropri[ée]t[ée])\b/i;
+
+/**
+ * L'ACCROCHE COMMERCIALE, qui suit la voie sans ponctuation : « 1 boulevard
+ * Lech Walesa Joli studio meublé ».
+ *
+ * Séparée de la prose ci-dessus, et ce n'est pas un détail : celle-là juge
+ * aussi les adresses DÉJÀ STOCKÉES, où « Bel », « Rare » ou « Beau » peuvent
+ * appartenir à un nom de voie — « Chemin de Bel Air » existe. Rejeter une
+ * adresse publiée par la source sur ce motif en perdrait des justes.
+ *
+ * Ici on ne rejette rien : on COUPE devant, et seulement sur un texte qu'on
+ * vient d'extraire. « 1 boulevard Lech Walesa Joli » gardait un mot de trop et
+ * ne se géocodait pas.
+ */
+const SALES_PITCH =
+  /\b(tr[èe]s|joli\w*|beau|bel|belle|magnifique|superbe|splendide|charmant\w*|ravissant\w*|spacieux|spacieuse|lumineux|lumineuse|coquet\w*|agr[ée]able|exceptionnel\w*|vaste|refait\w*|r[ée]nov[ée]\w*|bien plac[ée]\w*|au calme)\b/i;
 
 /**
  * ÉQUIPEMENTS : les mots qu'une agence accole au nom de voie dans une accroche
@@ -835,15 +903,23 @@ const MAX_STREET_NAME_WORDS = 3;
  * déjà refusés.
  */
 function trimAtProse(candidate: string): string | null {
-  const prose = PROSE_AFTER_STREET.exec(candidate);
-  if (prose?.index === undefined || prose.index === 0) return null;
+  // Le PREMIER des deux : l'accroche précède souvent la prose (« Joli studio »),
+  // et couper au second laisserait le premier mot collé à la voie.
+  const positions = [PROSE_AFTER_STREET.exec(candidate)?.index, SALES_PITCH.exec(candidate)?.index]
+    .filter((index): index is number => index !== undefined && index > 0)
+    .sort((a, b) => a - b);
+  const coupe = positions[0];
+  if (coupe === undefined) return null;
 
   const trimmed = candidate
-    .slice(0, prose.index)
+    .slice(0, coupe)
     .trim()
     .replace(/[,\s]+$/, '');
+  // LE NUMÉRO EST FACULTATIF, et il l'est devenu : « avenue Malaussena très
+  // bien placé » vient d'un segment entier reconnu comme voie, sans numéro,
+  // et gardait donc son accroche faute d'être coupé ici.
   const kind = new RegExp(
-    `^\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+`,
+    `^(?:\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+)?(?:${STREET_KINDS})\\s+`,
     'i',
   );
   const head = kind.exec(trimmed);
@@ -877,6 +953,20 @@ function isCleanStreet(candidate: string): boolean {
  * Studapart sont intactes).
  */
 export function looksLikeStreet(address: string): boolean {
+  /**
+   * UNE ADRESSE PONCTUÉE A LE DROIT DE NOMMER UNE RÉSIDENCE.
+   *
+   * La prose trahit une extraction qui a mordu sur la phrase suivante, faute de
+   * ponctuation — et c'est bien ce qu'il faut écarter. Mais « Résidence parc
+   * Anahit, 3 Imp. Mont Rabeau, 06000 Nice » est une adresse postale complète,
+   * écrite ainsi par la source, virgules comprises, et parfaitement géocodable.
+   * La règle la jetait avec les autres.
+   *
+   * La virgule et le code postal sont le signe qu'un humain a composé une
+   * adresse, pas qu'un extracteur a débordé.
+   */
+  const composee = address.includes(',') || /\b\d{5}\b/.test(address);
+  if (composee) return !NOT_A_STREET.test(address) && !FEATURE_IN_STREET.test(address);
   return isCleanStreet(address);
 }
 
@@ -1159,10 +1249,12 @@ export function extractStreetAddress(text: string | null | undefined): string | 
   // manque, l'adresse mord sur la phrase suivante — « 1 rue de Orestis Très
   // bel appartement de ». Un numéro ne rachète pas une adresse fausse.
   if (numbered?.[1] !== undefined) {
-    if (isCleanStreet(numbered[1])) return cleanText(numbered[1]);
-    // Rattrapage : couper devant la prose plutôt que tout jeter avec elle.
-    const salvaged = trimAtProse(numbered[1]);
-    if (salvaged !== null && isCleanStreet(salvaged)) return cleanText(salvaged);
+    // ON COUPE D'ABORD, ON JUGE ENSUITE. Couper devant la prose ou l'accroche
+    // sauve l'adresse au lieu de la jeter avec la phrase, et le fait AVANT le
+    // contrôle rattrape aussi le candidat qui paraissait propre en gardant un
+    // mot de trop — « 1 boulevard Lech Walesa Joli ».
+    const candidate = trimAtProse(numbered[1]) ?? numbered[1];
+    if (isCleanStreet(candidate)) return cleanText(candidate);
   }
 
   // Les segments sont découpés sur le texte ENTIER puis bornés par leur position
@@ -1174,7 +1266,10 @@ export function extractStreetAddress(text: string | null | undefined): string | 
     if (offset > ADDRESS_HEAD) break;
     offset += segment.length + 1;
     const trimmed = segment.trim();
-    if (BARE_STREET.test(trimmed) && isCleanStreet(trimmed)) return cleanText(trimmed);
+    // Coupée d'abord, comme la forme numérotée : sans quoi « avenue Malaussena
+    // très bien placé » passait entier, l'accroche comprise.
+    const candidate = trimAtProse(trimmed) ?? trimmed;
+    if (BARE_STREET.test(candidate) && isCleanStreet(candidate)) return cleanText(candidate);
   }
   return null;
 }

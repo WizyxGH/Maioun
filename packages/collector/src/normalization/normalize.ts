@@ -17,6 +17,8 @@ import type {
 import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import { cleanText, comparable } from './text.js';
 import {
+  addressGrade,
+  sameStreet,
   isShortTermStudentLease,
   isStudentOnlyHousing,
   looksLikeStreet,
@@ -251,9 +253,14 @@ function resolveLocation(raw: RawListing): {
      * sont pas le même studio.
      */
     address: dedupeStreetAddress(
-      toNull(raw.addressText) ??
-        extractStreetAddress(raw.description) ??
-        extractStreetAddress(raw.title),
+      // LE CHAMP DÉDIÉ NE GAGNE PLUS D'OFFICE. Il l'emportait toujours, et
+      // laissait donc passer « avenue Sainte Colette » quand la description
+      // porte « 31, avenue Sainte Colette », ou « Californie, Nice » — un
+      // quartier — sur une vraie voie. `bestAddress` compare leur précision.
+      bestAddress(
+        toNull(raw.addressText),
+        extractStreetAddress(raw.description) ?? extractStreetAddress(raw.title),
+      ),
     ),
     // Quartier/secteur si la source le publie (ex. Orpi `extra.quartier`).
     // Champ dédié d'abord — neuf sources sur quarante le remplissent —, puis
@@ -557,12 +564,43 @@ function fillGaps(
  * s'arrête au milieu d'un mot. Hors de ce cas précis, la stockée continue de
  * primer — elle vient souvent d'un champ structuré que le texte n'égale pas.
  */
-function bestAddress(stored: string | null, fromText: string | null): string | null {
+export function bestAddress(stored: string | null, fromText: string | null): string | null {
   if (stored === null || !looksLikeStreet(stored)) return fromText;
   if (fromText === null) return stored;
+
+  /**
+   * LA PLUS PRÉCISE GAGNE, et le champ structuré ne l'est pas toujours.
+   *
+   * La source publie « avenue Sainte Colette » quand sa propre description
+   * écrit « 31, avenue Sainte Colette ». C'est le numéro qui place le point sur
+   * la carte : sans lui le géocodeur vise le milieu de la voie, et le temps de
+   * trajet affiché est celui d'un autre logement. De même « Californie, Nice »
+   * — un quartier rangé dans le champ « adresse » — ne doit pas l'emporter sur
+   * une vraie voie lue dans le texte.
+   *
+   * On n'échange que sur la MÊME voie : un numéro croisé ailleurs dans la
+   * description recollé à une autre rue donnerait une adresse fausse et
+   * plausible, ce qui est le pire des deux.
+   */
+  const rangStocke = addressGrade(stored);
+  const rangTexte = addressGrade(fromText);
+  if (rangTexte > rangStocke && (rangStocke === 0 || sameStreet(stored, fromText))) return fromText;
+
+  /**
+   * L'ADRESSE AMPUTÉE, ET ELLE SEULE.
+   *
+   * « 132 corniche fle » puis « 132 corniche fleurie » : le texte ne prolonge
+   * pas l'adresse, il termine le MOT qu'elle coupe en deux. C'est à cela qu'on
+   * la reconnaît — la suite ne commence pas par un espace.
+   *
+   * Sans cette précision, « avenue Malaussena » se faisait remplacer par
+   * « avenue Malaussena très bien placé », qui la prolonge aussi, mais d'une
+   * accroche publicitaire.
+   */
   const court = comparable(stored);
   const long = comparable(fromText);
-  return long.length > court.length && long.startsWith(court) ? fromText : stored;
+  if (!long.startsWith(court) || long.length <= court.length) return stored;
+  return long.charAt(court.length) === ' ' ? stored : fromText;
 }
 
 export function rederiveFromText(

@@ -26,6 +26,25 @@ describe('parseListPage (LocService)', () => {
     expect(l?.description).toContain('Port');
   });
 
+  it('retient la photo, dans sa plus grande largeur', () => {
+    // AUCUNE PHOTO N'ÉTAIT RÉCUPÉRÉE : le parser ne regardait pas les images.
+    // LocService les sert en `<picture>` — un `<source>` AVIF par largeur, puis
+    // un `<img>` JPEG de repli. On prend le repli, lisible par tout navigateur,
+    // et sa plus grande largeur : c'est la même requête.
+    const l = listings.find((x) => x.sourceRef === '700001');
+    expect(l?.imageUrls).toEqual(['https://img.locservice.fr/ddd/resize:fill:334:188/xxx.jpg']);
+  });
+
+  it('se contente du `src` quand il n’y a pas de `srcset`', () => {
+    const l = listings.find((x) => x.sourceRef === '700002');
+    expect(l?.imageUrls).toEqual(['https://img.locservice.fr/eee/resize:fill:167:94/yyy.jpg']);
+  });
+
+  it('n’invente pas de photo quand la carte n’en a pas', () => {
+    const l = listings.find((x) => x.sourceRef === '700003');
+    expect(l?.imageUrls).toBeUndefined();
+  });
+
   it('rend les liens relatifs en absolu', () => {
     const l = listings.find((x) => x.sourceRef === '700002');
     expect(l?.sourceUrl).toBe(

@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import type { Guarantor, GuarantorKind, TenantProfile } from '@maioun/shared';
-import { MAX_GUARANTORS, TENANT_SITUATIONS } from '@maioun/shared';
+import { MAX_GUARANTORS, MOVE_IN_ASAP, TENANT_SITUATIONS } from '@maioun/shared';
 import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
@@ -29,6 +29,66 @@ interface ProfileFormProps {
 }
 
 const FIELD = 'flex flex-col gap-1 text-[0.88rem] text-muted-foreground';
+
+/** Le jour même, au format du champ `date`. Sert de plancher au calendrier. */
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** `true` si la valeur est une date déjà écoulée. */
+export function isPastMoveIn(value: string | null): boolean {
+  if (value === null || value === '' || value === MOVE_IN_ASAP) return false;
+  return value < today();
+}
+
+/**
+ * L'entrée souhaitée : une intention d'abord, une date seulement si besoin.
+ *
+ * TROIS RÉPONSES, ET DEUX N'ONT PAS DE DATE. « Non précisé » ne dit rien —
+ * le message n'écrit alors aucune disponibilité. « Dès que possible » est le
+ * cas le plus fréquent, et il reste vrai indéfiniment. La date n'apparaît que
+ * pour qui en a une, et le calendrier refuse alors le passé.
+ */
+function MoveInField({
+  value,
+  onChange,
+}: {
+  readonly value: string | null;
+  readonly onChange: (value: string | null) => void;
+}): React.JSX.Element {
+  const mode = value === null || value === '' ? 'none' : value === MOVE_IN_ASAP ? 'asap' : 'date';
+  return (
+    <label className={FIELD}>
+      Entrée souhaitée
+      <Select
+        value={mode}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next === 'none') onChange(null);
+          else if (next === 'asap') onChange(MOVE_IN_ASAP);
+          // On propose le jour même : une date à remplacer vaut mieux qu'un
+          // champ vide qui n'enregistre rien.
+          else onChange(today());
+        }}
+      >
+        <option value="none">à préciser</option>
+        <option value="asap">dès que possible</option>
+        <option value="date">à partir d’une date</option>
+      </Select>
+      {mode === 'date' && (
+        <Input
+          type="date"
+          className="mt-1"
+          // `min` empêche d'en choisir une nouvelle dans le passé. Il ne corrige
+          // pas celles déjà enregistrées — l'avertissement s'en charge.
+          min={today()}
+          value={value ?? ''}
+          onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
+        />
+      )}
+    </label>
+  );
+}
 
 export function ProfileForm({
   initial,
@@ -188,16 +248,26 @@ export function ProfileForm({
           </span>
         </label>
 
-        <label className={FIELD}>
-          Date d’entrée souhaitée
-          <Input
-            type="date"
-            value={profile.moveInDate ?? ''}
-            onChange={(event) =>
-              update('moveInDate', event.target.value === '' ? null : event.target.value)
-            }
-          />
-        </label>
+        {/* UNE DATE VIEILLIT, PAS UNE INTENTION. Le champ n'acceptait qu'une
+            date : posée en mars, elle annonçait en juin une disponibilité
+            passée — un dossier qui a l'air abandonné. « Dès que possible » est
+            le cas le plus fréquent, et il reste vrai indéfiniment. */}
+        <MoveInField value={profile.moveInDate} onChange={(v) => update('moveInDate', v)} />
+
+        {/* Une date déjà écoulée : on le dit, plutôt que de la laisser partir
+            dans un message. Le bouton fait le geste dont il est question. */}
+        {isPastMoveIn(profile.moveInDate) && (
+          <p className="text-warning sm:col-span-2 -mt-2 text-[0.82rem]">
+            Cette date est passée : vos messages annonceront une disponibilité immédiate.{' '}
+            <button
+              type="button"
+              className="cursor-pointer underline"
+              onClick={() => update('moveInDate', MOVE_IN_ASAP)}
+            >
+              Passer à « dès que possible »
+            </button>
+          </p>
+        )}
 
         {/* PLUSIEURS GARANTIES, et non plus une seule. Deux parents se portent
             souvent caution ensemble, et l'on cumule volontiers un garant

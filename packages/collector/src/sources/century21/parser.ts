@@ -87,11 +87,30 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     // « NICE 06 » en tête de bloc : ville en capitales suivie du département.
     const cityMatch = headText.match(/^([A-ZÀ-Ý][A-ZÀ-Ý\s'-]+?)\s+\d{2}\b/u);
 
+    /**
+     * LES PHOTOS SONT EN CHEMIN RELATIF, et c'est ce qui les faisait perdre.
+     *
+     * On n'acceptait que les adresses commençant par `http`, comme sur les
+     * autres sources : ici elles s'écrivent « /imagesBien/s3/202/… ». Toutes les
+     * fiches Century 21 arrivaient donc sans la moindre photo.
+     *
+     * `/theme/` est écarté : c'est l'habillage du site — logos, encarts
+     * publicitaires — et non le logement.
+     */
     const imageUrls = card
       .find('img[src]')
       .map((_i, img) => $(img).attr('src'))
       .get()
-      .filter((src): src is string => typeof src === 'string' && src.startsWith('http'));
+      .filter((src): src is string => typeof src === 'string' && src !== '')
+      .filter((src) => !src.includes('/theme/'))
+      .map((src) => {
+        try {
+          return new URL(src, pageUrl).toString();
+        } catch {
+          return null;
+        }
+      })
+      .filter((src): src is string => src !== null);
 
     const extra: Record<string, string> = { reference: url.reference };
     if (agencyRef !== undefined) extra['agencyRef'] = agencyRef;

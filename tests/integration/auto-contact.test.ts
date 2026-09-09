@@ -8,7 +8,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { AutoContactLimits, ContactAttempt, SourceDescriptor } from '@maioun/shared';
+import type {
+  AutoContactLimits,
+  ContactAttempt,
+  SourceDescriptor,
+  SubscriptionState,
+} from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
 import { evaluateAutoContact, scoreListing, budgetFor, scheduleFor } from '@maioun/collector';
 import { makeAggregated, makeContact, makeOccurrence, TEST_NOW } from '../helpers/factories.js';
@@ -20,6 +25,12 @@ const LIMITS: AutoContactLimits = {
   maxPerSourcePerDay: 5,
   cooldownSeconds: 600,
   thresholds: { minMatch: 90, minOpportunity: 90, minVisitProbability: 80, maxRisk: 20 },
+};
+
+/** Un compte à jour de son abonnement : sans lui, rien ne part plus. */
+const ABONNE: SubscriptionState = {
+  status: 'active',
+  until: new Date(TEST_NOW + 30 * 86_400_000).toISOString(),
 };
 
 const descriptor = (overrides: Partial<SourceDescriptor> = {}): SourceDescriptor => ({
@@ -82,6 +93,48 @@ const attempt = (overrides: Partial<ContactAttempt> = {}): ContactAttempt => ({
   ...overrides,
 });
 
+describe('abonnement', () => {
+  const sansAbonnement = (subscription: SubscriptionState) =>
+    evaluateAutoContact({
+      listing: perfectListing(),
+      limits: LIMITS,
+      descriptors: [descriptor()],
+      history: [],
+      subscription,
+      nowMs: TEST_NOW,
+    });
+
+  it('refuse un compte qui n’a jamais payé', () => {
+    const decision = sansAbonnement({ status: null, until: null });
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toMatch(/offre payante/);
+  });
+
+  it('refuse un abonnement dont la période payée est écoulée', () => {
+    // Le cas qui compte : l'état dit encore « active » parce que personne n'a
+    // repassé la ligne à zéro. C'est la DATE qui referme l'accès.
+    const decision = sansAbonnement({
+      status: 'active',
+      until: new Date(TEST_NOW - 1000).toISOString(),
+    });
+    expect(decision.allowed).toBe(false);
+  });
+
+  it('refuse un paiement en échec, même dans les temps', () => {
+    const decision = sansAbonnement({
+      status: 'past_due',
+      until: new Date(TEST_NOW + 86_400_000).toISOString(),
+    });
+    expect(decision.allowed).toBe(false);
+  });
+
+  it('prime sur tout le reste : c’est la barrière la plus haute', () => {
+    // Annonce parfaite, interrupteur global sur ON, aucun quota atteint : seul
+    // l'abonnement manque, et cela suffit.
+    expect(sansAbonnement({ status: 'canceled', until: null }).reason).toMatch(/offre payante/);
+  });
+});
+
 describe('interrupteur global (§23)', () => {
   it('bloque tout envoi quand il est sur OFF, même sur une annonce parfaite', () => {
     const decision = evaluateAutoContact({
@@ -89,6 +142,7 @@ describe('interrupteur global (§23)', () => {
       limits: { ...LIMITS, enabled: false },
       descriptors: [descriptor()],
       history: [],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -103,6 +157,7 @@ describe('interrupteur global (§23)', () => {
       limits: { ...LIMITS, enabled: false },
       descriptors: [descriptor()],
       history: [],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
     expect(decision.allowed).toBe(false);
@@ -116,6 +171,7 @@ describe('conditions d’autorisation', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history: [],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -128,6 +184,7 @@ describe('conditions d’autorisation', () => {
       limits: LIMITS,
       descriptors: [descriptor({ manualOnly: true })],
       history: [],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -142,6 +199,7 @@ describe('conditions d’autorisation', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history: [attempt({ listingId: listing.id })],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -164,6 +222,7 @@ describe('seuils de score (§23)', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history: [],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
   };
@@ -198,6 +257,7 @@ describe('quotas et cooldown (§23)', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history,
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -215,6 +275,7 @@ describe('quotas et cooldown (§23)', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history,
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -236,6 +297,7 @@ describe('quotas et cooldown (§23)', () => {
       limits: { ...LIMITS, maxPerDay: 100 },
       descriptors: [descriptor()],
       history,
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -249,6 +311,7 @@ describe('quotas et cooldown (§23)', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history: [attempt({ sentAt: new Date(TEST_NOW - 60_000).toISOString() })],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -262,6 +325,7 @@ describe('quotas et cooldown (§23)', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history: [attempt({ sentAt: new Date(TEST_NOW - 3_600_000).toISOString() })],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 
@@ -281,6 +345,7 @@ describe('canal disponible', () => {
       limits: LIMITS,
       descriptors: [descriptor()],
       history: [],
+      subscription: ABONNE,
       nowMs: TEST_NOW,
     });
 

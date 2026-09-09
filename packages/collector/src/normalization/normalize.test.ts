@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { RawListing } from '@maioun/shared';
 import { SHORT_TERM_LEASE_FEATURE } from '@maioun/shared';
-import { dedupeStreetAddress, normalizeListing, rederiveFromText } from './normalize.js';
+import {
+  bestAddress,
+  dedupeStreetAddress,
+  normalizeListing,
+  rederiveFromText,
+} from './normalize.js';
 
 describe('district (quartier)', () => {
   it('reprend le quartier de extra.quartier (ex. Orpi)', () => {
@@ -15,6 +20,49 @@ describe('district (quartier)', () => {
   it('district null quand la source ne publie pas de quartier', () => {
     const n = normalizeListing(raw({ cityText: 'nice' }), OPTIONS);
     expect(n?.district).toBeNull();
+  });
+});
+
+describe('bestAddress — la plus précise gagne', () => {
+  it('préfère la voie NUMÉROTÉE du texte à la voie nue de la source', () => {
+    // Relevé sur ici-immobilier : le champ dédié dit « avenue Sainte Colette »,
+    // la description « 31, avenue Sainte Colette ». C'est le numéro qui place le
+    // point sur la carte ; sans lui le géocodeur vise le milieu de la voie.
+    expect(bestAddress('avenue Sainte Colette', '31, avenue Sainte Colette')).toBe(
+      '31, avenue Sainte Colette',
+    );
+    expect(bestAddress('impasse Guidotti', '7, impasse Guidotti')).toBe('7, impasse Guidotti');
+  });
+
+  it('préfère une vraie voie à un QUARTIER rangé dans le champ adresse', () => {
+    // « Californie, Nice » a l'air d'une adresse et ne situe rien de plus précis
+    // que le quartier, déjà connu par ailleurs.
+    expect(bestAddress('Californie, Nice', '230 avenue de la Californie')).toBe(
+      '230 avenue de la Californie',
+    );
+  });
+
+  it('n’attribue pas à une voie le numéro d’une AUTRE', () => {
+    // Le pire des deux : une adresse fausse et plausible.
+    expect(bestAddress('avenue Sainte Colette', '31 rue Barla')).toBe('avenue Sainte Colette');
+  });
+
+  it('garde le champ dédié quand il est aussi précis', () => {
+    expect(
+      bestAddress('16 Avenue Alfred Borriglione 06100 Nice FR', '16 Avenue Alfred Borriglione'),
+    ).toBe('16 Avenue Alfred Borriglione 06100 Nice FR');
+    expect(bestAddress('192 Av. de la Californie, 06200 Nice', 'AVENUE DE LA CALIFORNIE')).toBe(
+      '192 Av. de la Californie, 06200 Nice',
+    );
+  });
+
+  it('termine un mot coupé, sans se laisser prolonger par une accroche', () => {
+    // « 132 corniche fle » est amputée : la suite ne commence pas par un espace.
+    expect(bestAddress('132 corniche fle', '132 corniche fleurie')).toBe('132 corniche fleurie');
+    // « avenue Malaussena » est entière : ce qui suit est de la publicité.
+    expect(bestAddress('avenue Malaussena', 'avenue Malaussena très bien placé')).toBe(
+      'avenue Malaussena',
+    );
   });
 });
 
