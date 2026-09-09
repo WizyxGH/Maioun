@@ -393,6 +393,23 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
     expect(extractStreetAddress('1 rue de Orestis Très bel appartement de 40 m²')).toBeNull();
   });
 
+  it('ne coupe pas une adresse à cheval sur la limite de lecture', () => {
+    // Relevé sur une annonce Bien’ici le 2026-09-09 : la description était
+    // tronquée à 120 signes AVANT la recherche, et le cent-vingtième tombait au
+    // milieu du nom de voie. « 132 corniche fle » ne se géocode pas — la fiche
+    // perdait son point sur la carte et son temps de trajet.
+    const texte =
+      'Nice Ouest , studio de 23 m² au rez de chaussée avec terrasse et place de ' +
+      "parking en sous-sol, situé au 132 corniche fleurie, 06200 Nice au sein d'une copropriété";
+    expect(extractStreetAddress(texte)).toBe('132 corniche fleurie');
+  });
+
+  it('écarte une adresse annoncée trop loin dans le texte', () => {
+    // La limite reste une limite de POSITION : au-delà, c’est plus souvent
+    // l’adresse de l’agence ou un repère cité en passant.
+    expect(extractStreetAddress('a'.repeat(300) + ' 12 rue de la Paix, Nice')).toBeNull();
+  });
+
   it('COUPE devant la prose quand ce qui précède est une adresse entière', () => {
     // Ces deux-là rendaient `null` : le garde-fou jetait l'adresse avec la
     // phrase qu'elle avait happée. La voie est pourtant là, complète, en tête.

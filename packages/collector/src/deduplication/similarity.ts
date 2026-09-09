@@ -133,7 +133,7 @@ function findBlocker(a: NormalizedListing, b: NormalizedListing): string | null 
  * MÊME fichier ne se ressemblent pas caractère pour caractère. On ne garde donc
  * que l'hôte et le chemin.
  */
-export function imageIdentity(url: string): string | null {
+function imageIdentity(url: string): string | null {
   try {
     const parsed = new URL(url);
     return `${parsed.host}${parsed.pathname}`;
@@ -143,33 +143,51 @@ export function imageIdentity(url: string): string | null {
 }
 
 /**
- * `true` si les deux annonces publient au moins une image identique.
+ * Ce que les photos de deux annonces ont en commun.
  *
- * ENTRE SOURCES DIFFÉRENTES, ou au sein d'une source qui RELAIE (voir
- * `SourceDescriptor.relaysListings`). Le signal repose sur le fait qu'une
- * agence pousse les mêmes fichiers vers le portail et vers son propre site ; au
- * sein d'UNE agence il ne dit rien, car certaines illustrent des dizaines
- * d'annonces avec la même photo tamponnée — Citya en réutilise une sur quatorze
- * biens distincts, Saint-Roch sur cinq. Combiné au téléphone de l'accueil,
- * commun lui aussi, cela suffisait à faire disparaître une annonce bien réelle
- * (§14). Chez un relais, à l'inverse, chaque photo vient du serveur média du
- * site d'origine et n'illustre qu'UNE annonce.
+ * DEUX SIGNAUX, ET NON UN, parce qu’ils ne valent pas la même chose. Mesuré
+ * sur l’inventaire du 2026-09-09, à surface et pièces égales et prix à 15 %
+ * près :
+ *
+ *   partager AU MOINS une photo  : 331 paires, 45 plausibles — 14 %
+ *   partager TOUT le jeu         :  30 paires, 27 plausibles — 90 %
+ *
+ * L’écart s’explique : une agence illustre volontiers dix biens avec la même
+ * façade ou le même hall. Ce cliché-là se retrouve partout et ne désigne rien.
+ * Un JEU ENTIER identique, en revanche, ne s’explique pas par un fonds de
+ * catalogue — c’est la même annonce, reprise ailleurs ou republiée.
+ *
+ * D’où un partage partiel qui ne peut plus, à lui seul, emporter la décision :
+ * ajouté à la concordance prix/surface/pièces il reste sous le seuil de fusion,
+ * là où le jeu entier le franchit.
  */
-function sharesImage(
+type PhotoOverlap = 'none' | 'partial' | 'identical';
+
+function photoOverlap(
   a: NormalizedListing,
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean,
-  stockPhotos: ReadonlySet<string>,
-): boolean {
-  if (a.sourceId === b.sourceId && !relaysListings(a.sourceId)) return false;
-  const left = new Set(
-    a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null && !stockPhotos.has(x)),
-  );
-  if (left.size === 0) return false;
-  return b.imageUrls.some((url) => {
-    const identity = imageIdentity(url);
-    return identity !== null && !stockPhotos.has(identity) && left.has(identity);
-  });
+): PhotoOverlap {
+  // AU SEIN D’UNE SOURCE QUI NE RELAIE PAS, le partage partiel ne dit rien :
+  // Citya réutilise un cliché sur quatorze biens, Saint-Roch sur cinq. Le jeu
+  // ENTIER, lui, reste parlant — c’est une annonce republiée.
+  const memeSource = a.sourceId === b.sourceId && !relaysListings(a.sourceId);
+
+  const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
+  const right = new Set(b.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
+  if (left.size === 0 || right.size === 0) return 'none';
+
+  let communes = 0;
+  for (const identity of left) if (right.has(identity)) communes += 1;
+  if (communes === 0) return 'none';
+
+  const memeJeu = communes === left.size && communes === right.size;
+  // AU SEIN D'UNE SOURCE, IL EN FAUT DEUX. Un cliché tamponné suffit à faire
+  // « jeu identique » quand les deux annonces n'en publient qu'un — et une
+  // agence pose volontiers la même façade sur dix biens. Deux photos communes
+  // et rien d'autre, en revanche, ne s'explique plus par un fonds de catalogue.
+  if (memeJeu) return !memeSource || communes >= 2 ? 'identical' : 'none';
+  return memeSource ? 'none' : 'partial';
 }
 
 function collectStrongSignals(
@@ -177,13 +195,18 @@ function collectStrongSignals(
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
   relaysListings: (sourceId: string) => boolean,
-  stockPhotos: ReadonlySet<string>,
 ): void {
-  // Une PHOTO commune entre deux sources reste le signal le plus fort, et il
-  // est gratuit : on compare des URL déjà collectées, sans télécharger
-  // d'image. Les clichés de catalogue en sont exclus — voir `stockPhotos`.
-  if (sharesImage(a, b, relaysListings, stockPhotos)) {
-    push({ code: 'image', label: 'photo identique', points: 45 });
+  // Gratuit : on compare des URL déjà collectées, sans télécharger d'image.
+  const photos = photoOverlap(a, b, relaysListings);
+  if (photos === 'identical') {
+    push({ code: 'image', label: 'mêmes photos', points: 45 });
+  } else if (photos === 'partial') {
+    // HUIT POINTS, ET C’EST VOULU. Une photo commune parmi d’autres n’a que
+    // 14 % de justesse : elle appuie une ressemblance déjà établie par ailleurs,
+    // elle ne doit plus pouvoir en décider. Même ajoutée à une concordance
+    // complète de prix, surface, pièces, code postal et titre, elle reste sous
+    // le seuil de fusion.
+    push({ code: 'image', label: 'une photo commune', points: 8 });
   }
 
   // Coordonnées : signal fort ENTRE SOURCES seulement. Au sein d'une source,
@@ -363,11 +386,6 @@ export function similarity(
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean = () => false,
   operatorOf: (sourceId: string) => string | null = () => null,
-  /**
-   * Les photos qui n'identifient RIEN : celles qu'une même source pose sur
-   * plusieurs annonces. Vide par défaut, hypothèse la plus prudente.
-   */
-  stockPhotos: ReadonlySet<string> = new Set(),
 ): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
@@ -389,7 +407,7 @@ export function similarity(
     signals.push(signal);
   };
 
-  collectStrongSignals(a, b, push, relaysListings, stockPhotos);
+  collectStrongSignals(a, b, push, relaysListings);
   collectMediumSignals(a, b, push);
 
   /**
