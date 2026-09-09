@@ -33,14 +33,21 @@ Worker, qui les affiche. `pnpm dev` ne montre que le mode démonstration.
 ## Configuration privée (`.env`)
 
 Copiez `.env.example` vers `.env` (ignoré par git) et renseignez ce qui vous
-concerne. Tout est optionnel — sans `.env`, la collecte fonctionne, simplement
-sans distances ni message pré-rempli.
+concerne.
+
+**CE FICHIER RÉTRÉCIT, ET C’EST VOULU.** Tout ce qui se règle depuis le site y
+est désormais interdit : profil locataire, adresses de référence, critères,
+préférences d’alerte, accès abonnés. Un réglage à deux domiciles est un réglage
+dont personne ne sait lequel fait autorité — et la panne qui en résulte est
+muette : le fichier est rempli, la commande n’a aucune raison de se plaindre, et
+des brouillons partent aux agences avec un ancien numéro de téléphone.
+
+Ce qui reste ici ne peut pas vivre ailleurs : ce sont les valeurs avec
+lesquelles on OUVRE la base, ou celles qui déchiffrent ce qu’elle contient. Les
+ranger dedans reviendrait à mettre la clé dans le coffre.
 
 | Variable                                         | Rôle                                                                  |
 | ------------------------------------------------ | --------------------------------------------------------------------- |
-| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)      | Lieu de travail, valeur de départ — voir ci-dessous (§20).            |
-| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`)   | Gare de référence, valeur de départ.                                  |
-| `TENANT_*`                                       | Profil locataire pour composer les messages de contact (§25).         |
 | `BEP_SUBSCRIBER_USER` / `_PASSWORD`              | Accès abonné BEP payé, si vous en avez un (§6).                       |
 | `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY` / `_SUBJECT` | Notifications Web Push des nouvelles annonces (§29, voir ci-dessous). |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`        | Base cloud. Absents, la collecte écrit dans le fichier local.         |
@@ -183,19 +190,20 @@ jamais de données fictives.
 
 **Settings → Secrets and variables → Actions** :
 
-| Secret                                               | Valeur                        |
-| ---------------------------------------------------- | ----------------------------- |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`            | ceux de l'étape 1             |
-| `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY`                  | pour les notifications (§29)  |
-| `BEP_SUBSCRIBER_USER` / `_PASSWORD`                  | optionnel (accès abonné payé) |
-| `REFERENCE_WORK_LAT` / `_LON`, `REFERENCE_STATION_*` | optionnel (distances, §20)    |
+| Secret                                    | Valeur                        |
+| ----------------------------------------- | ----------------------------- |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | ceux de l'étape 1             |
+| `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY`       | pour les notifications (§29)  |
+| `BEP_SUBSCRIBER_USER` / `_PASSWORD`       | optionnel (accès abonné payé) |
 
 Plus la _variable_ `CLOUD_COLLECT_ENABLED=true`, l'interrupteur de la collecte
 planifiée. Sans elle, `collect.yml` **ne fait rien** : un fork du dépôt ne
 consomme rien et ne déclenche aucune action involontaire.
 
-Les points de référence vont en **secrets**, jamais en variables : les variables
-sont lisibles par quiconque voit le dépôt.
+Les points de référence ne figurent nulle part ici : ils se règlent depuis le
+site (Paramètres → Adresses de référence) et vivent en base, par compte. Ce sont
+des coordonnées qui révèlent un domicile et un lieu de travail — le seul endroit
+où elles doivent vivre est celui que l’utilisateur contrôle depuis son écran.
 
 ### 4. L'API et les comptes — Worker Cloudflare
 

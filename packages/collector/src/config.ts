@@ -15,13 +15,9 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import type { Guarantor, GuarantorKind, SearchCriteria, TenantProfile } from '@maioun/shared';
+import type { SearchCriteria } from '@maioun/shared';
 import { MVP_CRITERIA, districtBySlug } from '@maioun/shared';
 import type { TravelMode } from './core/geo.js';
-
-// Le profil locataire est défini dans `shared` : le frontend l'utilise aussi
-// pour composer les messages en mode manuel (§22, §25).
-export type { TenantProfile };
 
 // ---------------------------------------------------------------------------
 // Configuration publique
@@ -203,140 +199,6 @@ export interface ReferencePoint {
   readonly latitude: number;
   readonly longitude: number;
   readonly mode: TravelMode;
-}
-
-/** Point de référence pas encore géocodé (adresse au lieu de coordonnées). */
-export interface ReferencePointAddress {
-  readonly label: string;
-  readonly address: string;
-  readonly mode: TravelMode;
-}
-
-/**
- * Charge les points de référence depuis l'environnement.
- *
- * Ces coordonnées révèlent le lieu de travail et le domicile : elles ne
- * figurent JAMAIS dans le dépôt (§20, §26). Renvoie un tableau vide si rien
- * n'est configuré, auquel cas l'interface n'affiche simplement aucune distance.
- */
-export function loadReferencePoints(env: NodeJS.ProcessEnv = process.env): ReferencePoint[] {
-  const points: ReferencePoint[] = [];
-
-  const definitions = [
-    { prefix: 'REFERENCE_WORK', fallbackLabel: 'Travail', mode: 'transit' as TravelMode },
-    { prefix: 'REFERENCE_STATION', fallbackLabel: 'Gare', mode: 'walking' as TravelMode },
-  ];
-
-  for (const { prefix, fallbackLabel, mode } of definitions) {
-    const lat = Number.parseFloat(env[`${prefix}_LAT`] ?? '');
-    const lon = Number.parseFloat(env[`${prefix}_LON`] ?? '');
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-
-    points.push({
-      label: env[`${prefix}_LABEL`] ?? fallbackLabel,
-      latitude: lat,
-      longitude: lon,
-      mode,
-    });
-  }
-
-  return points;
-}
-
-/**
- * Points de référence fournis sous forme d'ADRESSE (`REFERENCE_WORK_ADDRESS`…)
- * plutôt que de coordonnées — plus simple pour l'utilisateur. Ils seront
- * géocodés une fois au démarrage de la collecte (§20). Ces adresses sont
- * privées : elles vivent dans `.env`/secrets, jamais dans le dépôt (§26).
- */
-export function loadReferenceAddresses(
-  env: NodeJS.ProcessEnv = process.env,
-): ReferencePointAddress[] {
-  const definitions = [
-    { prefix: 'REFERENCE_WORK', fallbackLabel: 'Travail', mode: 'transit' as TravelMode },
-    { prefix: 'REFERENCE_STATION', fallbackLabel: 'Gare', mode: 'walking' as TravelMode },
-  ];
-
-  const points: ReferencePointAddress[] = [];
-  for (const { prefix, fallbackLabel, mode } of definitions) {
-    // On ne géocode que si l'adresse est fournie ET que les coordonnées ne le
-    // sont pas déjà (les coordonnées explicites priment, elles sont exactes).
-    const address = env[`${prefix}_ADDRESS`];
-    const hasCoords =
-      Number.isFinite(Number.parseFloat(env[`${prefix}_LAT`] ?? '')) &&
-      Number.isFinite(Number.parseFloat(env[`${prefix}_LON`] ?? ''));
-    if (address === undefined || address.trim() === '' || hasCoords) continue;
-
-    points.push({ label: env[`${prefix}_LABEL`] ?? fallbackLabel, address, mode });
-  }
-  return points;
-}
-
-/**
- * Charge le profil locataire depuis l'environnement.
- * @returns `null` si le profil n'est pas configuré — la génération de message
- *          est alors désactivée plutôt que de produire un texte à trous.
- */
-/**
- * Les garanties de loyer déclarées, dans l'ordre où elles sont écrites.
- *
- * UNE LISTE SÉPARÉE PAR DES VIRGULES — `TENANT_GUARANTOR=physical,visale` —
- * parce qu'on en cumule : deux parents qui se portent caution ensemble, ou un
- * garant doublé d'une garantie Visale, sont des dossiers courants et l'ancien
- * champ unique obligeait à en taire la moitié.
- *
- * `TENANT_HAS_GUARANTOR=true` reste compris : c'est ce que les `.env` existants
- * contiennent, et une variable d'environnement ne se met pas à jour toute
- * seule. Elle vaut « personne physique », le seul sens qu'elle ait jamais eu.
- * Une valeur inconnue est ignorée plutôt qu'inventée (§17).
- */
-function readGuarantors(env: NodeJS.ProcessEnv): Guarantor[] {
-  const known: readonly GuarantorKind[] = ['physical', 'visale', 'garantme', 'other'];
-  const name = env['TENANT_GUARANTOR_NAME']?.trim() ?? '';
-
-  const declared = (env['TENANT_GUARANTOR'] ?? '')
-    .split(',')
-    .map((part) => part.trim().toLowerCase())
-    .filter((part) => part !== '' && part !== 'none');
-
-  const guarantors = declared
-    .map((part) => known.find((kind) => kind === part))
-    .filter((kind): kind is GuarantorKind => kind !== undefined)
-    // Le nom ne vaut que pour un dispositif « autre » : c'est le seul qu'il
-    // faille nommer pour que le message dise quelque chose (§17).
-    .map((kind) => (kind === 'other' && name !== '' ? { kind, name } : { kind }));
-
-  if (guarantors.length > 0) return guarantors;
-  return env['TENANT_HAS_GUARANTOR'] === 'true' ? [{ kind: 'physical' }] : [];
-}
-
-export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantProfile | null {
-  const firstName = env['TENANT_FIRST_NAME'];
-  const lastName = env['TENANT_LAST_NAME'];
-  if (firstName === undefined || lastName === undefined) return null;
-
-  const income = Number.parseFloat(env['TENANT_MONTHLY_INCOME'] ?? '');
-  // Message de candidature UNIQUE (identique pour toutes les annonces) : utilisé
-  // verbatim s'il est renseigné (§24). Multi-ligne accepté (guillemets dans .env).
-  const applicationMessage = env['TENANT_APPLICATION_MESSAGE']?.trim();
-  const applicationSubject = env['TENANT_APPLICATION_SUBJECT']?.trim();
-
-  return {
-    firstName,
-    lastName,
-    email: env['TENANT_EMAIL'] ?? '',
-    phone: env['TENANT_PHONE'] ?? '',
-    situation: env['TENANT_SITUATION'] ?? '',
-    monthlyIncome: Number.isFinite(income) ? income : null,
-    guarantors: readGuarantors(env),
-    moveInDate: env['TENANT_MOVE_IN_DATE'] ?? null,
-    ...(applicationMessage !== undefined && applicationMessage !== ''
-      ? { applicationMessage }
-      : {}),
-    ...(applicationSubject !== undefined && applicationSubject !== ''
-      ? { applicationSubject }
-      : {}),
-  };
 }
 
 /** Identifiants d'un accès abonné PAYÉ (ex. BEP Logement) — PRIVÉ. */

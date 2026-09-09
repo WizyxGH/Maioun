@@ -84,12 +84,18 @@ describe('.env.example', () => {
       'BEP_SUBSCRIBER_PASSWORD',
       'COLLECTOR_USER_AGENT',
       'AUTO_CONTACT_ENABLED',
-      'REFERENCE_WORK_LAT',
-      'REFERENCE_STATION_LAT',
     ];
     for (const name of required) {
       expect(example).toContain(name);
     }
+  });
+
+  it('ne redonne pas un second domicile au profil ni aux adresses', () => {
+    // Ils se règlent depuis l'écran et vivent en base. Les rouvrir ici ferait
+    // revenir la panne muette : des brouillons partis à des agences avec un
+    // ancien téléphone, sans qu'aucune erreur ne soit levée.
+    expect(example).not.toMatch(/^TENANT_/m);
+    expect(example).not.toMatch(/^REFERENCE_(WORK|STATION)_/m);
   });
 
   it('laisse le contact automatique désactivé', () => {
