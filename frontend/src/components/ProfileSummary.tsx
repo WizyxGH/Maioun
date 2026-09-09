@@ -12,7 +12,7 @@
 
 import { TENANT_SITUATIONS, type TenantProfile } from '@maioun/shared';
 import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from './icons.js';
-import { UNKNOWN_LABEL, formatPhone } from '../format.js';
+import { UNKNOWN, formatPhone } from '../format.js';
 import { guarantorsLabel } from '../profile.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import { Button } from '@/components/ui/button.js';
@@ -126,7 +126,7 @@ export function ProfileSummary({
             Icon={Icon}
             tone={value !== null ? 'done' : 'muted'}
             label={label}
-            hint={value ?? UNKNOWN_LABEL}
+            hint={value ?? UNKNOWN}
           />
         ))}
       </SettingsGroup>
