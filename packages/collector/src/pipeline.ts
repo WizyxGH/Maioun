@@ -167,6 +167,11 @@ async function runSource(
     },
     isKnown: (ref) => knownRefs.has(ref),
     knownRefs,
+    pageRefs: {
+      get: (url) => options.repository.pageRefs(url),
+      set: (url, refs) =>
+        options.repository.savePageRefs(url, refs, new Date(options.clock.now()).toISOString()),
+    },
     credentials,
     log: (event, fields) => logger.debug(event, fields),
     shouldStop: () => requestsUsed >= descriptor.budget.maxPagesPerRun,
@@ -436,6 +441,8 @@ interface LifecycleDeps {
   readonly repository: Repository;
   readonly config: PublicConfig;
   readonly logger: Logger;
+  /** Instant du passage, pour dater les confirmations. */
+  readonly nowIso: string;
 }
 
 /**
@@ -445,7 +452,8 @@ interface LifecycleDeps {
  * comme vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
  */
 async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
-  const { rawBySource, confirmedBySource, outcomes, registry, repository, config, logger } = deps;
+  const { rawBySource, confirmedBySource, outcomes, registry, repository, config, logger, nowIso } =
+    deps;
 
   for (const [sourceId, raws] of rawBySource) {
     // Source qui n'annonce qu'une fois : le temps remplace le décompte.
@@ -455,7 +463,22 @@ async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
     }
 
     const seen = new Set(raws.map((raw) => raw.sourceRef));
-    for (const ref of confirmedBySource.get(sourceId) ?? []) seen.add(ref);
+    const confirmed = confirmedBySource.get(sourceId) ?? [];
+    for (const ref of confirmed) seen.add(ref);
+
+    /**
+     * UNE ANNONCE CONFIRMÉE EST UNE ANNONCE VUE, et on la traite comme telle.
+     *
+     * Elle était seulement épargnée du décompte : une annonce en doute qui
+     * réapparaissait par confirmation — liste relue sans retélécharger la
+     * fiche, page inchangée — gardait son compteur d'absences et restait
+     * « peut-être retirée », alors que la source la dit publiée. Quinze
+     * sources confirment ainsi.
+     *
+     * APRÈS le cas des sources à annonce unique, et c'est voulu : celles-là se
+     * périment à l'âge, et les confirmer les maintiendrait en vie indéfiniment.
+     */
+    if (confirmed.length > 0) await repository.confirmSeen(sourceId, confirmed, nowIso);
 
     const reason = outcomes.find((o) => o.sourceId === sourceId)?.result?.stopReason;
     const skip = await missingWouldBeUnfounded(sourceId, seen.size, reason, repository);
@@ -901,6 +924,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     repository,
     config,
     logger,
+    nowIso: new Date(clock.now()).toISOString(),
   });
 
   // --- 5 & 6. Dédoublonnage, fusion, scoring, persistance ------------------

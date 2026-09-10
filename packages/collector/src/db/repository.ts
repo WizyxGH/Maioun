@@ -494,6 +494,14 @@ export interface Repository {
   geocodeCache(): GeocodeCacheStore;
   /** Cache des diagnostics energetiques cherches chez l'ADEME. */
   dpeCache(): DpeCacheStore;
+  /**
+   * Tient pour VUES des annonces que la source confirme sans les rendre :
+   * dernière vue datée, compteur d'absences remis à zéro, statut actif.
+   */
+  confirmSeen(sourceId: string, refs: readonly string[], nowIso: string): Promise<void>;
+  /** Les références portées par une page de liste à son dernier téléchargement. */
+  pageRefs(url: string): Promise<readonly string[] | null>;
+  savePageRefs(url: string, refs: readonly string[], nowIso: string): Promise<void>;
   transitCache(): TransitCacheStore;
 }
 
@@ -2094,6 +2102,48 @@ export function createRepository(db: Database): Repository {
           });
         },
       };
+    },
+
+    async confirmSeen(sourceId, refs, nowIso) {
+      // Par tranches : une clause `IN` a une limite de paramètres, et un
+      // inventaire de mille annonces la dépasserait sur certains moteurs.
+      const unique = [...new Set(refs)];
+      const statements: Statement[] = [];
+      for (let start = 0; start < unique.length; start += 400) {
+        const slice = unique.slice(start, start + 400);
+        statements.push({
+          sql: `UPDATE occurrences SET last_seen_at = ?, missing_runs = 0, lifecycle = 'active'
+                WHERE source_id = ? AND source_ref IN (${slice.map(() => '?').join(',')})`,
+          args: [nowIso, sourceId, ...slice],
+        });
+      }
+      if (statements.length > 0) await db.batch(statements, 'write');
+    },
+
+    async pageRefs(url) {
+      const result = await db.execute({
+        sql: 'SELECT refs FROM page_refs WHERE url = ?',
+        args: [url],
+      });
+      const raw = result.rows[0]?.['refs'];
+      if (typeof raw !== 'string') return null;
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed)
+          ? parsed.filter((ref): ref is string => typeof ref === 'string')
+          : null;
+      } catch {
+        // Illisible : on ne sait rien de cette page, et c'est ce qu'on dit.
+        return null;
+      }
+    },
+
+    async savePageRefs(url, refs, nowIso) {
+      await db.execute({
+        sql: `INSERT INTO page_refs (url, refs, updated_at) VALUES (?,?,?)
+              ON CONFLICT(url) DO UPDATE SET refs = excluded.refs, updated_at = excluded.updated_at`,
+        args: [url, JSON.stringify(refs), nowIso],
+      });
     },
 
     dpeCache(): DpeCacheStore {

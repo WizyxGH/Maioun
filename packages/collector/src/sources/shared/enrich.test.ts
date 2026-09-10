@@ -42,6 +42,8 @@ function context(options: ContextOptions = {}): { ctx: ScrapeContext; visited: s
     },
     isKnown: (sourceRef) => known.has(sourceRef),
     knownRefs: known,
+    // Aucune mémoire de page : l'enrichissement visite des FICHES, pas des listes.
+    pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
     log: () => undefined,
     credentials: null,
     shouldStop: () => false,

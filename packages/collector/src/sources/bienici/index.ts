@@ -58,10 +58,14 @@ export const bieniciScraper: Scraper = {
 
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const listings: RawListing[] = [];
+    /** Les annonces des pages INCHANGÉES : toujours en ligne, pas retéléchargées. */
+    const confirmedRefs: string[] = [];
     const warnings: string[] = [];
     let requestCount = 0;
     let pagesFetched = 0;
     let stopReason: StopReason = 'completed';
+    /** Une page 304 dont on ne sait pas ce qu'elle portait : l'inventaire est incomplet. */
+    let pageInconnue = false;
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       if (context.shouldStop()) {
@@ -70,16 +74,42 @@ export const bieniciScraper: Scraper = {
       }
 
       try {
-        const response = await context.fetch(buildSearchUrl(NICE_ZONE_ID, page), {
-          headers: { accept: 'application/json' },
-        });
+        const url = buildSearchUrl(NICE_ZONE_ID, page);
+        const response = await context.fetch(url, { headers: { accept: 'application/json' } });
         requestCount += 1;
-        if (response.notModified) continue;
+
+        /**
+         * UNE PAGE INCHANGÉE N'EST PAS UNE PAGE VIDE.
+         *
+         * Bien'ici répond 304 à plus de la moitié des requêtes — mesuré le
+         * 2026-09-10 : 191 sur 340 en deux jours. On `continue`-ait sans rien
+         * compter : un passage entièrement inchangé rendait « 0 annonce » pour
+         * 510 en ligne, et un passage à moitié inchangé comptait l'autre moitié
+         * comme ABSENTE. On relit donc ce que la page portait, et ses annonces
+         * valent confirmation.
+         */
+        if (response.notModified) {
+          const refs = await context.pageRefs.get(url);
+          if (refs === null) {
+            // Jamais téléchargée avec la mémoire : on ne sait pas ce qu'elle
+            // porte, et on ne l'invente pas.
+            pageInconnue = true;
+            continue;
+          }
+          confirmedRefs.push(...refs);
+          // Une page qui portait moins d'une page pleine était la dernière.
+          if (refs.length < PAGE_SIZE) break;
+          continue;
+        }
         pagesFetched += 1;
 
         const parsed = parseSearchResponse(response.body);
         warnings.push(...parsed.warnings);
         for (const listing of parsed.listings) listings.push(listing);
+        await context.pageRefs.set(
+          url,
+          parsed.listings.map((listing) => listing.sourceRef),
+        );
         context.log('api.parsed', { page, found: parsed.listings.length, total: parsed.total });
 
         // UNE PAGE INCOMPLÈTE EST LA DERNIÈRE. On s'arrête sur ce que la
@@ -100,9 +130,15 @@ export const bieniciScraper: Scraper = {
       }
     }
 
+    // UN INVENTAIRE INCOMPLET NE DOIT RIEN RETIRER : une page dont on ignore le
+    // contenu fait sauter le cycle de vie de ce passage, plutôt que de compter
+    // ses annonces comme disparues.
+    if (pageInconnue && stopReason === 'completed') stopReason = 'notModified';
+
     return {
       sourceId: BIENICI_DESCRIPTOR.id,
       listings,
+      confirmedRefs,
       requestCount,
       pagesFetched,
       stopReason,
