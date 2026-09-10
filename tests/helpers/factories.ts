@@ -15,8 +15,9 @@ import type {
   MergedField,
   NormalizedListing,
   PropertyType,
+  TenancyRequirements,
 } from '@maioun/shared';
-import { EMPTY_CONTACT, merged } from '@maioun/shared';
+import { EMPTY_CONTACT, merged, NO_REQUIREMENTS } from '@maioun/shared';
 
 export const TEST_NOW = Date.parse('2026-08-14T12:00:00.000Z');
 export const TEST_NOW_ISO = new Date(TEST_NOW).toISOString();
@@ -96,6 +97,7 @@ export interface AggregatedOverrides {
   readonly dpe?: string | null;
   readonly maxOccupants?: number | null;
   readonly features?: readonly string[];
+  readonly requirements?: TenancyRequirements;
   readonly city?: string | null;
   readonly postalCode?: string | null;
   readonly address?: string | null;
@@ -137,6 +139,7 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     dpe: field(pick(overrides.dpe, null)),
     maxOccupants: field(pick(overrides.maxOccupants, null)),
     features: pick(overrides.features, []),
+    requirements: pick(overrides.requirements, NO_REQUIREMENTS),
     address: field(pick(overrides.address, null)),
     district: field(pick(overrides.district, null)),
     city: field(pick(overrides.city, 'nice')),

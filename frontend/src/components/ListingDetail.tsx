@@ -26,6 +26,7 @@ import {
 } from '../format.js';
 import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
+import { RequirementsPanel } from './RequirementsPanel.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
 import { Badge } from '@/components/ui/badge.js';
@@ -483,6 +484,12 @@ export function ListingDetail({
           ))}
         </ul>
       )}
+
+      {/* AVANT LE MESSAGE, PAS APRÈS. Savoir qu'on ne remplit pas les conditions
+        change ce qu'on écrit — ou la décision d'écrire. Le découvrir sous le
+        message déjà rédigé arrive trop tard. Ne s'affiche que si l'annonce
+        énonce quelque chose, ce qui est rare. */}
+      <RequirementsPanel listing={listing} profile={profile} />
 
       {/* §22 : préparation du contact, en haut de page car c'est l'action utile. */}
       <ContactPanel

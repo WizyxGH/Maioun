@@ -14,6 +14,7 @@
  */
 
 import type { Contact } from './contact.js';
+import type { TenancyRequirements } from './requirements.js';
 import type { ReferenceTravelMode } from './reference-points.js';
 import type { ListingScores } from './scores.js';
 import type { IsoDateTime, Maybe, MergedField, SourceId } from './provenance.js';
@@ -250,6 +251,16 @@ export interface AggregatedListing {
   readonly maxOccupants: MergedField<Maybe<number>>;
   /** Union dédoublonnée des atouts de toutes les sources. */
   readonly features: readonly string[];
+  /**
+   * Les conditions d'accès que l'annonce énonce : revenu minimum, assurance
+   * loyers impayés, garanties et situations acceptées.
+   *
+   * SUR L'AGRÉGAT SEULEMENT, pas sur l'occurrence. Elles se lisent dans la
+   * description, et c'est la description FUSIONNÉE qui est la plus complète :
+   * trois sources donnent trois demi-textes, et la phrase de critères peut
+   * n'être entière que dans l'un d'eux.
+   */
+  readonly requirements: TenancyRequirements;
 
   readonly address: MergedField<Maybe<string>>;
   readonly district: MergedField<Maybe<string>>;
