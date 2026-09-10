@@ -12,6 +12,11 @@
 
 @import 'tailwindcss';
 
+/* LA SECTION DES TÉMOIGNAGES EST ÉCRITE DANS DU TYPESCRIPT, composée à la
+   construction : Tailwind ne lit pas ce fichier de lui-même, et ses classes
+   propres — la grille à trois colonnes, notamment — manquaient à la feuille. */
+@source './testimonials.ts';
+
 @theme {
   --color-background: light-dark(#f4f5f8, #14141f);
   --color-foreground: light-dark(#1a1a2e, #f1f2f6);

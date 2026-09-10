@@ -12,14 +12,33 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import { readTestimonials, renderTestimonials } from './src/testimonials.js';
 
 const page = (name: string): string => fileURLToPath(new URL(name, import.meta.url));
 
+/**
+ * Pose la section des témoignages à la place de son repère.
+ *
+ * À LA CONSTRUCTION, et pas dans le navigateur : la page reste sans
+ * JavaScript. Le fichier est relu à chaque construction — ajouter un
+ * témoignage, c'est ajouter une entrée et republier.
+ */
+function testimonials(): Plugin {
+  return {
+    name: 'maioun-temoignages',
+    transformIndexHtml(html) {
+      if (!html.includes('<!-- TEMOIGNAGES -->')) return html;
+      const liste = readTestimonials(page('temoignages.json'));
+      return html.replace('<!-- TEMOIGNAGES -->', renderTestimonials(liste));
+    },
+  };
+}
+
 export default defineConfig({
   base: process.env['BASE_PATH'] ?? '/',
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), testimonials()],
   build: {
     sourcemap: false,
     /**
