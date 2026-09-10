@@ -299,6 +299,60 @@ Apimo laissait vraiment passer ce qu'elle affichait.
    parser BEP est le premier candidat à généraliser (§47) ; prochain chantier
    le plus rentable.
 
+## Ne pas réinventer : ce qui existe déjà (revue du 2026-09-10)
+
+Question posée : d'autres ont forcément écrit ce collecteur avant nous — que
+peut-on reprendre ? Revue de l'open source français et des API commerciales.
+
+**Réponse courte : rien de réutilisable, et pour une raison précise.**
+
+### L'open source français : tout vise les portails, tout est mort
+
+| Projet                       | Cible                           | État                           |
+| ---------------------------- | ------------------------------- | ------------------------------ |
+| `0x6e69636f/api-sites-immo`  | Leboncoin, SeLoger, PAP, Logic  | Python, sans licence, ~2020    |
+| `Fluximmo/api-immo-scrapper` | Leboncoin, PAP, MeilleursAgents | Scrapy, dernière activité 2020 |
+| `MisterDaneel/condowatcher`  | Leboncoin, SeLoger, PAP         | archivé par son auteur         |
+| `ix-56h/Scrapart`            | Leboncoin, SeLoger, PAP         | abandonné                      |
+| `mc343/FrenchRentalScanner`  | SeLoger, Leboncoin              | vivant (2026), mais 2 étoiles  |
+| `immosheets`                 | portails → Google Sheets        | vivant (2025), 46 étoiles      |
+
+Deux constats.
+
+**Ils visent tous les trois portails que ce projet s'interdit.** Leboncoin,
+SeLoger et Bien'ici sont protégés par DataDome et interdisent explicitement
+l'accès automatisé. Ces dépôts contournent — en rejouant les requêtes des
+applications mobiles, pour la plupart. C'est précisément ce que nous ne faisons
+pas, et cela suffit à écarter la totalité du catalogue.
+
+**Ils meurent tous, et c'est la conséquence directe.** Un scraper qui contourne
+une protection vit jusqu'à la prochaine mise à jour de cette protection.
+Six des huit dépôts trouvés n'ont plus bougé depuis 2020-2023. Notre stratégie
+inverse — cinquante-sept petites sources qui nous autorisent — coûte plus cher
+à écrire et ne casse pas toute seule.
+
+### Les API commerciales : elles vendent ce que nous ne payons pas
+
+MoteurImmo, Melo, Fluximmo v2, Stream Estate agrègent 1 500 sources et vendent
+l'accès (Melo à partir de 24 €/mois, MoteurImmo au volume). Techniquement
+excellent, et sans objet ici : le projet tient dans les paliers gratuits, et son
+modèle est justement de ne pas payer la matière première.
+
+À noter tout de même : elles revendent en grande partie du contenu Leboncoin et
+SeLoger. Elles déplacent la question de conformité, elles ne la résolvent pas.
+
+### Ce qui, en revanche, se reprend — et qu'on a déjà repris
+
+Les adaptateurs de LOGICIELS D'AGENCE. Apimo, La Boîte Immo/Hektor, Ubiflow
+équipent des milliers d'agences avec le même gabarit : un parser sert des
+dizaines de sites. C'est le vrai levier, et le projet l'exploite déjà — c'est ce
+qui explique la moitié des cinquante-sept sources.
+
+**Piste non explorée** : les flux XML que ces logiciels exposent pour les
+portails (format Poliris/Ubiflow, `poliris-bundle` en donne le schéma). Une
+agence peut ouvrir le sien sur demande. Zéro parsing, zéro casse, mais une
+démarche humaine par agence — à tenter sur les trois ou quatre qui comptent.
+
 ## Fiche à remplir pour toute nouvelle source
 
 ```

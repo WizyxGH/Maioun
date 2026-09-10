@@ -136,6 +136,42 @@ describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
     expect(listing?.sourceRef).toMatch(/^seloger:/);
   });
 
+  it('ne prend pas la ligne de prix pour un nom de commune', () => {
+    /**
+     * Relevé tel quel le 2026-09-10 : une annonce de Fabron était rangée dans la
+     * commune « mois charges comprises fabron ».
+     *
+     * La ville préfixe les clés du dédoublonnage — ainsi située, l'annonce ne
+     * pouvait plus être rapprochée d'aucune autre, et ressortait en double.
+     */
+    const digest = `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T2">Studio • 22 m² <br /> 790 € / mois charges comprises Fabron 06200 Nice</a></td>
+</tr></tbody></table>`;
+    const [trouvee] = parseAlertEmail(digest);
+    expect(trouvee?.cityText).toBe('Fabron');
+    expect(trouvee?.postalCodeText).toBe('06200');
+  });
+
+  it('garde une commune en plusieurs mots, particules comprises', () => {
+    const digest = `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T3">Appartement • 40 m² <br /> 900 € Cagnes sur Mer 06800</a></td>
+</tr></tbody></table>`;
+    expect(parseAlertEmail(digest)[0]?.cityText).toBe('Cagnes sur Mer');
+  });
+
+  it('n’invente aucune commune quand rien n’en porte la marque (§17)', () => {
+    // Tout en minuscules : le code postal suffit, l'URL porte souvent la ville.
+    const digest = `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T4">Studio • 18 m² <br /> 600 € charges comprises 06000</a></td>
+</tr></tbody></table>`;
+    const [trouvee] = parseAlertEmail(digest);
+    expect(trouvee?.cityText).toBeUndefined();
+    expect(trouvee?.postalCodeText).toBe('06000');
+  });
+
   it('extrait la photo depuis background-image et ignore le logo', () => {
     // SeLoger met la vraie photo en CSS `background-image`, pas en <img> ;
     // le seul <img> présent est un logo (à écarter).
