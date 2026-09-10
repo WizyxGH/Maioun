@@ -36,6 +36,9 @@ const TOUT_REGLE = {
   furnishedFilter: 'furnished',
   availableBy: '2026-10-01',
   districts: ['riquier', 'gambetta'],
+  // La valeur NON par défaut : c'est elle qui doit survivre au trajet, le
+  // défaut étant l'absence.
+  includeUnknownDistrict: false,
 } as const;
 
 const CONFIG = {

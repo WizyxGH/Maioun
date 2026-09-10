@@ -73,14 +73,27 @@ describe('traitConditions', () => {
     expect(traitConditions({ availableBy: '' }).sql).toEqual([]);
   });
 
-  it('n’accepte QUE les quartiers nommés, contrairement aux autres filtres', () => {
-    // Seul filtre qui écarte les inconnus : nommer des quartiers est une liste
-    // blanche, pas une exclusion. « Je veux Riquier » ne veut pas dire
-    // « Riquier et tout ce dont je ne sais rien ».
+  it('GARDE par défaut les annonces sans quartier connu', () => {
+    // La liste blanche stricte masquait 125 annonces sur 193 le 2026-09-10 :
+    // les digests des portails n'indiquent jamais de quartier, et les
+    // notifications s'étaient tues.
     const { sql, args } = traitConditions({ districts: ['riquier', 'port'] });
-    expect(sql).toEqual(['district IN (?,?)']);
+    expect(sql).toEqual(['(district IS NULL OR district IN (?,?))']);
     expect(args).toEqual(['riquier', 'port']);
-    expect(sql[0]).not.toContain('IS NULL');
+  });
+
+  it('n’accepte QUE les quartiers nommés quand on décoche l’interrupteur', () => {
+    // « Je veux Riquier » au sens strict : rien de ce dont on ignore où il est.
+    const { sql } = traitConditions({
+      districts: ['riquier', 'port'],
+      includeUnknownDistrict: false,
+    });
+    expect(sql).toEqual(['district IN (?,?)']);
+  });
+
+  it('ignore l’interrupteur quand aucun quartier n’est coché', () => {
+    // Sans quartier nommé, il n'y a rien à inclure ni à exclure.
+    expect(traitConditions({ includeUnknownDistrict: false }).sql).toEqual([]);
   });
 
   it('ignore une liste de quartiers VIDE', () => {

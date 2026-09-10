@@ -53,11 +53,20 @@ export interface SearchCriteria {
    * « zone de recherche » — c'est le quartier qui décide du trajet, du
    * voisinage et du prix au mètre, pas la commune.
    *
-   * SEUL FILTRE QUI ÉCARTE LES INCONNUS : nommer des quartiers est une liste
-   * blanche, pas une exclusion. « Je veux Riquier » ne veut pas dire « Riquier
-   * et tout ce dont je ne sais rien ». Voir `trait-filters.ts`.
+   * LES ANNONCES SANS QUARTIER CONNU SONT GARDÉES PAR DÉFAUT — voir
+   * `includeUnknownDistrict` et `trait-filters.ts`.
    */
   readonly districts?: readonly string[];
+  /**
+   * Garder les annonces dont le quartier est INCONNU quand des quartiers sont
+   * nommés. Absent = oui.
+   *
+   * Les digests des portails n'indiquent jamais de quartier : en liste blanche
+   * stricte, vingt-quatre quartiers cochés masquaient 125 annonces sur 193, et
+   * les notifications s'étaient tues (relevé le 2026-09-10). Décoché, on ne
+   * garde que les quartiers nommés.
+   */
+  readonly includeUnknownDistrict?: boolean;
   /**
    * Filtre sur la NATURE DU BAILLEUR (décision utilisateur) :
    * - `'all'` (défaut) : aucune restriction.

@@ -233,11 +233,11 @@ export interface FilterConfig {
    * `<input type="date">`. Vide = aucune contrainte de disponibilité.
    */
   availableBy?: string;
-  /**
-   * Quartiers retenus, par leur slug canonique. Vide = toute la commune.
-   *
-   * SEUL FILTRE QUI ÉCARTE LES ANNONCES SANS QUARTIER : nommer des quartiers
-   * est une liste blanche, pas une exclusion.
-   */
+  /** Quartiers retenus, par leur slug canonique. Vide = toute la commune. */
   districts?: string[];
+  /**
+   * Garder les annonces sans quartier connu quand des quartiers sont cochés.
+   * Absent = oui : les digests des portails n'en indiquent jamais.
+   */
+  includeUnknownDistrict?: boolean;
 }

@@ -330,11 +330,26 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
               }}
               onClear={() => set({ districts: [] })}
             />
+            {/* L'INTERRUPTEUR N'APPARAÎT QU'AVEC DES QUARTIERS COCHÉS : sans
+              eux, il n'y a rien à inclure ni à exclure. Coché par défaut — les
+              digests des portails n'indiquent jamais de quartier, et la liste
+              blanche stricte masquait les deux tiers des annonces. */}
             {(filters.districts?.length ?? 0) > 0 && (
-              <p className="text-muted-foreground mt-1.5 text-[0.78rem]">
-                Les annonces dont le quartier n’est pas indiqué ne s’affichent plus : nommer des
-                quartiers, c’est en exclure le reste.
-              </p>
+              <div className="mt-2 flex items-start justify-between gap-3">
+                <label htmlFor="includeUnknownDistrict" className="text-[0.9rem]">
+                  Inclure les annonces sans quartier connu
+                  <span className="text-muted-foreground block text-[0.78rem]">
+                    Leboncoin, SeLoger et Bien’ici ne l’indiquent jamais.
+                  </span>
+                </label>
+                <input
+                  id="includeUnknownDistrict"
+                  type="checkbox"
+                  className="mt-0.5 size-5 shrink-0"
+                  checked={filters.includeUnknownDistrict !== false}
+                  onChange={(e) => set({ includeUnknownDistrict: e.target.checked })}
+                />
+              </div>
             )}
           </div>
         )}

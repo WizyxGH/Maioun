@@ -45,6 +45,11 @@ export interface TraitFilters {
    * commune.
    */
   readonly districts?: readonly string[];
+  /**
+   * Garder les annonces dont le quartier est INCONNU quand des quartiers sont
+   * nommés. Absent = oui. Voir la règle du quartier plus bas.
+   */
+  readonly includeUnknownDistrict?: boolean;
 }
 
 export interface TraitConditions {
@@ -108,7 +113,9 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
   }
 
   /**
-   * LE QUARTIER EST LE SEUL FILTRE QUI ÉCARTE LES INCONNUS, et c'est voulu.
+   * LE QUARTIER EST LE SEUL FILTRE QUI PEUT ÉCARTER LES INCONNUS — si on le
+   * demande. Par défaut il les garde, comme tous les autres ; décocher
+   * « inclure les annonces sans quartier connu » rétablit la règle ci-dessous.
    *
    * Partout ailleurs ici, une donnée absente ne disqualifie pas : « exclure les
    * colocations » écarte ce qui EST une colocation, pas ce dont on ignore si
@@ -121,7 +128,21 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
    * l'on ne saurait pas pourquoi. L'écran le dit franchement.
    */
   if (filters.districts !== undefined && filters.districts.length > 0) {
-    sql.push(`district IN (${filters.districts.map(() => '?').join(',')})`);
+    const liste = `district IN (${filters.districts.map(() => '?').join(',')})`;
+    /**
+     * … SAUF SI L'ON DEMANDE DE GARDER LES INCONNUS, et c'est le défaut.
+     *
+     * La liste blanche stricte a montré son coût le 2026-09-10 : vingt-quatre
+     * quartiers cochés — presque toute la ville — et 125 annonces sur 193
+     * masquées, parce que leur quartier est inconnu. Les digests des portails
+     * n'en portent JAMAIS : tout Leboncoin, SeLoger et Bien'ici disparaissait
+     * de la liste, et les notifications se sont tues. Cocher vingt-quatre
+     * quartiers voulait dire « pas les autres », pas « rien de ce qui ne dit
+     * pas où il est ».
+     *
+     * L'interrupteur laisse choisir. Décoché, on retrouve la règle stricte.
+     */
+    sql.push(filters.includeUnknownDistrict === false ? liste : `(district IS NULL OR ${liste})`);
     args.push(...filters.districts);
   }
 
