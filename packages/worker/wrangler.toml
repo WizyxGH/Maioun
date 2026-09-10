@@ -62,6 +62,17 @@ ALERT_ADDRESS_TEMPLATE = "floriangertner0+{token}@gmail.com"
 # que l'application attend dans son adresse. Depuis que la présentation occupe
 # la racine, l'application vit sous `/app/`.
 SITE_URL = "https://wizyxgh.github.io/Maioun/app/"
+#
+# ELLE SUIT LE NOM DU DÉPÔT, et c'est la seule valeur de ce fichier dans ce cas :
+# le Worker se déploie d'une machine, sans le contexte de GitHub qui permettrait
+# de la déduire. Pour qu'un renommage ne la laisse plus périmer en silence, la
+# CI la compare au nom réel du dépôt et échoue si elles divergent.
+
+# Dépôt dont le réveil lance la collecte, par son IDENTIFIANT NUMÉRIQUE — il ne
+# change ni au renommage ni au transfert, contrairement au nom. Obtenu par :
+#
+#   gh api repos/<propriétaire>/<nom> --jq .id
+GITHUB_REPOSITORY_ID = "1353824560"
 
 # Expéditeur des messages. La CLÉ d'API, elle, est un secret et se dépose à part :
 #
@@ -126,7 +137,8 @@ id = "de510f7eb71d40c9814b440d0e2b202e"
 #
 # Un jeton FIN (fine-grained), sur ce seul dépôt, avec la permission
 # « Actions: Read and write » et rien d'autre. Sans lui, le réveil se tait et
-# l'écrit dans le journal (`npx wrangler tail`).
+# l'écrit dans le journal (`npx wrangler tail`). Le dépôt visé est désigné par
+# `GITHUB_REPOSITORY_ID`, plus haut dans `[vars]`.
 [triggers]
 crons = ["7,37 * * * *"]
 

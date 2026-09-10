@@ -23,12 +23,35 @@ export interface CollectTriggerEnv {
    * un bouton.
    */
   readonly GITHUB_DISPATCH_TOKEN?: string;
-  /** `proprietaire/depot`. Absent : on retombe sur le dépôt du projet. */
+  /**
+   * IDENTIFIANT NUMÉRIQUE du dépôt — celui que GitHub attribue à sa création.
+   *
+   * PAS SON NOM. Le nom était écrit en dur ici, et le renommage du 2026-09-10
+   * ne l'a pas cassé par pure chance : GitHub redirige encore l'ancien nom par
+   * un 307, qu'il supprime dès qu'un autre dépôt le reprend. L'identifiant, lui,
+   * ne change ni au renommage ni au transfert ; c'est d'ailleurs vers lui que
+   * GitHub redirigeait. `gh api repos/<propriétaire>/<nom> --jq .id` le donne.
+   */
+  readonly GITHUB_REPOSITORY_ID?: string;
+  /** `propriétaire/nom`, à défaut d'identifiant. Fragile : suit mal un renommage. */
   readonly GITHUB_REPOSITORY?: string;
 }
 
-const DEFAULT_REPOSITORY = 'WizyxGH/Maioun';
 const WORKFLOW = 'collect.yml';
+
+/**
+ * Le chemin d'API du dépôt, par son identifiant de préférence.
+ *
+ * AUCUN DÉPÔT PAR DÉFAUT. Il y en avait un, en dur ; sans configuration, le
+ * réveil appuyait sur le bouton d'un dépôt que personne n'avait désigné.
+ */
+function repositoryPath(env: CollectTriggerEnv): string | null {
+  const id = env.GITHUB_REPOSITORY_ID?.trim() ?? '';
+  if (/^\d+$/.test(id)) return `repositories/${id}`;
+  const name = env.GITHUB_REPOSITORY?.trim() ?? '';
+  if (/^[\w.-]+\/[\w.-]+$/.test(name)) return `repos/${name}`;
+  return null;
+}
 
 /** Ce que le réveil a produit, pour le journal du Worker. */
 export interface TriggerResult {
@@ -48,8 +71,11 @@ export async function triggerCollect(env: CollectTriggerEnv): Promise<TriggerRes
     return { triggered: false, reason: 'GITHUB_DISPATCH_TOKEN absent' };
   }
 
-  const repository = env.GITHUB_REPOSITORY?.trim() || DEFAULT_REPOSITORY;
-  const url = `https://api.github.com/repos/${repository}/actions/workflows/${WORKFLOW}/dispatches`;
+  const repository = repositoryPath(env);
+  if (repository === null) {
+    return { triggered: false, reason: 'ni GITHUB_REPOSITORY_ID ni GITHUB_REPOSITORY configuré' };
+  }
+  const url = `https://api.github.com/${repository}/actions/workflows/${WORKFLOW}/dispatches`;
 
   try {
     const response = await fetch(url, {

@@ -14,6 +14,7 @@
  * public.
  */
 
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { SearchCriteria } from '@maioun/shared';
 import { MVP_CRITERIA, NICE_RENT_REFERENCE, districtBySlug } from '@maioun/shared';
@@ -301,7 +302,68 @@ export function alertAddressTemplate(env: NodeJS.ProcessEnv = process.env): stri
   return env['ALERT_ADDRESS_TEMPLATE']?.trim() ?? '';
 }
 
-/** User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur (§10). */
+/**
+ * LE DÉPÔT DE CE PROJET, `propriétaire/nom` — DÉDUIT, JAMAIS ÉCRIT.
+ *
+ * Le nom figurait en dur à quatre endroits, et le renommage du 2026-09-10 les
+ * a tous cassés d'un coup : liens des alertes vers une page morte, identité
+ * annoncée aux sites périmée. Les remplacer par le nouveau nom aurait préparé
+ * la même panne pour le suivant.
+ *
+ * L'environnement le sait toujours :
+ *
+ *   - GitHub Actions fournit `GITHUB_REPOSITORY`, à jour après un renommage ;
+ *   - en local, le dépôt distant `origin` du clone.
+ *
+ * Mis en cache : `git` ne se relance pas à chaque requête d'une collecte.
+ */
+let cachedSlug: string | null | undefined;
+export function repositorySlug(env: NodeJS.ProcessEnv = process.env): string | null {
+  const fromActions = env['GITHUB_REPOSITORY']?.trim();
+  if (fromActions !== undefined && fromActions !== '') return fromActions;
+  if (cachedSlug !== undefined) return cachedSlug;
+  try {
+    const remote = execFileSync('git', ['remote', 'get-url', 'origin'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    cachedSlug = /github\.com[/:]([^/]+\/[^/]+?)(?:\.git)?\/?$/.exec(remote)?.[1] ?? null;
+  } catch {
+    cachedSlug = null;
+  }
+  return cachedSlug;
+}
+
+/**
+ * L'adresse publique de l'APPLICATION, pour les liens des alertes.
+ *
+ * `SITE_URL` si on la donne — le jour d'un nom de domaine à soi, par exemple.
+ * Sinon, déduite du dépôt : GitHub Pages publie `<propriétaire>.github.io/<nom>/`,
+ * et l'application vit sous `app/`. Le propriétaire passe en minuscules : c'est
+ * un nom d'hôte.
+ *
+ * @returns l'adresse, avec sa barre finale, ou `null` si rien ne permet de la
+ *          connaître — mieux vaut le dire qu'inventer un lien.
+ */
+export function publicSiteUrl(env: NodeJS.ProcessEnv = process.env): string | null {
+  const explicit = env['SITE_URL']?.trim();
+  if (explicit !== undefined && explicit !== '') return explicit;
+  const slug = repositorySlug(env);
+  if (slug === null) return null;
+  const [owner, name] = slug.split('/');
+  if (owner === undefined || name === undefined) return null;
+  return `https://${owner.toLowerCase()}.github.io/${name}/app/`;
+}
+
+/**
+ * User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur
+ * (§10). Il porte l'adresse du dépôt, où les sites trouvent qui les visite et
+ * comment le joindre ; déduite comme le reste, elle suit les renommages.
+ */
 export function collectorUserAgent(env: NodeJS.ProcessEnv = process.env): string {
-  return env['COLLECTOR_USER_AGENT'] ?? 'MaiounBot/0.1 (+https://github.com/)';
+  const explicit = env['COLLECTOR_USER_AGENT']?.trim();
+  if (explicit !== undefined && explicit !== '') return explicit;
+  const slug = repositorySlug(env);
+  const server = env['GITHUB_SERVER_URL']?.trim() || 'https://github.com';
+  return slug === null ? 'MaiounBot/0.1' : `MaiounBot/0.1 (+${server}/${slug})`;
 }

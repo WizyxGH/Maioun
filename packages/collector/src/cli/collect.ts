@@ -29,6 +29,7 @@ import { ALL_SCRAPERS } from '../sources/index.js';
 import { runPipeline } from '../pipeline.js';
 import {
   collectorUserAgent,
+  publicSiteUrl,
   loadDotEnv,
   loadPublicConfig,
   loadTransitConfig,
@@ -187,7 +188,14 @@ async function notifyOne(deps: {
     return;
   }
 
-  const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/Maioun/app/';
+  // L'adresse du site est DÉDUITE du dépôt, jamais écrite ici : un nom en dur a
+  // envoyé tous les liens d'alerte vers une page morte au renommage du dépôt.
+  const siteUrl = publicSiteUrl() ?? '';
+  if (siteUrl === '') {
+    logger.warn('push.site_url_unknown', {
+      aide: 'ni SITE_URL, ni GITHUB_REPOSITORY, ni dépôt git : les liens des alertes seront relatifs',
+    });
+  }
   const common = { repository, config: vapid, siteUrl, logger, userId };
   /** Ce qui est RÉELLEMENT parti : sans envoi, la fenêtre ne se referme pas. */
   let sentAnything = false;
