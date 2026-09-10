@@ -27,6 +27,7 @@ import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
 import type { CacheEntry, HttpCacheStore } from '../core/http-client.js';
 import type { GeocodeCacheStore } from '../core/geocode.js';
+import type { DpeCacheStore } from '../core/dpe.js';
 import type { TransitCacheStore } from '../core/transit.js';
 
 /** Instruction SQL prête pour `db.batch`. */
@@ -469,6 +470,8 @@ export interface Repository {
   setListingFavorite(listingId: string, favorite: boolean): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
+  /** Cache des diagnostics energetiques cherches chez l'ADEME. */
+  dpeCache(): DpeCacheStore;
   transitCache(): TransitCacheStore;
 }
 
@@ -2066,6 +2069,53 @@ export function createRepository(db: Database): Repository {
                   ON CONFLICT(query) DO UPDATE SET
                     lat = excluded.lat, lon = excluded.lon, geocoded_at = excluded.geocoded_at`,
             args: [query, entry.lat, entry.lon, entry.geocodedAt],
+          });
+        },
+      };
+    },
+
+    dpeCache(): DpeCacheStore {
+      return {
+        async get(key) {
+          const result = await db.execute({
+            sql: `SELECT label, ges_label, built_year, area, searched_at
+                  FROM dpe_cache WHERE key = ?`,
+            args: [key],
+          });
+          const row = result.rows[0];
+          if (row === undefined) return null;
+          // `label` nul = recherche infructueuse MEMORISEE. C'est une reponse,
+          // pas un trou : sans elle, l'adresse serait rappelee a chaque passage.
+          const label = row['label'] === null ? null : String(row['label']);
+          return {
+            record:
+              label === null
+                ? null
+                : {
+                    label,
+                    gesLabel: row['ges_label'] === null ? null : String(row['ges_label']),
+                    builtYear: row['built_year'] === null ? null : Number(row['built_year']),
+                    area: Number(row['area']),
+                  },
+            searchedAt: String(row['searched_at']),
+          };
+        },
+        async set(key, entry) {
+          await db.execute({
+            sql: `INSERT INTO dpe_cache (key, label, ges_label, built_year, area, searched_at)
+                  VALUES (?,?,?,?,?,?)
+                  ON CONFLICT(key) DO UPDATE SET
+                    label = excluded.label, ges_label = excluded.ges_label,
+                    built_year = excluded.built_year, area = excluded.area,
+                    searched_at = excluded.searched_at`,
+            args: [
+              key,
+              entry.record?.label ?? null,
+              entry.record?.gesLabel ?? null,
+              entry.record?.builtYear ?? null,
+              entry.record?.area ?? null,
+              entry.searchedAt,
+            ],
           });
         },
       };
