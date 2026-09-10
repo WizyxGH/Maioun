@@ -42,6 +42,7 @@ function context(options: ContextOptions = {}): { ctx: ScrapeContext; visited: s
     },
     isKnown: (sourceRef) => known.has(sourceRef),
     knownRefs: known,
+    lastFullPassAt: null,
     // Aucune mémoire de page : l'enrichissement visite des FICHES, pas des listes.
     pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
     log: () => undefined,
@@ -68,6 +69,19 @@ describe('enrichNewListings', () => {
       'texte entier de la fiche',
     ]);
     expect(result.pagesFetched).toBe(2);
+  });
+
+  it('FUSIONNE les attributs de la fiche avec ceux de la liste', async () => {
+    // Remplacés en bloc, un DPE lu sur la fiche effaçait la référence que la
+    // liste avait posée — sans erreur, et sans que rien ne le signale.
+    const { ctx } = context();
+    const deLaListe = { ...listing('a'), extra: { reference: 'R-42', quartier: 'Riquier' } };
+    const result = await enrichNewListings(ctx, [deLaListe], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: () => ({ extra: { dpe: 'D' } }),
+    });
+    expect(result.listings[0]?.extra).toEqual({ reference: 'R-42', quartier: 'Riquier', dpe: 'D' });
   });
 
   it('laisse les annonces déjà connues tranquilles en marche courante (§30)', async () => {

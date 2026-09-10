@@ -1585,6 +1585,7 @@ export function createRepository(db: Database): Repository {
         consecutiveErrors: Number(row['consecutive_errors'] ?? 0),
         lastNewListingCount: Number(row['last_new_listing_count'] ?? 0),
         averageNewListingCount: Number(row['average_new_listing_count'] ?? 0),
+        lastFullPassAt: text('last_full_pass_at'),
       };
     },
 
@@ -1594,8 +1595,8 @@ export function createRepository(db: Database): Repository {
           INSERT INTO source_state (
             source_id, health, last_run_at, last_success_at, last_429_at, last_blocked_at,
             cooldown_until, consecutive_errors, last_new_listing_count,
-            average_new_listing_count, updated_at
-          ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            average_new_listing_count, last_full_pass_at, updated_at
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(source_id) DO UPDATE SET
             health = excluded.health, last_run_at = excluded.last_run_at,
             last_success_at = excluded.last_success_at, last_429_at = excluded.last_429_at,
@@ -1603,6 +1604,7 @@ export function createRepository(db: Database): Repository {
             consecutive_errors = excluded.consecutive_errors,
             last_new_listing_count = excluded.last_new_listing_count,
             average_new_listing_count = excluded.average_new_listing_count,
+            last_full_pass_at = excluded.last_full_pass_at,
             updated_at = excluded.updated_at
         `,
         args: [
@@ -1616,6 +1618,7 @@ export function createRepository(db: Database): Repository {
           state.consecutiveErrors,
           state.lastNewListingCount,
           state.averageNewListingCount,
+          state.lastFullPassAt ?? null,
           new Date().toISOString(),
         ],
       });

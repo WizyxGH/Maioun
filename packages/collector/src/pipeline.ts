@@ -143,6 +143,7 @@ async function runSource(
   options: PipelineOptions,
   knownRefs: ReadonlySet<string>,
   credentials: SourceCredentials | null,
+  lastFullPassAt: string | null,
 ): Promise<{ outcome: SourceOutcome; nextState: Partial<SourceRuntimeState> }> {
   const { descriptor } = scraper;
   const logger = options.logger.child({ source: descriptor.id });
@@ -167,6 +168,7 @@ async function runSource(
     },
     isKnown: (ref) => knownRefs.has(ref),
     knownRefs,
+    lastFullPassAt,
     pageRefs: {
       get: (url) => options.repository.pageRefs(url),
       set: (url, refs) =>
@@ -797,6 +799,32 @@ async function resolveCredentials(
   return null;
 }
 
+/**
+ * L'état d'une source après son passage.
+ *
+ * Un passage COMPLET se date : c'est ce qui dit à la source quand le suivant
+ * est dû. Un passage partiel garde la date précédente.
+ */
+function stateAfterRun(
+  base: SourceRuntimeState,
+  nextState: Partial<SourceRuntimeState>,
+  outcome: SourceOutcome,
+  startedMs: number,
+): SourceRuntimeState {
+  return {
+    ...base,
+    ...nextState,
+    ...(outcome.result?.fullPass === true
+      ? { lastFullPassAt: new Date(startedMs).toISOString() }
+      : {}),
+    consecutiveErrors: outcome.success ? 0 : base.consecutiveErrors + 1,
+    averageNewListingCount: updateAverage(
+      base.averageNewListingCount,
+      outcome.result?.listings.length ?? 0,
+    ),
+  };
+}
+
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
   const startedMs = clock.now();
@@ -833,7 +861,13 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     const knownRefs = await repository.knownRefs(decision.sourceId);
     const previousState = entries.find((entry) => entry.descriptor.id === decision.sourceId)?.state;
     const credentials = await resolveCredentials(repository, decision.sourceId, logger);
-    const { outcome, nextState } = await runSource(scraper, options, knownRefs, credentials);
+    const { outcome, nextState } = await runSource(
+      scraper,
+      options,
+      knownRefs,
+      credentials,
+      previousState?.lastFullPassAt ?? null,
+    );
     outcomes.push(outcome);
 
     if (outcome.result !== null) {
@@ -843,15 +877,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     }
 
     const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
-    await repository.saveSourceState({
-      ...base,
-      ...nextState,
-      consecutiveErrors: outcome.success ? 0 : base.consecutiveErrors + 1,
-      averageNewListingCount: updateAverage(
-        base.averageNewListingCount,
-        outcome.result?.listings.length ?? 0,
-      ),
-    });
+    await repository.saveSourceState(stateAfterRun(base, nextState, outcome, startedMs));
 
     // Transition d'état de santé : c'est le changement (et non l'état stable)
     // qui mérite une alerte, pour ne pas répéter le même avertissement à chaque

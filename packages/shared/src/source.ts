@@ -234,6 +234,13 @@ export interface SourceRuntimeState {
   readonly lastNewListingCount: number;
   /** Moyenne glissante des nouvelles annonces, pour lisser les à-coups. */
   readonly averageNewListingCount: number;
+  /**
+   * Dernier passage où la source a relu son inventaire EN ENTIER.
+   *
+   * Pour les sources à arrêt anticipé : sans lui, leur cycle de vie ne tournait
+   * jamais, faute d'avoir tout vu. `null` = jamais.
+   */
+  readonly lastFullPassAt?: IsoDateTime | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -323,6 +330,13 @@ export interface ScrapeContext {
     readonly set: (url: string, refs: readonly string[]) => Promise<void>;
   };
 
+  /**
+   * Dernier passage où la source a relu son inventaire en entier, ou `null`.
+   * Une source à arrêt anticipé s'en sert pour décider qu'un passage complet
+   * est dû — voir `ScrapeResult.fullPass`.
+   */
+  readonly lastFullPassAt: IsoDateTime | null;
+
   /** Journalisation structurée, sans secret ni donnée personnelle (§62). */
   readonly log: (event: string, fields?: Record<string, unknown>) => void;
 
@@ -368,6 +382,12 @@ export interface ScrapeResult {
   readonly stopReason: StopReason;
   /** Erreurs non fatales rencontrées ; n'empêchent pas de rendre des annonces. */
   readonly warnings: readonly string[];
+  /**
+   * `true` si ce passage a relu l'inventaire EN ENTIER, sans arrêt anticipé.
+   * Le pipeline en garde la date (`lastFullPassAt`), qui dit à la source quand
+   * le suivant est dû.
+   */
+  readonly fullPass?: boolean;
 }
 
 /** Pourquoi une exécution s'est terminée (§9, §10). */

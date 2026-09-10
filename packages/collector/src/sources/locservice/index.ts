@@ -23,7 +23,8 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { pageUrlFor, parseListPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { pageUrlFor, parseDetail, parseListPage } from './parser.js';
 
 /** La page « toutes natures » d'une commune : appartements, studios, maisons. */
 const NICE_BASE = 'https://www.locservice.fr/alpes-maritimes-06/location-nice';
@@ -49,7 +50,32 @@ const NICE_BASE = 'https://www.locservice.fr/alpes-maritimes-06/location-nice';
  * deux pages suffisent — celle des nouveautés, et la suivante qui confirme
  * qu'on est retombé dans le connu (§30).
  */
-const MAX_PAGES = 20;
+const MAX_PAGES = 30;
+
+/**
+ * Tous les combien un passage relit l'inventaire EN ENTIER.
+ *
+ * Un passage ordinaire s'arrête dès qu'une page est entièrement connue — deux ou
+ * trois pages sur une vingtaine. Le cycle de vie ne pouvait alors jamais
+ * trancher : ~140 annonces vues pour un millier connues, et le garde-fou
+ * « chute suspecte » le sautait à chaque fois. Les annonces parties restaient
+ * affichées jusqu'au prochain rattrapage manuel — 109 le 2026-09-10. Toutes les
+ * six heures, un passage va jusqu'au bout : une annonce disparue est retirée en
+ * une journée au plus, pour une vingtaine de pages de plus quatre fois par jour.
+ */
+const FULL_PASS_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Fiches visitées par passage, pour les annonces NOUVELLES.
+ *
+ * La liste n'en donne qu'un avant-goût — 60 à 110 caractères, ni DPE, ni
+ * disponibilité, une seule photo. Une quinzaine couvre largement ce qui paraît
+ * en une demi-heure.
+ */
+const MAX_DETAILS = 15;
+
+/** En rattrapage : tout le stock, une fois, pour compléter ce qui a été collecté avant. */
+const MAX_DETAILS_BACKFILL = 1_100;
 
 export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
   id: 'locservice',
@@ -61,7 +87,10 @@ export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
   priority: 1,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_PAGES,
+    // Plafond du RATTRAPAGE, qui visite tout le stock. Un passage ordinaire
+    // reste borné bien en dessous : ses pages par MAX_PAGES, ses fiches par
+    // MAX_DETAILS.
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS_BACKFILL,
     maxListingsPerRun: 1_000,
     // Deux secondes entre deux pages : le rattrapage en demande vingt d'un
     // coup, ce qui n'arrive qu'une fois mais mérite d'être poli (§10).
@@ -88,10 +117,24 @@ export const locserviceScraper: Scraper = {
 
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const bySourceRef = new Map<string, RawListing>();
+    /** Les annonces des pages INCHANGÉES : toujours en ligne, pas retéléchargées. */
+    const confirmedRefs: string[] = [];
     const warnings: string[] = [];
     let requestCount = 0;
     let pagesFetched = 0;
     let stopReason: StopReason = 'completed';
+
+    // Passage complet dû ? En rattrapage toujours ; sinon toutes les six heures.
+    const last = context.lastFullPassAt === null ? Number.NaN : Date.parse(context.lastFullPassAt);
+    const fullPassDue =
+      context.mode === 'backfill' ||
+      !Number.isFinite(last) ||
+      Date.now() - last >= FULL_PASS_INTERVAL_MS;
+    /** La liste a été lue jusqu'à sa fin — condition d'un passage complet. */
+    let reachedEnd = false;
+    /** Une page inchangée dont on ignore le contenu : l'inventaire est incomplet. */
+    let pageInconnue = false;
+    let firstPageSize = 0;
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       if (context.shouldStop()) {
@@ -102,34 +145,59 @@ export const locserviceScraper: Scraper = {
       try {
         const response = await context.fetch(url);
         requestCount += 1;
-        // Page inchangée : les suivantes le sont aussi, la liste étant triée
-        // par fraîcheur. Insister coûterait des requêtes pour rien (§30).
-        if (response.notModified) break;
+
+        /**
+         * PAGE INCHANGÉE (304). Ses annonces n'ont pas bougé : on relit ce
+         * qu'elle portait, et elles valent confirmation. En marche courante on
+         * s'arrête là — la liste est triée par fraîcheur, les suivantes sont
+         * inchangées aussi. En passage complet on continue jusqu'au bout.
+         */
+        if (response.notModified) {
+          const refs = await context.pageRefs.get(url);
+          if (refs === null) pageInconnue = true;
+          else confirmedRefs.push(...refs);
+          if (!fullPassDue) break;
+          if (refs !== null && refs.length < firstPageSize) {
+            reachedEnd = true;
+            break;
+          }
+          continue;
+        }
         pagesFetched += 1;
 
         const parsed = parseListPage(response.body, url);
-        // Le premier avertissement suffit : répété à chaque page, il noierait
-        // le journal sans rien apprendre de plus.
+        // Une page vide est la fin de la liste — ou, en première page, un
+        // gabarit changé : le premier avertissement suffit.
         if (parsed.listings.length === 0) {
           if (page === 1) warnings.push(...parsed.warnings);
+          reachedEnd = page > 1;
           break;
         }
+        if (page === 1) firstPageSize = parsed.listings.length;
         for (const listing of parsed.listings) bySourceRef.set(listing.sourceRef, listing);
+        await context.pageRefs.set(
+          url,
+          parsed.listings.map((listing) => listing.sourceRef),
+        );
+        // Une page moins remplie que la première est la dernière.
+        if (parsed.listings.length < firstPageSize) {
+          reachedEnd = true;
+          break;
+        }
 
         /**
          * ARRÊT ANTICIPÉ : une page entièrement connue signale qu'on est
          * retombé dans le stock déjà collecté.
          *
-         * SAUF EN RATTRAPAGE, et c'est tout l'objet du rattrapage. La liste
-         * est triée par fraîcheur : les premières pages sont donc les plus
-         * susceptibles d'être connues, et l'arrêt se déclenchait dès la
-         * deuxième — avant d'avoir atteint les dix-huit suivantes, celles qui
-         * portent les sept cent cinquante annonces qu'on venait chercher.
-         * Relevé le 2026-09-09, au premier passage après avoir porté la limite
-         * de quatre à vingt pages : « 94 annonces, 2 requêtes, knownTerritory ».
+         * SAUF QUAND UN PASSAGE COMPLET EST DÛ — rattrapage compris, et c'en
+         * est tout l'objet. La liste est triée par fraîcheur : les premières
+         * pages sont les plus susceptibles d'être connues, et l'arrêt se
+         * déclenchait dès la deuxième, avant d'avoir atteint celles qu'on
+         * venait chercher. Relevé le 2026-09-09 : « 94 annonces, 2 requêtes,
+         * knownTerritory ».
          */
         if (
-          context.mode !== 'backfill' &&
+          !fullPassDue &&
           parsed.listings.every((listing) => context.isKnown(listing.sourceRef))
         ) {
           stopReason = 'knownTerritory';
@@ -144,15 +212,37 @@ export const locserviceScraper: Scraper = {
       }
     }
 
-    const listings = [...bySourceRef.values()];
-    context.log('list.parsed', { listings: listings.length, pages: pagesFetched });
+    /**
+     * LES FICHES, pour ce que la liste ne dit pas : texte entier, DPE,
+     * disponibilité, toutes les photos, et la nature réelle du bailleur. Les
+     * nouvelles à chaque passage ; tout le stock en rattrapage.
+     */
+    const enriched = await enrichNewListings(context, [...bySourceRef.values()], {
+      max: context.mode === 'backfill' ? MAX_DETAILS_BACKFILL : MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetail(html),
+    });
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
+    const listings = [...enriched.listings];
+    const fullPass = fullPassDue && reachedEnd && !pageInconnue && stopReason === 'completed';
+    context.log('list.parsed', {
+      listings: listings.length,
+      confirmed: confirmedRefs.length,
+      pages: pagesFetched,
+      fullPass,
+    });
     return {
       sourceId: LOCSERVICE_DESCRIPTOR.id,
       listings,
+      confirmedRefs,
       requestCount,
       pagesFetched,
       stopReason,
       warnings,
+      fullPass,
     };
   },
 };

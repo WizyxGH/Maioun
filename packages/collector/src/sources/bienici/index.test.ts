@@ -46,6 +46,7 @@ function contexte(reponses: readonly ('200' | '304')[], memoire: Map<string, rea
     },
     isKnown: () => false,
     knownRefs: new Set(),
+    lastFullPassAt: null,
     pageRefs: {
       get: (url) => Promise.resolve(memoire.get(url) ?? null),
       set: (url, liste) => {

@@ -19,7 +19,8 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { compactListing, type ParsedList } from '../shared/raw-listing.js';
+import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
+import { htmlToText } from '../shared/html-text.js';
 
 /** « Nice (06000) » — la commune et son code postal, d'un seul tenant. */
 const CITY_AND_CODE = /^(.+?)\s*\((\d{5})\)$/;
@@ -124,4 +125,77 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
 /** L'adresse de la page `n` d'une commune. La première n'a pas de suffixe. */
 export function pageUrlFor(base: string, page: number): string {
   return page <= 1 ? `${base}.html` : `${base}-p${page}.html`;
+}
+
+/**
+ * Ce que la FICHE apprend, que la liste ne dit pas.
+ *
+ * LA LISTE N'EN DONNE QU'UN AVANT-GOÛT. Relevé du 2026-09-10 sur les 1 045
+ * annonces actives : description de 60 à 110 caractères, aucun DPE, aucune
+ * disponibilité, une seule photo — pour 38 % du volume du projet. La fiche
+ * porte tout cela, dans un balisage stable :
+ *
+ *   - `#accommodation-ad-description` : le texte entier ;
+ *   - `li.accommodation-ad-characteristic` : meublé, disponibilité, et surtout
+ *     « Particulier » ou « Professionnel » — la source est rangée « portail de
+ *     particuliers », mais une part de ses annonces sont d'agences ;
+ *   - la barre énergie : la lettre du DPE, dans l'élément marqué actif ;
+ *   - le JSON-LD : TOUTES les photos, là où la liste n'en montre qu'une.
+ *
+ * @returns le complément à fusionner, ou `null` si la page ne ressemble pas à
+ *          une fiche — on garde alors ce que la liste avait donné (§17).
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  if ($('#accommodation-ad-description').length === 0) return null;
+
+  const description = htmlToText($, '#accommodation-ad-description');
+  const traits = $('li.accommodation-ad-characteristic')
+    .map((_i, li) => $(li).text().replace(/\s+/g, ' ').trim())
+    .get();
+
+  // La PREMIÈRE barre est le DPE, la seconde le GES : on ne lit que la
+  // première, et seulement la lettre de l'élément marqué actif.
+  const dpe = $('.energy-bar')
+    .first()
+    .find('.energy-bar-item--active .energy-bar-letter')
+    .first()
+    .text()
+    .trim();
+
+  const disponibilite = traits.find((trait) => /^disponible\b/i.test(trait));
+  const meuble = traits.find((trait) => /^(non[ -])?meubl[ée]e?$|^vide$/i.test(trait));
+  const bailleur = traits.find((trait) => /^(particulier|professionnel)$/i.test(trait));
+
+  const extra: Record<string, string> = {};
+  if (/^[A-G]$/.test(dpe)) extra['dpe'] = dpe;
+  if (bailleur !== undefined) {
+    extra['landlord'] = /^particulier$/i.test(bailleur) ? 'private' : 'agency';
+  }
+
+  const photos = detailPhotos($);
+  return {
+    ...(description !== '' ? { description } : {}),
+    ...(disponibilite !== undefined ? { availableAtText: disponibilite } : {}),
+    ...(meuble !== undefined ? { furnishedText: meuble } : {}),
+    ...(photos.length > 0 ? { imageUrls: photos } : {}),
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
+  };
+}
+
+/** Les photos du JSON-LD de la fiche, en https, sans doublon. */
+function detailPhotos($: cheerio.CheerioAPI): string[] {
+  const photos = new Set<string>();
+  $('script[type="application/ld+json"]').each((_i, script) => {
+    try {
+      const data = JSON.parse($(script).text()) as { photos?: unknown };
+      if (!Array.isArray(data.photos)) return;
+      for (const photo of data.photos) {
+        if (typeof photo === 'string' && /^https:\/\//.test(photo)) photos.add(photo);
+      }
+    } catch {
+      // Un bloc illisible ne dit rien ; les autres peuvent encore parler.
+    }
+  });
+  return [...photos];
 }
