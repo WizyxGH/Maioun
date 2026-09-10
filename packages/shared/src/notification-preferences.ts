@@ -138,11 +138,8 @@ export const NOTIFICATIONS_SENT_AT_SETTING = 'notificationsSentAt';
 /**
  * Tout allumé — sauf l'e-mail.
  *
- * L'envoi d'e-mails n'est pas branché : l'afficher actif promettrait des
- * messages qui n'arriveraient jamais, ce qui est exactement le genre de valeur
- * inventée qu'on s'interdit (§17). Il apparaît dans l'écran, éteint et annoncé
- * comme à venir, parce que le savoir possible vaut mieux que le découvrir
- * absent.
+ * L'e-mail est éteint par défaut : c'est un canal qu'on CHOISIT, pas un doublon
+ * qu'on subit. Qui le coche le reçoit, à condition d'avoir vérifié son adresse.
  */
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   newListings: true,
@@ -181,9 +178,17 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
     nearMatches: read('nearMatches'),
     applicationReminders: read('applicationReminders'),
     favoriteGone: read('favoriteGone'),
-    // L'e-mail reste éteint tant qu'il n'est pas branché, même si la base dit
-    // l'inverse : une préférence enregistrée ne fait pas exister un envoi.
-    email: false,
+    /**
+     * L'E-MAIL SE LIT COMME LE RESTE. Il était forcé à `false` ici, du temps
+     * où l'envoi n'existait pas — et la ligne a survécu à la livraison des
+     * alertes e-mail, trois jours plus tard. Effet : la case cochée était
+     * enregistrée, puis relue éteinte, par l'écran comme par la collecte. Le
+     * bouton semblait ne rien faire, et aucun message ne partait jamais.
+     *
+     * Ce que la préférence ne garantit pas, la collecte le vérifie et le dit :
+     * une adresse vérifiée, un expéditeur configuré.
+     */
+    email: read('email'),
     frequency: isFrequency(stored['frequency'])
       ? stored['frequency']
       : DEFAULT_NOTIFICATION_PREFERENCES.frequency,
