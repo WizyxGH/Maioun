@@ -683,9 +683,46 @@ export function parseEmail(text: string | null | undefined): string | null {
  *
  * @returns une date ISO 8601, ou `null` si le texte n'est pas interprétable.
  */
+/**
+ * UNE DATE ISO COMPLÈTE, TELLE QUE LES API LA RENDENT : `2026-09-08T14:01:11.696Z`.
+ *
+ * Les lecteurs de date ne la reconnaissaient pas. Leur motif cherchait
+ * `AAAA-MM-JJ` suivi d'une frontière de mot — or entre le « 8 » du jour et le
+ * « T » de l'heure il n'y en a pas, les deux étant des caractères de mot. Toute
+ * source qui publie un horodatage perdait sa date en silence : Bien'ici, ERA,
+ * Mirabello, Orpi. Relevé le 2026-09-10 : 0 % de dates de parution chez
+ * Bien'ici, dont l'API les donne toutes.
+ */
+const ISO_DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+
+/** L'INSTANT exact d'une date ISO, ou `null` si ce n'en est pas une. */
+function isoInstant(text: string): string | null {
+  if (!ISO_DATE_TIME.test(text)) return null;
+  const ms = Date.parse(text);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+/**
+ * Le JOUR d'une date ISO, tel qu'écrit — à minuit UTC.
+ *
+ * Pour une disponibilité, c'est le calendrier qui compte, pas l'instant : lu
+ * comme un instant, « 2026-10-01T00:00:00+02:00 » deviendrait le 30 septembre,
+ * et un logement libre le 1er octobre passerait pour libre la veille.
+ */
+function isoCalendarDay(text: string): string | null {
+  const match = ISO_DATE_TIME.exec(text);
+  if (match?.[1] === undefined || match[2] === undefined || match[3] === undefined) return null;
+  const date = new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function parsePublishedAt(text: string | null | undefined, nowMs: number): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
+  // L'horodatage d'une API : l'instant exact, qui dit la fraîcheur.
+  const instant = isoInstant(cleaned);
+  if (instant !== null) return instant;
   const lower = comparable(cleaned);
 
   if (/\b(aujourd hui|maintenant|a l instant)\b/.test(lower)) {
@@ -1402,6 +1439,9 @@ export function parseAvailableAt(
 ): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
+  // Une date ISO d'API : le jour tel qu'écrit, pas l'instant.
+  const day = isoCalendarDay(cleaned);
+  if (day !== null) return day;
   const lower = comparable(cleaned);
 
   if (AVAILABLE_NOW.test(lower)) return new Date(nowMs).toISOString();
