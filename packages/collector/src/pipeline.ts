@@ -159,6 +159,9 @@ async function runSource(
   });
 
   let requestsUsed = 0;
+  // Ce que les fiches ont appris, lu UNE fois pour toute la source : une lecture
+  // par annonce coûterait une seconde et demie par centaine.
+  const detailMemory = await options.repository.detailDrafts(descriptor.id);
   const context: ScrapeContext = {
     criteria: options.config.criteria,
     mode: options.mode,
@@ -169,6 +172,15 @@ async function runSource(
     isKnown: (ref) => knownRefs.has(ref),
     knownRefs,
     lastFullPassAt,
+    detailMemory: {
+      get: (ref) => detailMemory.get(ref) ?? null,
+      save: (entries) =>
+        options.repository.saveDetailDrafts(
+          descriptor.id,
+          entries,
+          new Date(options.clock.now()).toISOString(),
+        ),
+    },
     pageRefs: {
       get: (url) => options.repository.pageRefs(url),
       set: (url, refs) =>
