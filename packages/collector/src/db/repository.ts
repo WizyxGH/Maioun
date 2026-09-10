@@ -156,6 +156,12 @@ export function listingHash(listing: ScoredListing): string {
     listing.dpe.value,
     listing.maxOccupants.value,
     listing.features,
+    // Les conditions du bailleur s'affichent — encart de fiche, badge de carte
+    // — donc elles sont ici. Elles apparaissent presque toujours APRÈS COUP :
+    // la description arrive tronquée de sa source, et c'est la visite de la
+    // fiche qui la complète. Sans cette ligne, l'annonce serait jugée
+    // inchangée, et la phrase de critères ne remonterait jamais à l'écran.
+    listing.requirements,
     listing.description.value,
     listing.charges.value,
     listing.flatShare.value,
