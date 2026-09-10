@@ -33,7 +33,7 @@ import {
   type NotificationPreferences,
 } from '@maioun/shared';
 import { fetchNotificationPreferences, saveNotificationPreferences } from '../api/client.js';
-import { disablePush, enablePush, pushEnabled, pushSupported, resyncPush } from '../push.js';
+import { disablePush, enablePush, pushEnabled, pushSupported, restorePush } from '../push.js';
 import { readOptIn, requestNotificationPermission, writeOptIn } from '../notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Switch } from '@/components/ui/switch.js';
@@ -126,18 +126,34 @@ export function NotificationSettingsPanel({
   // L'abonnement push fait foi au chargement : il survit à un vidage du
   // stockage local, là où la préférence de bandeau, non.
   useEffect(() => {
-    void pushEnabled().then((subscribed) => {
-      if (subscribed) setOn(true);
-      /**
-       * ON REDÉPOSE L'ABONNEMENT, SANS RIEN DEMANDER. Le service de push révoque
-       * parfois un abonnement (`410 Gone`) : la collecte retire alors la ligne
-       * de la base, ce qui est juste, mais le navigateur en a un NOUVEAU que
-       * personne ne lui redemande. L'écran affichait « activé », l'utilisateur
-       * se croyait abonné, et plus rien n'arrivait — sans le moindre signe.
-       * Deux appareils perdus ainsi en une collecte, le 2026-09-07.
-       */
-      if (subscribed) void resyncPush();
-    });
+    /**
+     * ON REMET L'ABONNEMENT EN PLACE, SANS RIEN DEMANDER, puis on affiche CE QUI
+     * EST. Le service de push révoque parfois un abonnement (`410 Gone`), et un
+     * changement d'adresse du site le supprime tout à fait. L'écran affichait
+     * « activé » d'après une préférence locale, l'utilisateur se croyait
+     * abonné, et plus rien n'arrivait — deux appareils perdus ainsi le
+     * 2026-09-07, le dernier le 2026-09-10.
+     *
+     * `restorePush` redépose un abonnement présent, en recrée un perdu si
+     * l'autorisation est déjà accordée, et dit le résultat. Sans abonnement à
+     * la sortie, l'interrupteur s'éteint : il dit la vérité, et un geste suffit
+     * à tout rétablir.
+     */
+    if (pushSupported()) {
+      const optedIn = readOptIn();
+      void restorePush(optedIn).then((subscribed) => {
+        // AUTORISATION REFUSÉE : l'interrupteur reste allumé, c'est voulu — les
+        // alertes s'affichent alors en bandeau dans la page. On ne l'éteint que
+        // si le navigateur PERMET le push et qu'aucun abonnement n'existe.
+        const bandeauSeul =
+          optedIn && typeof Notification !== 'undefined' && Notification.permission !== 'granted';
+        setOn(subscribed || bandeauSeul);
+      });
+    } else {
+      void pushEnabled().then((subscribed) => {
+        if (subscribed) setOn(true);
+      });
+    }
     void fetchNotificationPreferences().then(setPreferences);
   }, []);
 
