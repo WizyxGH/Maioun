@@ -242,7 +242,9 @@ describe('préparation du contact (§22)', () => {
 
   it('affiche les coordonnées disponibles (§21)', async () => {
     await openAndConfigureProfile();
-    expect(await screen.findByText('06 00 00 00 12')).toBeInTheDocument();
+    // LE NUMÉRO A QUITTÉ LE TABLEAU pour le bouton d'appel : il ne se cherche
+    // donc plus seul, mais dans l'intitulé du geste qu'il sert.
+    expect(await screen.findByRole('link', { name: /Appeler 06 00 00 00 12/ })).toBeInTheDocument();
     expect(screen.getByText('Agence Fictive Nice')).toBeInTheDocument();
   });
 
