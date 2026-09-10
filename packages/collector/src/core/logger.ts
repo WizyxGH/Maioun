@@ -221,10 +221,14 @@ const NARRATION: Record<string, (f: Record<string, unknown>, c: boolean) => stri
   'source.completed': (f, c) => {
     const src = paint(String(f['source'] ?? '?'), BOLD, c);
     const listings = num(f['listings']);
+    const confirmed = num(f['confirmed']);
     const warn = num(f['warnings']);
     const badge = paint('✓', GREEN, c);
+    // « 0 annonce » pour une source dont 510 annonces sont confirmées en ligne
+    // faisait croire à une panne : les confirmées se disent aussi.
+    const confirmees = confirmed > 0 ? `, ${confirmed} confirmée(s)` : '';
     return (
-      `  ${badge} ${src} — ${listings} annonce(s) ` +
+      `  ${badge} ${src} — ${listings} annonce(s)${confirmees} ` +
       paint(`(${num(f['requests'])} req, ${f['stopReason']})`, DIM, c) +
       (warn > 0 ? paint(` ⚠ ${warn}`, LEVEL_COLOR.warn, c) : '')
     );
