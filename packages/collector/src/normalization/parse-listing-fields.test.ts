@@ -298,6 +298,13 @@ describe('parsePublishedAt', () => {
     expect(parsePublishedAt('il y a 3 jours', now)).toBe('2026-08-11T12:00:00.000Z');
   });
 
+  it('lit l’horodatage ISO complet que rendent les API, à l’instant près', () => {
+    // Rejeté jusqu'au 2026-09-10 : entre le « 8 » du jour et le « T » de
+    // l'heure, pas de frontière de mot. Bien'ici n'avait AUCUNE date de parution.
+    expect(parsePublishedAt('2026-09-08T14:01:11.696Z', now)).toBe('2026-09-08T14:01:11.696Z');
+    expect(parsePublishedAt('2026-09-08T16:01:11+02:00', now)).toBe('2026-09-08T14:01:11.000Z');
+  });
+
   it('interprète « hier » et « aujourd’hui »', () => {
     expect(parsePublishedAt('hier', now)).toBe('2026-08-13T12:00:00.000Z');
     expect(parsePublishedAt('aujourd’hui', now)).toBe('2026-08-14T12:00:00.000Z');
@@ -486,6 +493,13 @@ describe('parseAvailableAt (§17 — disponibilité)', () => {
   it('interprète « immédiatement » et équivalents', () => {
     expect(parseAvailableAt('Disponible immédiatement', now)).toBe('2026-08-14T12:00:00.000Z');
     expect(parseAvailableAt('libre de suite', now)).toBe('2026-08-14T12:00:00.000Z');
+  });
+
+  it('lit une date ISO d’API comme un JOUR, fuseau ignoré', () => {
+    // Lue comme un instant, « 1er octobre à minuit, heure de Paris » tomberait
+    // le 30 septembre en UTC : un logement libre le 1er passerait pour libre la veille.
+    expect(parseAvailableAt('2026-10-01T00:00:00.000Z', now)).toBe('2026-10-01T00:00:00.000Z');
+    expect(parseAvailableAt('2026-10-01T00:00:00+02:00', now)).toBe('2026-10-01T00:00:00.000Z');
   });
 
   it('interprète les dates textuelles françaises avec année', () => {
