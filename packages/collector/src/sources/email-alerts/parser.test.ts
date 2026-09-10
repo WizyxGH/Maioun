@@ -172,6 +172,42 @@ describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
     expect(trouvee?.postalCodeText).toBe('06000');
   });
 
+  it('retient le loyer PRÉCÉDENT quand le digest annonce une baisse', () => {
+    /**
+     * Gabarit RELEVÉ TEL QUEL dans un message « Baisse de prix » de SeLoger, le
+     * 2026-09-10 : l'ancien loyer est barré dans un lien portant un attribut
+     * `name` qui commence par `adpricechange`.
+     *
+     * C'est le seul signal de ce genre : partout ailleurs, une baisse ne se
+     * découvre qu'en comparant deux collectes — donc jamais sur une annonce vue
+     * pour la première fois, ni sur celles qui n'arrivent QUE par ces digests.
+     */
+    const digest = `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T5">Studio • 25 m² <br /> Nice, 06000</a></td>
+  <td>
+    <span>
+      <a href="https://click.by.seloger.com/?qs=P5" name="adpricechange1_1"><s>750 €</s> &#8600;&nbsp;7%</a>
+    </span>
+    <a href="https://click.by.seloger.com/?qs=P6">697 €</a>
+  </td>
+</tr></tbody></table>`;
+    const [trouvee] = parseAlertEmail(digest);
+    expect(trouvee?.extra?.['previousPrice']).toBe('750 €');
+  });
+
+  it('n’invente pas de baisse là où il n’y en a pas', () => {
+    // Un `<s>` isolé peut être n'importe quoi dans un e-mail composé en
+    // tableaux ; c'est l'attribut `name` qui fait foi, et il ne se pose pas par
+    // hasard.
+    const digest = `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T6">Studio • 25 m² <br /> Nice, 06000</a></td>
+  <td><s>750 €</s> <a href="https://click.by.seloger.com/?qs=P7">697 €</a></td>
+</tr></tbody></table>`;
+    expect(parseAlertEmail(digest)[0]?.extra?.['previousPrice']).toBeUndefined();
+  });
+
   it('extrait la photo depuis background-image et ignore le logo', () => {
     // SeLoger met la vraie photo en CSS `background-image`, pas en <img> ;
     // le seul <img> présent est un logo (à écarter).

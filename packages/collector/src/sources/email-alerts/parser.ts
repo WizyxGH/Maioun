@@ -297,6 +297,32 @@ function climbToBlock(anchor: Node, $: cheerio.CheerioAPI): { block: Node; image
   return { block: block ?? anchor, image };
 }
 
+/**
+ * L'ANCIEN loyer, quand le digest annonce une baisse.
+ *
+ * SeLoger envoie de vrais messages « Baisse de prix : … », et le bloc de
+ * l'annonce porte alors le loyer précédent BARRÉ, suivi de l'écart :
+ *
+ *   <a name="adpricechange1_1" …><s>750 €</s> ↘&nbsp;7%</a>
+ *
+ * CE SIGNAL EST LE SEUL DE SON ESPÈCE. Partout ailleurs, une baisse ne se
+ * découvre qu'en comparant deux collectes — donc jamais sur une annonce vue
+ * pour la première fois, et jamais sur celles qui n'arrivent QUE par ces
+ * digests. Ici le portail nous le dit lui-même, dès la première rencontre.
+ *
+ * ON EXIGE LES DEUX MARQUES : l'attribut `name` qui commence par
+ * `adpricechange`, et le loyer barré. Un `<s>` isolé peut être n'importe quoi
+ * dans un e-mail composé en tableaux ; l'attribut, lui, ne se pose pas par
+ * hasard.
+ */
+function findPreviousPrice($: cheerio.CheerioAPI, block: Node): string | undefined {
+  const marque = block.find('a[name^="adpricechange"]').first();
+  if (marque.length === 0) return undefined;
+  const barre = marque.find('s').first();
+  if (barre.length === 0) return undefined;
+  return findPrice(cleanText(barre.text()));
+}
+
 /** Construit l'annonce à partir de son lien-titre (celui qui porte « m² »). */
 function buildFromTitle(
   $: cheerio.CheerioAPI,
@@ -307,6 +333,7 @@ function buildFromTitle(
   const { portal, url, canonical } = resolved;
   const { block, image } = climbToBlock(anchor, $);
   const blockText = cleanText(block.text().replace(/\s+/g, ' '));
+  const previousPrice = findPreviousPrice($, block);
 
   const rawPrice = findPrice(title) ?? findPrice(blockText);
   const areaText = findArea(title) ?? findArea(blockText);
@@ -342,7 +369,12 @@ function buildFromTitle(
     ...(postalCode !== undefined ? { postalCodeText: postalCode } : {}),
     contactFormUrl: sourceUrl,
     ...(image !== undefined && /^https?:/i.test(image) ? { imageUrls: [image] } : {}),
-    extra: { reference, portal: portal.id },
+    extra: {
+      reference,
+      portal: portal.id,
+      // Le loyer PRECEDENT, quand le digest annonce lui-meme une baisse.
+      ...(previousPrice !== undefined ? { previousPrice } : {}),
+    },
   };
 }
 
