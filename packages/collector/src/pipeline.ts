@@ -36,6 +36,7 @@ import { dedupe } from './deduplication/dedupe.js';
 import { mergeGroup } from './deduplication/merge.js';
 import { scoreListing, scoreMatch } from './scoring/index.js';
 import { createGeocoder, geocodeCacheKey } from './core/geocode.js';
+import { createDpeLookup, dpeCacheKey, type DpeRecord } from './core/dpe.js';
 import { createTransitRouter } from './core/transit.js';
 import type { Coordinates } from './core/geo.js';
 import type { AggregatedListing } from '@maioun/shared';
@@ -53,6 +54,15 @@ import {
 
 /** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
 const GEOCODE_NETWORK_BUDGET = 80;
+
+/**
+ * Recherches de DPE au plus par passage, hors cache.
+ *
+ * Plus généreux que le géocodage : l'ADEME est une API d'État sans quota
+ * déclaré, et le stock à rattraper est fini — six cents annonces une fois,
+ * puis quelques-unes par jour.
+ */
+const DPE_NETWORK_BUDGET = 120;
 
 /**
  * Plafond de biens routés par run vers un point transit : borne le nombre
@@ -265,6 +275,53 @@ async function geocodeMissingAddresses(
     geocoded.set(listing.id, await geocoder.geocode(query));
   }
   return geocoded;
+}
+
+/**
+ * Complète le DPE MANQUANT depuis les diagnostics publiés par l'ADEME.
+ *
+ * IL EST OBLIGATOIRE DANS UNE ANNONCE DE LOCATION DEPUIS 2021, et la moitié des
+ * sources ne le publie pas : 589 étiquettes sur 2 708 occurrences actives le
+ * 2026-09-10, alors que six cents annonces avaient une adresse de rue. L'ADEME
+ * publie tous les diagnostics — 15 630 pour le seul 06200 — avec l'adresse, la
+ * surface et l'année de construction, gratuitement et sans clé.
+ *
+ * ON NE TOUCHE QUE CE QUI MANQUE. Une étiquette publiée par la source fait
+ * autorité : c'est le bailleur qui l'engage, pas nous.
+ *
+ * BUDGET RÉSEAU BORNÉ, comme le géocodage : les adresses déjà cherchées ne
+ * coûtent rien, et les nouvelles s'étalent sur quelques passages (§30).
+ */
+async function fillMissingDpe(
+  merged: readonly AggregatedListing[],
+  options: PipelineOptions,
+  nowMs: number,
+): Promise<Map<string, DpeRecord>> {
+  const found = new Map<string, DpeRecord>();
+  const cache = options.repository.dpeCache();
+  const lookup = createDpeLookup({
+    cache,
+    nowMs,
+    userAgent: options.userAgent,
+    ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
+  });
+
+  let networkBudget = DPE_NETWORK_BUDGET;
+  for (const listing of merged) {
+    if (listing.dpe.value !== null) continue;
+    const address = listing.address.value;
+    const postalCode = listing.postalCode.value;
+    const area = listing.area.value;
+    if (address === null || postalCode === null || area === null) continue;
+
+    const cached = await cache.get(dpeCacheKey(address, postalCode, area));
+    if (cached === null && networkBudget <= 0) continue;
+    if (cached === null) networkBudget -= 1;
+
+    const record = await lookup.find(address, postalCode, area);
+    if (record !== null) found.set(listing.id, record);
+  }
+  return found;
 }
 
 /**
@@ -562,6 +619,14 @@ export async function regroupAndScore(
 
   const merged = groups.map((group) => mergeGroup(group.occurrences));
 
+  // Le DPE manquant, cherché à l'adresse chez l'ADEME. AVANT le scoring : il
+  // s'affiche, il se filtre, et une étiquette qui arriverait après serait
+  // invisible jusqu'au passage suivant.
+  const dpeByListing = await fillMissingDpe(merged, options, nowMs);
+  if (dpeByListing.size > 0) {
+    logger.info('pipeline.dpe_filled', { listings: dpeByListing.size });
+  }
+
   const geocoded = await geocodeMissingAddresses(merged, options, nowMs);
   if (geocoded.size > 0) {
     logger.info('pipeline.geocoded', {
@@ -600,8 +665,29 @@ export async function regroupAndScore(
             },
           }
         : listing;
+
+    /**
+     * LE DPE VENU DE L'ADEME, quand la source n'en publie aucun. La provenance
+     * dit d'ou il vient — c'est un diagnostic officiel trouve a l'adresse, pas
+     * une valeur annoncee par le bailleur, et la fiche ne doit pas laisser
+     * croire l'inverse (§15).
+     */
+    const diagnostic = dpeByListing.get(listing.id);
+    const complete =
+      diagnostic === undefined
+        ? enriched
+        : {
+            ...enriched,
+            dpe: {
+              value: diagnostic.label,
+              sourceId: 'ademe',
+              observedAt: new Date(nowMs).toISOString(),
+              conflicts: [],
+            },
+          };
+
     const transitMinutes = transitByListing.get(listing.id);
-    return scoreListing(enriched, {
+    return scoreListing(complete, {
       criteria: config.criteria,
       nowMs,
       referencePricePerSqm: config.referencePricePerSqm,
