@@ -10,8 +10,8 @@ Allow: /
 
 # ATTENTION, CE FICHIER EST INERTE TANT QUE LE SITE VIT DANS UN SOUS-CHEMIN.
 # Un robot ne lit `robots.txt` qu'à la RACINE d'un domaine : sur
-# `wizyxgh.github.io/RentFinder/`, la racine appartient à GitHub, pas à nous.
+# `wizyxgh.github.io/Maioun/`, la racine appartient à GitHub, pas à nous.
 # Ce fichier ne prendra effet qu'avec un domaine propre. D'ici là, c'est la
 # balise `robots` de la page qui parle — et c'est elle qu'il faut vérifier.
 
-Sitemap: https://wizyxgh.github.io/RentFinder/sitemap.xml
+Sitemap: https://wizyxgh.github.io/Maioun/sitemap.xml
