@@ -7,6 +7,7 @@
  */
 
 import { expect, test, type Page } from '@playwright/test';
+import { ouvrirRecherche } from './navigation.js';
 
 /**
  * Ouvre un écran secondaire (Notifications, Statistiques, Sources) depuis les
@@ -36,13 +37,6 @@ async function ouvrirReglage(page: Page, lien: string): Promise<void> {
  * qui parlent d'annonces commencent donc par ce geste, sur les deux formats —
  * onglet du haut sur grand écran, barre basse sur téléphone.
  */
-async function ouvrirRecherche(page: Page): Promise<void> {
-  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
-  const barre = (await haut.isVisible())
-    ? haut
-    : page.getByRole('navigation', { name: 'Navigation', exact: true });
-  await barre.getByRole('button', { name: 'Recherche' }).click();
-}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -121,7 +115,10 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
   // Les quatre actions restent à la main de l'utilisateur.
   await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copier' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Ouvrir|Appeler|Contacter via/ })).toBeVisible();
+  // `contact-action` et non l'intitulé : la fiche porte aussi un bouton
+  // « Appeler <numéro> » au-dessus du message, qui ne conclut pas le contact
+  // manuel mais lance un appel direct. Les deux se lisent « Appeler ».
+  await expect(page.getByTestId('contact-action')).toBeVisible();
   await expect(page.getByRole('button', { name: 'J’ai envoyé' })).toBeVisible();
 });
 

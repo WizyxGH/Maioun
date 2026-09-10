@@ -8,6 +8,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { ouvrirRecherche } from './navigation.js';
 
 /** Largeurs réelles : petit Android, iPhone courant, tablette, portable. */
 const WIDTHS = [
@@ -30,11 +31,7 @@ for (const { name, width, height } of WIDTHS) {
     await page.setViewportSize({ width, height });
     await page.goto('/');
     // L'accueil est un point de situation ; la liste vit sous « Recherche ».
-    const haut = page.getByRole('navigation', { name: 'Navigation principale' });
-    const barre = (await haut.isVisible())
-      ? haut
-      : page.getByRole('navigation', { name: 'Navigation', exact: true });
-    await barre.getByRole('button', { name: 'Recherche' }).click();
+    await ouvrirRecherche(page);
     await expect(page.getByTestId('listing-card').first()).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 

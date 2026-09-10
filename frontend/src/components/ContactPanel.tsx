@@ -222,14 +222,6 @@ function ContactDetails({
             </dd>
           </>
         )}
-        {phone !== null && (
-          <>
-            <dt className="text-muted-foreground">Téléphone</dt>
-            <dd>
-              <a href={telHref(phone)}>{formatPhone(phone)}</a>
-            </dd>
-          </>
-        )}
         {email !== null && (
           <>
             <dt className="text-muted-foreground">E-mail</dt>
@@ -282,7 +274,11 @@ function ContactDetails({
       {/* APPELER, EN UN GESTE. Le numéro n'était qu'un lien dans une liste de
         définitions : sur téléphone, il fallait viser dix caractères au milieu
         d'un tableau. Or l'appel est LE geste qui fait obtenir une visite sur ce
-        marché — bien avant l'e-mail, souvent lu le lendemain. */}
+        marché — bien avant l'e-mail, souvent lu le lendemain.
+
+        IL A REMPLACÉ LA LIGNE « Téléphone », il ne s'y ajoute pas : le numéro
+        écrit deux fois à trois centimètres d'intervalle n'apprend rien la
+        seconde, et l'œil doit alors choisir entre deux choses identiques. */}
       {phone !== null && (
         <a
           href={telHref(phone)}
@@ -577,6 +573,11 @@ function MessageActions({
 
       {link !== null && (
         <ButtonLink
+          // DEUX LIENS PEUVENT DIRE « Appeler » sur cette fiche : celui-ci, qui
+          // conclut le message préparé, et le bouton d'appel direct posé plus
+          // haut. Ils ne font pas la même chose ; un repère les distingue pour
+          // qui les cherche par leur intitulé.
+          data-testid="contact-action"
           variant="outline"
           href={link}
           target={channel === 'form' ? '_blank' : undefined}
