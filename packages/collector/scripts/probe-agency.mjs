@@ -19,8 +19,11 @@
  *   node packages/collector/scripts/probe-agency.mjs climmo.com autre.fr …
  */
 
-const USER_AGENT =
-  process.env['COLLECTOR_USER_AGENT'] ?? 'MaiounBot/0.1 (+https://github.com/WizyxGH/Maioun)';
+// LE MÊME QUE LE COLLECTEUR, et pas une copie : l'adresse du dépôt y est
+// déduite de l'environnement, et une seconde version écrite ici périmerait au
+// premier renommage.
+const { collectorUserAgent } = await import('../dist/config.js');
+const USER_AGENT = collectorUserAgent();
 
 /** Communes visées : Nice et sa périphérie proche, en slug d'URL. */
 const NICE_SLUGS = ['nice', 'saint-laurent-du-var', 'cagnes-sur-mer', 'villeneuve-loubet'];

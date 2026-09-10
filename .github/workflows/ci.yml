@@ -69,6 +69,27 @@ jobs:
       - name: Vérification des secrets
         run: pnpm run check:secrets
 
+      # 10. Le Worker désigne-t-il encore CE dépôt ?
+      #
+      # C'est la seule configuration qui ne se déduit pas : le Worker se déploie
+      # d'une machine, hors de GitHub. Au renommage du 2026-09-10, son
+      # `SITE_URL` a gardé l'ancien nom et les liens de mot de passe sont partis
+      # vers une page morte, sans que rien ne le signale. Désormais, la CI rougit.
+      - name: Cohérence du Worker avec le dépôt
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          REPO_ID: ${{ github.repository_id }}
+        run: |
+          toml=packages/worker/wrangler.toml
+          site=$(sed -n 's/^SITE_URL *= *"\(.*\)"/\1/p' "$toml")
+          id=$(sed -n 's/^GITHUB_REPOSITORY_ID *= *"\(.*\)"/\1/p' "$toml")
+          case "$site" in
+            */"$REPO_NAME"/app/) ;;
+            *) echo "::error file=$toml::SITE_URL ($site) ne porte pas le nom du dépôt ($REPO_NAME)"; exit 1 ;;
+          esac
+          [ "$id" = "$REPO_ID" ] || { echo "::error file=$toml::GITHUB_REPOSITORY_ID ($id) n'est pas celui du dépôt ($REPO_ID)"; exit 1; }
+          echo "Worker cohérent : $site, dépôt n° $id"
+
   # 8. Tests E2E critiques, isolés pour ne pas ralentir le retour principal.
   e2e:
     name: Tests end-to-end

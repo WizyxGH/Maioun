@@ -78,7 +78,10 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-          SITE_URL: ${{ vars.SITE_URL }}
+          # PAS DE SITE_URL ICI : l'adresse des liens d'alerte se déduit de
+          # GITHUB_REPOSITORY, que GitHub fournit à jour après un renommage. La
+          # variable qu'on passait gardait l'ancien nom, et tous les liens sont
+          # partis vers une page morte le 2026-09-10.
 
           # LE RELAIS DE PHOTOS, pour les notifications (§11). BEP publie ses
           # cliches en http ; un service worker ne charge pas une image http, et
@@ -129,21 +132,12 @@ jobs:
           # messages n'appartiendraient à personne.
           ALERT_ADDRESS_TEMPLATE: ${{ vars.ALERT_ADDRESS_TEMPLATE }}
 
-          # Identification honnête du collecteur (§10).
-          COLLECTOR_USER_AGENT: ${{ vars.COLLECTOR_USER_AGENT }}
-
-          # §8 : le backfill exige l'intention explicite ET l'activation.
-          BACKFILL_ENABLED: ${{ vars.BACKFILL_ENABLED }}
+          # L'identité annoncée aux sites (§10) se déduit elle aussi du dépôt :
+          # elle porte son adresse, et une valeur écrite ici périmerait.
 
           # §23 : interrupteur global du contact automatique. Absent = OFF.
           AUTO_CONTACT_ENABLED: ${{ vars.AUTO_CONTACT_ENABLED }}
 
-          # §20 : points de référence privés, stockés en SECRETS de dépôt.
-          # Leur absence désactive simplement le calcul des distances.
-          REFERENCE_WORK_LABEL: ${{ vars.REFERENCE_WORK_LABEL }}
-          REFERENCE_WORK_LAT: ${{ secrets.REFERENCE_WORK_LAT }}
-          REFERENCE_WORK_LON: ${{ secrets.REFERENCE_WORK_LON }}
-          REFERENCE_WORK_ADDRESS: ${{ secrets.REFERENCE_WORK_ADDRESS }}
-          REFERENCE_STATION_LABEL: ${{ vars.REFERENCE_STATION_LABEL }}
-          REFERENCE_STATION_LAT: ${{ secrets.REFERENCE_STATION_LAT }}
-          REFERENCE_STATION_LON: ${{ secrets.REFERENCE_STATION_LON }}
+          # Les points de référence ne passent plus par ici : chaque compte règle
+          # les siens dans Paramètres → Adresses de référence. Les variables
+          # REFERENCE_* que ce bloc transmettait n'étaient plus lues par rien.

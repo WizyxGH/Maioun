@@ -14,13 +14,16 @@
   lien ne trouve rien, et la page qu'on voulait faire connaître reste
   invisible. Elle changera le jour où le domaine existera (§17).
 
+  L'ADRESSE EST COMPOSÉE À LA CONSTRUCTION, d'après le dépôt (`src/site.ts`) :
+  écrite en dur, elle est devenue fausse au renommage du 2026-09-10.
+
   `lastmod` reste à la main : cette page change quelques fois par an, et une
   date engendrée à chaque publication ferait croire à une fraîcheur qu'elle n'a
   pas.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://wizyxgh.github.io/Maioun/</loc>
+    <loc>%SITE_URL%</loc>
     <lastmod>2026-09-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>

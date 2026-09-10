@@ -14,7 +14,10 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { readTestimonials, renderTestimonials } from './src/testimonials.js';
+import { fillSite, siteInfo } from './src/site.js';
 
 const page = (name: string): string => fileURLToPath(new URL(name, import.meta.url));
 
@@ -36,9 +39,35 @@ function testimonials(): Plugin {
   };
 }
 
+/**
+ * Pose les adresses de la page — la sienne et celle du code — là où les
+ * fichiers portent `%SITE_URL%` et `%REPO_URL%`.
+ *
+ * DANS LES PAGES, avant que Vite ne les lise (`order: 'pre'`) ; DANS
+ * `robots.txt` ET LE PLAN DU SITE, une fois recopiés tels quels depuis
+ * `public/`, que Vite ne transforme pas.
+ */
+function siteAddresses(): Plugin {
+  const info = siteInfo();
+  let outDir = 'dist';
+  return {
+    name: 'maioun-adresses',
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
+    transformIndexHtml: { order: 'pre', handler: (html) => fillSite(html, info) },
+    closeBundle() {
+      for (const name of ['robots.txt', 'sitemap.xml']) {
+        const path = join(outDir, name);
+        writeFileSync(path, fillSite(readFileSync(path, 'utf8'), info));
+      }
+    },
+  };
+}
+
 export default defineConfig({
   base: process.env['BASE_PATH'] ?? '/',
-  plugins: [tailwindcss(), testimonials()],
+  plugins: [tailwindcss(), siteAddresses(), testimonials()],
   build: {
     sourcemap: false,
     /**

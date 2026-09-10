@@ -121,7 +121,12 @@ export interface Env {
    * que la collecte repart (§17).
    */
   readonly GITHUB_DISPATCH_TOKEN?: string;
-  /** `proprietaire/depot`. Absent : le dépôt du projet. */
+  /**
+   * Identifiant NUMÉRIQUE du dépôt à réveiller — il survit aux renommages, là
+   * où le nom les subit. Voir `collect-trigger.ts`.
+   */
+  readonly GITHUB_REPOSITORY_ID?: string;
+  /** `propriétaire/nom`, à défaut d'identifiant. */
   readonly GITHUB_REPOSITORY?: string;
   /**
    * Clé de chiffrement des accès aux sources PAYÉES (§6, §26).
@@ -146,6 +151,19 @@ export interface Env {
    * seule la signature distingue Stripe de n'importe qui d'autre.
    */
   readonly STRIPE_WEBHOOK_SECRET?: string;
+}
+
+/**
+ * L'identité annoncée aux sites qu'on visite (§10).
+ *
+ * L'adresse du site et non celle du dépôt : c'est là qu'on trouve qui publie et
+ * comment le joindre. Elle vient de la configuration — un nom de dépôt écrit
+ * ici avait périmé au premier renommage.
+ */
+function botIdentity(env: Env): string {
+  return env.SITE_URL !== undefined && env.SITE_URL !== ''
+    ? `MaiounBot/0.1 (+${env.SITE_URL})`
+    : 'MaiounBot/0.1';
 }
 
 /** La configuration de paiement, rassemblée depuis l'environnement. */
@@ -985,7 +1003,7 @@ async function publicRoute(
       new URL(request.url).searchParams.get('url'),
       // On annonce qui l'on est, toujours (§10) — même en allant chercher une
       // image.
-      'MaiounBot/0.1 (+https://github.com/WizyxGH/Maioun)',
+      botIdentity(env),
       cors,
     );
   }
