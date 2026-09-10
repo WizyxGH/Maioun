@@ -91,6 +91,58 @@ export async function resyncPush(): Promise<void> {
   }
 }
 
+/**
+ * RECRÉE L'ABONNEMENT QUE LE NAVIGATEUR A PERDU, quand on a le droit de le faire
+ * sans rien demander.
+ *
+ * `resyncPush` redépose un abonnement ENCORE PRÉSENT. Il ne peut rien quand le
+ * navigateur n'en a plus du tout — et c'est ce qui arrive quand le site change
+ * d'adresse. Un service worker ne vit qu'à l'adresse où il a été enregistré :
+ * quand elle se met à répondre 404, le navigateur le supprime, et l'abonnement
+ * avec. Constaté le 2026-09-10, après le déménagement sous `/app/` puis le
+ * renommage du dépôt : l'unique appareil abonné a été retiré par la collecte
+ * (`410 Gone`), et l'écran affichait toujours « activé ».
+ *
+ * ON NE RECRÉE QUE SI DEUX CHOSES SONT VRAIES : l'utilisateur avait activé les
+ * notifications dans ce navigateur, ET l'autorisation est déjà accordée. Elle
+ * l'est au DOMAINE, pas au chemin : elle survit au déménagement. Aucune fenêtre
+ * ne s'ouvre, rien n'est décidé à la place de quelqu'un — on remet en place ce
+ * qu'il avait demandé.
+ *
+ * @returns `true` si ce navigateur est abonné en sortant.
+ */
+export async function restorePush(optedIn: boolean): Promise<boolean> {
+  if (!pushSupported()) return false;
+  try {
+    const current = await (
+      await navigator.serviceWorker.getRegistration()
+    )?.pushManager.getSubscription();
+    if (current != null) {
+      await resyncPush();
+      return true;
+    }
+    if (!optedIn || typeof Notification === 'undefined') return false;
+    if (Notification.permission !== 'granted') return false;
+
+    const registered = await registration();
+    const subscription = await registered.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: decodeKey(VAPID_PUBLIC_KEY),
+    });
+    const raw = subscription.toJSON();
+    await subscribePush({
+      endpoint: subscription.endpoint,
+      p256dh: raw.keys?.['p256dh'] ?? '',
+      auth: raw.keys?.['auth'] ?? '',
+    });
+    return true;
+  } catch {
+    // Hors ligne, stockage refusé, service de push injoignable : on réessaiera
+    // à la prochaine ouverture. L'écran, lui, dira qu'il n'y a pas d'abonnement.
+    return false;
+  }
+}
+
 /** `true` si un abonnement est déjà actif dans ce navigateur. */
 export async function pushEnabled(): Promise<boolean> {
   if (!pushSupported()) return false;

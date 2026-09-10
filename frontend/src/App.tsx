@@ -48,7 +48,7 @@ import {
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { formatSourceName } from './format.js';
-import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notifications.js';
+import { markAlertsSeen, readAlertsSeenAt, readOptIn, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
@@ -707,6 +707,18 @@ function AppView(): React.JSX.Element {
   const [currentUser, setCurrentUser] = useState<string | null | undefined>(
     requiresLogin() ? undefined : 'moi',
   );
+  /**
+   * L'ABONNEMENT PUSH SE RÉPARE À L'OUVERTURE, pas seulement sur l'écran des
+   * notifications. Quand le site change d'adresse, le navigateur supprime son
+   * service worker et l'abonnement avec : attendre qu'on ouvre les réglages,
+   * c'était rester muet des jours sans le savoir. Une fois par session, et
+   * seulement connecté — l'abonnement se range dans le compte.
+   */
+  useEffect(() => {
+    if (typeof currentUser !== 'string') return;
+    void import('./push.js').then(({ restorePush }) => restorePush(readOptIn()));
+  }, [currentUser]);
+
   // Ce que l'écran courant regarde : l'adresse le porte, on n'en garde pas de
   // copie. Une seconde source de vérité se serait désynchronisée au premier
   // retour arrière.
