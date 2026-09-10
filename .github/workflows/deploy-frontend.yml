@@ -13,6 +13,7 @@ on:
       - 'frontend/**'
       - 'landing/**'
       - 'packages/shared/**'
+      - 'scripts/root-404.mjs'
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
@@ -101,6 +102,12 @@ jobs:
           # déploiement passerait au vert.
           test -f site/index.html || { echo "::error::page de présentation absente"; exit 1; }
           test -f site/app/index.html || { echo "::error::application absente"; exit 1; }
+          # LE 404.html DOIT ÊTRE À LA RACINE : c'est le seul que Pages sert.
+          # Celui de l'application, rangé sous `app/`, n'est jamais lu — et sans
+          # celui-ci, chaque rafraîchissement et chaque lien d'alerte tombait
+          # sur la 404 générique de GitHub (relevé le 2026-09-10).
+          node scripts/root-404.mjs site "/${{ github.event.repository.name }}/"
+          test -f site/404.html || { echo "::error::404.html racine absent"; exit 1; }
           find site -maxdepth 2 -name '*.html'
 
       - uses: actions/upload-pages-artifact@v3
