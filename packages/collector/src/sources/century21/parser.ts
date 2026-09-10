@@ -96,10 +96,16 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
      *
      * `/theme/` est écarté : c'est l'habillage du site — logos, encarts
      * publicitaires — et non le logement.
+     *
+     * ET SEULE LA PREMIÈRE CARTE A UN `src`. Les suivantes sont chargées à la
+     * demande : leur adresse est en `data-src`, que le navigateur recopie au
+     * défilement. Ne lire que `src` rendait une photo sur dix-sept, relevé le
+     * 2026-09-10 — le correctif du chemin relatif ne pouvait pas le voir, la
+     * page de test n'ayant qu'une carte.
      */
     const imageUrls = card
-      .find('img[src]')
-      .map((_i, img) => $(img).attr('src'))
+      .find('img[src], img[data-src]')
+      .map((_i, img) => $(img).attr('data-src') ?? $(img).attr('src'))
       .get()
       .filter((src): src is string => typeof src === 'string' && src !== '')
       .filter((src) => !src.includes('/theme/'))
@@ -110,7 +116,9 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
           return null;
         }
       })
-      .filter((src): src is string => src !== null);
+      // Un chargement différé pose souvent une image de remplacement en
+      // `data:` : ce n'est pas une photo du logement.
+      .filter((src): src is string => src !== null && /^https?:/i.test(src));
 
     const extra: Record<string, string> = { reference: url.reference };
     if (agencyRef !== undefined) extra['agencyRef'] = agencyRef;
