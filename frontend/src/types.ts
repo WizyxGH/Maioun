@@ -14,6 +14,7 @@ import type {
   PropertyType,
   ReferenceDistance,
   ReferenceTravelMode,
+  TenancyRequirements,
   TrackingStatus,
 } from '@maioun/shared';
 
@@ -58,6 +59,15 @@ export interface ListingView {
   readonly maxOccupants?: MergedField<number | null>;
   /** Atouts affichables (« Ascenseur », « Balcon »…) — absent sur les fiches anciennes. */
   readonly features?: readonly string[];
+  /**
+   * Les conditions d'accès énoncées par l'annonce — absent sur les fiches
+   * collectées avant leur lecture.
+   *
+   * ELLES ARRIVENT JUSQU'À LA LISTE, contrairement à la description dont elles
+   * sont tirées : c'est un objet de quatre champs, et c'est ce qui permet de
+   * marquer une carte sans recharger la fiche.
+   */
+  readonly requirements?: TenancyRequirements;
   readonly address: MergedField<string | null>;
   /** Quartier/secteur si publié (ex. Orpi « Madeleine ») — situe mieux que la ville. */
   readonly district: MergedField<string | null>;

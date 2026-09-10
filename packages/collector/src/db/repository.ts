@@ -2105,6 +2105,7 @@ function serializeListing(listing: ScoredListing): unknown {
     dpe: listing.dpe,
     maxOccupants: listing.maxOccupants,
     features: listing.features,
+    requirements: listing.requirements,
     address: listing.address,
     district: listing.district,
     city: listing.city,

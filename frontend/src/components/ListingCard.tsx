@@ -22,6 +22,7 @@ import {
   formatTracking,
 } from '../format.js';
 import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
+import { checkEligibility, type TenantProfile } from '@maioun/shared';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
 import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
@@ -43,6 +44,13 @@ interface ListingCardProps {
   readonly onFavorite?: (favorite: boolean) => void;
   /** Score d'affinité [0,1] avec vos préférences, si assez de signal (§33). */
   readonly affinity?: number;
+  /**
+   * Le profil locataire, pour confronter le dossier aux conditions de l'annonce.
+   *
+   * Absent quand il n'est pas rempli : aucune carte n'est alors marquée, ce qui
+   * est juste — on ne peut rien conclure d'un dossier qu'on ne connaît pas.
+   */
+  readonly profile?: TenantProfile | null;
 }
 
 /**
@@ -122,12 +130,24 @@ function StatusBadges({
   rented,
   archived,
   affinity,
+  profile,
 }: {
   readonly listing: ListingView;
   readonly rented: boolean;
   readonly archived: boolean;
   readonly affinity: number | undefined;
+  readonly profile: TenantProfile | null | undefined;
 }): React.JSX.Element {
+  /**
+   * LE DOSSIER NE PASSE PAS, ET ON LE DIT AVANT LE CLIC. Sans ce repère, on
+   * ouvre la fiche, on lit, on appelle, on envoie son dossier — et le refus
+   * tombe sur un critère écrit dès l'annonce. Rien n'est masqué pour autant :
+   * le bailleur peut faire une exception, et c'est à l'utilisateur de juger.
+   */
+  const barre =
+    listing.requirements !== undefined && profile != null
+      ? checkEligibility(listing.requirements, profile).verdict
+      : 'unknown';
   const showAffinity =
     affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && !rented;
   return (
@@ -145,6 +165,8 @@ function StatusBadges({
         listing.viewed === true && !archived && <Badge>Consultée</Badge>
       )}
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+      {barre === 'income' && <Badge variant="warning">Revenu exigé</Badge>}
+      {barre === 'situation' && <Badge variant="warning">Situation non listée</Badge>}
       {/* « Trop beau pour être vrai ? » — le doute, pas le verdict, d'où le
         point d'interrogation : la fiche en donne les raisons, ligne à ligne.
         Ce badge attendait que le score cesse de se tromper. Il désignait 57
@@ -233,6 +255,7 @@ export function ListingCard({
   onOpen,
   onFavorite,
   affinity,
+  profile,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= 85;
@@ -347,7 +370,13 @@ export function ListingCard({
               />
             </button>
           )}
-          <StatusBadges listing={listing} rented={rented} archived={archived} affinity={affinity} />
+          <StatusBadges
+            listing={listing}
+            rented={rented}
+            archived={archived}
+            affinity={affinity}
+            profile={profile}
+          />
         </span>
       </header>
 

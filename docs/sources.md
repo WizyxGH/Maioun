@@ -341,6 +341,41 @@ modèle est justement de ne pas payer la matière première.
 À noter tout de même : elles revendent en grande partie du contenu Leboncoin et
 SeLoger. Elles déplacent la question de conformité, elles ne la résolvent pas.
 
+### La question était mal posée (correction du 2026-09-10)
+
+La revue ci-dessus cherchait des SCRAPERS à reprendre, et sa conclusion tient.
+Mais elle passait à côté de l'autre moitié : les **données publiques gratuites**,
+qui ne se scrapent pas et s'interrogent par API, sans clé et sans limite.
+
+**Ce qui est directement exploitable :**
+
+| Jeu                              | Ce qu'il apporte                                                  | Accès                          |
+| -------------------------------- | ----------------------------------------------------------------- | ------------------------------ |
+| **DPE ADEME** (`dpe03existant`)  | Étiquette DPE et GES, surface, année de construction, à l'adresse | API libre, 15,5 M de lignes    |
+| **Carte des loyers** (DHUP/ANIL) | Loyer d'annonce au m² par commune et par taille                   | CSV annuel — **déjà en place** |
+| **API Adresse (BAN)**            | Normalisation et géocodage d'adresse                              | API libre — **déjà en place**  |
+| **Géorisques**                   | Risques à l'adresse (inondation, retrait-gonflement…)             | API libre                      |
+| **DVF**                          | Prix de VENTE réels — sans objet pour la location                 | API libre                      |
+
+**Le DPE de l'ADEME est le gisement.** 15 630 diagnostics pour le seul code
+postal 06200, avec l'adresse normalisée BAN, la surface habitable et l'année de
+construction. Or sur les 2 708 occurrences actives, **589 seulement portent un
+DPE** — alors qu'il est obligatoire dans une annonce de location depuis 2021.
+Six cents annonces ont une adresse de rue et pas de DPE.
+
+Mesure d'appariement du 2026-09-10, sur un échantillon de 18 annonces avec
+adresse et surface, appariement naïf (texte + surface à ±2 m²) : **8 retrouvées**.
+Un appariement passant d'abord par la BAN ferait nettement mieux.
+
+Trois usages, par ordre d'intérêt :
+
+1. **Combler le DPE manquant** — un critère de recherche à part entière, et une
+   information légalement due que la moitié des sources ne publie pas.
+2. **L'année de construction** — jamais publiée par aucune source, et elle dit
+   beaucoup des charges et de l'isolation.
+3. **Contredire une surface annoncée** — le DPE mesure la surface habitable à la
+   même adresse. Deux valeurs qui divergent de dix pour cent méritent un signal.
+
 ### Ce qui, en revanche, se reprend — et qu'on a déjà repris
 
 Les adaptateurs de LOGICIELS D'AGENCE. Apimo, La Boîte Immo/Hektor, Ubiflow

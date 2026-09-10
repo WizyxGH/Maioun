@@ -19,7 +19,10 @@ import type {
   NormalizedListing,
   PropertyType,
   Sourced,
+  TenancyRequirements,
 } from '@maioun/shared';
+import { hasRequirements, NO_REQUIREMENTS } from '@maioun/shared';
+import { parseRequirements } from '../normalization/parse-requirements.js';
 
 /** Champs pris en compte pour mesurer la complétude d'une occurrence. */
 const COMPLETENESS_FIELDS = [
@@ -169,6 +172,24 @@ function mergeLifecycle(occurrences: readonly NormalizedListing[]): LifecycleSta
   return 'inactive';
 }
 
+/**
+ * Les conditions d'accès, prises là où elles sont écrites.
+ *
+ * ON NE FUSIONNE PAS, ON CHOISIT. Deux sources qui énoncent des conditions
+ * différentes pour le même logement ne se complètent pas : elles se
+ * contredisent, et recoller un revenu de l'une aux situations de l'autre
+ * fabriquerait une exigence que personne n'a posée. On retient donc le premier
+ * jeu COMPLET rencontré, en parcourant les occurrences dans l'ordre où le
+ * dédoublonnage les a rangées — la plus fiable d'abord.
+ */
+function firstRequirements(occurrences: readonly NormalizedListing[]): TenancyRequirements {
+  for (const occurrence of occurrences) {
+    const found = parseRequirements(occurrence.description);
+    if (hasRequirements(found)) return found;
+  }
+  return NO_REQUIREMENTS;
+}
+
 /** Construit la fiche unique d'un logement à partir de ses occurrences (§13). */
 export function mergeGroup(occurrences: readonly NormalizedListing[]): AggregatedListing {
   const primary = pickPrimary(occurrences);
@@ -219,6 +240,14 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     // Atouts : union dédoublonnée de toutes les sources (§15 — on additionne
     // l'information plutôt que d'en perdre).
     features: [...new Set(occurrences.flatMap((l) => l.features))],
+    /**
+     * LES CONDITIONS SE LISENT SUR LE TEXTE LE PLUS COMPLET. Trois sources
+     * donnent trois demi-descriptions, et la phrase de critères — « revenu
+     * minimum de 1 975 € net / CDI hors période d'essai » — peut n'être entière
+     * que dans l'une d'elles. On les cherche donc dans toutes, et l'on retient
+     * le premier jeu qui dit quelque chose.
+     */
+    requirements: firstRequirements(occurrences),
 
     address: mergeField(occurrences, primary, (l) => l.address),
     district: mergeField(occurrences, primary, (l) => l.district),
