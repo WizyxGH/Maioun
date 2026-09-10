@@ -331,6 +331,21 @@ export interface ScrapeContext {
   };
 
   /**
+   * Ce que la FICHE de chaque annonce a appris, gardé entre deux passages.
+   *
+   * L'ENRICHISSEMENT NE DURAIT QU'UN PASSAGE : une annonce connue n'était plus
+   * visitée, et la version tronquée de la liste écrasait ce que la fiche avait
+   * donné. `get` rend ce qui a été appris (lecture préchargée, sans requête) ;
+   * `save` enregistre les fiches lues pendant ce passage.
+   */
+  readonly detailMemory: {
+    readonly get: (sourceRef: string) => DetailMemoryEntry | null;
+    readonly save: (
+      entries: readonly { readonly sourceRef: string; readonly draft: Partial<RawListing> }[],
+    ) => Promise<void>;
+  };
+
+  /**
    * Dernier passage où la source a relu son inventaire en entier, ou `null`.
    * Une source à arrêt anticipé s'en sert pour décider qu'un passage complet
    * est dû — voir `ScrapeResult.fullPass`.
@@ -353,6 +368,12 @@ export interface ScrapeContext {
 
   /** `true` quand le budget est épuisé : le scraper doit s'arrêter proprement. */
   readonly shouldStop: () => boolean;
+}
+
+/** Ce qu'une fiche a appris sur une annonce, et quand. */
+export interface DetailMemoryEntry {
+  readonly draft: Partial<RawListing>;
+  readonly fetchedAt: IsoDateTime;
 }
 
 /** Ce qu'un scraper rend au terme d'une exécution. */

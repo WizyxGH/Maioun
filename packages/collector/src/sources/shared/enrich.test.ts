@@ -20,11 +20,19 @@ interface ContextOptions {
   readonly mode?: 'live' | 'backfill';
   readonly body?: (url: string) => string;
   readonly fail?: (url: string) => string | null;
+  /** Ce que les fiches ont déjà appris, par référence — simule `detail_drafts`. */
+  readonly memoire?: Map<string, { draft: Partial<RawListing>; fetchedAt: string }>;
 }
 
-function context(options: ContextOptions = {}): { ctx: ScrapeContext; visited: string[] } {
+function context(options: ContextOptions = {}): {
+  ctx: ScrapeContext;
+  visited: string[];
+  saved: { sourceRef: string; draft: Partial<RawListing> }[];
+} {
   const known = new Set(options.known ?? []);
   const visited: string[] = [];
+  const saved: { sourceRef: string; draft: Partial<RawListing> }[] = [];
+  const memoire = options.memoire ?? new Map();
 
   const ctx: ScrapeContext = {
     criteria: MVP_CRITERIA,
@@ -43,14 +51,24 @@ function context(options: ContextOptions = {}): { ctx: ScrapeContext; visited: s
     isKnown: (sourceRef) => known.has(sourceRef),
     knownRefs: known,
     lastFullPassAt: null,
+    detailMemory: {
+      get: (ref) => memoire.get(ref) ?? null,
+      save: (entries) => {
+        saved.push(...entries);
+        return Promise.resolve();
+      },
+    },
     // Aucune mémoire de page : l'enrichissement visite des FICHES, pas des listes.
     pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
     log: () => undefined,
     credentials: null,
     shouldStop: () => false,
   };
-  return { ctx, visited };
+  return { ctx, visited, saved };
 }
+
+/** Une fiche lue il y a une heure : fraîche, on ne la relit pas. */
+const FRAICHE = (): string => new Date(Date.now() - 3_600_000).toISOString();
 
 const parseAll = (html: string): { description: string } => ({ description: html });
 
@@ -84,16 +102,51 @@ describe('enrichNewListings', () => {
     expect(result.listings[0]?.extra).toEqual({ reference: 'R-42', quartier: 'Riquier', dpe: 'D' });
   });
 
-  it('laisse les annonces déjà connues tranquilles en marche courante (§30)', async () => {
-    const { ctx, visited } = context({ known: ['a'] });
-    const result = await enrichNewListings(ctx, [listing('a'), listing('b')], {
+  it('RÉAPPLIQUE ce que la fiche a appris, sans la relire', async () => {
+    // Le défaut de fond : au passage suivant, déjà connue, l'annonce n'était
+    // plus visitée, et la liste tronquée écrasait la fiche. L'annonce Orpi
+    // corrigée le matin (869 caractères) était retombée à 148 le soir.
+    const memoire = new Map([
+      ['a', { draft: { description: 'texte entier appris hier' }, fetchedAt: FRAICHE() }],
+    ]);
+    const { ctx, visited } = context({ known: ['a'], memoire });
+    const result = await enrichNewListings(ctx, [listing('a')], {
       max: 5,
       detailUrl: (one) => one.sourceUrl,
       parse: parseAll,
     });
+    expect(visited).toEqual([]);
+    expect(result.listings[0]?.description).toBe('texte entier appris hier');
+  });
 
-    expect(visited).toEqual(['https://exemple.invalid/fiche/b']);
-    expect(result.listings[0]?.description).toBe('demi-phrase tronquée par la…');
+  it('mémorise ce qu’elle vient de lire', async () => {
+    const { ctx, saved } = context();
+    await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(saved).toEqual([{ sourceRef: 'a', draft: { description: 'texte entier de la fiche' } }]);
+  });
+
+  it('visite d’abord les nouvelles, puis le stock JAMAIS lu, puis le périmé', async () => {
+    // Le stock collecté avant que la source ne visite ses fiches se complète
+    // ainsi de lui-même, sur le budget que les nouvelles laissent libre.
+    const memoire = new Map([
+      ['perimee', { draft: { description: 'vieux' }, fetchedAt: '2026-01-01T00:00:00Z' }],
+      ['fraiche', { draft: { description: 'récent' }, fetchedAt: FRAICHE() }],
+    ]);
+    const { ctx, visited } = context({ known: ['perimee', 'fraiche', 'jamais'], memoire });
+    await enrichNewListings(
+      ctx,
+      [listing('perimee'), listing('fraiche'), listing('jamais'), listing('nouvelle')],
+      { max: 5, detailUrl: (one) => one.sourceUrl, parse: parseAll },
+    );
+    expect(visited).toEqual([
+      'https://exemple.invalid/fiche/nouvelle',
+      'https://exemple.invalid/fiche/jamais',
+      'https://exemple.invalid/fiche/perimee',
+    ]);
   });
 
   /**

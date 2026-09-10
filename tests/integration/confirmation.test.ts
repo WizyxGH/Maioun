@@ -95,3 +95,35 @@ describe('mémoire des pages', () => {
     expect(await repository.pageRefs('https://exemple.invalid/p1')).toEqual(['C']);
   });
 });
+
+describe('mémoire des fiches', () => {
+  it('garde ce qu’une fiche a appris, et le remplace à la relecture', async () => {
+    // L'enrichissement ne durait qu'un passage : la liste tronquée écrasait la
+    // fiche dès le suivant. Cette mémoire est ce qui le fait durer.
+    const db = openDatabase({ url: ':memory:' });
+    await migrate(db, MIGRATIONS, silentLogger);
+    const repository = createRepository(db);
+
+    await repository.saveDetailDrafts(
+      'fnaim',
+      [{ sourceRef: 'X', draft: { description: 'texte entier', extra: { dpe: 'D' } } }],
+      '2026-09-10T20:00:00.000Z',
+    );
+    const lue = await repository.detailDrafts('fnaim');
+    expect(lue.get('X')).toEqual({
+      draft: { description: 'texte entier', extra: { dpe: 'D' } },
+      fetchedAt: '2026-09-10T20:00:00.000Z',
+    });
+
+    await repository.saveDetailDrafts(
+      'fnaim',
+      [{ sourceRef: 'X', draft: { description: 'texte révisé' } }],
+      '2026-09-17T20:00:00.000Z',
+    );
+    expect((await repository.detailDrafts('fnaim')).get('X')?.draft).toEqual({
+      description: 'texte révisé',
+    });
+    // Une source ne voit pas la mémoire d'une autre.
+    expect((await repository.detailDrafts('orpi')).size).toBe(0);
+  });
+});

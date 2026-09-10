@@ -60,6 +60,7 @@ function contexte(options: Options = {}) {
     isKnown: (ref) => (options.known ?? []).includes(ref),
     knownRefs: new Set(options.known ?? []),
     lastFullPassAt: options.lastFullPassAt === undefined ? null : options.lastFullPassAt,
+    detailMemory: { get: () => null, save: () => Promise.resolve() },
     pageRefs: {
       get: (url) => Promise.resolve(memoire.get(url) ?? null),
       set: (url, refs) => {
@@ -107,11 +108,13 @@ describe('le passage ordinaire', () => {
     expect(resultat.fullPass).toBe(false);
   });
 
-  it('visite la fiche des annonces NOUVELLES seulement', async () => {
+  it('visite les fiches des NOUVELLES d’abord, puis du stock jamais lu', async () => {
+    // 700001 est connue, mais sa fiche n'a jamais été lue : elle passe après
+    // les deux nouvelles. C'est ainsi que le stock d'avant se complète.
     const { ctx, vues } = contexte({ known: ['700001'], lastFullPassAt: IL_Y_A_UNE_HEURE() });
     const resultat = await locserviceScraper.run(ctx);
     const fiches = vues.filter((url) => !url.includes('location-nice'));
-    expect(fiches).toHaveLength(2);
+    expect(fiches.map((url) => url.split('/').pop())).toEqual(['700002', '700003', '700001']);
     const enrichie = resultat.listings.find((l) => l.sourceRef === '700002');
     expect(enrichie?.extra?.['dpe']).toBe('D');
   });

@@ -14,8 +14,10 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import type {
+  DetailMemoryEntry,
   MessageListing,
   NormalizedListing,
+  RawListing,
   ScoredListing,
   SourceId,
   SourceRuntimeState,
@@ -499,6 +501,13 @@ export interface Repository {
    * dernière vue datée, compteur d'absences remis à zéro, statut actif.
    */
   confirmSeen(sourceId: string, refs: readonly string[], nowIso: string): Promise<void>;
+  /** Ce que les fiches ont appris, pour toute une source — lu une fois par passage. */
+  detailDrafts(sourceId: string): Promise<Map<string, DetailMemoryEntry>>;
+  saveDetailDrafts(
+    sourceId: string,
+    entries: readonly { readonly sourceRef: string; readonly draft: Partial<RawListing> }[],
+    nowIso: string,
+  ): Promise<void>;
   /** Les références portées par une page de liste à son dernier téléchargement. */
   pageRefs(url: string): Promise<readonly string[] | null>;
   savePageRefs(url: string, refs: readonly string[], nowIso: string): Promise<void>;
@@ -2105,6 +2114,41 @@ export function createRepository(db: Database): Repository {
           });
         },
       };
+    },
+
+    async detailDrafts(sourceId) {
+      const result = await db.execute({
+        sql: 'SELECT source_ref, draft, fetched_at FROM detail_drafts WHERE source_id = ?',
+        args: [sourceId],
+      });
+      const memory = new Map<string, DetailMemoryEntry>();
+      for (const row of result.rows) {
+        try {
+          const draft: unknown = JSON.parse(String(row['draft']));
+          if (typeof draft !== 'object' || draft === null) continue;
+          memory.set(String(row['source_ref']), {
+            draft: draft as Partial<RawListing>,
+            fetchedAt: String(row['fetched_at']),
+          });
+        } catch {
+          // Une ligne illisible ne dit rien : la fiche sera relue, voilà tout.
+        }
+      }
+      return memory;
+    },
+
+    async saveDetailDrafts(sourceId, entries, nowIso) {
+      if (entries.length === 0) return;
+      await db.batch(
+        entries.map((entry) => ({
+          sql: `INSERT INTO detail_drafts (source_id, source_ref, draft, fetched_at)
+                VALUES (?,?,?,?)
+                ON CONFLICT(source_id, source_ref) DO UPDATE SET
+                  draft = excluded.draft, fetched_at = excluded.fetched_at`,
+          args: [sourceId, entry.sourceRef, JSON.stringify(entry.draft), nowIso],
+        })),
+        'write',
+      );
     },
 
     async confirmSeen(sourceId, refs, nowIso) {

@@ -10,10 +10,11 @@
  * FLEURIE 06200 NICE » — c'est-à-dire de quoi placer une punaise et calculer
  * un trajet (§20), et de quoi reconnaître un doublon (§14).
  *
- * LE COMPROMIS. On ne visite QUE les fiches inconnues, et pas plus de `max`
- * par exécution. Une source dont le stock ne bouge pas ne coûte donc rien de
- * plus au second passage ; une première collecte s'étale sur quelques cycles
- * au lieu de tirer cent requêtes d'un coup.
+ * LE COMPROMIS. Pas plus de `max` fiches par exécution, et une fiche lue n'est
+ * pas relue avant une semaine : ce qu'elle a appris est gardé en mémoire et
+ * réappliqué à chaque passage. Une source dont le stock ne bouge pas ne coûte
+ * donc rien de plus ; une première collecte s'étale sur quelques cycles au lieu
+ * de tirer cent requêtes d'un coup.
  *
  * L'ÉCHEC N'EST JAMAIS BLOQUANT (§69). Une fiche injoignable laisse l'annonce
  * telle que la liste l'a donnée — tronquée, mais présente. Un 429 arrête la
@@ -43,8 +44,50 @@ export interface EnrichResult {
 }
 
 /**
- * Visite les fiches des annonces que la source n'avait pas encore données, et
- * fusionne ce qu'elles apprennent.
+ * Au-delà, on relit une fiche si le budget le permet : l'annonceur a pu changer
+ * son texte, et la mémoire ne doit pas le figer indéfiniment.
+ */
+const REFRESH_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Fusionne ce que la fiche apprend sur l'annonce de la liste. */
+function mergeDraft(listing: RawListing, draft: RawDraft): RawListing {
+  // Les champs de la fiche PRIMENT : c'est la page complète, la liste n'en était
+  // qu'un résumé. Les clés absentes laissent l'annonce intacte.
+  const merged: Record<string, unknown> = { ...listing };
+  for (const [key, value] of Object.entries(draft)) {
+    if (value !== undefined) merged[key] = value;
+  }
+  // `extra` SE FUSIONNE, il ne se remplace pas. Remplacé en bloc, un DPE lu sur
+  // la fiche effaçait la référence ou le quartier que la liste y avait posés —
+  // sans erreur, et sans que rien ne le signale.
+  if (draft.extra !== undefined) {
+    merged['extra'] = { ...(listing.extra ?? {}), ...draft.extra };
+  }
+  return merged as unknown as RawListing;
+}
+
+/**
+ * Visite les fiches des annonces qui en ont besoin, et applique à TOUTES ce que
+ * leur fiche a appris — maintenant ou lors d'un passage précédent.
+ *
+ * L'ENRICHISSEMENT NE DURAIT QU'UN PASSAGE, et c'était le défaut de fond. Une
+ * annonce n'était complétée que le jour de sa découverte ; au passage suivant,
+ * déjà connue, elle n'était plus visitée, et la version tronquée de la liste
+ * écrasait ce que la fiche avait donné. Relevé le 2026-09-10 : l'annonce Orpi
+ * corrigée le matin (869 caractères) retombée à 148 le soir ; aucune
+ * description FNAIM au-delà de 263 caractères, quand la fiche en porte 1 289.
+ * La mémoire des fiches (`context.detailMemory`) garde maintenant ce qui a été
+ * appris, et chaque passage le réapplique sans requête.
+ *
+ * QUI VISITER, PAR ORDRE DE NÉCESSITÉ, dans la limite de `max` :
+ *
+ *   1. les annonces NOUVELLES ;
+ *   2. les connues dont on n'a JAMAIS lu la fiche — le stock collecté avant que
+ *      la source ne visite ses fiches, qui se complète ainsi de lui-même, sur le
+ *      budget que les nouvelles laissent libre ;
+ *   3. les connues dont la fiche date de plus d'une semaine.
+ *
+ * En rattrapage, toutes les connues suivent, fraîches comprises.
  *
  * L'ordre de la liste est conservé : elle est triée par la source (fraîcheur,
  * loyer croissant…), et la bousculer changerait ce que voit l'utilisateur.
@@ -55,24 +98,29 @@ export async function enrichNewListings(
   options: EnrichOptions,
 ): Promise<EnrichResult> {
   const warnings: string[] = [];
-  const patched = new Map<string, RawListing>();
+  const learned = new Map<string, RawDraft>();
   let requestCount = 0;
   let pagesFetched = 0;
-  let budget = options.max;
 
-  for (const listing of listings) {
+  const nowMs = Date.now();
+  const rang = (listing: RawListing): number | null => {
+    if (!context.isKnown(listing.sourceRef)) return 0;
+    const memory = context.detailMemory.get(listing.sourceRef);
+    if (memory === null) return 1;
+    const age = nowMs - Date.parse(memory.fetchedAt);
+    if (!Number.isFinite(age) || age >= REFRESH_AFTER_MS) return 2;
+    return context.mode === 'backfill' ? 3 : null;
+  };
+  const aVisiter = listings
+    .map((listing, index) => ({ listing, index, rang: rang(listing) }))
+    .filter((one): one is { listing: RawListing; index: number; rang: number } => one.rang !== null)
+    // Tri STABLE par nécessité : l'ordre de la source départage.
+    .sort((a, b) => a.rang - b.rang || a.index - b.index)
+    .map((one) => one.listing);
+
+  let budget = options.max;
+  for (const listing of aVisiter) {
     if (budget <= 0 || context.shouldStop()) break;
-    /**
-     * UNE ANNONCE DÉJÀ CONNUE GARDAIT SA DESCRIPTION TRONQUÉE À VIE. Elle
-     * n'était visitée qu'au jour de sa découverte ; celles collectées avant
-     * que la source ne visite les fiches n'avaient donc aucune chance de
-     * s'enrichir, et le stock existant restait à la demi-phrase de la liste.
-     *
-     * Le rattrapage les reprend — c'est exactement ce pour quoi il existe, et
-     * il demande déjà une intention explicite : l'argument `--backfill` ET
-     * l'autorisation d'environnement (§8). En marche courante, rien ne change.
-     */
-    if (context.isKnown(listing.sourceRef) && context.mode !== 'backfill') continue;
     const url = options.detailUrl(listing);
     if (url === null) continue;
 
@@ -80,23 +128,11 @@ export async function enrichNewListings(
     try {
       const page = await context.fetch(url);
       requestCount += 1;
+      // Fiche inchangée : ce que la mémoire en garde reste vrai.
       if (page.notModified) continue;
       pagesFetched += 1;
-      const extra = options.parse(page.body, listing);
-      if (extra === null) continue;
-      // Les champs de la fiche PRIMENT : c'est la page complète, la liste n'en
-      // était qu'un résumé. Les clés absentes laissent l'annonce intacte.
-      const merged: Record<string, unknown> = { ...listing };
-      for (const [key, value] of Object.entries(extra)) {
-        if (value !== undefined) merged[key] = value;
-      }
-      // `extra` SE FUSIONNE, il ne se remplace pas. Remplacé en bloc, un DPE lu
-      // sur la fiche effaçait la référence ou le quartier que la liste y avait
-      // posés — sans erreur, et sans que rien ne le signale.
-      if (extra.extra !== undefined) {
-        merged['extra'] = { ...(listing.extra ?? {}), ...extra.extra };
-      }
-      patched.set(listing.sourceRef, merged as unknown as RawListing);
+      const draft = options.parse(page.body, listing);
+      if (draft !== null) learned.set(listing.sourceRef, draft);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       context.log('detail.failed', { url, error: message });
@@ -106,10 +142,14 @@ export async function enrichNewListings(
     }
   }
 
-  return {
-    listings: listings.map((listing) => patched.get(listing.sourceRef) ?? listing),
-    requestCount,
-    pagesFetched,
-    warnings,
-  };
+  // Ce qu'on vient d'apprendre, sinon ce que la mémoire garde.
+  const enriched = listings.map((listing) => {
+    const draft =
+      learned.get(listing.sourceRef) ?? context.detailMemory.get(listing.sourceRef)?.draft;
+    return draft === undefined ? listing : mergeDraft(listing, draft);
+  });
+
+  await context.detailMemory.save([...learned].map(([sourceRef, draft]) => ({ sourceRef, draft })));
+
+  return { listings: enriched, requestCount, pagesFetched, warnings };
 }
