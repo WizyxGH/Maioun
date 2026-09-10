@@ -48,6 +48,24 @@ describe('parseSearchPage — fixture nominale', () => {
     ]);
   });
 
+  it('lit les photos CHARGÉES À LA DEMANDE, en `data-src`', () => {
+    // Relevé sur la page réelle du 2026-09-10 : seule la première carte porte
+    // un `src` ; les seize suivantes ont leur photo en `data-src`, et un
+    // remplacement en `data:` à la place du `src`. Ne lire que `src` rendait
+    // une photo sur dix-sept.
+    const differee = `
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000099">
+        <a href="/trouver_logement/detail/16000000099/" aria-label="Appartement F1 à louer NICE">
+          <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" data-src="/imagesBien/s3/202/579/c21-differee.jpg" class="is-lazyload" alt="" />
+        </a>
+        <h3>NICE 06 25,22 m2 1 pièce Ref : 90099 602 € par mois charges comprises</h3>
+      </div>`;
+    const [carte] = parseSearchPage(differee, PAGE_URL).listings;
+    expect(carte?.imageUrls).toEqual([
+      'https://www.century21.fr/imagesBien/s3/202/579/c21-differee.jpg',
+    ]);
+  });
+
   it('omet les champs absents (§17)', () => {
     const bare = page.listings.find((l) => l.sourceRef === '16000000003');
     expect(bare?.priceText).toBeUndefined();
