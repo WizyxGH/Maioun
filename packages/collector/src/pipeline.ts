@@ -181,6 +181,7 @@ async function runSource(
     const result = await scraper.run(context);
     logger.info('source.completed', {
       listings: result.listings.length,
+      confirmed: result.confirmedRefs?.length ?? 0,
       requests: result.requestCount,
       pages: result.pagesFetched,
       stopReason: result.stopReason,
