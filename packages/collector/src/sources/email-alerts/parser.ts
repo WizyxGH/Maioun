@@ -135,11 +135,58 @@ function findArea(text: string): string | undefined {
   return /(\d[\d.,]*)\s*m²/i.exec(text)?.[0];
 }
 
-/** Ville + code postal depuis un texte « Nice, 06000 » ou « Nice 06000 ». */
+/**
+ * Les mots qui LIENT deux morceaux d'un nom de commune.
+ *
+ * « Cagnes-sur-Mer », « Saint-Laurent-du-Var », « Villeneuve-lès-Avignon » :
+ * ces particules s'écrivent en minuscules au milieu d'un nom propre, et les
+ * refuser couperait la commune en deux.
+ */
+const PARTICULES = new Set(['sur', 'de', 'du', 'des', 'la', 'le', 'les', 'en', 'd', 'l', 'lès']);
+
+/**
+ * La commune écrite juste avant un code postal, et rien de plus.
+ *
+ * ON REMONTE DEPUIS LE CODE POSTAL, mot à mot. La version précédente cherchait
+ * « une suite de lettres suivie de cinq chiffres » et retenait la PLUS À
+ * GAUCHE : sur « 790 € / mois charges comprises Fabron 06200 Nice », elle
+ * rendait « mois charges comprises Fabron » comme nom de commune.
+ *
+ * Ce n'est pas un défaut d'affichage. La ville préfixe les clés du
+ * dédoublonnage : une annonce ainsi située ne peut plus être rapprochée
+ * d'aucune autre, et elle ressort en double.
+ *
+ * LA MAJUSCULE FAIT LA FRONTIÈRE. Un nom de commune en porte une, « comprises »
+ * non. On remonte tant que le mot commence par une majuscule ou qu'il est une
+ * particule, et l'on s'arrête au premier qui n'est ni l'un ni l'autre.
+ *
+ * Sans aucune majuscule — certains digests écrivent tout en minuscules —, on ne
+ * rend RIEN plutôt qu'une ville inventée (§17). Le code postal, lui, reste : il
+ * suffit à situer, et l'URL porte souvent la commune par ailleurs.
+ */
 function findLocation(text: string): { city?: string; postalCode?: string } {
-  const match = /([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’ -]{1,40}?)[,\s]+(\d{5})\b/.exec(text);
-  if (match === null) return {};
-  return { city: cleanText(match[1]).replace(/\s+/g, ' ').trim(), postalCode: match[2] };
+  const match = /(\d{5})\b/.exec(text);
+  if (match?.[1] === undefined) return {};
+  const postalCode = match[1];
+
+  const avant = text.slice(0, match.index).replace(/[,\s]+$/, '');
+  const mots = avant.split(/\s+/).filter((mot) => mot !== '');
+
+  const retenus: string[] = [];
+  // Quatre mots au plus : « Saint-Laurent-du-Var » n'en fait qu'un, « Villeneuve
+  // Loubet » deux ; au-delà on lit une phrase, pas un nom de lieu.
+  for (let i = mots.length - 1; i >= 0 && retenus.length < 4; i -= 1) {
+    const nu = (mots[i] ?? '').replace(/[^A-Za-zÀ-ÿ'’-]/g, '');
+    if (nu === '') break;
+    if (!/^[A-ZÀ-Ý]/.test(nu) && !PARTICULES.has(nu.toLowerCase())) break;
+    retenus.unshift(nu);
+  }
+
+  // Une particule en tête ne nomme rien : « de 06000 » n'est pas une commune.
+  while (retenus.length > 0 && PARTICULES.has((retenus[0] ?? '').toLowerCase())) retenus.shift();
+  if (retenus.length === 0) return { postalCode };
+
+  return { city: cleanText(retenus.join(' ')).replace(/\s+/g, ' ').trim(), postalCode };
 }
 
 /**
