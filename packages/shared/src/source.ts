@@ -307,6 +307,22 @@ export interface ScrapeContext {
    */
   readonly knownRefs: ReadonlySet<string>;
 
+  /**
+   * Les références que portait une page de liste LA DERNIÈRE FOIS qu'on l'a
+   * téléchargée.
+   *
+   * UNE PAGE INCHANGÉE N'EST PAS UNE PAGE VIDE. Sur une réponse 304, le site
+   * n'envoie rien : sans cette mémoire, les annonces de la page n'étaient
+   * comptées nulle part, et un passage en partie inchangé comptait comme
+   * ABSENTES des annonces toujours en ligne. Le scraper enregistre les
+   * références d'une page téléchargée, et les relit — pour les confirmer —
+   * quand elle répond 304.
+   */
+  readonly pageRefs: {
+    readonly get: (url: string) => Promise<readonly string[] | null>;
+    readonly set: (url: string, refs: readonly string[]) => Promise<void>;
+  };
+
   /** Journalisation structurée, sans secret ni donnée personnelle (§62). */
   readonly log: (event: string, fields?: Record<string, unknown>) => void;
 
