@@ -41,6 +41,7 @@ export function makeOccurrence(
     furnished: null,
     flatShare: null,
     dpe: null,
+    previousPrice: null,
     maxOccupants: null,
     features: [],
     address: null,

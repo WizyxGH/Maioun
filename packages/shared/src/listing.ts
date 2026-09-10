@@ -154,6 +154,16 @@ export interface ListingOccurrence {
   /** Classe énergétique (DPE) en majuscule « A »–« G », ou `null` (§17). */
   readonly dpe: Maybe<string>;
   /**
+   * Loyer PRÉCÉDENT, quand la source annonce elle-même une baisse.
+   *
+   * SeLoger envoie de vrais messages « Baisse de prix » et y barre l'ancien
+   * montant. C'est le seul signal de ce genre : partout ailleurs, une baisse ne
+   * se découvre qu'en comparant deux collectes — donc jamais sur une annonce
+   * vue pour la première fois, ni sur celles qui n'arrivent QUE par ces
+   * digests. `null` quand rien n'est annoncé, ce qui est le cas ordinaire.
+   */
+  readonly previousPrice: Maybe<number>;
+  /**
    * Nombre maximal d'occupants annoncé (« peut accueillir jusqu'à 4 personnes »).
    *
    * Décisif quand on cherche à plusieurs, et publié par les meublés courte

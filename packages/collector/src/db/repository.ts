@@ -52,9 +52,27 @@ function historyStatement(
   listing: NormalizedListing,
   previous: PreviousOccurrence | undefined,
 ): Statement | null {
+  /**
+   * UNE BAISSE QUE LA SOURCE ANNONCE ELLE-MÊME.
+   *
+   * Le mécanisme ordinaire compare deux collectes : il ne peut donc RIEN dire
+   * d'une annonce vue pour la première fois, ni de celles qui n'arrivent que
+   * par les digests de portail — précisément celles dont on n'a pas d'historique
+   * à comparer. Or SeLoger envoie de vrais messages « Baisse de prix » et y
+   * barre l'ancien montant : l'information est là, dès la première rencontre.
+   *
+   * On l'inscrit donc comme une baisse plutôt que comme un simple point de
+   * départ. Le badge « Prix en baisse » et la mise en avant en découlent sans
+   * une ligne de plus — ils lisent déjà cet historique.
+   */
+  const annonceeEnBaisse =
+    listing.previousPrice !== null &&
+    listing.price !== null &&
+    listing.previousPrice > listing.price;
+
   let change: string;
   if (previous === undefined) {
-    change = 'baseline';
+    change = annonceeEnBaisse ? 'price-drop' : 'baseline';
   } else {
     const changed: string[] = [];
     if (previous.price !== listing.price) {
@@ -103,6 +121,10 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.furnished,
     listing.flatShare,
     listing.dpe,
+    // Le loyer precedent ANNONCE par la source : il apparait le jour ou le
+    // portail signale la baisse, et rien d'autre ne change ce jour-la. Sans lui
+    // ici, l'occurrence serait jugee inchangee et la baisse jamais consignee.
+    listing.previousPrice,
     listing.maxOccupants,
     listing.features,
     listing.address,
@@ -2356,6 +2378,7 @@ function occurrencePayload(listing: NormalizedListing): Record<string, unknown> 
     favorites: listing.favorites,
     chargesIncluded: listing.chargesIncluded,
     dpe: listing.dpe,
+    previousPrice: listing.previousPrice,
     maxOccupants: listing.maxOccupants,
     district: listing.district,
     features: listing.features,
@@ -2394,6 +2417,7 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     furnished: bool('furnished'),
     flatShare: bool('flat_share'),
     dpe: (payload['dpe'] as string | null) ?? null,
+    previousPrice: (payload['previousPrice'] as number | null) ?? null,
     maxOccupants: (payload['maxOccupants'] as number | null) ?? null,
     features: Array.isArray(payload['features']) ? (payload['features'] as string[]) : [],
     address: text('address'),

@@ -392,6 +392,12 @@ export function normalizeListing(
     furnished: parseFurnished(text.furnished),
     flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
     dpe: resolveDpe(raw),
+    /**
+     * LE LOYER PRÉCÉDENT, quand la source l'annonce. Il passe par le même
+     * lecteur que le loyer courant : le digest l'écrit « 750 € », et l'accepter
+     * brut ferait entrer une chaîne là où l'on attend un nombre.
+     */
+    previousPrice: parsePrice(toNull(raw.extra?.['previousPrice']) ?? undefined).amount,
     // Publié en toutes lettres dans la description des meublés courte durée.
     maxOccupants: parseMaxOccupants(text.prose),
     features: extractFeatures(text.features, raw.extra),
