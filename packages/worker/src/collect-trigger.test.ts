@@ -26,7 +26,7 @@ describe('réveil de la collecte', () => {
     expect(result.triggered).toBe(true);
     const [url, init] = fetchSpy.mock.calls[0] ?? [];
     expect(String(url)).toBe(
-      'https://api.github.com/repos/WizyxGH/RentFinder/actions/workflows/collect.yml/dispatches',
+      'https://api.github.com/repos/WizyxGH/Maioun/actions/workflows/collect.yml/dispatches',
     );
     // `ref` est obligatoire : sans lui GitHub refuse le déclenchement.
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ ref: 'main' });

@@ -985,7 +985,7 @@ async function publicRoute(
       new URL(request.url).searchParams.get('url'),
       // On annonce qui l'on est, toujours (§10) — même en allant chercher une
       // image.
-      'MaiounBot/0.1 (+https://github.com/WizyxGH/RentFinder)',
+      'MaiounBot/0.1 (+https://github.com/WizyxGH/Maioun)',
       cors,
     );
   }

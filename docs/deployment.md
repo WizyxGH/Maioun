@@ -378,7 +378,7 @@ npx wrangler secret put EMAIL_API_KEY   # la clé, jamais dans un fichier versio
 
 ```toml
 EMAIL_FROM = "Maïoun <onboarding@resend.dev>" # secret-scan-ignore
-SITE_URL = "https://<vous>.github.io/RentFinder/app/"
+SITE_URL = "https://<vous>.github.io/Maioun/app/"
 ```
 
 Puis `npx wrangler deploy`.

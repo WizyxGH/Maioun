@@ -61,7 +61,7 @@ ALERT_ADDRESS_TEMPLATE = "floriangertner0+{token}@gmail.com"
 # envoyés vers la racine, ils déposeraient les gens sur le pitch, sans le jeton
 # que l'application attend dans son adresse. Depuis que la présentation occupe
 # la racine, l'application vit sous `/app/`.
-SITE_URL = "https://wizyxgh.github.io/RentFinder/app/"
+SITE_URL = "https://wizyxgh.github.io/Maioun/app/"
 
 # Expéditeur des messages. La CLÉ d'API, elle, est un secret et se dépose à part :
 #

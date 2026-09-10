@@ -27,7 +27,7 @@ export interface CollectTriggerEnv {
   readonly GITHUB_REPOSITORY?: string;
 }
 
-const DEFAULT_REPOSITORY = 'WizyxGH/RentFinder';
+const DEFAULT_REPOSITORY = 'WizyxGH/Maioun';
 const WORKFLOW = 'collect.yml';
 
 /** Ce que le réveil a produit, pour le journal du Worker. */

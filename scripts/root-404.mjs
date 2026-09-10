@@ -21,7 +21,7 @@
  *     corrigés là où ils ont été envoyés.
  *
  * Usage : node scripts/root-404.mjs <dossier du site> <chemin de base>
- *   ex.   node scripts/root-404.mjs site /RentFinder/
+ *   ex.   node scripts/root-404.mjs site /Maioun/
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -57,7 +57,7 @@ export function buildRoot404(appIndexHtml, base) {
   return appIndexHtml.slice(0, at) + legacyRedirect(base) + appIndexHtml.slice(at);
 }
 
-// Exécution directe : `node scripts/root-404.mjs site /RentFinder/`.
+// Exécution directe : `node scripts/root-404.mjs site /Maioun/`.
 if (
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
