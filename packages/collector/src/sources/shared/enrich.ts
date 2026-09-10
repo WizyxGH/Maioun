@@ -90,6 +90,12 @@ export async function enrichNewListings(
       for (const [key, value] of Object.entries(extra)) {
         if (value !== undefined) merged[key] = value;
       }
+      // `extra` SE FUSIONNE, il ne se remplace pas. Remplacé en bloc, un DPE lu
+      // sur la fiche effaçait la référence ou le quartier que la liste y avait
+      // posés — sans erreur, et sans que rien ne le signale.
+      if (extra.extra !== undefined) {
+        merged['extra'] = { ...(listing.extra ?? {}), ...extra.extra };
+      }
       patched.set(listing.sourceRef, merged as unknown as RawListing);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
