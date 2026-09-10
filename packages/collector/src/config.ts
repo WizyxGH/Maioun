@@ -90,6 +90,8 @@ export interface EditableFilters {
   readonly availableBy?: string;
   /** Quartiers retenus, par leur slug canonique. */
   readonly districts?: readonly string[];
+  /** Garder les annonces sans quartier connu. Absent = oui. */
+  readonly includeUnknownDistrict?: boolean;
 }
 
 /**
@@ -169,6 +171,8 @@ function validateFilters(input: unknown): EditableFilters {
           ),
         }
       : {}),
+    // Comme dans la liste : seul le refus se transmet, absent vaut « gardés ».
+    ...(o['includeUnknownDistrict'] === false ? { includeUnknownDistrict: false } : {}),
   };
 }
 

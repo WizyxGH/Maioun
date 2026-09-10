@@ -72,6 +72,7 @@ export interface LiveFilters {
   readonly maxCommuteMinutes?: number;
   readonly availableBy?: string;
   readonly districts?: readonly string[];
+  readonly includeUnknownDistrict?: boolean;
 }
 
 /**
@@ -1208,6 +1209,8 @@ async function liveFilters(db: Client, userId: string): Promise<LiveFilters | un
             ),
           }
         : {}),
+      // Seul le REFUS se transmet : absent, les inconnus sont gardés.
+      ...(parsed.includeUnknownDistrict === false ? { includeUnknownDistrict: false } : {}),
     };
   } catch {
     return undefined;
