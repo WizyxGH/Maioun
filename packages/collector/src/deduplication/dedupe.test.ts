@@ -300,6 +300,66 @@ describe('dedupe', () => {
   });
 });
 
+describe('au sein d’une source, le même bien porte les mêmes chiffres', () => {
+  /** Relevé le 2026-09-11 : deux studios BEP à 800 €, fusionnés en une fiche. */
+  const agence = { ...EMPTY_CONTACT, agencyName: 'BEP Logement' };
+  const bellet = listing({
+    id: 'bep:87253857',
+    sourceId: 'bep',
+    title: 'Studio de 20m² avec balcon',
+    price: 800,
+    area: 20,
+    rooms: 1,
+    district: 'magnan',
+    contact: agence,
+  });
+  const bornala = listing({
+    id: 'bep:87334566',
+    sourceId: 'bep',
+    title: 'Beau studio refait à neuf avec balcon',
+    price: 800,
+    area: 19,
+    rooms: 1,
+    district: 'magnan',
+    contact: agence,
+  });
+
+  it('sépare deux annonces de la source dont la surface diffère', () => {
+    const result = similarity(bellet, bornala);
+    expect(result.verdict).toBe('distinct');
+    expect(result.blocker).toContain('même source');
+  });
+
+  it('garde la tolérance ENTRE sources : les arrondis y diffèrent', () => {
+    expect(similarity(bellet, { ...bornala, id: 'x:1', sourceId: 'x' }).blocker).toBeNull();
+  });
+
+  it('accepte l’entier d’une surface mesurée (« 22 m² » / « 22,81 m² »)', () => {
+    const digest = listing({ id: 'e:1', sourceId: 'e', area: 22, price: 650 });
+    expect(similarity(digest, { ...digest, id: 'e:2', area: 22.81 }).blocker).toBeNull();
+  });
+
+  it('ne les réunit pas non plus par une troisième source', () => {
+    // Chacun ressemble assez au relais pour fusionner avec lui : l'union-find,
+    // transitif, réunissait les deux studios par son intermédiaire.
+    const phone = '+33493000000';
+    const a = { ...bellet, contact: { ...agence, phone } };
+    const b = { ...bornala, contact: { ...agence, phone } };
+    const relais = listing({
+      id: 'relais:1',
+      sourceId: 'relais',
+      price: 800,
+      area: 20,
+      rooms: 1,
+      contact: { ...EMPTY_CONTACT, phone },
+    });
+
+    const { groups } = dedupe([a, relais, b]);
+    const ensemble = groups.find((group) => group.occurrences.some((o) => o.id === a.id));
+    expect(ensemble?.occurrences.map((o) => o.id)).not.toContain(b.id);
+  });
+});
+
 describe('mergeGroup — fusion des informations (§15)', () => {
   it('regroupe les coordonnées provenant de sources différentes', () => {
     const occurrences = [
