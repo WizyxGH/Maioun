@@ -67,7 +67,9 @@ export function AlertDescription({
   return (
     <div
       data-slot="alert-description"
-      className={cn('col-start-2 grid justify-items-start gap-1 [&_p]:leading-relaxed', className)}
+      // Un bloc, pas une grille : dans une grille, chaque `<code>` ou `<strong>`
+      // du texte devient une case et passe à la ligne.
+      className={cn('col-start-2 [&_p]:leading-relaxed [&_p+p]:mt-1', className)}
       {...props}
     />
   );

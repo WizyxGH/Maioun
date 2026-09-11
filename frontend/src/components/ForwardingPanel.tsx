@@ -31,6 +31,7 @@ import { ALERT_SENDER_LABELS } from '@maioun/shared';
 import { fetchAlertAddress, rotateAlertAddress, type AlertForwarding } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible.js';
 import { Check, Copy, Mail } from './icons.js';
 
 /**
@@ -49,13 +50,13 @@ function Steps(): React.JSX.Element {
         <li>Donnez-lui l’adresse ci-dessus comme adresse de réception.</li>
       </ol>
 
-      <details className="text-muted-foreground mt-3 text-[0.85rem]">
-        <summary className="cursor-pointer">Vos alertes existent déjà ?</summary>
+      <Collapsible className="text-muted-foreground mt-3 text-[0.85rem]">
+        <CollapsibleTrigger>Vos alertes existent déjà ?</CollapsibleTrigger>
         <p className="mt-1.5">
           Dans votre boîte mail, ajoutez une règle qui fait suivre ces portails vers l’adresse
           ci-dessus — cherchez « filtres » ou « règles ».
         </p>
-      </details>
+      </Collapsible>
     </>
   );
 }

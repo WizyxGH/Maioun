@@ -22,6 +22,7 @@ import {
   type ThemePreference,
 } from '../theme.js';
 import { Button } from '@/components/ui/button.js';
+import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 
 const ICONS: Readonly<Record<ThemePreference, IconComponent>> = {
   auto: Home,
@@ -57,27 +58,22 @@ export function ThemePanel({ onBack }: { readonly onBack: () => void }): React.J
           const active = choice === preference;
           return (
             <li key={preference}>
-              <button
-                type="button"
+              <ItemButton
                 onClick={() => pick(preference)}
                 aria-pressed={active}
-                className={`border-border flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
-                  active ? 'border-primary bg-primary/5' : 'hover:bg-muted'
-                }`}
+                className={active ? 'border-primary bg-primary/5 hover:bg-primary/5' : undefined}
               >
                 <Icon
                   aria-hidden="true"
                   weight={active ? 'fill' : 'regular'}
                   className={`size-5 shrink-0 ${active ? 'text-primary' : 'text-muted-foreground'}`}
                 />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{THEME_LABELS[preference]}</span>
-                  <span className="text-muted-foreground block text-[0.82rem]">
-                    {THEME_HINTS[preference]}
-                  </span>
-                </span>
+                <ItemContent>
+                  <ItemTitle>{THEME_LABELS[preference]}</ItemTitle>
+                  <ItemDescription>{THEME_HINTS[preference]}</ItemDescription>
+                </ItemContent>
                 {active && <Check aria-hidden="true" className="text-primary size-5 shrink-0" />}
-              </button>
+              </ItemButton>
             </li>
           );
         })}

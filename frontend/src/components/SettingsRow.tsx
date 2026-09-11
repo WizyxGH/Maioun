@@ -8,6 +8,7 @@
  */
 
 import type { IconComponent } from './icons.js';
+import { Item, ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 
 export function SettingsRow({
   Icon,
@@ -39,31 +40,33 @@ export function SettingsRow({
         aria-hidden="true"
         className={`size-5 shrink-0 ${tone === 'done' ? 'text-primary' : 'text-muted-foreground'}`}
       />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline gap-2">
-          <span className="font-medium">{label}</span>
-          {badge !== undefined && <span className="text-xs text-muted-foreground">{badge}</span>}
-        </span>
-        {hint !== undefined && (
-          <span className="block text-[0.82rem] text-muted-foreground">{hint}</span>
-        )}
-      </span>
+      <ItemContent>
+        <ItemTitle className="flex items-baseline gap-2">
+          {label}
+          {badge !== undefined && (
+            <span className="text-xs font-normal text-muted-foreground">{badge}</span>
+          )}
+        </ItemTitle>
+        {hint !== undefined && <ItemDescription>{hint}</ItemDescription>}
+      </ItemContent>
       {trailing}
     </>
   );
 
+  // Le cadre est celui de la `li`, qui porte aussi le contenu déplié : la
+  // rangée n'a pas le sien, et son survol s'arrondit avec lui.
   return (
-    <li className="rounded-xl border border-border">
+    <li className="overflow-hidden rounded-xl border border-border">
       {onClick !== undefined ? (
-        <button
-          type="button"
+        <ItemButton
+          variant="default"
           onClick={onClick}
-          className="flex w-full cursor-pointer items-center gap-3 p-3 text-left transition-colors hover:bg-muted"
+          className="rounded-none focus-visible:ring-inset"
         >
           {head}
-        </button>
+        </ItemButton>
       ) : (
-        <div className="flex items-center gap-3 p-3">{head}</div>
+        <Item variant="default">{head}</Item>
       )}
       {children !== undefined && <div className="border-t border-border p-3">{children}</div>}
     </li>

@@ -19,6 +19,7 @@
  */
 
 import { AccountActions } from './AccountActions.js';
+import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 import {
   Agency,
   BadgeEuro,
@@ -161,21 +162,17 @@ export function SettingsLinks({
           <ul className="flex flex-col gap-2">
             {section.links.map(({ key, label, hint, Icon }) => (
               <li key={key}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate(key)}
-                  className="border-border hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
-                >
+                <ItemButton onClick={() => onNavigate(key)}>
                   <Icon aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{label}</span>
-                    <span className="text-muted-foreground block text-[0.82rem]">{hint}</span>
-                  </span>
+                  <ItemContent>
+                    <ItemTitle>{label}</ItemTitle>
+                    <ItemDescription>{hint}</ItemDescription>
+                  </ItemContent>
                   <ChevronRight
                     aria-hidden="true"
                     className="text-muted-foreground size-4 shrink-0"
                   />
-                </button>
+                </ItemButton>
               </li>
             ))}
           </ul>

@@ -25,6 +25,9 @@ import { describeSearch } from '../saved-searches.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
+import { Button } from '@/components/ui/button.js';
+import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
+import { cn } from '@/lib/utils.js';
 import { ArrowRight, Bell, Bookmark, Heart, PhoneCall, Search, TriangleAlert } from './icons.js';
 
 /** Au-delà, une annonce n'est plus une nouveauté. */
@@ -65,12 +68,9 @@ function StatTile({
   readonly accent?: boolean;
 }): React.JSX.Element {
   return (
-    <button
-      type="button"
+    <ItemButton
       onClick={onClick}
-      className={`border-border hover:bg-muted flex cursor-pointer flex-col items-start gap-0.5 rounded-xl border p-3 text-left transition-colors ${
-        accent ? 'border-hot' : ''
-      }`}
+      className={cn('flex-col items-start gap-0.5', accent && 'border-hot')}
     >
       <Icon
         aria-hidden="true"
@@ -78,7 +78,7 @@ function StatTile({
       />
       <span className="text-xl leading-tight font-bold">{value}</span>
       <span className="text-muted-foreground text-[0.8rem] leading-tight">{label}</span>
-    </button>
+    </ItemButton>
   );
 }
 
@@ -93,11 +93,7 @@ function MiniRow({
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const photo = listing.imageUrls.find((url) => url.startsWith('https://'));
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(listing.id)}
-      className="border-border hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-2.5 text-left transition-colors"
-    >
+    <ItemButton size="sm" onClick={() => onOpen(listing.id)}>
       {photo === undefined ? (
         <span aria-hidden="true" className="bg-muted size-12 shrink-0 rounded-lg" />
       ) : (
@@ -109,17 +105,48 @@ function MiniRow({
           className="bg-muted size-12 shrink-0 rounded-lg object-cover"
         />
       )}
-      <span className="min-w-0 flex-1">
+      <ItemContent>
         <span className="flex items-baseline gap-2">
           <strong>{formatPrice(listing.price.value)}</strong>
           <span className="text-muted-foreground text-sm">{formatArea(listing.area.value)}</span>
         </span>
-        <span className="text-muted-foreground block truncate text-[0.82rem]">
+        <ItemDescription className="truncate">
           {formatCity(listing.city.value)} · {sources.map(formatSourceName).join(', ')}
-        </span>
-      </span>
+        </ItemDescription>
+      </ItemContent>
       <ArrowRight aria-hidden="true" className="text-muted-foreground size-4 shrink-0" />
-    </button>
+    </ItemButton>
+  );
+}
+
+/** Une tâche en attente : ce qu'elle compte, ce qu'elle veut dire, où elle mène. */
+function ChoreRow({
+  Icon,
+  iconClassName = 'text-muted-foreground',
+  title,
+  description,
+  onClick,
+  className,
+  truncate = false,
+}: {
+  readonly Icon: typeof Heart;
+  readonly iconClassName?: string;
+  readonly title: React.ReactNode;
+  readonly description: React.ReactNode;
+  readonly onClick: () => void;
+  readonly className?: string;
+  /** Texte libre (le nom d'une recherche) : une ligne, coupée. */
+  readonly truncate?: boolean;
+}): React.JSX.Element {
+  return (
+    <ItemButton onClick={onClick} className={className}>
+      <Icon aria-hidden="true" className={cn('size-5 shrink-0', iconClassName)} />
+      <ItemContent>
+        <ItemTitle className={cn(truncate && 'truncate')}>{title}</ItemTitle>
+        <ItemDescription className={cn(truncate && 'truncate')}>{description}</ItemDescription>
+      </ItemContent>
+      <ArrowRight aria-hidden="true" className="text-muted-foreground size-4 shrink-0" />
+    </ItemButton>
   );
 }
 
@@ -181,13 +208,9 @@ export function HomePanel({
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <h2 className="text-lg font-bold">Nouveautés</h2>
           {fresh.length > 0 && (
-            <button
-              type="button"
-              onClick={onOpenAlerts}
-              className="text-primary cursor-pointer text-sm underline"
-            >
+            <Button variant="link" size="inline" onClick={onOpenAlerts} className="text-sm">
               Historique des alertes
-            </button>
+            </Button>
           )}
         </div>
         {fresh.length === 0 ? (
@@ -217,61 +240,35 @@ export function HomePanel({
           <ul className="flex flex-col gap-2">
             {toCall.length > 0 && (
               <li>
-                <button
-                  type="button"
+                <ChoreRow
+                  Icon={PhoneCall}
+                  iconClassName="text-hot"
+                  className="border-hot"
+                  title={`${toCall.length} annonce${toCall.length > 1 ? 's' : ''} à contacter`}
+                  description="Priorité haute, jamais appelées."
                   onClick={onOpenSearch}
-                  className="border-hot hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
-                >
-                  <PhoneCall aria-hidden="true" className="text-hot size-5 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">
-                      {toCall.length} annonce{toCall.length > 1 ? 's' : ''} à contacter
-                    </span>
-                    <span className="text-muted-foreground block text-[0.82rem]">
-                      Priorité haute, jamais appelées.
-                    </span>
-                  </span>
-                  <ArrowRight aria-hidden="true" className="text-muted-foreground size-4" />
-                </button>
+                />
               </li>
             )}
             {favoritesUntouched.length > 0 && (
               <li>
-                <button
-                  type="button"
+                <ChoreRow
+                  Icon={Heart}
+                  title={`${favoritesUntouched.length} favori${favoritesUntouched.length > 1 ? 's' : ''} sans suite`}
+                  description="Retenus, mais pas encore contactés."
                   onClick={onOpenFavorites}
-                  className="border-border hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
-                >
-                  <Heart aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">
-                      {favoritesUntouched.length} favori
-                      {favoritesUntouched.length > 1 ? 's' : ''} sans suite
-                    </span>
-                    <span className="text-muted-foreground block text-[0.82rem]">
-                      Retenus, mais pas encore contactés.
-                    </span>
-                  </span>
-                  <ArrowRight aria-hidden="true" className="text-muted-foreground size-4" />
-                </button>
+                />
               </li>
             )}
             {!profileComplete && (
               <li>
-                <button
-                  type="button"
+                <ChoreRow
+                  Icon={TriangleAlert}
+                  iconClassName="text-medium"
+                  title="Compléter le profil locataire"
+                  description="Sans lui, aucun message de contact ne peut être préparé."
                   onClick={onOpenProfile}
-                  className="border-border hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
-                >
-                  <TriangleAlert aria-hidden="true" className="text-medium size-5 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">Compléter le profil locataire</span>
-                    <span className="text-muted-foreground block text-[0.82rem]">
-                      Sans lui, aucun message de contact ne peut être préparé.
-                    </span>
-                  </span>
-                  <ArrowRight aria-hidden="true" className="text-muted-foreground size-4" />
-                </button>
+                />
               </li>
             )}
           </ul>
@@ -313,13 +310,9 @@ export function HomePanel({
       <section>
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <h2 className="text-lg font-bold">Recherches enregistrées</h2>
-          <button
-            type="button"
-            onClick={onOpenSavedSearches}
-            className="text-primary cursor-pointer text-sm underline"
-          >
+          <Button variant="link" size="inline" onClick={onOpenSavedSearches} className="text-sm">
             {savedSearches.length > 0 ? 'Toutes' : 'En enregistrer une'}
-          </button>
+          </Button>
         </div>
         {savedSearches.length === 0 ? (
           <Card className="text-muted-foreground text-[0.92rem]">
@@ -330,20 +323,13 @@ export function HomePanel({
           <ul className="flex flex-col gap-2">
             {savedSearches.slice(0, 3).map((search) => (
               <li key={search.id}>
-                <button
-                  type="button"
+                <ChoreRow
+                  Icon={Bookmark}
+                  title={search.name}
+                  description={describeSearch(search)}
                   onClick={() => onApplySearch(search)}
-                  className="border-border hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
-                >
-                  <Bookmark aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{search.name}</span>
-                    <span className="text-muted-foreground block truncate text-[0.82rem]">
-                      {describeSearch(search)}
-                    </span>
-                  </span>
-                  <ArrowRight aria-hidden="true" className="text-muted-foreground size-4" />
-                </button>
+                  truncate
+                />
               </li>
             ))}
           </ul>

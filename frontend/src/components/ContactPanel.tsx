@@ -27,6 +27,7 @@ import { SOURCES } from '../sources.generated.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink, buttonVariants } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { Checkbox } from '@/components/ui/checkbox.js';
 import { ChevronRight, PhoneCall } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { displayName } from '../dossier.js';
@@ -210,14 +211,16 @@ function ContactDetails({
               {openSource === null ? (
                 agencyName
               ) : (
-                <button
+                <Button
                   type="button"
+                  variant="link"
+                  size="inline"
                   onClick={openSource}
-                  className="text-primary cursor-pointer underline"
+                  className="font-normal"
                   title={`Voir ${agencyName} et ses annonces`}
                 >
                   {agencyName}
-                </button>
+                </Button>
               )}
             </dd>
           </>
@@ -372,12 +375,7 @@ function useAttachments(): { selected: readonly string[]; picker: React.JSX.Elem
                 peut pas rétrécir un élément flex sans `min-w-0` : il gardait
                 sa largeur naturelle et poussait la carte hors de l écran. */}
               <label className="flex min-w-0 items-center gap-2 text-[0.9rem]">
-                <input
-                  type="checkbox"
-                  className="shrink-0"
-                  checked={selected.has(doc.name)}
-                  onChange={() => toggle(doc.name)}
-                />
+                <Checkbox checked={selected.has(doc.name)} onChange={() => toggle(doc.name)} />
                 <span className="min-w-0 flex-1 truncate">{displayName(doc.name)}</span>
               </label>
             </li>

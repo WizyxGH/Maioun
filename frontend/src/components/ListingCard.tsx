@@ -28,6 +28,7 @@ import { splitPhotos } from '../photos.js';
 import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
+import { Progress } from '@/components/ui/progress.js';
 import { Flame, Heart, TrainFront } from './icons.js';
 
 interface ListingCardProps {
@@ -88,7 +89,6 @@ function priorityLabel(priority: number): string {
  * sans lire, ce qu'un anneau de 48 px ne permettait pas.
  */
 function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Element {
-  const clamped = Math.max(0, Math.min(100, priority));
   return (
     <div className="mt-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -103,19 +103,7 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
           <span className="text-[0.75rem] font-medium text-muted-foreground">/100</span>
         </span>
       </div>
-      <div
-        role="progressbar"
-        aria-valuenow={clamped}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Priorité d’action"
-        className="h-1.5 overflow-hidden rounded-full bg-muted"
-      >
-        <div
-          className="h-full rounded-full bg-good transition-[width] duration-300"
-          style={{ width: `${clamped}%` }}
-        />
-      </div>
+      <Progress value={priority} aria-label="Priorité d’action" indicatorClassName="bg-good" />
     </div>
   );
 }

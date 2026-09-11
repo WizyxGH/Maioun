@@ -23,6 +23,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button.js';
 import { TriangleAlert } from './icons.js';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible.js';
 
 interface Props {
   readonly children: ReactNode;
@@ -66,10 +67,10 @@ export class ErrorBoundary extends Component<Props, State> {
         </p>
         {/* Le message technique est GARDÉ, replié : c'est ce qu'on recopie pour
           faire corriger, et il ne veut rien dire à qui ne le cherche pas. */}
-        <details className="text-muted-foreground text-[0.8rem]">
-          <summary className="cursor-pointer">Détail technique</summary>
+        <Collapsible className="text-muted-foreground text-[0.8rem]">
+          <CollapsibleTrigger>Détail technique</CollapsibleTrigger>
           <code className="mt-1 block break-all">{error.message}</code>
-        </details>
+        </Collapsible>
         <div className="flex flex-wrap gap-2">
           <Button onClick={this.retry}>Revenir à l’accueil</Button>
           <Button variant="outline" onClick={() => window.location.reload()}>

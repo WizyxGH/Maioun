@@ -39,6 +39,7 @@ import { Button } from '@/components/ui/button.js';
 import { Switch } from '@/components/ui/switch.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { Radio } from '@/components/ui/checkbox.js';
 
 interface KindInfo {
   readonly key: NotificationKind;
@@ -290,10 +291,8 @@ export function NotificationSettingsPanel({
                 key={option.value}
                 className="flex min-h-11 cursor-pointer items-center gap-3 py-2 first:pt-0 last:pb-0"
               >
-                <input
-                  type="radio"
+                <Radio
                   name="notification-frequency"
-                  className="size-4 shrink-0"
                   checked={preferences.frequency === option.value}
                   onChange={() => setFrequency(option.value)}
                 />

@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import { fetchPlan, startCheckout, type PlanView } from '../api/client.js';
 import { Button } from './ui/button.js';
+import { ArrowLeft } from './icons.js';
 import { Alert, AlertDescription } from './ui/alert.js';
 
 /** Ce que chaque marche donne. La liste est la promesse : elle doit être vraie. */
@@ -89,13 +90,11 @@ export function PlanPanel({ onBack }: { readonly onBack: () => void }): React.JS
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-muted-foreground mb-4 cursor-pointer text-sm"
-      >
-        ← Paramètres
-      </button>
+      <header className="mb-2">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+        </Button>
+      </header>
       <h1 className="mb-1 text-xl font-bold">Votre offre</h1>
       <p className="text-muted-foreground mb-5 text-sm">
         Consulter est libre. Un compte gratuit sert à agir. Seule la candidature envoyée à votre

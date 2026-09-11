@@ -11,6 +11,8 @@
 
 import { MVP_CRITERIA, type PropertyType } from '@maioun/shared';
 import { formatPropertyType } from '../format.js';
+import { Button } from '@/components/ui/button.js';
+import { Toggle } from '@/components/ui/toggle.js';
 
 /** État des filtres rapides. `null`/vide = filtre inactif. */
 export interface QuickFilterValues {
@@ -212,13 +214,14 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX
               onRemove={() => toggleType(type)}
             />
           ))}
-          <button
-            type="button"
+          <Button
+            variant="link"
+            size="inline"
             onClick={() => onChange(EMPTY_QUICK_FILTERS)}
-            className="ml-1 min-h-9 cursor-pointer text-sm font-medium text-muted-foreground underline hover:text-foreground"
+            className="ml-1 min-h-9 text-sm text-muted-foreground hover:text-foreground"
           >
             Effacer tout
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -236,18 +239,9 @@ export function PillButton({
   readonly children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={`min-h-9 cursor-pointer rounded-full border px-3 text-sm font-medium transition-colors ${
-        selected
-          ? 'border-primary bg-primary/10 text-primary'
-          : 'border-border text-foreground hover:border-primary'
-      }`}
-    >
+    <Toggle pressed={selected} onClick={onClick}>
       {children}
-    </button>
+    </Toggle>
   );
 }
 

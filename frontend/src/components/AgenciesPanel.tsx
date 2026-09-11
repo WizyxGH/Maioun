@@ -20,6 +20,7 @@ import type { ListingView } from '../types.js';
 import { formatSourceName } from '../format.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 import { ListingCard } from './ListingCard.js';
 
 /** Coordonnées d'une agence : ce dont on se sert pour la joindre. */
@@ -75,26 +76,25 @@ export function AgenciesPanel({
         <ul className="flex flex-col gap-2">
           {agencies.map((agency, rank) => (
             <li key={agency.name}>
-              <button
-                type="button"
+              <ItemButton
                 onClick={() => onOpen(agency.name)}
-                className="border-border hover:bg-muted rf-rise flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
+                className="rf-rise"
                 style={{ '--rf-delay': `${Math.min(rank, 10) * 25}ms` } as React.CSSProperties}
               >
                 <AgencyLogo sources={agency.sources} name={agency.name} className="size-6" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{agency.name}</span>
-                  <span className="text-muted-foreground block text-[0.8rem]">
+                <ItemContent>
+                  <ItemTitle className="truncate">{agency.name}</ItemTitle>
+                  <ItemDescription className="text-[0.8rem]">
                     {agency.sources.map(formatSourceName).join(', ')}
-                  </span>
-                </span>
+                  </ItemDescription>
+                </ItemContent>
                 <span className="shrink-0 text-right">
                   <span className="block leading-none font-bold">{agency.listings}</span>
                   <span className="text-muted-foreground text-[0.7rem]">
                     annonce{agency.listings > 1 ? 's' : ''}
                   </span>
                 </span>
-              </button>
+              </ItemButton>
             </li>
           ))}
         </ul>
