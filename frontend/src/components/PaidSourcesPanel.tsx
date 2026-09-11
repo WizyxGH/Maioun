@@ -27,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 const SOURCE_ID = 'bep-abonnes';
 
@@ -160,9 +161,9 @@ export function PaidSourcesSection(): React.JSX.Element {
           />
         </label>
         {error !== null && (
-          <p role="alert" className="text-bad mt-2 text-[0.85rem]">
-            {error}
-          </p>
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
       </ConfirmDialog>
     </div>

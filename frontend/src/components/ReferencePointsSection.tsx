@@ -27,6 +27,7 @@ import { REFERENCE_TRAVEL_MODES, type ReferenceTravelMode } from '@maioun/shared
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { Input } from '@/components/ui/input.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
@@ -113,12 +114,9 @@ export function ReferencePointsSection(): React.JSX.Element | null {
       </p>
 
       {error !== null && (
-        <p
-          className="mt-3 rounded-xl border border-bad px-3 py-2 text-[0.88rem] text-bad"
-          role="alert"
-        >
-          {error}
-        </p>
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <ul className="mt-3 flex flex-col gap-2">

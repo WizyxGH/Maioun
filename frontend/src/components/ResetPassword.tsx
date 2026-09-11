@@ -16,6 +16,7 @@ import { resetPassword } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 /** Le plancher exigé par le serveur. Le redire ici évite un aller-retour. */
 const MIN_PASSWORD = 8;
@@ -101,15 +102,19 @@ export function ResetPassword({
           {mismatch && <p className="text-bad text-[0.82rem]">Les deux saisies diffèrent.</p>}
 
           {state === 'invalid' && (
-            <p role="alert" className="border-border rounded-lg border px-3 py-2 text-sm">
-              Ce lien n’est plus valable : il a expiré, il a déjà servi, ou il a été tronqué en
-              chemin. Redemandez-en un depuis l’écran de connexion.
-            </p>
+            <Alert variant="warning">
+              <AlertDescription>
+                Ce lien n’est plus valable : il a expiré, il a déjà servi, ou il a été tronqué en
+                chemin. Redemandez-en un depuis l’écran de connexion.
+              </AlertDescription>
+            </Alert>
           )}
           {state === 'error' && (
-            <p role="alert" className="text-bad text-sm">
-              L’enregistrement a échoué. Réessayez dans un instant.
-            </p>
+            <Alert variant="destructive">
+              <AlertDescription>
+                L’enregistrement a échoué. Réessayez dans un instant.
+              </AlertDescription>
+            </Alert>
           )}
 
           <Button

@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { SignOut, Trash2 } from './icons.js';
 import { Input } from '@/components/ui/input.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 /**
  * Ce qu'on dit de chaque issue d'envoi.
@@ -151,9 +152,9 @@ export function AccountActions({
             </p>
           )}
           {sent !== null && (
-            <p role="status" className="mt-1 text-[0.8rem]">
-              {SEND_MESSAGE[sent]}
-            </p>
+            <Alert className="mt-2">
+              <AlertDescription>{SEND_MESSAGE[sent]}</AlertDescription>
+            </Alert>
           )}
 
           {account.email !== null && !account.verified && (
@@ -244,9 +245,9 @@ export function AccountActions({
           />
         </label>
         {error !== null && (
-          <p role="alert" className="text-bad mt-2 text-[0.85rem]">
-            {error}
-          </p>
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
       </ConfirmDialog>
 
@@ -285,9 +286,9 @@ export function AccountActions({
           />
         </label>
         {error !== null && (
-          <p role="alert" className="text-[0.85rem] text-bad">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
       </ConfirmDialog>
     </>

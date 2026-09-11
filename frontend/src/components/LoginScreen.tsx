@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button.js';
 import { GoogleSignIn } from './GoogleSignIn.js';
 import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 export function LoginScreen({
   onSignedIn,
@@ -94,9 +95,9 @@ export function LoginScreen({
           </label>
 
           {error !== null && (
-            <p role="alert" className="border-bad/40 bg-bad/10 rounded-lg border px-3 py-2 text-sm">
-              {error}
-            </p>
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           <Button type="submit" disabled={busy || identifiant === '' || password === ''}>
