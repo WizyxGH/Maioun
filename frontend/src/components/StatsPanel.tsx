@@ -16,16 +16,13 @@ import { HistoryChart } from './HistoryChart.js';
 import { PanelSkeleton } from './Skeletons.js';
 
 /**
- * COMBIEN DE TEMPS UNE ANNONCE RESTE DISPONIBLE.
+ * COMBIEN DE TEMPS UNE ANNONCE RESTE EN LIGNE après que Maïoun l'a repérée —
+ * les seules annonces vues paraître, pas le stock découvert d'un bloc (voir
+ * `getStats`). C'est ce qui dit s'il faut se précipiter.
  *
- * Le chiffre qui manquait pour savoir s'il faut se précipiter : sur un marché
- * où la moitié des annonces disparaît en trois jours, une annonce d'un jour est
- * déjà à mi-vie.
- *
- * IL PEUT REFUSER DE RÉPONDRE, et c'est le point important. Tant que la moitié
- * des annonces observées ne s'est pas éteinte, la médiane est au-delà de ce
- * qu'on a vu : le bloc dit alors ce qu'il sait — « plus de N jours » — plutôt
- * que d'avancer un nombre qu'aucune observation ne soutient (§17).
+ * IL PEUT REFUSER DE RÉPONDRE. Tant que la moitié des annonces observées ne
+ * s'est pas éteinte, la médiane est au-delà de ce qu'on a vu : le bloc dit
+ * « plus de N jours » plutôt qu'un nombre qu'aucune observation ne soutient.
  */
 function SurvivalBlock({
   survival,
@@ -40,9 +37,12 @@ function SurvivalBlock({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
-        Durée de vie des annonces
+      <h3 className="text-sm font-semibold text-muted-foreground">
+        Combien de temps une annonce reste en ligne
       </h3>
+      <p className="mb-2 text-[0.72rem] text-muted-foreground">
+        Depuis que Maïoun l’a repérée · nouvelles annonces uniquement
+      </p>
       <div className="rounded-xl border border-border bg-card px-3 py-3">
         <p className="text-2xl font-bold">
           {survival.medianDays === null
@@ -60,6 +60,11 @@ function SurvivalBlock({
             <div key={point.day} className="text-center">
               <div className="font-semibold">{share(point.share)}</div>
               <div className="text-[0.72rem] text-muted-foreground">encore là à J+{point.day}</div>
+              {point.atRisk !== undefined && point.share !== null && (
+                <div className="text-[0.68rem] text-muted-foreground">
+                  sur {point.atRisk} suivie{point.atRisk > 1 ? 's' : ''}
+                </div>
+              )}
             </div>
           ))}
         </div>
