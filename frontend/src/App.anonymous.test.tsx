@@ -11,11 +11,12 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type * as Client from './api/client.js';
 
 // Tout le reste de la démonstration, sauf l'identité : ce visiteur-là n'a pas
 // de session.
 vi.mock('./api/client.js', async (original) => ({
-  ...(await original<typeof import('./api/client.js')>()),
+  ...(await original<typeof Client>()),
   requiresLogin: () => true,
   fetchCurrentUser: () => Promise.resolve(null),
 }));
