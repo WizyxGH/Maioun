@@ -29,40 +29,29 @@
   </head>
 
   <body>
-    <!-- ═══════════════════════════════════════════════════════════════════════
-      LA PAGE SUIT L'ORDRE DES QUESTIONS, pas celui des fonctionnalités.
+    <!-- LA PAGE SUIT L'ORDRE DES QUESTIONS, pas celui des fonctionnalités :
+      qu'est-ce que c'est → pourquoi j'en ai besoin → à quoi ça ressemble →
+      comment ça marche → est-ce pour moi → puis-je vous croire → combien →
+      et si… → j'y vais.
 
-      Qu'est-ce que c'est (héros) → pourquoi j'en ai besoin (le problème, chiffré)
-      → à quoi ça ressemble (une carte, montrée) → comment ça marche (trois
-      temps) → est-ce pour MOI (par profil) → puis-je vous croire (ce que ça ne
-      fait pas) → combien (tarif) → et si… (questions) → j'y vais.
-
-      ELLE EST VISUELLE SANS UNE SEULE IMAGE. Ni photo à héberger, ni bibliothèque
-      à charger : les chiffres sont typographiques, la démonstration est une vraie
-      carte d'annonce en HTML, les icônes sont des SVG de vingt lignes. La page
-      reste sous les cent kilo-octets et s'affiche avant qu'on ait cligné.
-    ════════════════════════════════════════════════════════════════════════ -->
+      Visuelle sans une seule image : chiffres typographiques, vraie carte
+      d'annonce en HTML, icônes en SVG de vingt lignes. Les composants sont
+      ceux de l'application, en classes (`.btn`, `.card`… dans styles.css). -->
 
     <a
       href="#contenu"
-      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-full focus:bg-[var(--color-primary)] focus:px-4 focus:py-2 focus:text-[var(--color-primary-foreground)]"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
       >Aller au contenu</a
     >
 
-    <header
-      class="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-background)_88%,transparent)] backdrop-blur"
-    >
+    <header class="sticky top-0 z-40 border-b border-border bg-background/88 backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
         <span class="text-xl font-bold tracking-tight">Maïoun</span>
         <nav aria-label="Principale" class="flex items-center gap-5 text-[0.92rem]">
-          <a href="#fonctionnement" class="hidden hover:underline sm:inline">Comment ça marche</a>
-          <a href="#profils" class="hidden hover:underline sm:inline">Pour qui</a>
-          <a href="#tarif" class="hidden hover:underline sm:inline">Tarif</a>
-          <a
-            href="app/"
-            class="rounded-full bg-[var(--color-primary)] px-4 py-2 font-medium text-[var(--color-primary-foreground)] transition-transform hover:scale-[1.03]"
-            >Ouvrir</a
-          >
+          <a href="#fonctionnement" class="nav-link hidden sm:inline">Comment ça marche</a>
+          <a href="#profils" class="nav-link hidden sm:inline">Pour qui</a>
+          <a href="#tarif" class="nav-link hidden sm:inline">Tarif</a>
+          <a href="app/" class="btn btn-default btn-sm">Ouvrir</a>
         </nav>
       </div>
     </header>
@@ -70,12 +59,11 @@
     <main id="contenu">
       <!-- ═══ HÉROS ═══════════════════════════════════════════════════════ -->
       <section class="relative overflow-hidden">
-        <!-- Un halo, pas une image : deux dégradés radiaux posés derrière le
-          texte. Ils donnent de la profondeur au premier écran sans un octet de
-          plus, et s'effacent sur fond sombre comme sur fond clair. -->
+        <!-- Un halo, pas une image : deux dégradés radiaux derrière le texte,
+          qui dérivent lentement. -->
         <div
           aria-hidden="true"
-          class="pointer-events-none absolute inset-0 -z-10"
+          class="halo pointer-events-none absolute inset-0 -z-10"
           style="
             background:
               radial-gradient(
@@ -88,6 +76,11 @@
                 color-mix(in srgb, var(--color-primary) 10%, transparent),
                 transparent 70%
               );
+            background-repeat: no-repeat;
+            background-size: 140% 140%;
+            background-position:
+              0% 0%,
+              100% 0%;
           "
         ></div>
 
@@ -95,51 +88,55 @@
           class="mx-auto grid max-w-6xl gap-12 px-5 pt-14 pb-20 lg:grid-cols-[1.1fr_1fr] lg:pt-20"
         >
           <div>
-            <p
-              class="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] px-3.5 py-1.5 text-[0.82rem] font-medium"
-            >
-              <span
-                aria-hidden="true"
-                class="size-1.5 rounded-full bg-[var(--color-primary)]"
-              ></span>
+            <p class="rise badge badge-outline px-3.5 py-1.5 text-[0.82rem] font-medium">
+              <span aria-hidden="true" class="ping size-1.5 rounded-full bg-primary"></span>
               57 sources relevées en continu · Nice et alentours
             </p>
 
-            <h1 class="mt-6 text-4xl leading-[1.08] font-bold tracking-tight sm:text-6xl">
+            <h1
+              class="rise mt-6 text-4xl leading-[1.08] font-bold tracking-tight sm:text-6xl"
+              style="--delay: 80ms"
+            >
               Le bon appartement
-              <span class="text-[var(--color-primary)]">avant les autres.</span>
+              <span class="text-primary">avant les autres.</span>
             </h1>
 
-            <p class="mt-6 max-w-xl text-lg text-[var(--color-muted-foreground)]">
+            <p class="rise mt-6 max-w-xl text-lg text-muted-foreground" style="--delay: 160ms">
               À Nice, un logement correct part en quelques heures. Maïoun surveille les portails et
               les agences à votre place, écarte les doublons, et vous prévient sur votre téléphone
               dès qu’un bien entre dans vos critères.
             </p>
 
-            <div class="mt-9 flex flex-wrap items-center gap-3">
-              <a
-                href="app/"
-                class="rounded-full bg-[var(--color-primary)] px-7 py-3.5 font-semibold text-[var(--color-primary-foreground)] shadow-lg shadow-[color-mix(in_srgb,var(--color-primary)_35%,transparent)] transition-transform hover:scale-[1.03]"
-                >Voir les annonces</a
-              >
-              <a
-                href="#fonctionnement"
-                class="rounded-full border border-[var(--color-border)] bg-[var(--color-card)] px-7 py-3.5 font-medium"
-                >Comment ça marche</a
-              >
+            <div class="rise mt-9 flex flex-wrap items-center gap-3" style="--delay: 240ms">
+              <a href="app/" class="btn btn-default btn-lg btn-glow">
+                Voir les annonces
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="arrow size-4.5"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </a>
+              <a href="#fonctionnement" class="btn btn-outline btn-lg">Comment ça marche</a>
             </div>
 
-            <p class="mt-4 text-[0.88rem] text-[var(--color-muted-foreground)]">
+            <p class="rise mt-4 text-[0.88rem] text-muted-foreground" style="--delay: 300ms">
               Sans inscription pour consulter. Sans carte bancaire. Sans publicité.
             </p>
           </div>
 
-          <!-- LA DÉMONSTRATION EST UNE VRAIE CARTE, en HTML. Montrer le produit
-            vaut mieux que le décrire, et une capture d'écran vieillit à chaque
-            changement d'interface — celle-ci est du code, elle suit. -->
-          <div class="lg:pt-6">
+          <!-- LA DÉMONSTRATION EST UNE VRAIE CARTE, en HTML, avec les couleurs
+            de celle de l'application. Une capture d'écran vieillit à chaque
+            changement d'interface ; celle-ci est du code, elle suit. -->
+          <div class="rise lg:pt-6" style="--delay: 200ms">
             <div
-              class="mx-auto max-w-sm rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)] p-4 shadow-2xl shadow-black/10"
+              class="demo float card mx-auto max-w-sm rounded-3xl p-4 shadow-2xl shadow-black/10"
             >
               <div
                 class="flex h-36 items-end justify-between rounded-2xl p-3"
@@ -152,48 +149,58 @@
                 "
                 aria-hidden="true"
               >
-                <span
-                  class="rounded-full bg-[var(--color-card)] px-2.5 py-1 text-[0.72rem] font-semibold"
-                  >3 sources</span
-                >
-                <span
-                  class="rounded-full bg-[var(--color-card)] px-2.5 py-1 text-[0.72rem] font-semibold"
-                  >il y a 12 min</span
-                >
+                <span class="badge bg-card">3 sources</span>
+                <span class="badge bg-card">il y a 12 min</span>
               </div>
 
               <div class="px-1 pt-3.5">
                 <p class="font-semibold">Appartement · Libération</p>
-                <p class="text-[0.82rem] text-[var(--color-muted-foreground)]">
-                  14 Av. Malausséna, 06000 Nice
-                </p>
+                <p class="text-[0.82rem] text-muted-foreground">14 Av. Malausséna, 06000 Nice</p>
                 <p class="mt-1.5 flex items-baseline gap-1.5">
                   <strong class="text-xl font-extrabold tracking-tight">680 €</strong>
-                  <span class="text-[0.9rem] text-[var(--color-muted-foreground)]"
-                    >/ mois · 26 m² · 1 pièce</span
-                  >
+                  <span class="text-[0.9rem] text-muted-foreground">/ mois · 26 m² · 1 pièce</span>
                 </p>
 
                 <div class="mt-3.5">
                   <div class="mb-1 flex items-baseline justify-between">
                     <span
-                      class="text-[0.68rem] font-semibold tracking-wide text-[var(--color-primary)] uppercase"
-                      >à contacter</span
+                      class="flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide text-good uppercase"
                     >
-                    <span class="text-[0.9rem] font-bold text-[var(--color-primary)]"
-                      >91<span class="text-[0.72rem] text-[var(--color-muted-foreground)]"
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="size-3.5"
+                      >
+                        <path
+                          d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5.5 1.5 1.5 2.5 2.5 2.5C11 8.5 11 6 12 3Z"
+                        />
+                      </svg>
+                      à contacter
+                    </span>
+                    <span class="text-[0.9rem] font-bold text-good"
+                      >91<span class="text-[0.72rem] font-medium text-muted-foreground"
                         >/100</span
                       ></span
                     >
                   </div>
                   <div
-                    class="h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--color-muted-foreground)_20%,transparent)]"
+                    class="progress"
+                    role="progressbar"
+                    aria-valuenow="91"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-label="Priorité d’action"
                   >
-                    <div class="h-full w-[91%] rounded-full bg-[var(--color-primary)]"></div>
+                    <div class="progress-indicator w-[91%] bg-good"></div>
                   </div>
                 </div>
 
-                <p class="mt-3.5 text-[0.82rem] text-[var(--color-muted-foreground)]">
+                <p class="mt-3.5 text-[0.82rem] text-muted-foreground">
                   17 min de votre travail · 2,3 €/m² sous le repère du quartier
                 </p>
               </div>
@@ -203,32 +210,32 @@
       </section>
 
       <!-- ═══ LE PROBLÈME, EN TROIS CHIFFRES ══════════════════════════════ -->
-      <section class="border-y border-[var(--color-border)] bg-[var(--color-card)]">
+      <section class="border-y border-border bg-card">
         <div class="mx-auto max-w-6xl px-5 py-16">
-          <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">
+          <h2 class="reveal text-2xl font-bold tracking-tight sm:text-3xl">
             Chercher un logement, c’est un second travail
           </h2>
           <div class="mt-10 grid gap-8 sm:grid-cols-3">
-            <div class="border-l-2 border-[var(--color-primary)] pl-5">
+            <div class="reveal border-l-2 border-primary pl-5">
               <p class="text-4xl font-bold tracking-tight">57</p>
               <p class="mt-1 font-semibold">sites à surveiller</p>
-              <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
                 Portails, réseaux, agences de quartier, alertes e-mail. Aucun n’a tout, et personne
                 n’ouvre cinquante-sept onglets par jour.
               </p>
             </div>
-            <div class="border-l-2 border-[var(--color-primary)] pl-5">
+            <div class="reveal border-l-2 border-primary pl-5">
               <p class="text-4xl font-bold tracking-tight">×3</p>
               <p class="mt-1 font-semibold">la même annonce</p>
-              <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
                 Un appartement paraît sous trois références, parfois trois loyers différents. On le
                 recontacte sans le savoir.
               </p>
             </div>
-            <div class="border-l-2 border-[var(--color-primary)] pl-5">
+            <div class="reveal border-l-2 border-primary pl-5">
               <p class="text-4xl font-bold tracking-tight">&lt; 24 h</p>
               <p class="mt-1 font-semibold">pour réagir</p>
-              <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
                 Les biens corrects partent dans la journée. Consulter matin et soir ne suffit pas :
                 il faut être prévenu.
               </p>
@@ -239,17 +246,17 @@
 
       <!-- ═══ COMMENT ÇA MARCHE — TROIS TEMPS ═════════════════════════════ -->
       <section id="fonctionnement" class="mx-auto max-w-6xl px-5 py-20">
-        <p class="text-[0.82rem] font-semibold tracking-wide text-[var(--color-primary)] uppercase">
-          Comment ça marche
-        </p>
-        <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-          Vous réglez vos critères une fois. Le reste se passe sans vous.
-        </h2>
+        <div class="reveal">
+          <p class="eyebrow">Comment ça marche</p>
+          <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
+            Vous réglez vos critères une fois. Le reste se passe sans vous.
+          </h2>
+        </div>
 
         <ol class="mt-12 grid gap-8 md:grid-cols-3">
-          <li class="relative">
+          <li class="step reveal">
             <div
-              class="flex size-11 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+              class="step-icon flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
               aria-hidden="true"
             >
               <svg
@@ -264,14 +271,14 @@
               </svg>
             </div>
             <h3 class="mt-4 text-lg font-semibold">1. On rassemble</h3>
-            <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-2 text-[0.95rem] text-muted-foreground">
               Cinquante-sept sources sont relevées en continu, chacune à son rythme. Vos propres
               alertes e-mail SeLoger ou Bien’ici s’y ajoutent : il suffit de les faire suivre.
             </p>
           </li>
-          <li>
+          <li class="step reveal">
             <div
-              class="flex size-11 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+              class="step-icon flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
               aria-hidden="true"
             >
               <svg
@@ -286,15 +293,15 @@
               </svg>
             </div>
             <h3 class="mt-4 text-lg font-semibold">2. On trie</h3>
-            <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-2 text-[0.95rem] text-muted-foreground">
               Le même logement vu par trois sources devient une seule fiche, qui garde les trois
               liens et signale les prix qui divergent. Les annonces trop belles pour être vraies
               sont marquées, jamais cachées.
             </p>
           </li>
-          <li>
+          <li class="step reveal">
             <div
-              class="flex size-11 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+              class="step-icon flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
               aria-hidden="true"
             >
               <svg
@@ -313,7 +320,7 @@
               </svg>
             </div>
             <h3 class="mt-4 text-lg font-semibold">3. On vous prévient</h3>
-            <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-2 text-[0.95rem] text-muted-foreground">
               Une notification sur votre téléphone, application fermée, avec le loyer, la surface,
               le quartier et le téléphone de l’annonceur. De quoi appeler sans même ouvrir le site.
             </p>
@@ -322,23 +329,19 @@
       </section>
 
       <!-- ═══ POUR QUI — LES QUATRE PROFILS ═══════════════════════════════ -->
-      <section id="profils" class="border-y border-[var(--color-border)] bg-[var(--color-card)]">
+      <section id="profils" class="border-y border-border bg-card">
         <div class="mx-auto max-w-6xl px-5 py-20">
-          <p
-            class="text-[0.82rem] font-semibold tracking-wide text-[var(--color-primary)] uppercase"
-          >
-            Pour qui
-          </p>
-          <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-            Chercher à Nice ne veut pas dire la même chose pour tout le monde
-          </h2>
+          <div class="reveal">
+            <p class="eyebrow">Pour qui</p>
+            <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
+              Chercher à Nice ne veut pas dire la même chose pour tout le monde
+            </h2>
+          </div>
 
           <div class="mt-12 grid gap-6 sm:grid-cols-2">
-            <article
-              class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-background)] p-6"
-            >
+            <article class="card lift reveal rounded-3xl bg-background p-6 shadow-none">
               <h3 class="text-lg font-semibold">Vous travaillez toute la journée</h3>
-              <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-2 text-[0.95rem] text-muted-foreground">
                 Les annonces paraissent pendant vos réunions et partent avant votre pause. L’alerte
                 arrive sur votre téléphone avec le numéro déjà dedans : un appel de trente secondes
                 entre deux portes suffit à décrocher une visite.
@@ -348,11 +351,9 @@
               </p>
             </article>
 
-            <article
-              class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-background)] p-6"
-            >
+            <article class="card lift reveal rounded-3xl bg-background p-6 shadow-none">
               <h3 class="text-lg font-semibold">Vous arrivez d’une autre ville</h3>
-              <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-2 text-[0.95rem] text-muted-foreground">
                 Vous ne connaissez ni les quartiers, ni les prix, ni les agences. Chaque fiche situe
                 le bien sur la carte, le compare au loyer de référence publié par l’État, et dit
                 combien de temps il faut pour rejoindre l’adresse qui compte pour vous.
@@ -362,11 +363,9 @@
               </p>
             </article>
 
-            <article
-              class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-background)] p-6"
-            >
+            <article class="card lift reveal rounded-3xl bg-background p-6 shadow-none">
               <h3 class="text-lg font-semibold">Vous êtes étudiant</h3>
-              <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-2 text-[0.95rem] text-muted-foreground">
                 Les baux de neuf mois et les logements réservés aux étudiants sont signalés comme
                 tels — pas noyés dans la liste. Votre dossier, garanties Visale comprises, se
                 remplit une fois et vous suit d’un appareil à l’autre.
@@ -376,11 +375,9 @@
               </p>
             </article>
 
-            <article
-              class="rounded-3xl border border-[var(--color-border)] bg-[var(--color-background)] p-6"
-            >
+            <article class="card lift reveal rounded-3xl bg-background p-6 shadow-none">
               <h3 class="text-lg font-semibold">Votre dossier sort du cadre</h3>
-              <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-2 text-[0.95rem] text-muted-foreground">
                 CDD, freelance, période d’essai : la moitié des refus tombe avant même la visite. Le
                 message de candidature dit d’emblée vos revenus et vos garanties, dans la forme
                 qu’attend un bailleur — et vous ne le retapez jamais.
@@ -395,38 +392,38 @@
 
       <!-- ═══ CE QUE ÇA NE FAIT PAS — LA CONFIANCE ════════════════════════ -->
       <section class="mx-auto max-w-6xl px-5 py-20">
-        <p class="text-[0.82rem] font-semibold tracking-wide text-[var(--color-primary)] uppercase">
-          Ce que Maïoun ne fait pas
-        </p>
-        <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-          Ces limites sont des choix, pas des fonctionnalités manquantes
-        </h2>
+        <div class="reveal">
+          <p class="eyebrow">Ce que Maïoun ne fait pas</p>
+          <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
+            Ces limites sont des choix, pas des fonctionnalités manquantes
+          </h2>
+        </div>
 
         <div class="mt-10 grid gap-5 sm:grid-cols-2">
-          <div class="rounded-2xl border border-[var(--color-border)] p-5">
+          <div class="card lift reveal p-5">
             <p class="font-semibold">Rien n’est envoyé à votre place</p>
-            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
               Le message est préparé, jamais expédié sans votre geste. Un envoi automatique se
               repère et se filtre — et c’est vous qu’on filtrerait.
             </p>
           </div>
-          <div class="rounded-2xl border border-[var(--color-border)] p-5">
+          <div class="card lift reveal p-5">
             <p class="font-semibold">Aucune protection n’est contournée</p>
-            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
               Les sites qui refusent la collecte automatique ne sont pas collectés. Pour ceux-là,
               vos alertes e-mail font le lien.
             </p>
           </div>
-          <div class="rounded-2xl border border-[var(--color-border)] p-5">
+          <div class="card lift reveal p-5">
             <p class="font-semibold">Vos données ne sont pas revendues</p>
-            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
               Ni régie, ni traceur, ni revente. Profil, pièces et historique restent dans votre
               espace et ne servent qu’à vous.
             </p>
           </div>
-          <div class="rounded-2xl border border-[var(--color-border)] p-5">
+          <div class="card lift reveal p-5">
             <p class="font-semibold">Aucune annonce n’est inventée</p>
-            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
               Une information absente de la source est affichée comme absente. Une estimation est
               annoncée comme telle.
             </p>
@@ -439,80 +436,80 @@
       <!-- TEMOIGNAGES -->
 
       <!-- ═══ TARIF ═══════════════════════════════════════════════════════ -->
-      <section id="tarif" class="border-y border-[var(--color-border)] bg-[var(--color-card)]">
+      <section id="tarif" class="border-y border-border bg-card">
         <div class="mx-auto max-w-6xl px-5 py-20">
-          <p
-            class="text-[0.82rem] font-semibold tracking-wide text-[var(--color-primary)] uppercase"
-          >
-            Tarif
-          </p>
-          <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Chercher ne coûte rien</h2>
+          <div class="reveal">
+            <p class="eyebrow">Tarif</p>
+            <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              Chercher ne coûte rien
+            </h2>
+          </div>
 
-          <!-- CETTE SECTION ANNONÇAIT « 50 € PAR MOIS ». C'était vrai du modèle
-            d'alors ; ça ne l'est plus. Consulter est libre, le compte est
-            gratuit, et la seule chose destinée à être payée — candidater à votre
-            place — n'est pas construite.
-
-            ON N'ÉCRIT DONC AUCUN PRIX. En afficher un pour ce qui n'existe pas
-            serait une promesse ; en afficher un pour ce qui est gratuit serait
-            un mensonge (§17). Le montant s'écrira ici, à un seul endroit, le
-            jour où il sera arrêté. -->
+          <!-- AUCUN PRIX N'EST ÉCRIT. Consulter est libre, le compte est
+            gratuit, et la seule chose destinée à être payée — candidater à
+            votre place — n'est pas construite. Afficher un prix pour ce qui
+            n'existe pas serait une promesse ; pour ce qui est gratuit, un
+            mensonge. Le montant s'écrira ici le jour où il sera arrêté. -->
           <div class="mt-10 grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <div
-              class="rounded-3xl border-2 border-[var(--color-primary)] bg-[var(--color-background)] p-7"
-            >
+            <div class="card reveal rounded-3xl border-2 border-primary bg-background p-7">
               <p class="text-[0.82rem] font-semibold tracking-wide uppercase">Aujourd’hui</p>
               <p class="mt-3 flex items-baseline gap-2">
                 <span class="text-5xl font-bold tracking-tight">Gratuit</span>
               </p>
-              <p class="mt-2 text-[0.92rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-2 text-[0.92rem] text-muted-foreground">
                 Consulter n’exige aucun compte. Un compte, gratuit lui aussi, sert à ce qui vous
                 appartient : vos favoris, votre dossier, vos alertes.
               </p>
 
               <ul class="mt-6 flex flex-col gap-2.5 text-[0.95rem]">
                 <li class="flex gap-2.5">
-                  <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+                  <span aria-hidden="true" class="text-primary">✓</span>
                   <span>57 sources relevées en continu</span>
                 </li>
                 <li class="flex gap-2.5">
-                  <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+                  <span aria-hidden="true" class="text-primary">✓</span>
                   <span>Doublons écartés, prix divergents signalés</span>
                 </li>
                 <li class="flex gap-2.5">
-                  <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+                  <span aria-hidden="true" class="text-primary">✓</span>
                   <span>Alertes sur votre téléphone, application fermée</span>
                 </li>
                 <li class="flex gap-2.5">
-                  <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+                  <span aria-hidden="true" class="text-primary">✓</span>
                   <span>Dossier de candidature hébergé, accessible partout</span>
                 </li>
                 <li class="flex gap-2.5">
-                  <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+                  <span aria-hidden="true" class="text-primary">✓</span>
                   <span>Suivi des contacts et recherches enregistrées</span>
                 </li>
               </ul>
 
-              <a
-                href="app/"
-                class="mt-7 inline-block w-full rounded-full bg-[var(--color-primary)] px-6 py-3.5 text-center font-semibold text-[var(--color-primary-foreground)]"
-                >Commencer</a
-              >
+              <a href="app/" class="btn btn-default btn-lg mt-7 w-full">
+                Commencer
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="arrow size-4.5"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </a>
             </div>
 
-            <div
-              class="rounded-3xl border border-dashed border-[var(--color-border)] bg-[var(--color-background)] p-7"
-            >
+            <div class="card reveal rounded-3xl border-dashed bg-background p-7 shadow-none">
               <p class="text-[0.82rem] font-semibold tracking-wide uppercase">Plus tard</p>
               <p class="mt-3 text-3xl font-bold tracking-tight">Candidater à votre place</p>
-              <p class="mt-2 text-[0.92rem] text-[var(--color-muted-foreground)]">
+              <p class="mt-2 text-[0.92rem] text-muted-foreground">
                 Le message part seul dès la parution, avec vos pièces jointes et sous vos propres
                 garde-fous — seuils, quotas, interrupteur.
               </p>
-              <p class="mt-5 text-[0.92rem] text-[var(--color-muted-foreground)]">
-                <strong class="text-[var(--color-foreground)]"
-                  >Cette option n’existe pas encore.</strong
-                >
+              <p class="mt-5 text-[0.92rem] text-muted-foreground">
+                <strong class="text-foreground">Cette option n’existe pas encore.</strong>
                 Rien n’est encaissé, aucun prix n’est fixé, et aucun moyen de paiement n’est
                 branché. Le montant s’écrira ici le jour où il sera arrêté.
               </p>
@@ -523,12 +520,12 @@
 
       <!-- ═══ QUESTIONS ═══════════════════════════════════════════════════ -->
       <section class="mx-auto max-w-3xl px-5 py-20">
-        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">Questions</h2>
+        <h2 class="reveal text-2xl font-bold tracking-tight sm:text-3xl">Questions</h2>
 
         <div class="mt-8 flex flex-col gap-3">
-          <details class="rounded-2xl border border-[var(--color-border)] p-5">
-            <summary class="cursor-pointer font-semibold">Faut-il créer un compte ?</summary>
-            <p class="mt-3 text-[0.95rem] text-[var(--color-muted-foreground)]">
+          <details class="accordion reveal">
+            <summary>Faut-il créer un compte ?</summary>
+            <p class="text-[0.95rem] text-muted-foreground">
               Pas pour consulter : la liste, la carte, les scores et les statistiques s’ouvrent
               directement. Un compte gratuit devient nécessaire pour garder un favori, déposer votre
               dossier ou recevoir des alertes — ces choses-là appartiennent à quelqu’un, il faut
@@ -536,11 +533,9 @@
             </p>
           </details>
 
-          <details class="rounded-2xl border border-[var(--color-border)] p-5">
-            <summary class="cursor-pointer font-semibold">
-              Pourquoi Leboncoin et SeLoger n’y sont-ils pas directement ?
-            </summary>
-            <p class="mt-3 text-[0.95rem] text-[var(--color-muted-foreground)]">
+          <details class="accordion reveal">
+            <summary>Pourquoi Leboncoin et SeLoger n’y sont-ils pas directement ?</summary>
+            <p class="text-[0.95rem] text-muted-foreground">
               Parce qu’ils interdisent explicitement la collecte automatique, et que nous ne
               contournons rien. La voie conforme existe : faites suivre leurs alertes e-mail à
               l’adresse que le service vous donne, et leurs annonces rejoignent les autres — sans
@@ -548,30 +543,26 @@
             </p>
           </details>
 
-          <details class="rounded-2xl border border-[var(--color-border)] p-5">
-            <summary class="cursor-pointer font-semibold">Les annonces sont-elles à jour ?</summary>
-            <p class="mt-3 text-[0.95rem] text-[var(--color-muted-foreground)]">
+          <details class="accordion reveal">
+            <summary>Les annonces sont-elles à jour ?</summary>
+            <p class="text-[0.95rem] text-muted-foreground">
               Chaque source est relevée à son propre rythme, plus souvent quand elle produit. Une
               annonce qui disparaît de sa source est marquée comme telle plutôt que supprimée en
               silence, et l’état de santé de chaque source est consultable dans l’application.
             </p>
           </details>
 
-          <details class="rounded-2xl border border-[var(--color-border)] p-5">
-            <summary class="cursor-pointer font-semibold">
-              Que devient mon dossier si je pars ?
-            </summary>
-            <p class="mt-3 text-[0.95rem] text-[var(--color-muted-foreground)]">
+          <details class="accordion reveal">
+            <summary>Que devient mon dossier si je pars ?</summary>
+            <p class="text-[0.95rem] text-muted-foreground">
               Supprimer votre compte efface tout d’un coup : profil, pièces, favoris, suivi. C’est
               immédiat et définitif, et cela se fait depuis les réglages, sans nous écrire.
             </p>
           </details>
 
-          <details class="rounded-2xl border border-[var(--color-border)] p-5">
-            <summary class="cursor-pointer font-semibold">
-              Est-ce vraiment gratuit, ou est-ce moi le produit ?
-            </summary>
-            <p class="mt-3 text-[0.95rem] text-[var(--color-muted-foreground)]">
+          <details class="accordion reveal">
+            <summary>Est-ce vraiment gratuit, ou est-ce moi le produit ?</summary>
+            <p class="text-[0.95rem] text-muted-foreground">
               Ni publicité, ni traceur, ni revente de données. Le service tient aujourd’hui dans les
               paliers gratuits de ses hébergeurs, ce qui suffit à son échelle. Ce qui sera payant un
               jour est nommé plus haut, et c’est la seule chose qui le sera.
@@ -581,32 +572,40 @@
       </section>
 
       <!-- ═══ APPEL FINAL ═════════════════════════════════════════════════ -->
-      <section class="border-t border-[var(--color-border)]">
-        <div class="mx-auto max-w-6xl px-5 py-20 text-center">
+      <section class="border-t border-border">
+        <div class="reveal mx-auto max-w-6xl px-5 py-20 text-center">
           <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">
             Le prochain bon appartement paraîtra dans quelques heures.
           </h2>
-          <p class="mx-auto mt-4 max-w-xl text-[var(--color-muted-foreground)]">
+          <p class="mx-auto mt-4 max-w-xl text-muted-foreground">
             Autant être le premier au courant.
           </p>
-          <a
-            href="app/"
-            class="mt-9 inline-block rounded-full bg-[var(--color-primary)] px-9 py-4 font-semibold text-[var(--color-primary-foreground)] shadow-lg shadow-[color-mix(in_srgb,var(--color-primary)_35%,transparent)] transition-transform hover:scale-[1.03]"
-            >Ouvrir Maïoun</a
-          >
-          <p class="mt-4 text-[0.88rem] text-[var(--color-muted-foreground)]">
-            Sans inscription pour consulter.
-          </p>
+          <a href="app/" class="btn btn-default btn-lg btn-glow mt-9 px-9">
+            Ouvrir Maïoun
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="arrow size-4.5"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </a>
+          <p class="mt-4 text-[0.88rem] text-muted-foreground">Sans inscription pour consulter.</p>
         </div>
       </section>
     </main>
 
-    <footer class="border-t border-[var(--color-border)] bg-[var(--color-card)]">
+    <footer class="border-t border-border bg-card">
       <div class="mx-auto max-w-6xl px-5 py-12">
         <div class="flex flex-wrap items-start justify-between gap-8">
           <div class="max-w-sm">
             <span class="text-lg font-bold tracking-tight">Maïoun</span>
-            <p class="mt-2 text-[0.88rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-2 text-[0.88rem] text-muted-foreground">
               Annonces de location, région de Nice. Les annonces appartiennent à leurs auteurs et
               renvoient toujours à leur source.
             </p>
@@ -614,29 +613,24 @@
 
           <nav aria-label="Informations légales" class="text-[0.9rem]">
             <p class="font-semibold">Informations</p>
-            <ul class="mt-2.5 flex flex-col gap-1.5 text-[var(--color-muted-foreground)]">
-              <li><a href="mentions-legales.html" class="hover:underline">Mentions légales</a></li>
+            <ul class="mt-2.5 flex flex-col gap-1.5 text-muted-foreground">
+              <li><a href="mentions-legales.html" class="nav-link">Mentions légales</a></li>
               <li>
-                <a href="confidentialite.html" class="hover:underline"
-                  >Politique de confidentialité</a
-                >
+                <a href="confidentialite.html" class="nav-link">Politique de confidentialité</a>
               </li>
-              <li>
-                <a href="conditions.html" class="hover:underline">Conditions d’utilisation</a>
-              </li>
+              <li><a href="conditions.html" class="nav-link">Conditions d’utilisation</a></li>
             </ul>
           </nav>
 
-          <!-- LE CODE A SA PROPRE COLONNE. Il était le dernier lien de la liste
-            légale, entre les conditions et rien : on ne l'y trouvait pas.
-            « Consultable » et non « libre » : le dépôt est public, mais tous
-            droits réservés — voir LICENSE. -->
+          <!-- LE CODE A SA PROPRE COLONNE : en fin de liste légale, on ne l'y
+            trouvait pas. « Consultable » et non « libre » : le dépôt est
+            public, mais tous droits réservés — voir LICENSE. -->
           <div class="text-[0.9rem]">
             <p class="font-semibold">Le projet</p>
             <a
               href="%REPO_URL%"
               rel="noreferrer noopener"
-              class="mt-2.5 inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 hover:bg-[var(--color-background)]"
+              class="btn btn-outline btn-sm mt-2.5 rounded-lg"
             >
               <svg
                 aria-hidden="true"
@@ -650,15 +644,13 @@
               </svg>
               Code source sur GitHub
             </a>
-            <p class="mt-2 max-w-[16rem] text-[0.8rem] text-[var(--color-muted-foreground)]">
+            <p class="mt-2 max-w-[16rem] text-[0.8rem] text-muted-foreground">
               Consultable par tous. Tous droits réservés.
             </p>
           </div>
         </div>
 
-        <p
-          class="mt-10 border-t border-[var(--color-border)] pt-6 text-[0.82rem] text-[var(--color-muted-foreground)]"
-        >
+        <p class="mt-10 border-t border-border pt-6 text-[0.82rem] text-muted-foreground">
           Maïoun est un agrégateur : il n’est ni agent immobilier, ni intermédiaire, et ne perçoit
           aucune commission sur une location. Repère de loyer d’après la Carte des loyers 2025
           (DHUP/ANIL), publiée sur data.gouv.fr.
