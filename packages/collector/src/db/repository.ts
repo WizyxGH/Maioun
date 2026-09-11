@@ -35,6 +35,28 @@ import type { TransitCacheStore } from '../core/transit.js';
 /** Instruction SQL prête pour `db.batch`. */
 type Statement = { sql: string; args: InValue[] };
 
+/**
+ * Écrit par TRANCHES, dans l'ordre.
+ *
+ * UN LOT UNIQUE A FAIT TOMBER LA COLLECTE ENTIÈRE, deux fois le 2026-09-11.
+ * Depuis que les fiches gardent leur description complète et toutes leurs
+ * photos, une fiche pèse 5,8 Ko en moyenne, jusqu'à 17 ; un passage qui en
+ * réécrit un millier envoyait plusieurs mégaoctets en une requête, que la base
+ * coupe — « fetch failed », sans pile, et le processus s'arrête. Le premier
+ * passage complet d'une grosse source en production aurait fait de même.
+ *
+ * Cent instructions par requête : quelques centaines de kilo-octets. On perd
+ * l'atomicité du tout, pas celle de chaque tranche — et chaque ligne est
+ * indépendante : une tranche manquée est réécrite au passage suivant.
+ */
+const BATCH_SLICE = 100;
+
+async function batchInSlices(db: Database, statements: readonly Statement[]): Promise<void> {
+  for (let start = 0; start < statements.length; start += BATCH_SLICE) {
+    await db.batch([...statements.slice(start, start + BATCH_SLICE)], 'write');
+  }
+}
+
 /** État antérieur minimal d'une occurrence, pour la détection de changement. */
 interface PreviousOccurrence {
   readonly hash: string;
@@ -1007,7 +1029,7 @@ export function createRepository(db: Database): Repository {
         });
       }
 
-      if (inserts.length > 0) await db.batch(inserts, 'write');
+      await batchInSlices(db, inserts);
 
       return { inserted, updated, unchanged: touches.length };
     },
@@ -1103,7 +1125,7 @@ export function createRepository(db: Database): Repository {
           listing.id,
         ],
       }));
-      await db.batch(statements, 'write');
+      await batchInSlices(db, statements);
       return statements.length;
     },
 
@@ -1235,7 +1257,7 @@ export function createRepository(db: Database): Repository {
         });
       }
 
-      if (statements.length > 0) await db.batch(statements, 'write');
+      await batchInSlices(db, statements);
 
       // La fiche survivante hérite des décisions portées par celles qu'elle
       // absorbe, AVANT la purge : sans quoi soit on efface un « contactée »,
@@ -1371,7 +1393,7 @@ export function createRepository(db: Database): Repository {
         });
       }
 
-      if (statements.length > 0) await db.batch(statements, 'write');
+      await batchInSlices(db, statements);
       return statements.length;
     },
 
