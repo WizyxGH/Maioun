@@ -84,6 +84,53 @@ export function jaccard(a: readonly string[], b: readonly string[]): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+/** Même surface, ou l'une est l'entier de l'autre (« 22 m² » d'un digest, « 22,81 m² »). */
+function sameArea(a: number, b: number): boolean {
+  if (sameToTheCentimetre(a, b)) return true;
+  const wholeOf = (whole: number, precise: number): boolean =>
+    !hasDecimals(whole) &&
+    (Math.floor(precise + 0.005) === Math.round(whole) ||
+      Math.round(precise) === Math.round(whole));
+  return wholeOf(a, b) || wholeOf(b, a);
+}
+
+/**
+ * AU SEIN D'UNE SOURCE, LE MÊME BIEN PORTE LES MÊMES CHIFFRES.
+ *
+ * Les tolérances servent à absorber les écarts ENTRE maisons (charges
+ * incluses ou non, arrondis). Une source qui publie deux fois le même bien le
+ * tient d'un seul système : même loyer, même surface. Deux studios BEP à
+ * 800 €, de 20 et 19 m², l'un à Bellet et l'autre à la Bornala, fusionnaient
+ * pourtant — et l'un des deux disparaissait.
+ *
+ * Exception : un portail qui relaie, quand deux agences connues et
+ * différentes co-publient le même bien avec leurs propres chiffres.
+ */
+export function sameSourceConflict(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  relaysListings: (sourceId: string) => boolean = () => false,
+): string | null {
+  if (a.sourceId !== b.sourceId || a.id === b.id) return null;
+  const agencyA = a.contact.agencyName;
+  const agencyB = b.contact.agencyName;
+  if (
+    relaysListings(a.sourceId) &&
+    agencyA !== null &&
+    agencyB !== null &&
+    comparable(agencyA) !== comparable(agencyB)
+  ) {
+    return null;
+  }
+  if (a.price !== null && b.price !== null && Math.abs(a.price - b.price) > 0.5) {
+    return `même source, loyers différents (${a.price} € / ${b.price} €)`;
+  }
+  if (a.area !== null && b.area !== null && !sameArea(a.area, b.area)) {
+    return `même source, surfaces différentes (${a.area} m² / ${b.area} m²)`;
+  }
+  return null;
+}
+
 /**
  * Recherche un désaccord rédhibitoire.
  * @returns la raison du blocage, ou `null` si rien n'interdit la fusion.
@@ -397,7 +444,7 @@ export function similarity(
     };
   }
 
-  const blocker = findBlocker(a, b);
+  const blocker = findBlocker(a, b) ?? sameSourceConflict(a, b, relaysListings);
   if (blocker !== null) {
     return { score: 0, verdict: 'distinct', signals: [], blocker };
   }

@@ -11,7 +11,7 @@
 
 import type { NormalizedListing } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
-import { similarity, type SimilarityResult } from './similarity.js';
+import { sameSourceConflict, similarity, type SimilarityResult } from './similarity.js';
 
 /** Groupe d'occurrences désignant le même logement. */
 export interface DuplicateGroup {
@@ -143,19 +143,26 @@ export interface DedupeResult {
   readonly comparisonCount: number;
 }
 
+/** Une paire jugée assez proche pour fusionner, en attente d'union. */
+interface MergeLink {
+  readonly leftId: string;
+  readonly rightId: string;
+  readonly score: number;
+}
+
 /** État mutable partagé par les comparaisons de paires d'un run de dédoublonnage. */
 interface CompareContext {
   readonly byId: ReadonlyMap<string, NormalizedListing>;
-  readonly unionFind: UnionFind;
   readonly comparedPairs: Set<string>;
-  readonly ambiguousByRoot: Map<string, AmbiguousPair[]>;
+  readonly links: MergeLink[];
+  readonly ambiguous: AmbiguousPair[];
   readonly mergeAmbiguous: boolean;
   readonly relaysListings: (sourceId: string) => boolean;
   readonly operatorOf: (sourceId: string) => string | null;
 }
 
 /**
- * Compare une paire d'occurrences d'un même bucket et met à jour l'union-find.
+ * Compare une paire d'occurrences d'un même bucket et consigne le verdict.
  * @returns `1` si une comparaison fine a eu lieu, `0` sinon (paire déjà vue ou
  *          identifiant introuvable).
  */
@@ -170,12 +177,9 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
 
   const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf);
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
-    ctx.unionFind.union(leftId, rightId);
+    ctx.links.push({ leftId, rightId, score: result.score });
   } else if (result.verdict === 'ambiguous') {
-    const root = ctx.unionFind.find(leftId);
-    const pending = ctx.ambiguousByRoot.get(root) ?? [];
-    pending.push({ leftId, rightId, result });
-    ctx.ambiguousByRoot.set(root, pending);
+    ctx.ambiguous.push({ leftId, rightId, result });
   }
   return 1;
 }
@@ -193,6 +197,35 @@ function comparePairsInBucket(bucket: readonly string[], ctx: CompareContext): n
     }
   }
   return count;
+}
+
+/**
+ * Réunit les paires retenues, les plus sûres d'abord.
+ *
+ * LA TRANSITIVITÉ SE SURVEILLE AU NIVEAU DU GROUPE. Deux paires justes
+ * chacune — A ~ X, X ~ B — peuvent réunir A et B, deux biens qu'aucune
+ * comparaison directe n'aurait rapprochés. Une union est donc refusée si elle
+ * mettait dans un même groupe deux occurrences d'une même source que
+ * `sameSourceConflict` sépare. Les liens forts passent en premier : c'est le
+ * plus faible qui cède.
+ */
+function joinGroups(ctx: CompareContext, unionFind: UnionFind): void {
+  const members = new Map<string, NormalizedListing[]>();
+  for (const [id, listing] of ctx.byId) members.set(id, [listing]);
+
+  for (const link of [...ctx.links].sort((x, y) => y.score - x.score)) {
+    const rootA = unionFind.find(link.leftId);
+    const rootB = unionFind.find(link.rightId);
+    if (rootA === rootB) continue;
+    const left = members.get(rootA) ?? [];
+    const right = members.get(rootB) ?? [];
+    const conflict = left.some((x) =>
+      right.some((y) => sameSourceConflict(x, y, ctx.relaysListings) !== null),
+    );
+    if (conflict) continue;
+    unionFind.union(link.leftId, link.rightId);
+    members.set(unionFind.find(link.leftId), [...left, ...right]);
+  }
 }
 
 /** Regroupe un lot d'occurrences en logements uniques. */
@@ -216,9 +249,9 @@ export function dedupe(
 
   const ctx: CompareContext = {
     byId,
-    unionFind,
     comparedPairs: new Set<string>(),
-    ambiguousByRoot: new Map<string, AmbiguousPair[]>(),
+    links: [],
+    ambiguous: [],
     mergeAmbiguous: options.mergeAmbiguous ?? false,
     relaysListings: options.relaysListings ?? ((): boolean => false),
     operatorOf: options.operatorOf ?? ((): string | null => null),
@@ -231,7 +264,13 @@ export function dedupe(
       comparisonCount += comparePairsInBucket(bucket, ctx);
     }
   }
-  const ambiguousByRoot = ctx.ambiguousByRoot;
+  joinGroups(ctx, unionFind);
+
+  const ambiguousByRoot = new Map<string, AmbiguousPair[]>();
+  for (const pair of ctx.ambiguous) {
+    const root = unionFind.find(pair.leftId);
+    ambiguousByRoot.set(root, [...(ambiguousByRoot.get(root) ?? []), pair]);
+  }
 
   // Matérialisation des groupes.
   const grouped = new Map<string, NormalizedListing[]>();
