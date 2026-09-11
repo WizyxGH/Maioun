@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import { fetchPlan, startCheckout, type PlanView } from '../api/client.js';
 import { Button } from './ui/button.js';
+import { Alert, AlertDescription } from './ui/alert.js';
 
 /** Ce que chaque marche donne. La liste est la promesse : elle doit être vraie. */
 const MARCHES: readonly { readonly titre: string; readonly lignes: readonly string[] }[] = [
@@ -151,9 +152,11 @@ export function PlanPanel({ onBack }: { readonly onBack: () => void }): React.JS
         </Button>
       )}
       {echec && (
-        <p className="text-destructive mt-2 text-sm">
-          La page de paiement n’a pas pu s’ouvrir. Réessayez plus tard.
-        </p>
+        <Alert variant="destructive" className="mt-2">
+          <AlertDescription>
+            La page de paiement n’a pas pu s’ouvrir. Réessayez plus tard.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

@@ -23,6 +23,7 @@ import {
 } from '@maioun/shared';
 import { Card } from '@/components/ui/card.js';
 import { ShieldCheck, TriangleAlert } from './icons.js';
+import { Alert, AlertDescription } from './ui/alert.js';
 
 export function RequirementsPanel({
   listing,
@@ -43,7 +44,7 @@ export function RequirementsPanel({
     <Card className="my-4" aria-labelledby="conditions-title" role="region">
       <h3 id="conditions-title" className="mb-2.5 flex items-center gap-2 text-base font-semibold">
         {bloque ? (
-          <TriangleAlert aria-hidden="true" className="text-warning size-4.5" />
+          <TriangleAlert aria-hidden="true" className="text-medium size-4.5" />
         ) : (
           <ShieldCheck aria-hidden="true" className="text-muted-foreground size-4.5" />
         )}
@@ -87,11 +88,13 @@ export function RequirementsPanel({
       )}
 
       {bloque && reason !== null && (
-        <p className="text-warning mt-3 text-[0.9rem]">
-          Votre profil ne remplit pas cette condition : {reason}. Cela n’empêche pas de candidater —
-          le bailleur peut faire une exception, et une candidature qu’on n’envoie pas est perdue à
-          coup sûr.
-        </p>
+        <Alert variant="warning" className="mt-3">
+          <AlertDescription>
+            Votre profil ne remplit pas cette condition : {reason}. Cela n’empêche pas de candidater
+            — le bailleur peut faire une exception, et une candidature qu’on n’envoie pas est perdue
+            à coup sûr.
+          </AlertDescription>
+        </Alert>
       )}
 
       {verdict === 'unknown' && profile === null && (

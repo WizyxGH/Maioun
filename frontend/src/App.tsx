@@ -91,6 +91,7 @@ import type { View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 /**
  * LES ÉCRANS SECONDAIRES NE PARTENT PLUS AVEC LA PREMIÈRE PAGE. Ils étaient
@@ -2153,13 +2154,12 @@ function AppView(): React.JSX.Element {
       onBottomSelect={selectBottomTab}
     >
       {isDemoMode() && (
-        <p
-          className="my-2 rounded-xl border border-border bg-primary/10 px-3 py-2 text-[0.85rem]"
-          role="status"
-        >
-          Mode démonstration — données fictives. Définissez <code>VITE_API_URL</code> pour vous
-          connecter à vos données.
-        </p>
+        <Alert className="my-2">
+          <AlertDescription>
+            Mode démonstration — données fictives. Définissez <code>VITE_API_URL</code> pour vous
+            connecter à vos données.
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* FAVORIS : rien que les cartes. Chercher, trier ou filtrer une liste
@@ -2328,9 +2328,9 @@ function AppView(): React.JSX.Element {
       )}
 
       {error !== null && (
-        <p className="rounded-xl border border-bad px-3 py-2 text-bad" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <SearchResults

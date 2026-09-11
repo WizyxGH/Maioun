@@ -38,6 +38,7 @@ import { readOptIn, requestNotificationPermission, writeOptIn } from '../notific
 import { Button } from '@/components/ui/button.js';
 import { Switch } from '@/components/ui/switch.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 interface KindInfo {
   readonly key: NotificationKind;
@@ -234,12 +235,9 @@ export function NotificationSettingsPanel({
       <h1 className="mb-4 text-xl font-bold">Notifications</h1>
 
       {error !== null && (
-        <p
-          className="border-border mt-3 rounded-xl border px-3 py-2 text-[0.88rem] text-muted-foreground"
-          role="alert"
-        >
-          {error}
-        </p>
+        <Alert variant="warning" className="mt-3">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* « NOUVELLES ANNONCES » EST L'INTERRUPTEUR PRINCIPAL.

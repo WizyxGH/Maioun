@@ -41,6 +41,7 @@ import {
   type DossierSlot,
 } from '../dossier.js';
 import type { TenantProfile } from '@maioun/shared';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -454,12 +455,9 @@ export function DocumentsSection({
       </p>
 
       {error !== null && (
-        <p
-          className="mt-3 rounded-xl border border-bad px-3 py-2 text-[0.88rem] text-bad"
-          role="alert"
-        >
-          {error}
-        </p>
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <SettingsGroup title="Vos pièces" count={`${done(tenant)}/${tenant.length}`}>

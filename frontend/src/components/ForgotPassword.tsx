@@ -21,6 +21,7 @@ import { requestPasswordReset } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 export function ForgotPassword({ onBack }: { readonly onBack: () => void }): React.JSX.Element {
   const [identifiant, setIdentifiant] = useState('');
@@ -78,15 +79,19 @@ export function ForgotPassword({ onBack }: { readonly onBack: () => void }): Rea
             </label>
 
             {state === 'unconfigured' && (
-              <p role="alert" className="border-border rounded-lg border px-3 py-2 text-sm">
-                L’envoi d’e-mails n’est pas configuré sur cette installation : aucun lien ne peut
-                partir. Demandez à l’administrateur de réinitialiser votre mot de passe.
-              </p>
+              <Alert variant="warning">
+                <AlertDescription>
+                  L’envoi d’e-mails n’est pas configuré sur cette installation : aucun lien ne peut
+                  partir. Demandez à l’administrateur de réinitialiser votre mot de passe.
+                </AlertDescription>
+              </Alert>
             )}
             {state === 'error' && (
-              <p role="alert" className="text-bad text-sm">
-                La demande n’a pas abouti. Réessayez dans un instant.
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>
+                  La demande n’a pas abouti. Réessayez dans un instant.
+                </AlertDescription>
+              </Alert>
             )}
 
             <Button type="submit" disabled={state === 'busy' || identifiant.trim() === ''}>

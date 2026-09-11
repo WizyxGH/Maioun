@@ -257,7 +257,7 @@ export function ProfileForm({
         {/* Une date déjà écoulée : on le dit, plutôt que de la laisser partir
             dans un message. Le bouton fait le geste dont il est question. */}
         {isPastMoveIn(profile.moveInDate) && (
-          <p className="text-warning sm:col-span-2 -mt-2 text-[0.82rem]">
+          <p className="text-medium sm:col-span-2 -mt-2 text-[0.82rem]">
             Cette date est passée : vos messages annonceront une disponibilité immédiate.{' '}
             <button
               type="button"

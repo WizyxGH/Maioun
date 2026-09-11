@@ -50,6 +50,7 @@ import { PanelSkeleton } from './Skeletons.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
 import { PillButton } from './QuickFilters.js';
 import { Input } from '@/components/ui/input.js';
+import { Alert, AlertDescription } from '@/components/ui/alert.js';
 
 /**
  * La largeur, et rien d'autre : bordure, fond, hauteur et anneau de focus
@@ -430,9 +431,9 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
         rien à lire. L'ÉCHEC, LUI, RESTE DIT : c'est la seule chose que
         l'utilisateur ne peut pas deviner en regardant l'écran. */}
       {status === 'error' && (
-        <p role="status" className="text-bad mt-2 text-[0.82rem]">
-          Échec de l’enregistrement.
-        </p>
+        <Alert variant="destructive" className="mt-2">
+          <AlertDescription>Échec de l’enregistrement.</AlertDescription>
+        </Alert>
       )}
     </section>
   );
