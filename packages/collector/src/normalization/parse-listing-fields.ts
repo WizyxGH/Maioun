@@ -1178,6 +1178,19 @@ const NEAR_BUT_NOT_IN =
   /(?:proche|proximite|pres|pied|deux pas|face|limitrophe|vers|entre|acces|direction)(?: de| du| des| d| a)?$/;
 
 /**
+ * Les derniers mots avant un nom de quartier l'éloignent-ils du bien ?
+ * « vers LE QUARTIER Magnan » : le mot s'intercale entre la tournure et le nom.
+ */
+function pointsElsewhere(before: string): boolean {
+  const tail = comparable(before)
+    .slice(-30)
+    .trimEnd()
+    .replace(/(?: le| la| du| au| des)? (?:quartier|secteur)(?: de| du| des| d)?$/, '')
+    .replace(/(?: la| le| l)$/, '');
+  return NEAR_BUT_NOT_IN.test(tail);
+}
+
+/**
  * Le quartier niçois nommé dans un texte, s'il en est un de connu.
  *
  * La comparaison se fait en forme `comparable` — minuscules, sans accent ni
@@ -1192,8 +1205,7 @@ function knownNiceDistrict(text: string): string | null {
     if (found === null) continue;
     // Ce qui précède décide : « à la Madeleine » situe, « proche de la
     // Madeleine » éloigne. On regarde les quelques mots d'avant.
-    const before = haystack.slice(Math.max(0, found.index - 30), found.index).trimEnd();
-    if (NEAR_BUT_NOT_IN.test(before.replace(/(?: la| le| l)$/, ''))) continue;
+    if (pointsElsewhere(haystack.slice(0, found.index))) continue;
     return district;
   }
   return null;
@@ -1225,8 +1237,16 @@ export function parseDistrictOf(
 export function parseDistrict(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
-  const name = NAMED_DISTRICT.exec(cleaned)?.[1];
-  if (name !== undefined && !NOT_A_DISTRICT.test(comparable(name))) return name;
+  const named = NAMED_DISTRICT.exec(cleaned);
+  const name = named?.[1];
+  if (
+    named !== null &&
+    name !== undefined &&
+    !NOT_A_DISTRICT.test(comparable(name)) &&
+    !pointsElsewhere(cleaned.slice(0, named.index))
+  ) {
+    return name;
+  }
   return knownNiceDistrict(cleaned);
 }
 
