@@ -1,5 +1,5 @@
 /**
- * Le diagnostic de performance énergétique, cherché à l'adresse (§6, §20).
+ * Le diagnostic de performance énergétique, cherché à l'adresse.
  *
  * IL EST OBLIGATOIRE DANS UNE ANNONCE DE LOCATION DEPUIS 2021, et la moitié
  * des sources ne le publie pas : sur 2 708 occurrences actives le 2026-09-10,
@@ -16,10 +16,10 @@
  * et donc des dizaines de diagnostics : l'adresse seule ne désigne personne.
  * C'est la SURFACE qui tranche — deux logements de la même adresse à moins d'un
  * mètre carré près sont rarissimes. Sans surface, ou sans candidat unique, on
- * ne rend rien (§17) : une étiquette fausse vaut moins qu'une étiquette absente,
+ * ne rend rien : une étiquette fausse vaut moins qu'une étiquette absente,
  * puisqu'elle décide d'un filtre.
  *
- * ÉCONOMIE (§30) : une adresse ne déménage pas et un diagnostic vaut dix ans.
+ * ÉCONOMIE : une adresse ne déménage pas et un diagnostic vaut dix ans.
  * Chaque recherche est donc mise en cache, les échecs compris — sans quoi les
  * six cents annonces sans DPE rappelleraient l'ADEME à chaque collecte.
  */

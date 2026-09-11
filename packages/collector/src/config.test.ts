@@ -33,7 +33,7 @@ describe('déduction depuis GitHub Actions', () => {
     );
   });
 
-  it('annonce l’adresse du dépôt dans son identité (§10)', () => {
+  it('annonce l’adresse du dépôt dans son identité', () => {
     expect(collectorUserAgent(ACTIONS)).toBe('MaiounBot/0.1 (+https://github.com/WizyxGH/Maioun)');
   });
 });

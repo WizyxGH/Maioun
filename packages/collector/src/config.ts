@@ -356,8 +356,8 @@ export function publicSiteUrl(env: NodeJS.ProcessEnv = process.env): string | nu
 }
 
 /**
- * User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur
- * (§10). Il porte l'adresse du dépôt, où les sites trouvent qui les visite et
+ * User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur.
+ * Il porte l'adresse du dépôt, où les sites trouvent qui les visite et
  * comment le joindre ; déduite comme le reste, elle suit les renommages.
  */
 export function collectorUserAgent(env: NodeJS.ProcessEnv = process.env): string {

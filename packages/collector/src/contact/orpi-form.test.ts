@@ -3,7 +3,7 @@
  * portent surtout sur ce qu'il REFUSE d'envoyer, et sur ce qu'il ne coche pas.
  *
  * Le gabarit est relevé tel quel sur une page Orpi du 2026-09-10. Aucun accès
- * réseau (§59).
+ * réseau.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -133,7 +133,7 @@ describe('submitContactForm', () => {
 
   it('tient un 200 pour un ÉCHEC', async () => {
     // Un 200 signifie le plus souvent que la page est réaffichée AVEC ses
-    // erreurs de validation : annoncer un envoi serait mentir (§17).
+    // erreurs de validation : annoncer un envoi serait mentir.
     const fetchImpl = vi.fn(() => Promise.resolve({ status: 200 } as Response));
     const outcome = await submitContactForm(form, body, {
       fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -153,7 +153,7 @@ describe('submitContactForm', () => {
 
   it('annonce qui l’on est', async () => {
     // On s'identifie ici comme partout : c'est la première règle du projet
-    // envers les sources (§10).
+    // envers les sources.
     const vu: RequestInit[] = [];
     const fetchImpl = (_url: unknown, init?: RequestInit): Promise<Response> => {
       if (init !== undefined) vu.push(init);
