@@ -51,6 +51,7 @@ import { MultiSelect } from '@/components/ui/multi-select.js';
 import { PillButton } from './QuickFilters.js';
 import { Input } from '@/components/ui/input.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { Checkbox } from '@/components/ui/checkbox.js';
 
 /**
  * La largeur, et rien d'autre : bordure, fond, hauteur et anneau de focus
@@ -343,10 +344,9 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
                     Leboncoin, SeLoger et Bien’ici ne l’indiquent jamais.
                   </span>
                 </label>
-                <input
+                <Checkbox
                   id="includeUnknownDistrict"
-                  type="checkbox"
-                  className="mt-0.5 size-5 shrink-0"
+                  className="mt-0.5"
                   checked={filters.includeUnknownDistrict !== false}
                   onChange={(e) => set({ includeUnknownDistrict: e.target.checked })}
                 />
@@ -367,20 +367,16 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
         </div>
         <div className={ROW}>
           <label htmlFor="excludeFlatShare">Exclure les colocations</label>
-          <input
+          <Checkbox
             id="excludeFlatShare"
-            type="checkbox"
-            className="size-5"
             checked={filters.excludeFlatShare ?? false}
             onChange={(e) => set({ excludeFlatShare: e.target.checked })}
           />
         </div>
         <div className={ROW}>
           <label htmlFor="excludeStudent">Exclure les locations étudiantes</label>
-          <input
+          <Checkbox
             id="excludeStudent"
-            type="checkbox"
-            className="size-5"
             checked={filters.excludeStudent ?? false}
             onChange={(e) => set({ excludeStudent: e.target.checked })}
           />

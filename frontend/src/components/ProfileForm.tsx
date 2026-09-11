@@ -259,13 +259,15 @@ export function ProfileForm({
         {isPastMoveIn(profile.moveInDate) && (
           <p className="text-medium sm:col-span-2 -mt-2 text-[0.82rem]">
             Cette date est passée : vos messages annonceront une disponibilité immédiate.{' '}
-            <button
+            <Button
               type="button"
-              className="cursor-pointer underline"
+              variant="link"
+              size="inline"
+              className="inline font-normal text-inherit hover:text-inherit"
               onClick={() => update('moveInDate', MOVE_IN_ASAP)}
             >
               Passer à « dès que possible »
-            </button>
+            </Button>
           </p>
         )}
 

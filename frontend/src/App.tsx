@@ -92,6 +92,7 @@ import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { ToggleGroup } from '@/components/ui/toggle.js';
 
 /**
  * LES ÉCRANS SECONDAIRES NE PARTENT PLUS AVEC LA PREMIÈRE PAGE. Ils étaient
@@ -2244,35 +2245,30 @@ function AppView(): React.JSX.Element {
             {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
               1024 px les deux s'affichent côte à côte : il n'y a plus rien à
               choisir, et un bouton qui ne change rien est pire qu'absent. */}
-            <div
-              className="inline-flex rounded-lg border border-border p-0.5 lg:hidden"
-              role="group"
-            >
-              <button
-                type="button"
-                onClick={() => setDisplayMode('list')}
-                aria-pressed={displayMode === 'list'}
-                className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
-                  displayMode === 'list'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <List aria-hidden="true" className="size-4" /> Liste
-              </button>
-              <button
-                type="button"
-                onClick={() => setDisplayMode('map')}
-                aria-pressed={displayMode === 'map'}
-                className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
-                  displayMode === 'map'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Map aria-hidden="true" className="size-4" /> Carte
-              </button>
-            </div>
+            <ToggleGroup
+              className="lg:hidden"
+              aria-label="Affichage"
+              value={displayMode}
+              onValueChange={setDisplayMode}
+              items={[
+                {
+                  value: 'list',
+                  label: (
+                    <>
+                      <List aria-hidden="true" className="size-4" /> Liste
+                    </>
+                  ),
+                },
+                {
+                  value: 'map',
+                  label: (
+                    <>
+                      <Map aria-hidden="true" className="size-4" /> Carte
+                    </>
+                  ),
+                },
+              ]}
+            />
 
             {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             Il distingue les annonces ACTIVES de celles disparues de leur source :

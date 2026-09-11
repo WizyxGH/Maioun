@@ -10,33 +10,26 @@
  * jamais de valeur qui pourrait passer pour une donnée (§17).
  */
 
-/** Bloc gris animé. Brique de base de tous les squelettes. */
-export function SkeletonBlock({
-  className = '',
-}: {
-  readonly className?: string;
-}): React.JSX.Element {
-  return <div aria-hidden="true" className={`animate-pulse rounded-md bg-muted ${className}`} />;
-}
+import { Skeleton } from '@/components/ui/skeleton.js';
 
 /** Silhouette d'une carte d'annonce : photo, titre, chiffres, ligne de source. */
 function ListingCardSkeleton(): React.JSX.Element {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card p-3">
-      <SkeletonBlock className="-mx-3 -mt-3 mb-3 h-44 rounded-none" />
+      <Skeleton className="-mx-3 -mt-3 mb-3 h-44 rounded-none" />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <SkeletonBlock className="h-5 w-2/3" />
-          <SkeletonBlock className="mt-1.5 h-4 w-1/3" />
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="mt-1.5 h-4 w-1/3" />
         </div>
-        <SkeletonBlock className="size-14 shrink-0 rounded-lg" />
+        <Skeleton className="size-14 shrink-0 rounded-lg" />
       </div>
       <div className="mt-3 flex gap-2">
-        <SkeletonBlock className="h-4 w-16" />
-        <SkeletonBlock className="h-4 w-16" />
-        <SkeletonBlock className="h-4 w-16" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-16" />
       </div>
-      <SkeletonBlock className="mt-3 h-3.5 w-1/2" />
+      <Skeleton className="mt-3 h-3.5 w-1/2" />
     </div>
   );
 }
@@ -66,7 +59,7 @@ export function ListingListSkeleton({ count = 3 }: { readonly count?: number }):
 export function MapSkeleton(): React.JSX.Element {
   return (
     <div role="status" aria-busy="true" aria-label="Chargement de la carte">
-      <SkeletonBlock className="h-[60vh] w-full rounded-2xl" />
+      <Skeleton className="h-[60vh] w-full rounded-2xl" />
     </div>
   );
 }
@@ -75,9 +68,9 @@ export function MapSkeleton(): React.JSX.Element {
 export function PanelSkeleton({ rows = 4 }: { readonly rows?: number }): React.JSX.Element {
   return (
     <div role="status" aria-busy="true" aria-label="Chargement" className="flex flex-col gap-2">
-      <SkeletonBlock className="h-5 w-1/3" />
+      <Skeleton className="h-5 w-1/3" />
       {Array.from({ length: rows }, (_, index) => (
-        <SkeletonBlock key={index} className="h-12 w-full rounded-xl" />
+        <Skeleton key={index} className="h-12 w-full rounded-xl" />
       ))}
     </div>
   );
@@ -94,19 +87,19 @@ export function PanelSkeleton({ rows = 4 }: { readonly rows?: number }): React.J
 export function ListingDetailSkeleton(): React.JSX.Element {
   return (
     <div role="status" aria-busy="true" aria-label="Chargement de l’annonce">
-      <SkeletonBlock className="h-9 w-24" />
-      <SkeletonBlock className="mt-3 h-56 w-full rounded-2xl" />
-      <SkeletonBlock className="mt-4 h-7 w-3/4" />
-      <SkeletonBlock className="mt-2 h-5 w-1/3" />
+      <Skeleton className="h-9 w-24" />
+      <Skeleton className="mt-3 h-56 w-full rounded-2xl" />
+      <Skeleton className="mt-4 h-7 w-3/4" />
+      <Skeleton className="mt-2 h-5 w-1/3" />
       <div className="mt-4 flex gap-2">
-        <SkeletonBlock className="h-10 w-28 rounded-full" />
-        <SkeletonBlock className="h-10 w-28 rounded-full" />
+        <Skeleton className="h-10 w-28 rounded-full" />
+        <Skeleton className="h-10 w-28 rounded-full" />
       </div>
       <div className="mt-5 flex flex-col gap-2">
         {Array.from({ length: 5 }, (_, index) => (
-          <SkeletonBlock key={index} className="h-4 w-full" />
+          <Skeleton key={index} className="h-4 w-full" />
         ))}
-        <SkeletonBlock className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-2/3" />
       </div>
     </div>
   );
@@ -120,9 +113,9 @@ export function ListingDetailSkeleton(): React.JSX.Element {
 export function RowsSkeleton({ rows = 5 }: { readonly rows?: number }): React.JSX.Element {
   return (
     <div role="status" aria-busy="true" aria-label="Chargement" className="flex flex-col gap-2">
-      <SkeletonBlock className="mb-2 h-7 w-40" />
+      <Skeleton className="mb-2 h-7 w-40" />
       {Array.from({ length: rows }, (_, index) => (
-        <SkeletonBlock key={index} className="h-16 w-full rounded-xl" />
+        <Skeleton key={index} className="h-16 w-full rounded-xl" />
       ))}
     </div>
   );

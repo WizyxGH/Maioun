@@ -22,10 +22,13 @@ const buttonVariants = cva(
         // que le projet emploie déjà pour ce qui va mal — pas l'accent de la
         // marque, qui est celui des actions qu'on souhaite voir cliquer.
         destructive: 'bg-bad font-semibold text-white hover:opacity-90',
+        link: 'text-primary underline underline-offset-4 hover:text-primary/80',
       },
       size: {
         default: 'px-3.5 py-2',
         sm: 'px-3 py-1.5 text-sm',
+        /** Pris dans une ligne de texte : ni hauteur ni marge imposées. */
+        inline: 'min-h-0 p-0 text-[length:inherit] whitespace-normal',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

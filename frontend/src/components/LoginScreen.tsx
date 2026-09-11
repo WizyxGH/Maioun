@@ -110,13 +110,15 @@ export function LoginScreen({
             rarement, mais quand on le cherche il faut le trouver du premier
             coup, et sur cet écran-là. */}
           {onForgot !== undefined && (
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="inline"
               onClick={onForgot}
-              className="text-muted-foreground hover:text-foreground cursor-pointer text-center text-[0.82rem] underline"
+              className="text-muted-foreground hover:text-foreground text-[0.82rem] font-normal"
             >
               Mot de passe oublié ?
-            </button>
+            </Button>
           )}
         </form>
 

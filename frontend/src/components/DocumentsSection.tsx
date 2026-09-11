@@ -42,6 +42,7 @@ import {
 } from '../dossier.js';
 import type { TenantProfile } from '@maioun/shared';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible.js';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -239,15 +240,17 @@ function DocumentRow({
           On télécharge donc le fichier — requête faite DEPUIS la page, où le
           cookie voyage — puis on ouvre une adresse locale. L'œil dit que ça
           s'ouvre : un nom souligné pouvait passer pour un simple intitulé. */}
-        <button
+        <Button
           type="button"
+          variant="link"
+          size="inline"
           onClick={() => void ouvrir()}
           disabled={ouverture}
-          className="inline-flex min-w-0 cursor-pointer items-center gap-1.5 text-left text-[0.9rem] text-primary underline"
+          className="min-w-0 justify-start gap-1.5 text-[0.9rem] font-normal"
         >
           <Eye aria-hidden="true" className="size-4 shrink-0" />
           <span className="truncate">{label}</span>
-        </button>
+        </Button>
         <span className="text-muted-foreground text-[0.78rem]">{formatSize(doc.size)}</span>
       </div>
 
@@ -484,13 +487,13 @@ export function DocumentsSection({
 
       {/* La liste du décret est LIMITATIVE : le savoir évite d'en donner plus
         que nécessaire, ce qui est le sens même du §26. */}
-      <details className="mt-4 text-[0.85rem] text-muted-foreground">
-        <summary className="cursor-pointer">Ce qu’un bailleur ne peut pas exiger</summary>
+      <Collapsible className="mt-4 text-[0.85rem] text-muted-foreground">
+        <CollapsibleTrigger>Ce qu’un bailleur ne peut pas exiger</CollapsibleTrigger>
         <p className="mt-1.5">
           La liste ci-dessus est fixée par le décret n° 2015-1437 et elle est limitative. Sont
           notamment interdits : {FORBIDDEN_PIECES.join(', ')}.
         </p>
-      </details>
+      </Collapsible>
     </section>
   );
 }
