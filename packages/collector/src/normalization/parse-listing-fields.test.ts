@@ -813,6 +813,12 @@ describe('parseDistrict', () => {
     expect(parseDistrict(null)).toBeNull();
   });
 
+  it('ne prend pas une DIRECTION pour le quartier du bien (BEP, 2026-09-11)', () => {
+    // Studio de la Route de Bellet, dont la description « descend » à Magnan.
+    expect(parseDistrict('Arrêt de bus à 2 min pour descendre vers le quartier Magnan')).toBeNull();
+    expect(parseDistrict('Situé dans le quartier Magnan, au calme')).toBe('Magnan');
+  });
+
   it('reconnaît un quartier niçois écrit nu, comme le font les titres', () => {
     // Rien n’annonçait le quartier : ces cinq titres, relevés en base le
     // 2026-09-07, portaient tous un nom évident, et un seul était reconnu.
