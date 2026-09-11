@@ -838,10 +838,14 @@ function AppView(): React.JSX.Element {
     // TANT QU'ON NE SAIT PAS QUI DEMANDE, ON NE DEMANDE RIEN. La vérification de
     // session est en vol au premier rendu : partir chercher la fiche tout de
     // suite pouvait rendre un 401, dont la reprise ci-dessous écrase l'adresse
-    // par celle de la liste. Le lien de la notification était alors perdu avant
-    // même que l'écran de connexion ait paru, et revenir dessus ne ramenait plus
-    // à l'annonce.
-    if (currentUser === undefined || currentUser === null) return;
+    // par celle de la liste.
+    //
+    // MAIS UN VISITEUR SANS COMPTE EST UNE RÉPONSE, pas une attente. La garde
+    // attendait aussi `null`, d'avant la consultation libre : pour qui n'était
+    // pas connecté, la fiche n'était JAMAIS demandée, et le squelette tournait
+    // indéfiniment — « la notification renvoie vers rien », 2026-09-11. Les
+    // fiches se lisent désormais sans compte : il n'y a plus de 401 à craindre.
+    if (currentUser === undefined) return;
     // UNE FICHE ALLÉGÉE NE SUFFIT PAS. La liste transporte des annonces sans
     // description ni détail des scores ; s'en contenter ici affichait une
     // description absente et faisait tomber tout le rendu — page blanche.
