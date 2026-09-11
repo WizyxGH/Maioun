@@ -158,6 +158,26 @@ describe('parsePropertyType', () => {
     expect(parsePropertyType('2 PIECES AVEC PARKING - DEBUT SAINT ROCH')).toBe('apartment');
   });
 
+  it('reconnaît les biens professionnels (titres relevés le 2026-09-11)', () => {
+    expect(parsePropertyType('Licence IV 4 - Grande Licence à louer')).toBe('commercial');
+    expect(parsePropertyType('Location Bureau - Jean Medecin')).toBe('commercial');
+    expect(parsePropertyType('Local à saisir Nice Riquier')).toBe('commercial');
+    expect(parsePropertyType('Local commercial — Cagnes-sur-Mer - Centre-ville')).toBe(
+      'commercial',
+    );
+    expect(parsePropertyType('Louer commerce 5 m² 110 € à Nice (06000)')).toBe('commercial');
+    expect(
+      parsePropertyType('A LOUER - LOCAUX/BUREAUX 280M2+TERRAIN 750M2 - BD DU MERCANTOUR - NICE'),
+    ).toBe('commercial');
+    expect(parsePropertyType('Fonds de commerce à céder')).toBe('commercial');
+  });
+
+  it('garde le logement quand un usage professionnel n’est que mentionné', () => {
+    expect(parsePropertyType('Appartement 3 pièces avec bureau')).toBe('apartment');
+    expect(parsePropertyType('Studio proche commerce et bureaux')).toBe('studio');
+    expect(parsePropertyType('Location meublée proche commerce')).toBe('other');
+  });
+
   it('rend unknown plutôt que de supposer', () => {
     expect(parsePropertyType('')).toBe('unknown');
     expect(parsePropertyType(null)).toBe('unknown');

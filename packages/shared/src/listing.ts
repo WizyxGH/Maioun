@@ -26,9 +26,12 @@ export type PropertyType =
   | 'studio'
   | 'room'
   | 'loft'
-  // Bien NON résidentiel (parking, box, garage) : bruit pour ce projet, exclu
-  // de la liste principale (§16).
+  // Biens NON résidentiels : bruit pour ce projet, exclus de la liste
+  // principale et des alertes (§16). `parking` : stationnement, box, garage ;
+  // `commercial` : local, bureau, fonds de commerce, licence de débit de
+  // boissons.
   | 'parking'
+  | 'commercial'
   | 'other'
   | 'unknown';
 

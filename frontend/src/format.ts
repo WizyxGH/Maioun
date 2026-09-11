@@ -41,6 +41,7 @@ const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   room: 'Chambre',
   loft: 'Loft',
   parking: 'Stationnement',
+  commercial: 'Local professionnel',
   other: 'Autre',
   unknown: 'Type inconnu',
 };

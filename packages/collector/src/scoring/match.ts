@@ -145,11 +145,20 @@ const cityReason = (suffix: string, label: string): ScoreReason => ({
   delta: suffix === 'match' ? 30 : 0,
 });
 
-/** Stationnement / box / garage : pas un logement (§16). */
-function parkingExclusion(listing: AggregatedListing): ScoreReason | null {
-  return listing.propertyType.value === 'parking'
-    ? { code: 'type.parking', label: 'Stationnement / box — pas un logement', delta: 0 }
-    : null;
+/** Stationnement ou bien professionnel : pas un logement (§16). */
+function nonResidentialExclusion(listing: AggregatedListing): ScoreReason | null {
+  switch (listing.propertyType.value) {
+    case 'parking':
+      return { code: 'type.parking', label: 'Stationnement / box — pas un logement', delta: 0 };
+    case 'commercial':
+      return {
+        code: 'type.commercial',
+        label: 'Local, bureau ou licence — pas un logement',
+        delta: 0,
+      };
+    default:
+      return null;
+  }
 }
 
 export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria): MatchOutcome {
@@ -246,7 +255,7 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
    * immédiatement, dans les deux sens. Un parking, lui, ne devient pas un
    * logement parce qu'on change d'avis.
    */
-  const exclusion = parkingExclusion(listing);
+  const exclusion = nonResidentialExclusion(listing);
   if (exclusion !== null) {
     matchesCriteria = false;
     reasons.push(exclusion);

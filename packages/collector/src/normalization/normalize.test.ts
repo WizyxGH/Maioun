@@ -285,6 +285,29 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
     expect(corrected?.propertyType).toBe('studio');
   });
 
+  it('reclasse un « autre » que le titre dit professionnel', () => {
+    const corrected = rederiveFromText(
+      stored({
+        address: 'Rue Smolett',
+        propertyType: 'other',
+        title: 'Licence IV 4 - Grande Licence à louer',
+      }),
+    );
+    expect(corrected?.propertyType).toBe('commercial');
+  });
+
+  it('ne dégrade pas un logement typé par la source', () => {
+    const kept = rederiveFromText(
+      stored({
+        address: 'Rue Smolett',
+        propertyType: 'apartment',
+        title: 'Location Bureau - Jean Medecin',
+        description: 'Studio calme et lumineux.',
+      }),
+    );
+    expect(kept?.propertyType ?? 'apartment').toBe('apartment');
+  });
+
   it('ne rend rien quand il n’y a rien à corriger', () => {
     expect(
       rederiveFromText(
