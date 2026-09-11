@@ -168,7 +168,12 @@ export interface SurvivalData {
   readonly completed: number;
   readonly censored: number;
   readonly horizonDays: number;
-  readonly aliveAfter: readonly { readonly day: number; readonly share: number | null }[];
+  readonly aliveAfter: readonly {
+    readonly day: number;
+    readonly share: number | null;
+    /** Annonces observées au moins aussi longtemps — absent des API anciennes. */
+    readonly atRisk?: number;
+  }[];
 }
 
 export interface StatsData {

@@ -38,6 +38,7 @@ import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
   CHANGELOG_SETTING,
+  ONE_SHOT_SOURCES,
   districtBySlug,
   districtLabel,
   TENANT_PROFILE_SETTING,
@@ -709,6 +710,13 @@ async function listSources(db: Client): Promise<unknown> {
  *   le second lisait le décompte du premier. Ils viennent désormais de
  *   `listing_user_score`, comme la liste et les alertes.
  */
+/**
+ * Au-delà, un passage livre du STOCK et non des nouveautés : un passage
+ * ordinaire découvre 1 à 10 annonces par source, un premier passage ou un
+ * rattrapage de 16 à plusieurs centaines (relevé du 2026-09-11).
+ */
+const STOCK_BATCH = 15;
+
 async function getStats(db: Client, userId: string): Promise<unknown> {
   // §33 : statistiques simples pour commencer, pas de modèle complexe.
   const [listings, engagement, contacts, outcomes, byTracking, bySource] = await Promise.all([
@@ -803,21 +811,55 @@ async function getStats(db: Client, userId: string): Promise<unknown> {
    *
    * C'est un fait sur le MARCHÉ, pas sur une personne : aucune jointure de
    * compte ici, le chiffre est le même pour tout le monde.
+   *
+   * SEULES COMPTENT LES ANNONCES VUES NAÎTRE. Le stock déjà en ligne quand une
+   * source entre dans la collecte — ses premières 24 h — ou qu'elle livre d'un
+   * bloc (plus de `STOCK_BATCH` d'un coup : rattrapage, correctif de
+   * pagination) avait souvent des semaines d'âge : le compter depuis notre
+   * découverte gonflait la survie (87 % à J+7 affichés, 79 % sur les seules
+   * nouvelles). Les sources à annonce unique en sont exclues aussi : leur fin
+   * est posée par un minuteur, pas observée.
+   *
+   * La durée s'arrête à la DERNIÈRE OBSERVATION, lue sur les occurrences :
+   * `listings.last_seen_at` n'est pas réécrit quand la fiche ne change pas.
    */
-  const lifetimes = await db.execute(`
-    SELECT CASE WHEN lifecycle = 'inactive' OR rented = 1 THEN 1 ELSE 0 END AS ended,
-           CASE WHEN lifecycle = 'inactive' OR rented = 1
-                THEN julianday(last_seen_at) - julianday(first_seen_at)
-                ELSE julianday('now') - julianday(first_seen_at)
-           END AS days
-    FROM listings
-  `);
-  const curve = survivalCurve(
-    lifetimes.rows.map((row) => ({
-      days: Number(row['days']),
-      ended: Number(row['ended']) === 1,
-    })),
-  );
+  const oneShot = ONE_SHOT_SOURCES.map(() => '?').join(',');
+  const lifetimes = await db.execute({
+    sql: `
+      WITH debut AS (
+        SELECT source_id, MIN(first_seen_at) AS debut FROM occurrences GROUP BY source_id
+      ),
+      lot AS (
+        SELECT source_id, first_seen_at, COUNT(*) AS n
+        FROM occurrences GROUP BY source_id, first_seen_at
+      ),
+      stock AS (
+        SELECT o.group_id FROM occurrences o
+        JOIN debut d ON d.source_id = o.source_id
+        JOIN lot b ON b.source_id = o.source_id AND b.first_seen_at = o.first_seen_at
+        JOIN listings l ON l.id = o.group_id AND l.first_seen_at = o.first_seen_at
+        WHERE julianday(o.first_seen_at) - julianday(d.debut) < 1 OR b.n > ?
+      ),
+      vu AS (
+        SELECT group_id, MAX(last_seen_at) AS vu FROM occurrences GROUP BY group_id
+      )
+      SELECT CASE WHEN l.lifecycle = 'inactive' OR l.rented = 1 THEN 1 ELSE 0 END AS ended,
+             julianday(COALESCE(vu.vu, l.last_seen_at)) - julianday(l.first_seen_at) AS days
+      FROM listings l
+      LEFT JOIN vu ON vu.group_id = l.id
+      WHERE l.id NOT IN (SELECT group_id FROM stock WHERE group_id IS NOT NULL)
+        AND l.id NOT IN (
+          SELECT group_id FROM occurrences
+          WHERE group_id IS NOT NULL AND source_id IN (${oneShot})
+        )
+    `,
+    args: [STOCK_BATCH, ...ONE_SHOT_SOURCES],
+  });
+  const observed = lifetimes.rows.map((row) => ({
+    days: Number(row['days']),
+    ended: Number(row['ended']) === 1,
+  }));
+  const curve = survivalCurve(observed);
 
   return {
     survival: {
@@ -825,8 +867,13 @@ async function getStats(db: Client, userId: string): Promise<unknown> {
       completed: curve.completed,
       censored: curve.censored,
       horizonDays: Math.round(curve.horizonDays),
-      // Part encore en ligne à J+1, J+3, J+7. `null` au-delà de l'horizon.
-      aliveAfter: [1, 3, 7].map((day) => ({ day, share: shareAlive(curve, day) })),
+      // Part encore en ligne à J+1, J+3, J+7 — `null` au-delà de l'horizon —,
+      // et combien d'annonces l'ont atteint : la part se lit avec son effectif.
+      aliveAfter: [1, 3, 7].map((day) => ({
+        day,
+        share: shareAlive(curve, day),
+        atRisk: observed.filter((one) => one.days >= day).length,
+      })),
     },
     history: history.rows
       .map((r) => ({

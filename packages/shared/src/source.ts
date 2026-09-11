@@ -539,3 +539,10 @@ export function portalLabel(url: string | null): string | null {
   }
   return PORTAL_LABELS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
 }
+
+/**
+ * Les sources dont `oneShotListings` est vrai, pour qui ne peut pas charger
+ * leurs descripteurs — l'API, dans le Worker, n'embarque pas les scrapers.
+ * Un test du collecteur vérifie qu'elle suit les descripteurs.
+ */
+export const ONE_SHOT_SOURCES: readonly string[] = ['bep-abonnes', 'email-alerts'];
