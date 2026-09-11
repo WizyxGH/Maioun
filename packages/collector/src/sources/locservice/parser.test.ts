@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { pageUrlFor, parseListPage } from './parser.js';
+import { pageUrlFor, parseDetail, parseListPage } from './parser.js';
 
 const PAGE_URL = 'https://www.locservice.fr/alpes-maritimes-06/location-nice.html';
 const PAGE = readFileSync(
@@ -71,6 +71,52 @@ describe('parseListPage (LocService)', () => {
     const vide = parseListPage('<html><body></body></html>', PAGE_URL);
     expect(vide.listings).toEqual([]);
     expect(vide.warnings).toHaveLength(1);
+  });
+});
+
+describe('parseDetail — position (LocService)', () => {
+  /** Une fiche réduite à sa description et au script de la carte. */
+  const fiche = (script: string): string =>
+    `<html><body><div id="accommodation-ad-description"><p>Texte</p></div>` +
+    `<script>${script}</script></body></html>`;
+
+  it('lit la position telle que la fiche l’écrit (relevé du 2026-09-11)', () => {
+    const detail = parseDetail(
+      fiche(`
+        window.configData = Object.assign(window.configData || {}, {
+            mapContainerSelector: "#accommodation-ad-map",
+            carouselContainerSelector: "#accommodation-ad-photos-carousel",
+            accommodationCoordinates: [43.6970, 7.2912],
+        });`),
+    );
+    expect(detail?.latitude).toBe(43.697);
+    expect(detail?.longitude).toBe(7.2912);
+  });
+
+  it('accepte aussi l’écriture JSON', () => {
+    const detail = parseDetail(fiche('var c = {"accommodationCoordinates":[ "43.7", "7.26" ]};'));
+    expect(detail?.latitude).toBe(43.7);
+    expect(detail?.longitude).toBe(7.26);
+  });
+
+  it('n’invente rien quand la fiche ne donne pas de position', () => {
+    const detail = parseDetail(fiche('window.configData = {};'));
+    expect(detail).not.toBeNull();
+    expect(detail?.latitude).toBeUndefined();
+    expect(detail?.longitude).toBeUndefined();
+  });
+
+  it.each([
+    ['[0, 0]', '[0, 0]'],
+    ['un ordre inversé', '[7.2912, 43.6970]'],
+    ['un point hors du département', '[48.8566, 2.3522]'],
+    ['des valeurs nulles', '[null, null]'],
+    ['du texte', '["abc", "def"]'],
+    ['une seule valeur', '[43.6970]'],
+  ])('écarte %s', (_label, value) => {
+    const detail = parseDetail(fiche(`({ accommodationCoordinates: ${value} })`));
+    expect(detail?.latitude).toBeUndefined();
+    expect(detail?.longitude).toBeUndefined();
   });
 });
 

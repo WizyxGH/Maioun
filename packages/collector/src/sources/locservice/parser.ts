@@ -140,7 +140,8 @@ export function pageUrlFor(base: string, page: number): string {
  *     « Particulier » ou « Professionnel » — la source est rangée « portail de
  *     particuliers », mais une part de ses annonces sont d'agences ;
  *   - la barre énergie : la lettre du DPE, dans l'élément marqué actif ;
- *   - le JSON-LD : TOUTES les photos, là où la liste n'en montre qu'une.
+ *   - le JSON-LD : TOUTES les photos, là où la liste n'en montre qu'une ;
+ *   - le script de la carte « Découvrez votre quartier » : la position.
  *
  * @returns le complément à fusionner, ou `null` si la page ne ressemble pas à
  *          une fiche — on garde alors ce que la liste avait donné.
@@ -174,13 +175,48 @@ export function parseDetail(html: string): RawDraft | null {
   }
 
   const photos = detailPhotos($);
+  const position = detailPosition($);
   return {
     ...(description !== '' ? { description } : {}),
     ...(disponibilite !== undefined ? { availableAtText: disponibilite } : {}),
     ...(meuble !== undefined ? { furnishedText: meuble } : {}),
     ...(photos.length > 0 ? { imageUrls: photos } : {}),
+    ...(position ?? {}),
     ...(Object.keys(extra).length > 0 ? { extra } : {}),
   };
+}
+
+/**
+ * `accommodationCoordinates: [43.6970, 7.2912]` — latitude d'abord, dans le
+ * `window.configData` qui alimente la carte. Lu en objet JS comme en JSON,
+ * au cas où le gabarit changerait d'écriture.
+ */
+const COORDINATES = /["']?\baccommodationCoordinates["']?\s*:\s*\[([^\]]*)\]/;
+const DECIMAL = /^-?\d+(?:\.\d+)?$/;
+
+/**
+ * Large emprise des Alpes-Maritimes. Ce qui en sort — [0, 0], un ordre
+ * inversé, une faute de saisie — n'est pas un logement d'ici : on ne place
+ * alors aucune punaise plutôt qu'une fausse.
+ */
+const AREA = { minLat: 43.4, maxLat: 44.4, minLon: 6.6, maxLon: 7.8 };
+
+/** La position du logement, ou `null` si la fiche n'en donne pas de plausible. */
+function detailPosition($: cheerio.CheerioAPI): { latitude: number; longitude: number } | null {
+  for (const script of $('script:not([src])').toArray()) {
+    const match = COORDINATES.exec($(script).text());
+    if (match?.[1] === undefined) continue;
+    const parts = match[1].split(',').map((part) => part.trim().replace(/^(["'])(.*)\1$/, '$2'));
+    if (parts.length !== 2 || !parts.every((part) => DECIMAL.test(part))) return null;
+    const [latitude, longitude] = parts.map(Number) as [number, number];
+    const plausible =
+      latitude >= AREA.minLat &&
+      latitude <= AREA.maxLat &&
+      longitude >= AREA.minLon &&
+      longitude <= AREA.maxLon;
+    return plausible ? { latitude, longitude } : null;
+  }
+  return null;
 }
 
 /** Les photos du JSON-LD de la fiche, en https, sans doublon. */
