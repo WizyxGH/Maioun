@@ -727,6 +727,15 @@ function isoCalendarDay(text: string): string | null {
 }
 
 export function parsePublishedAt(text: string | null | undefined, nowMs: number): string | null {
+  const instant = readPublishedAt(text, nowMs);
+  if (instant === null) return null;
+  // Bien'ici écrit « 1970-01-01T00:00:00.000Z » quand il n'a pas de date :
+  // l'instant zéro, pas une parution. Pas de borne dans l'avenir : la lecture
+  // sert aussi aux disponibilités, qui y sont par nature.
+  return Date.parse(instant) >= Date.UTC(2000, 0, 1) ? instant : null;
+}
+
+function readPublishedAt(text: string | null | undefined, nowMs: number): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
   // L'horodatage d'une API : l'instant exact, qui dit la fraîcheur.
