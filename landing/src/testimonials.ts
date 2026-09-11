@@ -107,10 +107,10 @@ export function renderTestimonials(list: readonly Testimonial[]): string {
   const cartes = list
     .map(
       (t) => `
-          <figure class="flex flex-col rounded-2xl border border-[var(--color-border)] p-5">
+          <figure class="card lift reveal flex flex-col p-5">
             <blockquote class="flex-1 text-[0.95rem]">« ${escape(t.texte)} »</blockquote>
-            <figcaption class="mt-4 text-[0.85rem] text-[var(--color-muted-foreground)]">
-              <span class="font-semibold text-[var(--color-foreground)]">${escape(t.auteur)}</span>
+            <figcaption class="mt-4 text-[0.85rem] text-muted-foreground">
+              <span class="font-semibold text-foreground">${escape(t.auteur)}</span>
               — logement trouvé${t.lieu !== undefined ? ` à ${escape(t.lieu)}` : ''} en ${escape(moisEnClair(t.trouve))}
             </figcaption>
           </figure>`,
@@ -120,15 +120,15 @@ export function renderTestimonials(list: readonly Testimonial[]): string {
   return `
       <!-- ═══ TÉMOIGNAGES ═══════════════════════════════════════════════════ -->
       <section id="temoignages" class="mx-auto max-w-6xl px-5 pb-20">
-        <p class="text-[0.82rem] font-semibold tracking-wide text-[var(--color-primary)] uppercase">
-          Ils ont trouvé
-        </p>
-        <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-          Des logements trouvés avec Maïoun
-        </h2>
+        <div class="reveal">
+          <p class="eyebrow">Ils ont trouvé</p>
+          <h2 class="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
+            Des logements trouvés avec Maïoun
+          </h2>
+        </div>
         <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">${cartes}
         </div>
-        <p class="mt-6 text-[0.8rem] text-[var(--color-muted-foreground)]">
+        <p class="mt-6 text-[0.8rem] text-muted-foreground">
           Témoignages réels, cités avec l’accord de leurs auteurs, sans retouche.
         </p>
       </section>`;

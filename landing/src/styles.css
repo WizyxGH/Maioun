@@ -1,30 +1,36 @@
 /* ---------------------------------------------------------------------------
    Maïoun — feuille de style de la page de présentation.
 
-   LES MÊMES COULEURS QUE L'APPLICATION, volontairement : quelqu'un qui passe de
-   cette page à l'outil doit reconnaître le même produit. Les valeurs sont
-   recopiées plutôt qu'importées — la page ne dépend d'aucun paquet du dépôt, et
-   c'est ce qui lui permet d'être publiée seule, sur un autre domaine.
+   LES MÊMES JETONS ET LES MÊMES COMPOSANTS QUE L'APPLICATION : qui passe de
+   cette page à l'outil doit reconnaître le même produit. Valeurs et recettes
+   sont RECOPIÉES de `frontend/src/styles.css` et `frontend/src/components/ui/`
+   plutôt qu'importées — la page ne dépend d'aucun paquet du dépôt, et c'est
+   ce qui lui permet d'être publiée seule, sur un autre domaine.
 
-   `light-dark()` comme dans l'application : le navigateur choisit selon le
-   réglage de l'appareil, sans classe `dark:` à répéter.
+   Sans React ici, un composant shadcn devient une classe : `.btn`, `.card`,
+   `.badge`, `.accordion`, `.progress`, `.alert`.
 --------------------------------------------------------------------------- */
 
 @import 'tailwindcss';
 
-/* LA SECTION DES TÉMOIGNAGES EST ÉCRITE DANS DU TYPESCRIPT, composée à la
-   construction : Tailwind ne lit pas ce fichier de lui-même, et ses classes
-   propres — la grille à trois colonnes, notamment — manquaient à la feuille. */
+/* La section des témoignages est composée en TypeScript à la construction :
+   Tailwind ne lit pas ce fichier de lui-même. */
 @source './testimonials.ts';
 
 @theme {
   --color-background: light-dark(#f4f5f8, #14141f);
   --color-foreground: light-dark(#1a1a2e, #f1f2f6);
   --color-card: light-dark(#ffffff, #1f1f2e);
+  --color-card-foreground: light-dark(#1a1a2e, #f1f2f6);
   --color-primary: light-dark(#e00034, #ff4d6d);
   --color-primary-foreground: #ffffff;
+  --color-muted: light-dark(#eceef3, #2a2a3d);
   --color-muted-foreground: light-dark(#63637a, #9c9cb0);
   --color-border: light-dark(#e6e6ee, #34344a);
+  --color-input: light-dark(#dcdce6, #34344a);
+  --color-ring: light-dark(#e00034, #ff4d6d);
+  --color-good: light-dark(#15803d, #4ade80);
+  --color-medium: light-dark(#b45309, #fbbf24);
 }
 
 @layer base {
@@ -33,8 +39,8 @@
     scroll-behavior: smooth;
   }
 
-  /* Un défilement animé est une gêne pour qui a le mal des transports, et le
-     système le dit déjà. */
+  /* Un défilement animé gêne qui a le mal des transports, et le système le
+     dit déjà. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -53,10 +59,234 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Le repère de focus est dessiné une fois ici : la page n'a pas de
-     composants, et chaque lien doit rester atteignable au clavier. */
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-ring);
     outline-offset: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Composants — recettes de `frontend/src/components/ui/`.
+--------------------------------------------------------------------------- */
+
+@layer components {
+  /* button.tsx — pilule, 44 px au moins. */
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-2 text-[0.95rem] font-medium whitespace-nowrap no-underline transition-[color,background-color,border-color,box-shadow,scale];
+  }
+  .btn-default {
+    @apply bg-primary font-semibold text-primary-foreground hover:bg-primary/90;
+  }
+  .btn-outline {
+    @apply border border-border bg-card text-foreground hover:border-primary;
+  }
+  .btn-sm {
+    @apply min-h-9 px-4 py-1.5 text-sm;
+  }
+  .btn-lg {
+    @apply min-h-13 px-7 py-3.5 text-base;
+  }
+  .btn-glow {
+    @apply shadow-lg shadow-primary/35;
+  }
+
+  /* card.tsx */
+  .card {
+    @apply rounded-2xl border border-border bg-card text-card-foreground shadow-sm;
+  }
+
+  /* badge.tsx */
+  .badge {
+    @apply inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap;
+  }
+  .badge-outline {
+    @apply border border-border bg-card;
+  }
+
+  /* progress.tsx */
+  .progress {
+    @apply h-1.5 overflow-hidden rounded-full bg-muted;
+  }
+  .progress-indicator {
+    @apply h-full rounded-full bg-primary;
+    transform-origin: left;
+  }
+
+  /* alert.tsx, variante `warning`. */
+  .alert-warning {
+    @apply rounded-xl border border-medium/40 bg-medium/10 px-4 py-3 text-sm;
+  }
+
+  /* collapsible.tsx — un `<details>` et son chevron. */
+  .accordion {
+    @apply rounded-2xl border border-border bg-card;
+  }
+  .accordion > summary {
+    @apply flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-semibold;
+  }
+  .accordion > summary::-webkit-details-marker {
+    display: none;
+  }
+  .accordion > summary::after {
+    content: '';
+    @apply size-4 shrink-0 bg-muted-foreground;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  .accordion[open] > summary::after {
+    rotate: 180deg;
+  }
+  .accordion > :not(summary) {
+    @apply px-5 pb-5;
+  }
+
+  /* Intitulé de section, au-dessus du titre. */
+  .eyebrow {
+    @apply text-[0.82rem] font-semibold tracking-wide text-primary uppercase;
+  }
+
+  /* Lien de navigation : un soulignement qui se dessine au survol (et
+     apparaît d'un coup si le mouvement est réduit). */
+  .nav-link {
+    background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
+  }
+  .nav-link:hover {
+    background-size: 100% 1px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Micro-animations.
+
+   Toutes ici, et toutes derrière `no-preference` : qui a demandé moins de
+   mouvement à son appareil voit la page immobile, sans rien de caché.
+   Courtes, faibles, jamais plus de quelques pixels — elles accompagnent la
+   lecture, elles ne la retardent pas.
+--------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: 0 14px;
+    }
+  }
+
+  @keyframes ping {
+    75%,
+    100% {
+      scale: 2.4;
+      opacity: 0;
+    }
+  }
+
+  @keyframes fill {
+    from {
+      scale: 0 1;
+    }
+  }
+
+  @keyframes float {
+    50% {
+      translate: 0 -5px;
+    }
+  }
+
+  @keyframes halo {
+    to {
+      background-position:
+        6% -4%,
+        88% 14%;
+    }
+  }
+
+  @keyframes open {
+    from {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+  }
+
+  /* Arrivée du premier écran, élément par élément (`--delay` en ligne). */
+  .rise {
+    animation: rise 640ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    animation-delay: var(--delay, 0ms);
+  }
+
+  /* Le point « en continu » bat : la collecte ne s'arrête pas. */
+  .ping {
+    @apply relative;
+  }
+  .ping::after {
+    content: '';
+    @apply absolute inset-0 rounded-full bg-inherit;
+    animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* La carte de démonstration flotte, et sa note se remplit une fois posée. */
+  .float {
+    animation: float 6s ease-in-out 1.2s infinite;
+  }
+  .demo .progress-indicator {
+    animation: fill 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) 900ms backwards;
+  }
+
+  .halo {
+    animation: halo 14s ease-in-out infinite alternate;
+  }
+
+  /* Les sections montent à mesure qu'on les atteint — seulement là où le
+     navigateur sait lier une animation au défilement. Ailleurs, rien ne
+     bouge et tout est visible. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: rise linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+  }
+
+  /* Gestes. */
+  .btn:active {
+    scale: 0.97;
+  }
+  .btn .arrow {
+    transition: translate 200ms ease;
+  }
+  .btn:hover .arrow {
+    translate: 3px 0;
+  }
+
+  .lift {
+    transition:
+      translate 220ms ease,
+      box-shadow 220ms ease,
+      border-color 220ms ease;
+  }
+  .lift:hover {
+    translate: 0 -3px;
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+
+  .step-icon {
+    transition:
+      rotate 260ms ease,
+      scale 260ms ease;
+  }
+  .step:hover .step-icon {
+    rotate: -8deg;
+    scale: 1.08;
+  }
+
+  .accordion > summary::after {
+    transition: rotate 200ms ease;
+  }
+  .accordion[open] > :not(summary) {
+    animation: open 220ms ease-out;
+  }
+
+  .nav-link {
+    transition: background-size 220ms ease;
   }
 }
