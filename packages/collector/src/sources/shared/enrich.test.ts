@@ -129,6 +129,24 @@ describe('enrichNewListings', () => {
     expect(saved).toEqual([{ sourceRef: 'a', draft: { description: 'texte entier de la fiche' } }]);
   });
 
+  it('une mémoire qui refuse d’écrire ne fait RIEN tomber', async () => {
+    // Le premier rattrapage LocService a perdu quarante minutes de lecture sur
+    // une écriture refusée en fin de passage. Les annonces reçoivent quand
+    // même ce qu'on vient de lire ; seule la mémoire manque, et se dit.
+    const { ctx } = context();
+    const cassee: ScrapeContext = {
+      ...ctx,
+      detailMemory: { get: () => null, save: () => Promise.reject(new Error('fetch failed')) },
+    };
+    const result = await enrichNewListings(cassee, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.listings[0]?.description).toBe('texte entier de la fiche');
+    expect(result.warnings.join(' ')).toContain('Mémoire des fiches non enregistrée');
+  });
+
   it('visite d’abord les nouvelles, puis le stock JAMAIS lu, puis le périmé', async () => {
     // Le stock collecté avant que la source ne visite ses fiches se complète
     // ainsi de lui-même, sur le budget que les nouvelles laissent libre.
