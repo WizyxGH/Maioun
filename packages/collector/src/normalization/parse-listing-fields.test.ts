@@ -318,6 +318,12 @@ describe('parsePublishedAt', () => {
     expect(parsePublishedAt('il y a 3 jours', now)).toBe('2026-08-11T12:00:00.000Z');
   });
 
+  it('prend l’instant zéro pour une absence (Bien’ici, 174 fiches au 2026-09-11)', () => {
+    expect(parsePublishedAt('1970-01-01T00:00:00.000Z', now)).toBeNull();
+    expect(parsePublishedAt('01/01/1970', now)).toBeNull();
+    expect(parsePublishedAt('2026-08-13T09:00:00.000Z', now)).toBe('2026-08-13T09:00:00.000Z');
+  });
+
   it('lit l’horodatage ISO complet que rendent les API, à l’instant près', () => {
     // Rejeté jusqu'au 2026-09-10 : entre le « 8 » du jour et le « T » de
     // l'heure, pas de frontière de mot. Bien'ici n'avait AUCUNE date de parution.
