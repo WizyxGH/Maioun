@@ -3,7 +3,7 @@
  * filtre, et écarte un logement sur une donnée qui n'est pas la sienne. Ces
  * scénarios éprouvent donc surtout ce que l'appariement REFUSE.
  *
- * Aucun accès réseau (§59) : les réponses de l'ADEME sont injectées.
+ * Aucun accès réseau : les réponses de l'ADEME sont injectées.
  */
 
 import { describe, expect, it, vi } from 'vitest';

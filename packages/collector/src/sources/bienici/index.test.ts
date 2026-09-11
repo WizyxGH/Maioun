@@ -4,7 +4,7 @@
  * Mesuré le 2026-09-10 : 191 de ses 340 requêtes en deux jours sont revenues
  * en 304. Le scraper les sautait sans rien compter — un passage entièrement
  * inchangé rendait « 0 annonce » pour 510 en ligne, et un passage à moitié
- * inchangé comptait l'autre moitié comme absente. Aucun accès réseau (§59).
+ * inchangé comptait l'autre moitié comme absente. Aucun accès réseau.
  */
 
 import { readFileSync } from 'node:fs';

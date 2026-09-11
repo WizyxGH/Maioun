@@ -179,6 +179,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
   },
+  paruvendu: { name: 'ParuVendu', domain: null, logo: null, paidContact: false },
   personalimmo: {
     name: 'Personal Immo',
     domain: 'personalimmo.fr',

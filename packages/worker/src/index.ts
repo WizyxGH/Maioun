@@ -154,7 +154,7 @@ export interface Env {
 }
 
 /**
- * L'identité annoncée aux sites qu'on visite (§10).
+ * L'identité annoncée aux sites qu'on visite.
  *
  * L'adresse du site et non celle du dépôt : c'est là qu'on trouve qui publie et
  * comment le joindre. Elle vient de la configuration — un nom de dépôt écrit

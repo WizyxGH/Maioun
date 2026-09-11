@@ -143,7 +143,7 @@ export function pageUrlFor(base: string, page: number): string {
  *   - le JSON-LD : TOUTES les photos, là où la liste n'en montre qu'une.
  *
  * @returns le complément à fusionner, ou `null` si la page ne ressemble pas à
- *          une fiche — on garde alors ce que la liste avait donné (§17).
+ *          une fiche — on garde alors ce que la liste avait donné.
  */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);

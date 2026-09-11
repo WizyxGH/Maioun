@@ -310,7 +310,7 @@ async function geocodeMissingAddresses(
  * autorité : c'est le bailleur qui l'engage, pas nous.
  *
  * BUDGET RÉSEAU BORNÉ, comme le géocodage : les adresses déjà cherchées ne
- * coûtent rien, et les nouvelles s'étalent sur quelques passages (§30).
+ * coûtent rien, et les nouvelles s'étalent sur quelques passages.
  */
 async function fillMissingDpe(
   merged: readonly AggregatedListing[],
@@ -708,7 +708,7 @@ export async function regroupAndScore(
      * LE DPE VENU DE L'ADEME, quand la source n'en publie aucun. La provenance
      * dit d'ou il vient — c'est un diagnostic officiel trouve a l'adresse, pas
      * une valeur annoncee par le bailleur, et la fiche ne doit pas laisser
-     * croire l'inverse (§15).
+     * croire l'inverse.
      */
     const diagnostic = dpeByListing.get(listing.id);
     const complete =

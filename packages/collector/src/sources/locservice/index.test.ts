@@ -4,7 +4,7 @@
  *
  * Relevé le 2026-09-10 : 38 % du volume du projet, une description de 60 à
  * 110 caractères, aucun DPE — et un cycle de vie qui ne tournait jamais, faute
- * de relire l'inventaire en entier. Aucun accès réseau (§59).
+ * de relire l'inventaire en entier. Aucun accès réseau.
  */
 
 import { readFileSync } from 'node:fs';
@@ -91,7 +91,7 @@ describe('la fiche', () => {
     expect(detail?.extra).toEqual({ dpe: 'D', landlord: 'agency' });
   });
 
-  it('rend null sur une page qui n’est pas une fiche (§17)', () => {
+  it('rend null sur une page qui n’est pas une fiche', () => {
     expect(parseDetail(LISTE)).toBeNull();
   });
 });

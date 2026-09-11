@@ -132,7 +132,7 @@ jobs:
           # messages n'appartiendraient à personne.
           ALERT_ADDRESS_TEMPLATE: ${{ vars.ALERT_ADDRESS_TEMPLATE }}
 
-          # L'identité annoncée aux sites (§10) se déduit elle aussi du dépôt :
+          # L'identité annoncée aux sites se déduit elle aussi du dépôt :
           # elle porte son adresse, et une valeur écrite ici périmerait.
 
           # §23 : interrupteur global du contact automatique. Absent = OFF.

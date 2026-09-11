@@ -137,7 +137,7 @@ export async function enrichNewListings(
     try {
       await context.detailMemory.save(batch);
     } catch (error) {
-      // L'ÉCHEC N'EST JAMAIS BLOQUANT (§69) : les annonces de ce passage
+      // L'ÉCHEC N'EST JAMAIS BLOQUANT : les annonces de ce passage
       // reçoivent quand même ce qu'on vient de lire ; seule la mémoire de ce
       // paquet manque, et ses fiches seront relues.
       const message = error instanceof Error ? error.message : String(error);

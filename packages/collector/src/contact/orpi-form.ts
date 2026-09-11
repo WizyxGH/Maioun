@@ -1,5 +1,5 @@
 /**
- * Remplir le formulaire de contact d'une annonce Orpi (§23, §24).
+ * Remplir le formulaire de contact d'une annonce Orpi.
  *
  * ═══ CE QUE CE MODULE FAIT, ET CE QU'IL NE FAIT PAS ═══
  *
@@ -34,7 +34,7 @@
  *
  * AUCUN JETON CSRF sur ce formulaire. Ce n'est pas une invitation : c'est
  * simplement une chose de moins à porter, et cela ne change rien à la règle —
- * on emprunte le chemin que le site a prévu, jamais un autre (§10).
+ * on emprunte le chemin que le site a prévu, jamais un autre.
  *
  * ═══ LE CONSENTEMENT NE SE COCHE PAS À LA PLACE DE QUELQU'UN ═══
  *
@@ -114,7 +114,7 @@ function decodeHtml(value: string): string {
  *
  * @returns le corps, ou `null` si le profil ne porte pas de quoi remplir les
  *          champs obligatoires — nom, prénom, adresse. On ne poste pas un
- *          formulaire à trous pour se le voir refuser (§17).
+ *          formulaire à trous pour se le voir refuser.
  */
 export function buildSubmission(
   form: OrpiContactForm,
@@ -144,7 +144,7 @@ export function buildSubmission(
   return body;
 }
 
-/** Ce qu'on a pu faire, dit sans détour (§17). */
+/** Ce qu'on a pu faire, dit sans détour. */
 export type SubmitOutcome = { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
 /**
@@ -165,7 +165,7 @@ export async function submitContactForm(
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        // On annonce qui l'on est, ici comme partout (§10).
+        // On annonce qui l'on est, ici comme partout.
         'User-Agent': options.userAgent,
       },
       body: body.toString(),
