@@ -7,8 +7,42 @@
 import { describe, expect, it } from 'vitest';
 import { buildListQuery, route, rowToListing } from './routes.js';
 
+/** Une fiche vue par le compte principal — celui dont la collecte calcule les distances. */
+const vueMoi = (row: Record<string, unknown>): Record<string, unknown> => rowToListing(row, 'moi');
+
 const query = (search: string) =>
   buildListQuery(new URL(`https://exemple.invalid/api/listings${search}`));
+
+describe('la liste d’un visiteur sans compte', () => {
+  /**
+   * LA CONSULTATION LIBRE MONTRAIT UNE LISTE VIDE. La liste ne gardait que les
+   * annonces « dans les critères » du lecteur, lues dans SES scores ; un
+   * visiteur n'en possède aucun. Le 2026-09-11 : « 0 annonce sur 0 ».
+   */
+  const anonyme = (search = '') =>
+    buildListQuery(new URL(`https://exemple.invalid/api/listings${search}`), undefined, true);
+
+  it('ne dépend PAS de scores qu’il n’a pas', () => {
+    expect(anonyme().filter).not.toContain('matches_criteria');
+  });
+
+  it('lui montre le catalogue : des logements en ligne, dans la commune', () => {
+    const { filter, filterArgs } = anonyme();
+    expect(filter).toContain("lifecycle != 'inactive'");
+    expect(filter).toContain("property_type != 'parking'");
+    expect(filter).toContain('city IN (?)');
+    expect(filterArgs).toContain('nice');
+  });
+
+  it('classe par nouveauté : sans score, la priorité est la même partout', () => {
+    expect(anonyme().orderBy).toBe('first_seen_at DESC');
+    expect(anonyme('?sort=price').orderBy).toBe('price IS NULL, price ASC');
+  });
+
+  it('ne change rien pour un compte', () => {
+    expect(query('').filter).toContain('matches_criteria');
+  });
+});
 
 describe('ordre de la liste', () => {
   it('compte « récent » à la DÉCOUVERTE, pas à la dernière vue', () => {
@@ -66,6 +100,36 @@ describe('ordre de la liste', () => {
  * l'écarte en silence. C'est ce qui est arrivé à la date d'alerte — l'historique
  * annonçait « aucune alerte » alors que la base en comptait cent dix-huit.
  */
+describe('rowToListing — les distances ne partent qu’à leur propriétaire', () => {
+  /**
+   * La collecte calcule les distances depuis les adresses de référence du
+   * compte principal — son domicile, son travail — et les range dans la fiche
+   * commune. L'API les recopiait à TOUT LE MONDE : le 2026-09-11, un visiteur
+   * anonyme lisait « Travail : 62 min, 14,4 km à vol d'oiseau ». Croisées avec
+   * les coordonnées de quelques annonces, elles situent le lieu.
+   */
+  const fiche = {
+    id: 'century21:1',
+    payload: JSON.stringify({
+      title: { value: 'Studio' },
+      distances: [{ label: 'Travail', distanceKm: 14.4, durationMinutes: 62, mode: 'transit' }],
+    }),
+  };
+
+  it('les rend au compte dont elles viennent', () => {
+    expect(rowToListing(fiche, 'moi')['distances']).toHaveLength(1);
+  });
+
+  it('ne les rend NI à un visiteur anonyme, NI à un autre compte', () => {
+    expect(rowToListing(fiche, 'anonyme')['distances']).toEqual([]);
+    expect(rowToListing(fiche, 'un-autre-compte')['distances']).toEqual([]);
+  });
+
+  it('garde tout le reste de la fiche pour eux', () => {
+    expect(rowToListing(fiche, 'anonyme')['title']).toEqual({ value: 'Studio' });
+  });
+});
+
 describe('rowToListing', () => {
   const row = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
     id: 'src:1',
@@ -80,7 +144,7 @@ describe('rowToListing', () => {
   });
 
   it('rend la DATE DE L’ALERTE, sans quoi l’historique est vide', () => {
-    const listing = rowToListing(row({ notified_at: '2026-09-05T12:03:47.320Z' }));
+    const listing = vueMoi(row({ notified_at: '2026-09-05T12:03:47.320Z' }));
     expect(listing['notifiedAt']).toBe('2026-09-05T12:03:47.320Z');
   });
 
@@ -89,11 +153,11 @@ describe('rowToListing', () => {
     // alerte. `undefined` ne dit rien, et ne se distingue pas d'un champ
     // qu'on aurait oublié de recopier — c'est précisément la confusion qui a
     // fait disparaître l'historique.
-    expect(rowToListing(row())['notifiedAt']).toBeNull();
+    expect(vueMoi(row())['notifiedAt']).toBeNull();
   });
 
   it('rend les états qui appartiennent à QUELQU’UN, pas à l’annonce', () => {
-    const listing = rowToListing(
+    const listing = vueMoi(
       row({ viewed: 1, archived: 0, favorite: 1, rented: 0, tracking: 'contacted' }),
     );
     expect(listing['viewed']).toBe(true);
@@ -103,7 +167,7 @@ describe('rowToListing', () => {
   });
 
   it('déplie le payload par-dessus, sans écraser l’identifiant', () => {
-    const listing = rowToListing(row());
+    const listing = vueMoi(row());
     expect(listing['id']).toBe('src:1');
     expect(listing['title']).toEqual({ value: 'Studio' });
   });
@@ -131,12 +195,12 @@ describe('fiche allégée', () => {
   });
 
   it('marque ce qui vient de la liste', () => {
-    const listed = rowToListing(row({ payload_light: '{"title":{"value":"Studio"}}' }));
+    const listed = vueMoi(row({ payload_light: '{"title":{"value":"Studio"}}' }));
     expect(listed['partial']).toBe(true);
   });
 
   it('ne marque PAS la fiche entière', () => {
-    const full = rowToListing(row({ payload: '{"title":{"value":"Studio"}}' }));
+    const full = vueMoi(row({ payload: '{"title":{"value":"Studio"}}' }));
     expect(full['partial']).toBeUndefined();
   });
 
@@ -145,9 +209,9 @@ describe('fiche allégée', () => {
    * l'absence faisait planter l'écran de fiche.
    */
   it('la version allégée n’a effectivement pas de description', () => {
-    const listed = rowToListing(row({ payload_light: '{"title":{"value":"Studio"}}' }));
+    const listed = vueMoi(row({ payload_light: '{"title":{"value":"Studio"}}' }));
     expect(listed['description']).toBeUndefined();
-    const full = rowToListing(
+    const full = vueMoi(
       row({ payload: '{"title":{"value":"Studio"},"description":{"value":"Texte"}}' }),
     );
     expect(full['description']).toEqual({ value: 'Texte' });
@@ -261,7 +325,7 @@ describe('consultation sans compte', () => {
  */
 describe('date de notification — celle du compte, pas celle d’avant', () => {
   it('préfère la valeur du compte à la colonne héritée', () => {
-    const listing = rowToListing({
+    const listing = vueMoi({
       id: 'fnaim:1',
       payload: '{}',
       notified_at: '2026-09-06T22:53:50.379Z',
@@ -273,7 +337,7 @@ describe('date de notification — celle du compte, pas celle d’avant', () => 
   it('rend la date du compte même quand l’héritée est vide', () => {
     // Le cas qui cassait : signalée après la bascule, donc absente de
     // `listings.notified_at`.
-    const listing = rowToListing({
+    const listing = vueMoi({
       id: 'fnaim:2',
       payload: '{}',
       notified_at: null,
@@ -285,7 +349,7 @@ describe('date de notification — celle du compte, pas celle d’avant', () => 
   it('retombe sur l’héritée pour les fiches d’avant la bascule', () => {
     // Leur état personnel n'a pas été recopié : sans ce repli, leur historique
     // disparaîtrait de l'écran.
-    const listing = rowToListing({
+    const listing = vueMoi({
       id: 'fnaim:3',
       payload: '{}',
       notified_at: '2026-09-01T08:00:00.000Z',
@@ -294,6 +358,6 @@ describe('date de notification — celle du compte, pas celle d’avant', () => 
   });
 
   it('rend null quand aucune des deux n’existe', () => {
-    expect(rowToListing({ id: 'fnaim:4', payload: '{}' })['notifiedAt']).toBeNull();
+    expect(vueMoi({ id: 'fnaim:4', payload: '{}' })['notifiedAt']).toBeNull();
   });
 });

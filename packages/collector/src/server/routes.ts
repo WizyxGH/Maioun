@@ -132,8 +132,27 @@ function json(data: unknown, cors: Record<string, string>, status = 200): Respon
   });
 }
 
-/** Reconstitue une fiche à partir de sa ligne et de son payload JSON. */
-export function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
+/**
+ * Reconstitue une fiche à partir de sa ligne et de son payload JSON, POUR UN
+ * LECTEUR DONNÉ.
+ *
+ * `viewer` EST OBLIGATOIRE, et c'est voulu : il décide de ce qui est
+ * personnel dans une fiche partagée — les DISTANCES. La collecte les calcule
+ * depuis les adresses de référence du compte principal (son domicile, son
+ * travail) et les range dans la fiche commune ; l'API les recopiait à TOUT LE
+ * MONDE. Relevé le 2026-09-11 : un visiteur anonyme lisait « Travail : 62 min,
+ * 14,4 km à vol d'oiseau » — et, croisées avec les coordonnées de quelques
+ * annonces, ces distances situent le lieu. Le projet s'interdit précisément
+ * de les publier.
+ *
+ * Elles ne partent donc qu'à leur propriétaire. Pour tout autre lecteur : aucune
+ * — l'inconnu plutôt que le trajet de quelqu'un d'autre. Obligatoire pour que
+ * le compilateur le rappelle à chaque nouvel appel.
+ */
+export function rowToListing(
+  row: Record<string, unknown>,
+  viewer: string,
+): Record<string, unknown> {
   // `payload_light` n'existe que pour la LISTE, où description et raisons de
   // score ont été retirées en SQL. La fiche, elle, n'a que `payload`.
   const source = row['payload_light'] ?? row['payload'];
@@ -193,6 +212,7 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
     goneNotifiedAt: row['gone_notified_at'] ?? null,
     remindedAt: row['reminded_at'] ?? null,
     ...payload,
+    ...(viewer === CURRENT_USER ? {} : { distances: [] }),
   };
 }
 
@@ -327,7 +347,22 @@ const ORDER_BY: Readonly<Record<string, string>> = {
   area: 'area IS NULL, area DESC, sc.action_priority DESC',
 };
 
-export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
+/**
+ * `anonymous` : le lecteur n'a pas de compte, donc aucun score personnel.
+ *
+ * LA CONSULTATION LIBRE MONTRAIT UNE LISTE VIDE, depuis qu'elle existe. La liste
+ * ne garde que les annonces « dans les critères » du lecteur — lues dans SES
+ * scores. L'identité anonyme n'en possède aucun, par construction : rien ne
+ * passait. Relevé le 2026-09-11 : « 0 annonce sur 0 » pour quiconque arrivait
+ * de la page de présentation, qui promet « toutes les locations de Nice ». Les
+ * scénarios de bout en bout ne pouvaient pas le voir : ils tournent en
+ * démonstration, où l'on est toujours connecté.
+ *
+ * Un visiteur voit donc le CATALOGUE : les annonces actives de logement dans
+ * la commune par défaut, les plus récentes d'abord — sans score, « priorité »
+ * n'a pas de sens pour lui. Il affine avec les filtres de l'écran.
+ */
+export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = false): ListQuery {
   const limit = Math.min(
     500,
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
@@ -351,14 +386,24 @@ export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
    * classement « prix » n'avaient pas de prix du tout.
    */
   const sort = url.searchParams.get('sort') ?? 'priority';
-  const orderBy = ORDER_BY[sort] ?? ORDER_BY['priority']!;
+  // Sans score, la priorité est la même partout : on classe par nouveauté.
+  const tri = anonymous && (sort === 'priority' || sort === 'closest') ? 'recent' : sort;
+  const orderBy = ORDER_BY[tri] ?? ORDER_BY['priority']!;
 
   // §53 scénario 3 : les annonces hors critères ne remontent pas par défaut.
   const includeAll = url.searchParams.get('all') === 'true';
   const conditions: string[] = [];
   const filterArgs: Array<string | number> = [];
 
-  if (!includeAll) {
+  if (!includeAll && anonymous) {
+    // Le catalogue : des logements, en ligne, dans la commune par défaut.
+    conditions.push(
+      "lifecycle != 'inactive'",
+      "property_type != 'parking'",
+      `city IN (${MVP_CRITERIA.cities.map(() => '?').join(',')})`,
+    );
+    filterArgs.push(...MVP_CRITERIA.cities);
+  } else if (!includeAll) {
     conditions.push('COALESCE(sc.matches_criteria, 0) = 1', "lifecycle != 'inactive'");
 
     // TOUS les filtres s'appliquent en direct : les changer depuis l'interface
@@ -460,7 +505,7 @@ async function listListings(
   });
 
   return {
-    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)),
+    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>, userId)),
     total,
     limit: query.limit,
     offset: query.offset,
@@ -496,7 +541,7 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
   }
 
   return {
-    ...rowToListing(row as Record<string, unknown>),
+    ...rowToListing(row as Record<string, unknown>, userId),
     contactAttempts: attempts.rows.map((attempt) => ({
       id: attempt['id'],
       channel: attempt['channel'],
@@ -591,7 +636,7 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
         .split(',')
         .filter((one) => one !== ''),
     },
-    listings: listings.rows.map((one) => rowToListing(one as Record<string, unknown>)),
+    listings: listings.rows.map((one) => rowToListing(one as Record<string, unknown>, userId)),
   };
 }
 
@@ -624,7 +669,9 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
           ) DESC LIMIT 200`,
     args: [userId, userId],
   });
-  return { listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)) };
+  return {
+    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>, userId)),
+  };
 }
 
 async function listSources(db: Client): Promise<unknown> {
@@ -1230,7 +1277,7 @@ async function handleListingsRoute(
 ): Promise<Response> {
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
-    const query = buildListQuery(url, await liveFilters(db, userId));
+    const query = buildListQuery(url, await liveFilters(db, userId), userId === ANONYMOUS_USER);
     const { etag, total } = await listSignature(db, query, userId);
 
     // REQUÊTE CONDITIONNELLE. Le navigateur renvoie l'empreinte qu'il détient ;
