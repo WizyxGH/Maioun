@@ -626,14 +626,18 @@ export function rederiveFromText(
   // dément. Le recalculer librement le dégraderait — le scraper le tenait
   // souvent d'un champ dédié que la base ne conserve pas, et le titre seul
   // rendait alors « other » là où « appartement » était juste (§17).
+  // L'autre sens, un seul cas : un « autre » que le titre dit professionnel.
+  // « Autre » n'affirmait rien ; « Licence IV à louer » affirme quelque chose.
   const rescued = parsePropertyType(occurrence.title);
-  const propertyType =
+  const fromParking =
     occurrence.propertyType === 'parking' &&
     rescued !== 'parking' &&
     rescued !== 'other' &&
-    rescued !== 'unknown'
-      ? rescued
-      : occurrence.propertyType;
+    rescued !== 'unknown';
+  const toCommercial =
+    (occurrence.propertyType === 'other' || occurrence.propertyType === 'unknown') &&
+    rescued === 'commercial';
+  const propertyType = fromParking || toCommercial ? rescued : occurrence.propertyType;
 
   const { features, changed: featuresChanged } = reconcileFeatures(occurrence.features, text);
 

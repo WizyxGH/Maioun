@@ -170,6 +170,14 @@ describe('scoreMatch (§16)', () => {
     expect(matchesCriteria).toBe(false);
   });
 
+  it('exclut un local ou une licence : « Licence IV à louer », 390 €, partait en alerte', () => {
+    const { matchesCriteria } = scoreMatch(
+      makeAggregated({ propertyType: 'commercial', price: 390, area: null }),
+      MVP_CRITERIA,
+    );
+    expect(matchesCriteria).toBe(false);
+  });
+
   it('favorise un loyer nettement sous le plafond', () => {
     const cheap = scoreMatch(makeAggregated({ price: 500 }), MVP_CRITERIA).score.value;
     const tight = scoreMatch(makeAggregated({ price: 699 }), MVP_CRITERIA).score.value;

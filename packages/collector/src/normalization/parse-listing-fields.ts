@@ -227,6 +227,15 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   if (/\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b/.test(lower)) {
     return 'parking';
   }
+  // … ou un bien professionnel. « Licence IV 4 - Grande Licence à louer »
+  // tombait en `other`, que rien n'écarte, et partait en alerte.
+  if (
+    /\blicences?\b|\bfonds de commerce\b|\bbail commercial\b|\bdroit au bail\b|\bpas de porte\b|\bmurs commerciaux\b|\blocal\b|\blocaux\b|\b(louer|location) commerce\b|\bbureaux?\b|\bentrepots?\b/.test(
+      lower,
+    )
+  ) {
+    return 'commercial';
+  }
   return 'other';
 }
 

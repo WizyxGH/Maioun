@@ -199,6 +199,7 @@ const TYPE_LABELS: Record<PropertyType, string> = {
   room: 'la chambre',
   loft: 'le loft',
   parking: 'le stationnement',
+  commercial: 'le local',
   other: 'le bien',
   unknown: 'le bien',
 };

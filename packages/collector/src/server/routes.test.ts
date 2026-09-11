@@ -29,7 +29,7 @@ describe('la liste d’un visiteur sans compte', () => {
   it('lui montre le catalogue : des logements en ligne, dans la commune', () => {
     const { filter, filterArgs } = anonyme();
     expect(filter).toContain("lifecycle != 'inactive'");
-    expect(filter).toContain("property_type != 'parking'");
+    expect(filter).toContain("property_type NOT IN ('parking', 'commercial')");
     expect(filter).toContain('city IN (?)');
     expect(filterArgs).toContain('nice');
   });

@@ -399,7 +399,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
     // Le catalogue : des logements, en ligne, dans la commune par défaut.
     conditions.push(
       "lifecycle != 'inactive'",
-      "property_type != 'parking'",
+      "property_type NOT IN ('parking', 'commercial')",
       `city IN (${MVP_CRITERIA.cities.map(() => '?').join(',')})`,
     );
     filterArgs.push(...MVP_CRITERIA.cities);
