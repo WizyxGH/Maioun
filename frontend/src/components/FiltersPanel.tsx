@@ -245,14 +245,17 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
           celui du point de repère ; on convertit à la saisie et à l'affichage,
           pour que le serveur continue de comparer des minutes comparables. La
           conversion est exacte : une estimation vaut distance ÷ vitesse, seule
-          la vitesse dépend du mode. */}
-        <div className={ROW}>
+          la vitesse dépend du mode.
+
+          EMPILÉ : intitulé, menu, champ et unité ne tiennent pas sur une ligne
+          de téléphone — « min » sortait de l'écran. */}
+        <div className={STACKED}>
           <label htmlFor="maxCommuteMinutes">Trajet max domicile→travail</label>
           <span className="flex items-center gap-1.5">
             <Select
               size="sm"
               aria-label="Mode de déplacement"
-              className="w-auto"
+              className="min-w-0 flex-1"
               value={commuteMode}
               onChange={(e) => {
                 const next = e.target.value as ReferenceTravelMode;
