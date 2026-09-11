@@ -49,6 +49,16 @@ export interface EnrichResult {
  */
 const REFRESH_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * La mémoire s'écrit PAR PAQUETS, au fil de la lecture.
+ *
+ * Écrite d'un bloc en fin de passage, elle a fait échouer le premier rattrapage
+ * LocService le 2026-09-10 : un millier de fiches, environ deux mégaoctets en
+ * une requête, que la base a refusés — et quarante minutes de lecture perdues
+ * avec. Par paquets, un incident ne coûte que le paquet en cours.
+ */
+const SAVE_EVERY = 25;
+
 /** Fusionne ce que la fiche apprend sur l'annonce de la liste. */
 function mergeDraft(listing: RawListing, draft: RawDraft): RawListing {
   // Les champs de la fiche PRIMENT : c'est la page complète, la liste n'en était
@@ -118,6 +128,24 @@ export async function enrichNewListings(
     .sort((a, b) => a.rang - b.rang || a.index - b.index)
     .map((one) => one.listing);
 
+  /** Les fiches lues et pas encore mémorisées. */
+  let pending: { sourceRef: string; draft: RawDraft }[] = [];
+  const flush = async (): Promise<void> => {
+    if (pending.length === 0) return;
+    const batch = pending;
+    pending = [];
+    try {
+      await context.detailMemory.save(batch);
+    } catch (error) {
+      // L'ÉCHEC N'EST JAMAIS BLOQUANT (§69) : les annonces de ce passage
+      // reçoivent quand même ce qu'on vient de lire ; seule la mémoire de ce
+      // paquet manque, et ses fiches seront relues.
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('detail.memory_failed', { count: batch.length, error: message });
+      warnings.push(`Mémoire des fiches non enregistrée (${batch.length}) : ${message}`);
+    }
+  };
+
   let budget = options.max;
   for (const listing of aVisiter) {
     if (budget <= 0 || context.shouldStop()) break;
@@ -132,7 +160,11 @@ export async function enrichNewListings(
       if (page.notModified) continue;
       pagesFetched += 1;
       const draft = options.parse(page.body, listing);
-      if (draft !== null) learned.set(listing.sourceRef, draft);
+      if (draft !== null) {
+        learned.set(listing.sourceRef, draft);
+        pending.push({ sourceRef: listing.sourceRef, draft });
+        if (pending.length >= SAVE_EVERY) await flush();
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       context.log('detail.failed', { url, error: message });
@@ -149,7 +181,7 @@ export async function enrichNewListings(
     return draft === undefined ? listing : mergeDraft(listing, draft);
   });
 
-  await context.detailMemory.save([...learned].map(([sourceRef, draft]) => ({ sourceRef, draft })));
+  await flush();
 
   return { listings: enriched, requestCount, pagesFetched, warnings };
 }
