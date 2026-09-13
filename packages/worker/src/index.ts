@@ -1116,7 +1116,23 @@ export default {
     // l'écran de connexion. Elle répond aussi bien à un inconnu (200 avec
     // `user: null`) qu'à une session valide : ce n'est pas une erreur de ne
     // pas être connecté.
-    if (segments[1] === 'me') return json({ user: userId }, cors);
+    //
+    // La session y est RENOUVELÉE : la page appelle cette route à chaque
+    // ouverture, et les trente jours comptent ainsi depuis la dernière visite,
+    // non depuis la connexion. Qui utilise l'app ne se voit jamais déconnecté
+    // par l'échéance.
+    if (segments[1] === 'me') {
+      if (userId === null) return json({ user: null }, cors);
+      const renewed = await issueSession(userId, env.SESSION_SECRET, Date.now());
+      return new Response(JSON.stringify({ user: userId }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Set-Cookie': sessionCookie(renewed),
+          ...cors,
+        },
+      });
+    }
 
     /**
      * SANS SESSION, ON PEUT ENCORE CONSULTER.
