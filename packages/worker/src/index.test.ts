@@ -160,33 +160,116 @@ describe('« qui suis-je ? »', () => {
     expect(response.headers.get('Set-Cookie')).toMatch(/^session=moi\.\d+\..+Max-Age=2592000/);
   });
 
-  it('remet le jeton à la page, qui peut le lire', async () => {
+  it('ne remet AUCUN jeton lisible à une page qui ne prouve pas de clé', async () => {
     const response = await call('GET', '/api/me', { session: 'moi' });
-    expect(response.headers.get('X-Session-Token')).toMatch(/^moi\.\d+\./);
+    expect(response.headers.get('X-Session-Token')).toBeNull();
     expect(response.headers.get('Access-Control-Expose-Headers')).toContain('X-Session-Token');
   });
+});
 
-  it('reconnaît la session portée par Authorization, sans cookie (Brave, Safari)', async () => {
-    const token = await issueSession('moi', SECRET, Date.now());
-    const response = await worker.fetch(
-      new Request('https://api.invalid/api/me', {
-        headers: { Origin: ORIGIN, Authorization: `Bearer ${token}` },
-      }),
+/**
+ * LE JETON DE PAGE EST LIÉ À L'APPAREIL. Ces tests jouent le rôle du voleur :
+ * un jeton copié, une preuve rejouée, un jeton lié glissé dans un cookie.
+ */
+describe('jeton lié à la clé d’appareil', () => {
+  const API = 'https://api.invalid';
+
+  async function appareil(): Promise<CryptoKeyPair> {
+    return (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, [
+      'sign',
+      'verify',
+    ])) as CryptoKeyPair;
+  }
+
+  const b64url = (bytes: Uint8Array): string =>
+    btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+  async function preuve(
+    pair: CryptoKeyPair,
+    method: string,
+    path: string,
+    time = Date.now(),
+  ): Promise<Record<string, string>> {
+    const { kty, crv, x, y } = await crypto.subtle.exportKey('jwk', pair.publicKey);
+    const signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      pair.privateKey,
+      new TextEncoder().encode(`${method} ${path} ${time}`),
+    );
+    return {
+      'X-Session-Key': b64url(new TextEncoder().encode(JSON.stringify({ kty, crv, x, y }))),
+      'X-Session-Time': String(time),
+      'X-Session-Proof': b64url(new Uint8Array(signature)),
+    };
+  }
+
+  async function me(headers: Record<string, string>): Promise<Response> {
+    return worker.fetch(
+      new Request(`${API}/api/me`, { headers: { Origin: ORIGIN, ...headers } }),
       ENV,
     );
+  }
+
+  /** Une page connectée par cookie reçoit son jeton lié en prouvant sa clé. */
+  async function jetonLie(pair: CryptoKeyPair): Promise<string> {
+    const cookie = sessionCookie(await issueSession('moi', SECRET, Date.now()));
+    const response = await me({ Cookie: cookie, ...(await preuve(pair, 'GET', '/api/me')) });
+    const token = response.headers.get('X-Session-Token');
+    expect(token).not.toBeNull();
+    return token!;
+  }
+
+  it('ouvre la session avec le jeton ET la preuve de la clé, sans cookie (Brave)', async () => {
+    const pair = await appareil();
+    const token = await jetonLie(pair);
+    const response = await me({
+      Authorization: `Bearer ${token}`,
+      ...(await preuve(pair, 'GET', '/api/me')),
+    });
     expect(await response.json()).toEqual({ user: 'moi' });
   });
 
-  it('refuse un jeton Authorization falsifié', async () => {
-    const token = await issueSession('moi', SECRET, Date.now());
-    const forged = token.replace(/^moi\./, 'autre.');
-    const response = await worker.fetch(
-      new Request('https://api.invalid/api/me', {
-        headers: { Origin: ORIGIN, Authorization: `Bearer ${forged}` },
-      }),
-      ENV,
-    );
+  it('refuse le jeton volé, copié sans la clé', async () => {
+    const token = await jetonLie(await appareil());
+    expect(await (await me({ Authorization: `Bearer ${token}` })).json()).toEqual({ user: null });
+  });
+
+  it('refuse le jeton volé présenté avec la clé du voleur', async () => {
+    const token = await jetonLie(await appareil());
+    const voleur = await appareil();
+    const response = await me({
+      Authorization: `Bearer ${token}`,
+      ...(await preuve(voleur, 'GET', '/api/me')),
+    });
     expect(await response.json()).toEqual({ user: null });
+  });
+
+  it('refuse une preuve rejouée sur un autre chemin', async () => {
+    const pair = await appareil();
+    const token = await jetonLie(pair);
+    const response = await me({
+      Authorization: `Bearer ${token}`,
+      ...(await preuve(pair, 'GET', '/api/documents')),
+    });
+    expect(await response.json()).toEqual({ user: null });
+  });
+
+  it('refuse une preuve périmée', async () => {
+    const pair = await appareil();
+    const token = await jetonLie(pair);
+    const response = await me({
+      Authorization: `Bearer ${token}`,
+      ...(await preuve(pair, 'GET', '/api/me', Date.now() - 10 * 60_000)),
+    });
+    expect(await response.json()).toEqual({ user: null });
+  });
+
+  it('refuse un jeton lié glissé dans un cookie, qui échapperait à la preuve', async () => {
+    const token = await jetonLie(await appareil());
+    expect(await (await me({ Cookie: `session=${token}` })).json()).toEqual({ user: null });
   });
 
   it('ne pose aucun cookie à un visiteur', async () => {

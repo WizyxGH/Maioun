@@ -7,15 +7,15 @@
  * retrouvait déconnecté à chaque réouverture.
  *
  * Le stockage LOCAL du site, lui, est conservé par tous. L'API y remet le jeton
- * (en-tête `X-Session-Token`) à la connexion et à chaque ouverture ; la page le
- * renvoie en `Authorization`. Le cookie reste envoyé : les navigateurs qui le
- * gardent n'y perdent rien.
+ * (en-tête `X-Session-Token`) ; la page le renvoie en `Authorization`. Le
+ * cookie reste envoyé : les navigateurs qui le gardent n'y perdent rien.
  *
- * Accessible au JavaScript de la page, contrairement au cookie `HttpOnly` —
- * c'est le prix. Le jeton est signé, expire au bout de 30 jours d'inactivité,
- * et ne permet ni de changer le mot de passe ni de supprimer le compte, qui
- * redemandent tous deux le mot de passe.
+ * LISIBLE PAR LA PAGE, MAIS INUTILE AILLEURS. Le jeton est lié à la clé
+ * d'appareil (`session-key.ts`), que personne ne peut extraire : chaque
+ * requête la prouve par une signature, et l'API refuse le jeton sans elle.
  */
+
+import { forgetSessionKey, proofHeaders } from './session-key.js';
 
 const KEY = 'maioun.session';
 const HEADER = 'X-Session-Token';
@@ -29,7 +29,8 @@ function read(): string | null {
   }
 }
 
-export function clearSessionToken(): void {
+/** Le jeton seul, que l'API ne reconnaît plus (expiré, compte supprimé). */
+export function dropSessionToken(): void {
   try {
     localStorage.removeItem(KEY);
   } catch {
@@ -37,13 +38,22 @@ export function clearSessionToken(): void {
   }
 }
 
+/** Déconnexion : le jeton ET la clé qui le liait. */
+export async function clearSessionToken(): Promise<void> {
+  dropSessionToken();
+  await forgetSessionKey();
+}
+
 /**
- * `fetch` vers l'API : cookie ET jeton, et le jeton renouvelé quand la réponse
- * en porte un. Tous les appels authentifiés passent par ici.
+ * `fetch` vers l'API : cookie, jeton, preuve de la clé — et le jeton renouvelé
+ * quand la réponse en porte un. Tous les appels authentifiés passent par ici.
  */
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token = read();
   const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(await proofHeaders(init.method ?? 'GET', url))) {
+    headers.set(name, value);
+  }
   if (token !== null && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }

@@ -21,14 +21,8 @@
 
 import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@maioun/collector/server/routes';
-import {
-  SESSION_HEADER,
-  clearedCookie,
-  issueSession,
-  readSession,
-  readSessionToken,
-  sessionHeaders,
-} from './auth.js';
+import { SESSION_HEADER, authenticate, clearedCookie, sessionHeaders } from './auth.js';
+import { KEY_HEADER, PROOF_HEADER, TIME_HEADER, provenKey } from './session-proof.js';
 import { verifyGoogleToken } from './google-auth.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
@@ -209,7 +203,7 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     // `Authorization` porte le jeton de session hors cookie ; la page doit
     // pouvoir LIRE l'en-tête qui le lui remet.
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': `Content-Type, Authorization, ${KEY_HEADER}, ${PROOF_HEADER}, ${TIME_HEADER}`,
     'Access-Control-Expose-Headers': SESSION_HEADER,
     Vary: 'Origin',
   };
@@ -280,12 +274,18 @@ async function login(db: Client, request: Request, env: Env, cors: Record<string
   }
 
   const userId = String(row['id']);
-  const token = await issueSession(userId, env.SESSION_SECRET, Date.now());
+  const now = Date.now();
+  const session = await sessionHeaders(
+    userId,
+    env.SESSION_SECRET,
+    now,
+    await provenKey(request, now),
+  );
   return new Response(JSON.stringify({ userId }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      ...sessionHeaders(token),
+      ...session,
       ...cors,
     },
   });
@@ -374,12 +374,18 @@ async function loginWithGoogle(
     });
   }
 
-  const token = await issueSession(userId, env.SESSION_SECRET, Date.now());
+  const issuedAt = Date.now();
+  const session = await sessionHeaders(
+    userId,
+    env.SESSION_SECRET,
+    issuedAt,
+    await provenKey(request, issuedAt),
+  );
   return new Response(JSON.stringify({ userId }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      ...sessionHeaders(token),
+      ...session,
       ...cors,
     },
   });
@@ -562,12 +568,18 @@ async function signup(
     });
   }
 
-  const token = await issueSession(created.account.userId, env.SESSION_SECRET, Date.now());
+  const now = Date.now();
+  const session = await sessionHeaders(
+    created.account.userId,
+    env.SESSION_SECRET,
+    now,
+    await provenKey(request, now),
+  );
   return new Response(JSON.stringify({ userId: created.account.userId, confirmationSent }), {
     status: 201,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      ...sessionHeaders(token),
+      ...session,
       ...cors,
     },
   });
@@ -1116,7 +1128,9 @@ export default {
     const open = await publicRoute(db, request, env, cors, segments);
     if (open !== null) return open;
 
-    const userId = await readSession(readSessionToken(request), env.SESSION_SECRET, Date.now());
+    const now = Date.now();
+    const provenThumbprint = await provenKey(request, now);
+    const userId = await authenticate(request, env.SESSION_SECRET, now, provenThumbprint);
 
     // « Qui suis-je ? » — la page s'en sert pour savoir s'il faut afficher
     // l'écran de connexion. Elle répond aussi bien à un inconnu (200 avec
@@ -1126,15 +1140,16 @@ export default {
     // La session y est RENOUVELÉE : la page appelle cette route à chaque
     // ouverture, et les trente jours comptent ainsi depuis la dernière visite,
     // non depuis la connexion. Qui utilise l'app ne se voit jamais déconnecté
-    // par l'échéance.
+    // par l'échéance. Une page connectée par cookie y reçoit aussi son jeton
+    // lié, si elle prouve sa clé.
     if (segments[1] === 'me') {
       if (userId === null) return json({ user: null }, cors);
-      const renewed = await issueSession(userId, env.SESSION_SECRET, Date.now());
+      const session = await sessionHeaders(userId, env.SESSION_SECRET, now, provenThumbprint);
       return new Response(JSON.stringify({ user: userId }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          ...sessionHeaders(renewed),
+          ...session,
           ...cors,
         },
       });

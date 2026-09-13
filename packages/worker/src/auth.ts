@@ -139,12 +139,30 @@ async function signingKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-/** Fabrique un jeton de session signé pour cet utilisateur. */
-export async function issueSession(userId: string, secret: string, nowMs: number): Promise<string> {
+/**
+ * Fabrique un jeton de session signé pour cet utilisateur.
+ *
+ * @param keyThumbprint empreinte de la clé d'appareil à laquelle le jeton est
+ *   LIÉ (voir `session-proof.ts`) ; absente pour le cookie, que le navigateur
+ *   garde hors de portée du JavaScript.
+ */
+export async function issueSession(
+  userId: string,
+  secret: string,
+  nowMs: number,
+  keyThumbprint: string | null = null,
+): Promise<string> {
   const expiry = nowMs + SESSION_DAYS * 86_400_000;
-  const body = `${userId}.${expiry}`;
+  const body =
+    keyThumbprint === null ? `${userId}.${expiry}` : `${userId}.${expiry}.${keyThumbprint}`;
   const mac = await crypto.subtle.sign('HMAC', await signingKey(secret), encoder.encode(body));
   return `${body}.${toBase64(new Uint8Array(mac))}`;
+}
+
+export interface SessionClaims {
+  readonly userId: string;
+  /** Empreinte de la clé liée, ou `null` pour un jeton de cookie. */
+  readonly keyThumbprint: string | null;
 }
 
 /**
@@ -152,15 +170,16 @@ export async function issueSession(userId: string, secret: string, nowMs: number
  * est inattendu, ou si la session a expiré — dans les trois cas la réponse est
  * la même : on ne dit pas LEQUEL des trois, cela n'aiderait qu'un attaquant.
  */
-export async function readSession(
+export async function readSessionClaims(
   token: string | null,
   secret: string,
   nowMs: number,
-): Promise<string | null> {
+): Promise<SessionClaims | null> {
   if (token === null) return null;
   const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [userId, expiry, mac] = parts as [string, string, string];
+  if (parts.length !== 3 && parts.length !== 4) return null;
+  const mac = parts.pop()!;
+  const [userId, expiry, keyThumbprint] = parts as [string, string, string?];
 
   let valid: boolean;
   try {
@@ -168,7 +187,7 @@ export async function readSession(
       'HMAC',
       await signingKey(secret),
       fromBase64(mac) as unknown as BufferSource,
-      encoder.encode(`${userId}.${expiry}`),
+      encoder.encode(parts.join('.')),
     );
   } catch {
     return null;
@@ -177,7 +196,16 @@ export async function readSession(
 
   const deadline = Number(expiry);
   if (!Number.isFinite(deadline) || deadline <= nowMs) return null;
-  return userId;
+  return { userId, keyThumbprint: keyThumbprint ?? null };
+}
+
+/** L'utilisateur d'un jeton, quelle qu'en soit la forme. */
+export async function readSession(
+  token: string | null,
+  secret: string,
+  nowMs: number,
+): Promise<string | null> {
+  return (await readSessionClaims(token, secret, nowMs))?.userId ?? null;
 }
 
 /**
@@ -243,19 +271,53 @@ export function clearedCookie(): string {
  * POURQUOI EN PLUS DU COOKIE. Le cookie est tiers (site sur `github.io`, API
  * sur `workers.dev`) : Brave le range dans un stockage éphémère effacé à la
  * fermeture des onglets, Safari le bloque. Le jeton gardé par la page, lui, est
- * un stockage du site même, que ces navigateurs conservent.
+ * un stockage du site même, que ces navigateurs conservent — et, lisible par
+ * la page, il n'est émis que LIÉ à sa clé d'appareil.
  */
 export const SESSION_HEADER = 'X-Session-Token';
 
-/** En-têtes d'une réponse qui ouvre ou renouvelle une session. */
-export function sessionHeaders(token: string): Record<string, string> {
-  return { 'Set-Cookie': sessionCookie(token), [SESSION_HEADER]: token };
+/**
+ * En-têtes d'une réponse qui ouvre ou renouvelle une session : le cookie
+ * toujours, le jeton de page seulement si la requête a prouvé sa clé.
+ */
+export async function sessionHeaders(
+  userId: string,
+  secret: string,
+  nowMs: number,
+  keyThumbprint: string | null,
+): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    'Set-Cookie': sessionCookie(await issueSession(userId, secret, nowMs)),
+  };
+  if (keyThumbprint !== null) {
+    headers[SESSION_HEADER] = await issueSession(userId, secret, nowMs, keyThumbprint);
+  }
+  return headers;
 }
 
-/** Le jeton porté par la requête : l'en-tête `Authorization` d'abord, sinon le cookie. */
-export function readSessionToken(request: Request): string | null {
+/**
+ * Qui fait la requête.
+ *
+ * Le jeton `Authorization` ne vaut QUE s'il est lié et que la requête prouve la
+ * clé liée : copié hors de l'appareil, il n'ouvre rien. Le cookie, lui, ne
+ * vaut que non lié — un jeton lié glissé dans un cookie échapperait sinon à la
+ * preuve.
+ *
+ * @param keyThumbprint l'empreinte prouvée par la requête (`provenKey`).
+ */
+export async function authenticate(
+  request: Request,
+  secret: string,
+  nowMs: number,
+  keyThumbprint: string | null,
+): Promise<string | null> {
   const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get('Authorization') ?? '')?.[1];
-  return bearer ?? readCookie(request.headers.get('Cookie'));
+  if (bearer !== undefined && keyThumbprint !== null) {
+    const claims = await readSessionClaims(bearer, secret, nowMs);
+    if (claims !== null && claims.keyThumbprint === keyThumbprint) return claims.userId;
+  }
+  const cookie = await readSessionClaims(readCookie(request.headers.get('Cookie')), secret, nowMs);
+  return cookie !== null && cookie.keyThumbprint === null ? cookie.userId : null;
 }
 
 /** Extrait le jeton de l'en-tête `Cookie`. */
