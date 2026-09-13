@@ -235,6 +235,29 @@ export function clearedCookie(): string {
   return `session=; ${COOKIE_FLAGS}; Max-Age=0`;
 }
 
+/**
+ * L'en-tête qui porte le jeton de session hors cookie, dans les deux sens : le
+ * Worker l'ajoute aux réponses qui ouvrent ou renouvellent une session, la page
+ * le garde et le renvoie en `Authorization: Bearer`.
+ *
+ * POURQUOI EN PLUS DU COOKIE. Le cookie est tiers (site sur `github.io`, API
+ * sur `workers.dev`) : Brave le range dans un stockage éphémère effacé à la
+ * fermeture des onglets, Safari le bloque. Le jeton gardé par la page, lui, est
+ * un stockage du site même, que ces navigateurs conservent.
+ */
+export const SESSION_HEADER = 'X-Session-Token';
+
+/** En-têtes d'une réponse qui ouvre ou renouvelle une session. */
+export function sessionHeaders(token: string): Record<string, string> {
+  return { 'Set-Cookie': sessionCookie(token), [SESSION_HEADER]: token };
+}
+
+/** Le jeton porté par la requête : l'en-tête `Authorization` d'abord, sinon le cookie. */
+export function readSessionToken(request: Request): string | null {
+  const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get('Authorization') ?? '')?.[1];
+  return bearer ?? readCookie(request.headers.get('Cookie'));
+}
+
 /** Extrait le jeton de l'en-tête `Cookie`. */
 export function readCookie(header: string | null): string | null {
   if (header === null) return null;

@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   canStoreDocuments,
   deleteDocument,
-  documentUrl,
+  fetchDocument,
   fetchDocuments,
   uploadDocument,
   type DocumentInfo,
@@ -89,8 +89,8 @@ function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.E
    * joignent pas à une balise `img`. Le Worker répondait donc 401 et la
    * vignette restait vide, sur le seul appareil où l'on dépose ses pièces.
    *
-   * `fetch` avec `credentials: 'include'` est exactement le chemin qu'emprunte
-   * déjà tout le reste de l'application, et lui fonctionne. On lit les octets,
+   * `fetchDocument` emprunte le chemin de tout le reste de l'application —
+   * cookie et jeton de session —, et lui fonctionne. On lit les octets,
    * on en fait une URL locale — que l'on RELÂCHE au démontage, faute de quoi
    * chaque ouverture de l'écran retiendrait quelques mégaoctets.
    */
@@ -99,7 +99,7 @@ function DocumentThumbnail({ doc }: { readonly doc: DocumentInfo }): React.JSX.E
     let objectUrl: string | null = null;
     let cancelled = false;
 
-    void fetch(documentUrl(doc.name), { credentials: 'include' })
+    void fetchDocument(doc.name)
       .then(async (response) => (response.ok ? await response.blob() : null))
       .then((blob) => {
         if (blob === null || cancelled) return;
@@ -208,7 +208,7 @@ function DocumentRow({
   const ouvrir = async (): Promise<void> => {
     setOuverture(true);
     try {
-      const response = await fetch(documentUrl(doc.name), { credentials: 'include' });
+      const response = await fetchDocument(doc.name);
       if (!response.ok) return;
       const url = URL.createObjectURL(await response.blob());
       window.open(url, '_blank', 'noreferrer');

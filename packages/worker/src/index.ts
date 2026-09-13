@@ -21,7 +21,14 @@
 
 import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@maioun/collector/server/routes';
-import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } from './auth.js';
+import {
+  SESSION_HEADER,
+  clearedCookie,
+  issueSession,
+  readSession,
+  readSessionToken,
+  sessionHeaders,
+} from './auth.js';
 import { verifyGoogleToken } from './google-auth.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
@@ -200,7 +207,10 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
     // critères de recherche et les réglages de compte s'enregistrent en PUT :
     // aucun des deux ne fonctionnait.
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    // `Authorization` porte le jeton de session hors cookie ; la page doit
+    // pouvoir LIRE l'en-tête qui le lui remet.
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Expose-Headers': SESSION_HEADER,
     Vary: 'Origin',
   };
 }
@@ -275,7 +285,7 @@ async function login(db: Client, request: Request, env: Env, cors: Record<string
     status: 200,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': sessionCookie(token),
+      ...sessionHeaders(token),
       ...cors,
     },
   });
@@ -369,7 +379,7 @@ async function loginWithGoogle(
     status: 200,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': sessionCookie(token),
+      ...sessionHeaders(token),
       ...cors,
     },
   });
@@ -557,7 +567,7 @@ async function signup(
     status: 201,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': sessionCookie(token),
+      ...sessionHeaders(token),
       ...cors,
     },
   });
@@ -1106,11 +1116,7 @@ export default {
     const open = await publicRoute(db, request, env, cors, segments);
     if (open !== null) return open;
 
-    const userId = await readSession(
-      readCookie(request.headers.get('Cookie')),
-      env.SESSION_SECRET,
-      Date.now(),
-    );
+    const userId = await readSession(readSessionToken(request), env.SESSION_SECRET, Date.now());
 
     // « Qui suis-je ? » — la page s'en sert pour savoir s'il faut afficher
     // l'écran de connexion. Elle répond aussi bien à un inconnu (200 avec
@@ -1128,7 +1134,7 @@ export default {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Set-Cookie': sessionCookie(renewed),
+          ...sessionHeaders(renewed),
           ...cors,
         },
       });

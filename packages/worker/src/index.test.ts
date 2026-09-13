@@ -160,6 +160,35 @@ describe('« qui suis-je ? »', () => {
     expect(response.headers.get('Set-Cookie')).toMatch(/^session=moi\.\d+\..+Max-Age=2592000/);
   });
 
+  it('remet le jeton à la page, qui peut le lire', async () => {
+    const response = await call('GET', '/api/me', { session: 'moi' });
+    expect(response.headers.get('X-Session-Token')).toMatch(/^moi\.\d+\./);
+    expect(response.headers.get('Access-Control-Expose-Headers')).toContain('X-Session-Token');
+  });
+
+  it('reconnaît la session portée par Authorization, sans cookie (Brave, Safari)', async () => {
+    const token = await issueSession('moi', SECRET, Date.now());
+    const response = await worker.fetch(
+      new Request('https://api.invalid/api/me', {
+        headers: { Origin: ORIGIN, Authorization: `Bearer ${token}` },
+      }),
+      ENV,
+    );
+    expect(await response.json()).toEqual({ user: 'moi' });
+  });
+
+  it('refuse un jeton Authorization falsifié', async () => {
+    const token = await issueSession('moi', SECRET, Date.now());
+    const forged = token.replace(/^moi\./, 'autre.');
+    const response = await worker.fetch(
+      new Request('https://api.invalid/api/me', {
+        headers: { Origin: ORIGIN, Authorization: `Bearer ${forged}` },
+      }),
+      ENV,
+    );
+    expect(await response.json()).toEqual({ user: null });
+  });
+
   it('ne pose aucun cookie à un visiteur', async () => {
     const response = await call('GET', '/api/me');
     expect(await response.json()).toEqual({ user: null });
