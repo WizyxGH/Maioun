@@ -153,6 +153,20 @@ describe('mur de session', () => {
   }
 });
 
+describe('« qui suis-je ? »', () => {
+  it('renouvelle la session à chaque ouverture : les 30 jours repartent', async () => {
+    const response = await call('GET', '/api/me', { session: 'moi' });
+    expect(await response.json()).toEqual({ user: 'moi' });
+    expect(response.headers.get('Set-Cookie')).toMatch(/^session=moi\.\d+\..+Max-Age=2592000/);
+  });
+
+  it('ne pose aucun cookie à un visiteur', async () => {
+    const response = await call('GET', '/api/me');
+    expect(await response.json()).toEqual({ user: null });
+    expect(response.headers.get('Set-Cookie')).toBeNull();
+  });
+});
+
 describe('accès aux sources payantes', () => {
   it('refuse une source qui n’est pas dans la liste fermée', async () => {
     // Sans cette liste, n'importe quel identifiant écrirait une ligne — y
