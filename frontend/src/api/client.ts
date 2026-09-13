@@ -48,6 +48,7 @@ import {
   type StoredReferencePoint,
 } from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
+import { apiFetch, clearSessionToken } from './session-token.js';
 import { byRecency } from '../recency.js';
 
 /**
@@ -107,16 +108,12 @@ export class ApiError extends Error {
 export const NETWORK_ERROR_STATUS = 0;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  // `credentials: 'include'` est ce qui fait tenir l'ensemble : le cookie de
-  // session est posé par le Worker, sur SON domaine, et le site vit sur un
-  // autre. Sans cette mention, le navigateur ne le renverrait pas, et chaque
-  // requête reviendrait « connexion requise » alors qu'on vient de se
-  // connecter.
+  // `apiFetch` porte la session : le cookie (`credentials: 'include'`, le
+  // Worker vit sur un autre domaine) et le jeton gardé par la page.
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await apiFetch(`${API_URL}${path}`, {
       ...init,
-      credentials: 'include',
       headers: {
         ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...init.headers,
@@ -161,6 +158,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export async function fetchCurrentUser(): Promise<string | null> {
   if (DEMO) return LOCAL_USER;
   const response = await request<{ user: string | null }>('/api/me');
+  // Un jeton que l'API ne reconnaît plus (expiré, compte supprimé) ne sert à
+  // rien : l'envoyer à chaque requête ne ferait que la ralentir.
+  if (response.user === null) clearSessionToken();
   return response.user;
 }
 
@@ -244,9 +244,10 @@ export async function loginWithGoogle(credential: string): Promise<string | null
 
 export async function logout(): Promise<void> {
   if (!requiresLogin()) return;
-  await fetch(`${API_URL}/api/logout`, { method: 'POST', credentials: 'include' }).catch(() => {
+  await apiFetch(`${API_URL}/api/logout`, { method: 'POST' }).catch(() => {
     /* déconnexion locale malgré tout : le cookie expirera */
   });
+  clearSessionToken();
 }
 
 /** Applique en local le tri et le filtrage que l'API ferait en SQL. */
@@ -457,9 +458,8 @@ export async function changeAccountEmail(
   // enverrait se reconnecter au lieu de retaper son mot de passe.
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/api/account/email`, {
+    response = await apiFetch(`${API_URL}/api/account/email`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
@@ -587,9 +587,8 @@ export async function signup(input: {
   }
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/api/signup`, {
+    response = await apiFetch(`${API_URL}/api/signup`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(input),
     });
@@ -644,6 +643,7 @@ export async function deleteAccount(
       method: 'DELETE',
       body: JSON.stringify({ password }),
     });
+    clearSessionToken();
     return 'done';
   } catch (caught) {
     return caught instanceof ApiError && caught.status === 401 ? 'wrong-password' : 'error';
@@ -882,9 +882,8 @@ export async function uploadDocument(file: File): Promise<DocumentInfo> {
   if (!canStoreDocuments()) throw new Error("Aucun espace de fichiers n'est configuré.");
   const form = new FormData();
   form.append('file', file);
-  const response = await fetch(`${API_URL}/api/documents`, {
+  const response = await apiFetch(`${API_URL}/api/documents`, {
     method: 'POST',
-    credentials: 'include',
     body: form,
   });
   if (!response.ok) {
@@ -902,6 +901,11 @@ export async function deleteDocument(name: string): Promise<void> {
 /** URL de consultation d'une pièce (ouvre dans le navigateur). */
 export function documentUrl(name: string): string {
   return `${API_URL}/api/documents/${encodeURIComponent(name)}`;
+}
+
+/** Télécharge une pièce avec la session : une balise `img` ne la porterait pas. */
+export function fetchDocument(name: string): Promise<Response> {
+  return apiFetch(documentUrl(name));
 }
 
 /** Filtres par défaut, pour le mode démo (pas de fichier de config). */
@@ -1133,9 +1137,8 @@ export async function saveSourceAccess(
   password: string,
 ): Promise<string | null> {
   if (DEMO || API_URL === '') return 'Fonctionnalité indisponible sur cette installation.';
-  const response = await fetch(`${API_URL}/api/credentials/${encodeURIComponent(sourceId)}`, {
+  const response = await apiFetch(`${API_URL}/api/credentials/${encodeURIComponent(sourceId)}`, {
     method: 'PUT',
-    credentials: 'include',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ login, password }),
   }).catch(() => null);
