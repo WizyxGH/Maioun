@@ -48,7 +48,7 @@ import {
   type StoredReferencePoint,
 } from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
-import { apiFetch, clearSessionToken } from './session-token.js';
+import { apiFetch, clearSessionToken, dropSessionToken } from './session-token.js';
 import { byRecency } from '../recency.js';
 
 /**
@@ -160,7 +160,7 @@ export async function fetchCurrentUser(): Promise<string | null> {
   const response = await request<{ user: string | null }>('/api/me');
   // Un jeton que l'API ne reconnaît plus (expiré, compte supprimé) ne sert à
   // rien : l'envoyer à chaque requête ne ferait que la ralentir.
-  if (response.user === null) clearSessionToken();
+  if (response.user === null) dropSessionToken();
   return response.user;
 }
 
@@ -247,7 +247,7 @@ export async function logout(): Promise<void> {
   await apiFetch(`${API_URL}/api/logout`, { method: 'POST' }).catch(() => {
     /* déconnexion locale malgré tout : le cookie expirera */
   });
-  clearSessionToken();
+  await clearSessionToken();
 }
 
 /** Applique en local le tri et le filtrage que l'API ferait en SQL. */
@@ -643,7 +643,7 @@ export async function deleteAccount(
       method: 'DELETE',
       body: JSON.stringify({ password }),
     });
-    clearSessionToken();
+    await clearSessionToken();
     return 'done';
   } catch (caught) {
     return caught instanceof ApiError && caught.status === 401 ? 'wrong-password' : 'error';

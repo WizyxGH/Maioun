@@ -47,7 +47,7 @@ describe('apiFetch — la session tient sans cookie tiers', () => {
 
   it('n’envoie plus rien après la déconnexion', async () => {
     localStorage.setItem('maioun.session', 'moi.123.sig');
-    clearSessionToken();
+    await clearSessionToken();
     respond();
     await apiFetch('https://api.invalid/api/listings');
     expect(new Headers(sent[0]?.headers).get('Authorization')).toBeNull();
