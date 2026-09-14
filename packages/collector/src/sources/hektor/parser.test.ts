@@ -163,6 +163,17 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(normalized?.postalCode).toBe('06000');
   });
 
+  it('gabarit « contentDt » : la description n’a que son microdata (Immobilière GTI)', () => {
+    const url = 'https://www.immobilieregti.com/18309-nice-proche-liberation-studio-vide.html';
+    const { listing } = parseDetailPage(read('detail-content-dt.html'), url, 'Immobilière GTI');
+    // Relevé réel : description vide, alors qu'elle donnait la rue.
+    expect(listing?.description).toContain('RUE CAVENDISH');
+    expect(listing?.description).toContain('Revenu minimum de 1600euros');
+    const normalized = normalize(listing as NonNullable<typeof listing>);
+    expect(normalized?.address).toBe('RUE CAVENDISH');
+    expect(normalized).toMatchObject({ price: 590, deposit: 560, tenantFees: 283 });
+  });
+
   it('gabarit éditorial, table sans classes de clé (Aurus)', () => {
     const url =
       'https://www.aurusimmo.com/location/06-alpes-maritimes/73-nice/2-appartement/t1/22-magnifique-f1-apercu-mer/';
