@@ -294,6 +294,53 @@ describe('scénario 7 — la structure de la source change (§53)', () => {
   });
 });
 
+describe('collecte en parallèle, bornée dans le temps', () => {
+  it('lance les sites différents de front, et reporte ce qui n’a pas démarré à temps', async () => {
+    const { repository } = await setupDatabase();
+    const options = pipelineOptions(repository, serveNominal, []);
+    const started: string[] = [];
+    let running = 0;
+    let peak = 0;
+    const source = (id: string, domain: string, minutes: number): Scraper => ({
+      descriptor: { ...laforetScraper.descriptor, id, domain, priority: 1 },
+      run: async () => {
+        started.push(id);
+        running += 1;
+        peak = Math.max(peak, running);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        // Une source longue fait passer le budget de temps du passage.
+        options.clock.advance(minutes * 60_000);
+        running -= 1;
+        return {
+          sourceId: id,
+          listings: [],
+          requestCount: 0,
+          pagesFetched: 0,
+          stopReason: 'completed',
+          warnings: [],
+        };
+      },
+    });
+
+    const report = await runPipeline({
+      ...options,
+      registry: createRegistry([
+        source('a1', 'a.invalid', 9),
+        source('a2', 'a.invalid', 1),
+        source('b1', 'b.invalid', 1),
+      ]),
+    });
+
+    // Deux sites différents : de front.
+    expect(peak).toBe(2);
+    // a2 attendait derrière a1, du même site, et le budget est passé : reportée.
+    expect(started).not.toContain('a2');
+    expect(report.sourcesRun).toEqual(expect.arrayContaining(['a1', 'b1']));
+    expect(report.sourcesRun).not.toContain('a2');
+    expect((await repository.loadSourceState('a2')).lastRunAt).toBeNull();
+  });
+});
+
 describe('économie des écritures (§27, §30)', () => {
   it('ne réécrit pas une occurrence dont le contenu n’a pas changé', async () => {
     const { repository } = await setupDatabase();

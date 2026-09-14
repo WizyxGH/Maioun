@@ -53,7 +53,9 @@ export function loadDotEnv(): void {
 
 export const PUBLIC_CONFIG: PublicConfig = {
   criteria: MVP_CRITERIA,
-  maxSourcesPerRun: 6,
+  // Collectées en parallèle et bornées par un budget de temps (voir le pipeline) :
+  // à six, cent trente sources attendaient près de trois heures leur tour.
+  maxSourcesPerRun: 30,
   // Le repère par défaut, pour ce qui n'est pas niçois. Nice a le sien, calé
   // sur la Carte des loyers de l'État et découpé par taille de logement (voir
   // `rent-reference.ts`) : un nombre unique faisait passer le petit logement,

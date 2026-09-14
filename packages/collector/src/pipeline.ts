@@ -44,6 +44,7 @@ import type { Repository, UpsertReport } from './db/repository.js';
 import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 import { withStoredCriteria } from './config.js';
 import { resolveReferencePoints } from './core/reference-points.js';
+import { mapLimited, memoizeStore, runGrouped } from './core/concurrency.js';
 import {
   decryptSecret,
   type SourceCredentials,
@@ -51,6 +52,22 @@ import {
   REFERENCE_POINTS_SETTING,
   SEARCH_CRITERIA_SETTING,
 } from '@maioun/shared';
+
+/** Lectures de cache menées de front : des allers-retours vers la base, pas vers un site. */
+const CACHE_READS_AT_ONCE = 16;
+
+/**
+ * Sources collectées de front. Chacune garde son propre rythme de politesse ;
+ * deux sources d'un même site restent en file (voir `runGrouped`).
+ */
+const SOURCES_AT_ONCE = 6;
+
+/**
+ * Au-delà, plus aucune source ne DÉMARRE : celles qui restent sont dues au
+ * passage suivant. Huit minutes laissent le dédoublonnage, le scoring et les
+ * alertes finir bien avant le passage d'après.
+ */
+const SOURCE_PHASE_BUDGET_MS = 8 * 60_000;
 
 /** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
 const GEOCODE_NETWORK_BUDGET = 80;
@@ -274,24 +291,32 @@ async function geocodeMissingAddresses(
   const geocoded = new Map<string, Coordinates | null>();
   if (options.referencePoints.length === 0) return geocoded;
 
+  const cache = memoizeStore(options.repository.geocodeCache());
   const geocoder = createGeocoder({
-    cache: options.repository.geocodeCache(),
+    cache,
     nowMs,
     userAgent: options.userAgent,
     ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
   });
-  let networkBudget = GEOCODE_NETWORK_BUDGET;
-  for (const listing of merged) {
-    // Seulement les annonces sans GPS mais avec une adresse de rue : géocoder
-    // une simple ville donnerait un centre-ville trompeur (§17).
-    if (listing.latitude.value !== null && listing.longitude.value !== null) continue;
+
+  // Seulement les annonces sans GPS mais avec une adresse de rue : géocoder
+  // une simple ville donnerait un centre-ville trompeur (§17).
+  const candidates = merged.flatMap((listing) => {
+    if (listing.latitude.value !== null && listing.longitude.value !== null) return [];
     const query = geocodeQuery(listing);
-    if (query === null) continue;
+    return query === null ? [] : [{ listing, query }];
+  });
 
-    const cached = await options.repository.geocodeCache().get(geocodeCacheKey(query));
-    if (cached === null && networkBudget <= 0) continue; // budget réseau épuisé
-    if (cached === null) networkBudget -= 1;
-
+  // Le cache se lit en parallèle ; le réseau reste un appel à la fois.
+  const cached = await mapLimited(candidates, CACHE_READS_AT_ONCE, ({ query }) =>
+    cache.get(geocodeCacheKey(query)),
+  );
+  let networkBudget = GEOCODE_NETWORK_BUDGET;
+  for (const [index, { listing, query }] of candidates.entries()) {
+    if (cached[index] === null) {
+      if (networkBudget <= 0) continue; // budget réseau épuisé
+      networkBudget -= 1;
+    }
     geocoded.set(listing.id, await geocoder.geocode(query));
   }
   return geocoded;
@@ -318,7 +343,7 @@ async function fillMissingDpe(
   nowMs: number,
 ): Promise<Map<string, DpeRecord>> {
   const found = new Map<string, DpeRecord>();
-  const cache = options.repository.dpeCache();
+  const cache = memoizeStore(options.repository.dpeCache());
   const lookup = createDpeLookup({
     cache,
     nowMs,
@@ -326,18 +351,26 @@ async function fillMissingDpe(
     ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
   });
 
-  let networkBudget = DPE_NETWORK_BUDGET;
-  for (const listing of merged) {
-    if (listing.dpe.value !== null) continue;
+  const candidates = merged.flatMap((listing) => {
     const address = listing.address.value;
     const postalCode = listing.postalCode.value;
     const area = listing.area.value;
-    if (address === null || postalCode === null || area === null) continue;
+    if (listing.dpe.value !== null || address === null || postalCode === null || area === null) {
+      return [];
+    }
+    return [{ listing, address, postalCode, area }];
+  });
 
-    const cached = await cache.get(dpeCacheKey(address, postalCode, area));
-    if (cached === null && networkBudget <= 0) continue;
-    if (cached === null) networkBudget -= 1;
-
+  // Le cache se lit en parallèle ; l'ADEME reste interrogée un appel à la fois.
+  const cached = await mapLimited(candidates, CACHE_READS_AT_ONCE, (one) =>
+    cache.get(dpeCacheKey(one.address, one.postalCode, one.area)),
+  );
+  let networkBudget = DPE_NETWORK_BUDGET;
+  for (const [index, { listing, address, postalCode, area }] of candidates.entries()) {
+    if (cached[index] === null) {
+      if (networkBudget <= 0) continue;
+      networkBudget -= 1;
+    }
     const record = await lookup.find(address, postalCode, area);
     if (record !== null) found.set(listing.id, record);
   }
@@ -867,61 +900,78 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   const confirmedBySource = new Map<string, readonly string[]>();
   const rentedBySource = new Map<string, readonly string[]>();
 
-  for (const decision of plan.selected) {
-    const scraper = registry.get(decision.sourceId);
-    if (scraper === undefined) continue;
+  // EN PARALLÈLE, un site à la fois. Une source qui n'a pas démarré avant la fin
+  // du budget de temps n'est pas comptée comme passée : elle reste due.
+  const notStarted: string[] = [];
+  await runGrouped(
+    plan.selected,
+    (decision) => registry.get(decision.sourceId)?.descriptor.domain ?? decision.sourceId,
+    SOURCES_AT_ONCE,
+    async (decision) => {
+      if (clock.now() - startedMs > SOURCE_PHASE_BUDGET_MS) {
+        notStarted.push(decision.sourceId);
+        return;
+      }
+      const scraper = registry.get(decision.sourceId);
+      if (scraper === undefined) return;
 
-    const knownRefs = await repository.knownRefs(decision.sourceId);
-    const previousState = entries.find((entry) => entry.descriptor.id === decision.sourceId)?.state;
-    const credentials = await resolveCredentials(repository, decision.sourceId, logger);
-    const { outcome, nextState } = await runSource(
-      scraper,
-      options,
-      knownRefs,
-      credentials,
-      previousState?.lastFullPassAt ?? null,
-    );
-    outcomes.push(outcome);
+      const knownRefs = await repository.knownRefs(decision.sourceId);
+      const previousState = entries.find(
+        (entry) => entry.descriptor.id === decision.sourceId,
+      )?.state;
+      const credentials = await resolveCredentials(repository, decision.sourceId, logger);
+      const { outcome, nextState } = await runSource(
+        scraper,
+        options,
+        knownRefs,
+        credentials,
+        previousState?.lastFullPassAt ?? null,
+      );
+      outcomes.push(outcome);
 
-    if (outcome.result !== null) {
-      rawBySource.set(decision.sourceId, outcome.result.listings);
-      confirmedBySource.set(decision.sourceId, outcome.result.confirmedRefs ?? []);
-      rentedBySource.set(decision.sourceId, outcome.result.rentedRefs ?? []);
-    }
+      if (outcome.result !== null) {
+        rawBySource.set(decision.sourceId, outcome.result.listings);
+        confirmedBySource.set(decision.sourceId, outcome.result.confirmedRefs ?? []);
+        rentedBySource.set(decision.sourceId, outcome.result.rentedRefs ?? []);
+      }
 
-    const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
-    await repository.saveSourceState(stateAfterRun(base, nextState, outcome, startedMs));
+      const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
+      await repository.saveSourceState(stateAfterRun(base, nextState, outcome, startedMs));
 
-    // Transition d'état de santé : c'est le changement (et non l'état stable)
-    // qui mérite une alerte, pour ne pas répéter le même avertissement à chaque
-    // run tant qu'une source reste dégradée.
-    if (nextState.health !== undefined && nextState.health !== base.health) {
-      healthTransitions.push({
-        sourceId: decision.sourceId,
-        from: base.health,
-        to: nextState.health,
-        listingsFound: outcome.result?.listings.length ?? 0,
-        error: outcome.error,
-      });
-    }
+      // Transition d'état de santé : c'est le changement (et non l'état stable)
+      // qui mérite une alerte, pour ne pas répéter le même avertissement à chaque
+      // run tant qu'une source reste dégradée.
+      if (nextState.health !== undefined && nextState.health !== base.health) {
+        healthTransitions.push({
+          sourceId: decision.sourceId,
+          from: base.health,
+          to: nextState.health,
+          listingsFound: outcome.result?.listings.length ?? 0,
+          error: outcome.error,
+        });
+      }
 
-    if (outcome.result !== null) {
-      await repository.recordRun({
-        id: randomUUID(),
-        sourceId: decision.sourceId,
-        startedAt: new Date(startedMs).toISOString(),
-        finishedAt: new Date(clock.now()).toISOString(),
-        requestCount: outcome.result.requestCount,
-        pagesFetched: outcome.result.pagesFetched,
-        listingsFound: outcome.result.listings.length,
-        listingsNew: outcome.result.listings.filter((l) => !knownRefs.has(l.sourceRef)).length,
-        listingsUpdated: 0,
-        duplicates: 0,
-        errors: outcome.success ? 0 : 1,
-        stopReason: outcome.result.stopReason,
-        warnings: outcome.result.warnings,
-      });
-    }
+      if (outcome.result !== null) {
+        await repository.recordRun({
+          id: randomUUID(),
+          sourceId: decision.sourceId,
+          startedAt: new Date(startedMs).toISOString(),
+          finishedAt: new Date(clock.now()).toISOString(),
+          requestCount: outcome.result.requestCount,
+          pagesFetched: outcome.result.pagesFetched,
+          listingsFound: outcome.result.listings.length,
+          listingsNew: outcome.result.listings.filter((l) => !knownRefs.has(l.sourceRef)).length,
+          listingsUpdated: 0,
+          duplicates: 0,
+          errors: outcome.success ? 0 : 1,
+          stopReason: outcome.result.stopReason,
+          warnings: outcome.result.warnings,
+        });
+      }
+    },
+  );
+  if (notStarted.length > 0) {
+    logger.info('scheduler.deferred', { sources: notStarted });
   }
 
   // --- 3. Normalisation -----------------------------------------------------
@@ -984,7 +1034,9 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   if (rentedMarked > 0) logger.info('pipeline.rented_marked', { count: rentedMarked });
 
   return {
-    sourcesRun: plan.selected.map((decision) => decision.sourceId),
+    sourcesRun: plan.selected
+      .map((decision) => decision.sourceId)
+      .filter((sourceId) => !notStarted.includes(sourceId)),
     sourcesSkipped: plan.skipped.map((decision) => ({
       sourceId: decision.sourceId,
       reason: decision.reason,
