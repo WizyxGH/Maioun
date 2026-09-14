@@ -28,6 +28,8 @@ const PAGE = `
 <form name="request_or_send_contact_form" method="post"
       action="/annonce-appartement-t1-nice-06000-ad494cb2/contact/rent?formId=request_or_send_contact_form&amp;isAside=0">
   <input name="request_or_send_contact_form[firstName]" />
+  <label class="hidden c-label" for="request_or_send_contact_form_email2">Email2</label><input type="text" id="request_or_send_contact_form_email2" name="request_or_send_contact_form[email2]" autocomplete="off" class="hidden c-field c-form-group__field" />
+  <input type="hidden" id="request_or_send_contact_form_agency" name="request_or_send_contact_form[agency]" class="c-field c-form-group__field" value="dasagestion" />
   <textarea name="request_or_send_contact_form[message]"></textarea>
   <input type="checkbox" name="request_or_send_contact_form[allowAgencyCall]" value="1" />
   <input type="checkbox" name="request_or_send_contact_form[allowOrpiMailing]" value="1" />
@@ -81,13 +83,15 @@ describe('buildSubmission', () => {
     expect(body?.get('request_or_send_contact_form[message]')).toContain('m’intéresse');
   });
 
-  it('recopie l’adresse dans le champ de confirmation', () => {
-    // `email2` est une confirmation, pas un second contact : une divergence
-    // fait refuser le formulaire.
+  it('laisse VIDE le champ piège à robots, comme un humain', () => {
+    // `email2` est masqué et facultatif : le remplir signerait un robot.
     const body = buildSubmission(form, PROFIL, 'Bonjour.');
-    expect(body?.get('request_or_send_contact_form[email2]')).toBe(
-      body?.get('request_or_send_contact_form[email]'),
-    );
+    expect(body?.get('request_or_send_contact_form[email2]')).toBe('');
+  });
+
+  it('renvoie les champs cachés du formulaire lu sur la page', () => {
+    const body = buildSubmission(form, PROFIL, 'Bonjour.');
+    expect(body?.get('request_or_send_contact_form[agency]')).toBe('dasagestion');
   });
 
   it('NE COCHE AUCUN CONSENTEMENT par défaut', () => {
@@ -118,7 +122,7 @@ describe('buildSubmission', () => {
 });
 
 describe('submitContactForm', () => {
-  const form = { action: 'https://www.orpi.com/x/contact/rent', prefix: 'f' };
+  const form = { action: 'https://www.orpi.com/x/contact/rent', prefix: 'f', hidden: {} };
   const body = new URLSearchParams({ 'f[firstName]': 'Alex' });
 
   it('tient une redirection pour un succès', async () => {
