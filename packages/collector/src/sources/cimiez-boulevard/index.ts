@@ -47,8 +47,6 @@ const descriptor: SourceDescriptor = {
     maxListingsPerRun: MAX_DETAILS,
   }),
   enabled: true,
-  // Petite structure : premier contact téléphonique ou formulaire (§23).
-  manualOnly: true,
   allowedPaths: ['/sitemap.xml', '/properties/*'],
   notes:
     'Site propre à l’agence (hors plateforme partagée). Le quartier figure ' +

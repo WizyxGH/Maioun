@@ -407,5 +407,4 @@ Fraîcheur (délai de publication constaté) :
 Difficulté technique :
 Risque de blocage :
 Priorité          :
-manualOnly        : oui | non (§23)
 ```

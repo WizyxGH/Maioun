@@ -31,8 +31,6 @@ export const BORNE_DELAUNAY_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', { maxPagesPerRun: 1, maxListingsPerRun: 40 }),
   enabled: true,
-  // Petite structure : premier contact par téléphone ou formulaire (§23).
-  manualOnly: true,
   allowedPaths: ['/immobilier/louer-*', '/location-*'],
   notes:
     'Agence Nice (gestion locative, syndic). robots.txt vérifié le 2026-09-04 : ' +

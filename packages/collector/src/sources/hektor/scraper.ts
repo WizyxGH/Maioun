@@ -48,8 +48,6 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
       maxListingsPerRun: maxBackfill,
     }),
     enabled: true,
-    // Petite structure : premier contact téléphone/formulaire (§23).
-    manualOnly: true,
     allowedPaths: ['/location*', '/a-louer*', '/*.html'],
     notes:
       'Plateforme La Boîte Immo/Hektor (adaptateur générique, §47). robots.txt ' +

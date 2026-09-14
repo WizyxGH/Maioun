@@ -62,9 +62,6 @@ export const PAP_DESCRIPTOR: SourceDescriptor = {
    * restent prêts si la politique du site évolue.
    */
   enabled: false,
-  // La messagerie PAP est le canal prévu ; l'automatiser sans supervision
-  // n'est pas approprié (§23).
-  manualOnly: true,
   allowedPaths: ['/annonce/locations-*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : /*?* et /recherche/* interdits, pages ' +

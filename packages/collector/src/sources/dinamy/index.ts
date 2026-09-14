@@ -61,8 +61,6 @@ export const DINAMY_DESCRIPTOR: SourceDescriptor = {
   // coordonnée professionnelle, déjà publique, et c'est ici la fonctionnalité.
   agencyContact: { phone: '04.89.92.04.50', email: 'info@dinamyimmobilier.com' }, // secret-scan-ignore
   enabled: true,
-  // Petite structure : premier contact téléphonique/formulaire (§23).
-  manualOnly: true,
   allowedPaths: ['/index.php*', '/Controleurs/MiseAJour.php'],
   notes:
     'Agence Nice (13 rue François Guisol, 06300). Application PHP maison, SSR, ' +

@@ -117,8 +117,11 @@ visible qu'une annonce perdue.
 - **Occurrences et fiches séparées** : chaque source garde ce qu'elle a publié
   (`occurrences`), la fiche agrégée (`listings`) porte la fusion et son
   historique de désaccords (§15).
-- **Rien n'est envoyé sans action explicite** (§22) : le projet compose des
-  messages et crée des brouillons, il n'envoie jamais.
+- **Contact : manuel par défaut, automatisable au cas par cas** (§22, §23) :
+  le projet compose des messages et crée des brouillons. Aucune source n'est
+  interdite d'automatisation d'office ; chacune se décide quand on la
+  construit, derrière les garde-fous de `contact/guards.ts` (offre payante,
+  interrupteur général, seuils, quotas, délai entre deux envois).
 - **Aucun contournement d'anti-bot** (§10) : les portails qui l'interdisent
   sont lus par leurs alertes e-mail, dans la boîte de l'utilisateur.
 

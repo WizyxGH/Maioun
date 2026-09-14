@@ -45,7 +45,6 @@ export const PUJOL_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  manualOnly: true,
   allowedPaths: ['/ads-sitemap*.xml', '/annonces/*'],
   notes:
     'robots.txt vérifié le 2026-09-09 : « Allow: / », plan de site déclaré. ' +

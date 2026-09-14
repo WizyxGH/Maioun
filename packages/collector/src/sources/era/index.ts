@@ -47,9 +47,6 @@ export const ERA_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('agencyNetwork'),
   budget: budgetFor('agencyNetwork', { maxPagesPerRun: MAX_PAGES, maxListingsPerRun: 60 }),
   enabled: true,
-  // Franchises indépendantes : le premier contact se fait au téléphone,
-  // publié en clair sur chaque annonce (§23).
-  manualOnly: true,
   allowedPaths: ['/location/*', '/annonces/*'],
   notes:
     'robots.txt de www vérifié le 2026-09-04 : /louer, /acheter, /estimer et ' +

@@ -44,8 +44,6 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   // Relais de portails : une photo partagée désigne le même bien (§14).
   relaysListings: true,
   enabled: true,
-  // Premier contact via le lien du portail, à la main de l'utilisateur (§23).
-  manualOnly: true,
   allowedPaths: [],
   notes:
     'Lit les e-mails d’alerte des portails dans la boîte de l’utilisateur (IMAP, ' +

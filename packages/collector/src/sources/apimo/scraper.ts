@@ -60,8 +60,6 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     }),
     enabled: true,
     ...(config.operator !== undefined ? { operator: config.operator } : {}),
-    // Petite structure : premier contact téléphonique/formulaire (§23).
-    manualOnly: true,
     allowedPaths: ['/sitemap*.xml', '/fr/propriete/location*'],
     notes:
       `Plateforme Apimo/Cello (adaptateur générique, §47). robots.txt permissif ` +

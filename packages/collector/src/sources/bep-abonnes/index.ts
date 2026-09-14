@@ -76,7 +76,6 @@ export const BEP_ABONNES_DESCRIPTOR: SourceDescriptor = {
    * les favoris, désignés un par un devant la fiche. Les deux chemins ne se
    * confondent pas, et seul le second est ouvert (§23).
    */
-  manualOnly: true,
   allowedPaths: ['/w_login_abonnes.php', '/w_index_abonnes.php'],
   notes:
     'Espace abonné PAYÉ (§6). Connexion (POST abonlogin1/abonpassword) puis ' +

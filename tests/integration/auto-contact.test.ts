@@ -8,14 +8,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type {
-  AutoContactLimits,
-  ContactAttempt,
-  SourceDescriptor,
-  SubscriptionState,
-} from '@maioun/shared';
+import type { AutoContactLimits, ContactAttempt, SubscriptionState } from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
-import { evaluateAutoContact, scoreListing, budgetFor, scheduleFor } from '@maioun/collector';
+import { evaluateAutoContact, scoreListing } from '@maioun/collector';
 import { makeAggregated, makeContact, makeOccurrence, TEST_NOW } from '../helpers/factories.js';
 
 const LIMITS: AutoContactLimits = {
@@ -32,22 +27,6 @@ const ABONNE: SubscriptionState = {
   status: 'active',
   until: new Date(TEST_NOW + 30 * 86_400_000).toISOString(),
 };
-
-const descriptor = (overrides: Partial<SourceDescriptor> = {}): SourceDescriptor => ({
-  id: 'demo',
-  name: 'Demo',
-  domain: 'example.invalid',
-  kind: 'portal',
-  method: 'html',
-  priority: 1,
-  schedule: scheduleFor('portal'),
-  budget: budgetFor('portal'),
-  enabled: true,
-  manualOnly: false,
-  allowedPaths: [],
-  notes: '',
-  ...overrides,
-});
 
 /** Annonce excellente sur tous les critères, avec un e-mail joignable. */
 function perfectListing() {
@@ -98,7 +77,6 @@ describe('abonnement', () => {
     evaluateAutoContact({
       listing: perfectListing(),
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [],
       subscription,
       nowMs: TEST_NOW,
@@ -140,7 +118,6 @@ describe('interrupteur global (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: { ...LIMITS, enabled: false },
-      descriptors: [descriptor()],
       history: [],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -155,7 +132,6 @@ describe('interrupteur global (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: { ...LIMITS, enabled: false },
-      descriptors: [descriptor()],
       history: [],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -169,7 +145,6 @@ describe('conditions d’autorisation', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -178,26 +153,11 @@ describe('conditions d’autorisation', () => {
     expect(decision.allowed).toBe(true);
   });
 
-  it('refuse une source déclarée manualOnly', () => {
-    const decision = evaluateAutoContact({
-      listing: perfectListing(),
-      limits: LIMITS,
-      descriptors: [descriptor({ manualOnly: true })],
-      history: [],
-      subscription: ABONNE,
-      nowMs: TEST_NOW,
-    });
-
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toMatch(/manualOnly/);
-  });
-
   it('refuse un second contact sur la même annonce', () => {
     const listing = perfectListing();
     const decision = evaluateAutoContact({
       listing,
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [attempt({ listingId: listing.id })],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -220,7 +180,6 @@ describe('seuils de score (§23)', () => {
         scores: { ...listing.scores, [key]: { ...listing.scores[key], value } },
       },
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -255,7 +214,6 @@ describe('quotas et cooldown (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: LIMITS,
-      descriptors: [descriptor()],
       history,
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -273,7 +231,6 @@ describe('quotas et cooldown (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: LIMITS,
-      descriptors: [descriptor()],
       history,
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -295,7 +252,6 @@ describe('quotas et cooldown (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: { ...LIMITS, maxPerDay: 100 },
-      descriptors: [descriptor()],
       history,
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -309,7 +265,6 @@ describe('quotas et cooldown (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [attempt({ sentAt: new Date(TEST_NOW - 60_000).toISOString() })],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -323,7 +278,6 @@ describe('quotas et cooldown (§23)', () => {
     const decision = evaluateAutoContact({
       listing: perfectListing(),
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [attempt({ sentAt: new Date(TEST_NOW - 3_600_000).toISOString() })],
       subscription: ABONNE,
       nowMs: TEST_NOW,
@@ -343,7 +297,6 @@ describe('canal disponible', () => {
         contact: { ...listing.contact, email: null, formUrl: null },
       },
       limits: LIMITS,
-      descriptors: [descriptor()],
       history: [],
       subscription: ABONNE,
       nowMs: TEST_NOW,

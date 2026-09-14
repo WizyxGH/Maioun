@@ -39,8 +39,6 @@ export const LADRESSE_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: 40,
   }),
   enabled: true,
-  // Premier contact via le lien du portail, à la main de l'utilisateur (§23).
-  manualOnly: true,
   allowedPaths: ['/recherche/location/*', '/annonce/location/*'],
   notes:
     'Réseau coopératif, agence Nice. robots.txt vérifié le 2026-08-22 : permissif. ' +

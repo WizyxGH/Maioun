@@ -85,8 +85,6 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  // Le premier contact passe par le formulaire d'agence (§23).
-  manualOnly: true,
   allowedPaths: ['/location-immobiliere-*', '/annonce-location-*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : /recherche/* interdit, page ville et ' +

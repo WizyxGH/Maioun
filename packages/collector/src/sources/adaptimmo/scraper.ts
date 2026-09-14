@@ -46,8 +46,6 @@ export function makeAdaptImmoDescriptor(config: AdaptImmoConfig): SourceDescript
       maxListingsPerRun: maxBackfill,
     }),
     enabled: true,
-    // Petite structure : premier contact téléphonique/formulaire (§23).
-    manualOnly: true,
     allowedPaths: ['/fr/liste.htm*', '/fr/detail.htm*'],
     notes:
       `Plateforme AdaptImmo/Ubiflow (adaptateur générique, §47). Pages en ` +

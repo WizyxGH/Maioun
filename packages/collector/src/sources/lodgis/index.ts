@@ -39,8 +39,6 @@ export const LODGIS_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('agencyNetwork'),
   budget: budgetFor('agencyNetwork', { maxPagesPerRun: 1 + MAX_DETAILS, maxListingsPerRun: 30 }),
   enabled: true,
-  // Premier contact via le formulaire du site, à la main de l'utilisateur (§23).
-  manualOnly: true,
   allowedPaths: ['/fr/france,location-meublee/*'],
   notes:
     'Groupe Emeria, spécialiste de la location MEUBLÉE moyen/long terme. ' +

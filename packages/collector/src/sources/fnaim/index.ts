@@ -70,8 +70,6 @@ export const FNAIM_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: 100,
   }),
   enabled: true,
-  // Petites agences : premier contact par téléphone (§23).
-  manualOnly: true,
   allowedPaths: ['/liste-annonces-immobilieres/*', '/annonce-immobiliere/*'],
   notes:
     'robots.txt vérifié le 2026-09-04 : seuls /include/, /cms/, l’espace ' +

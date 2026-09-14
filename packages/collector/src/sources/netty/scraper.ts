@@ -63,8 +63,6 @@ export function makeNettyDescriptor(config: NettyConfig): SourceDescriptor {
       maxListingsPerRun: maxBackfill,
     }),
     enabled: true,
-    // Petite structure : premier contact téléphonique/formulaire (§23).
-    manualOnly: true,
     allowedPaths: ['/sitemap*.xml', '/location/*'],
     notes:
       `Plateforme Netty (adaptateur générique, §47). robots.txt n'interdit que ` +
