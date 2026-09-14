@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { ApplicationStatus, NormalizedListing } from '@maioun/shared';
 import { EMPTY_CONTACT } from '@maioun/shared';
 import { occurrenceHash } from '../db/repository.js';
-import { mergeApplicationStatus, mergeGroup } from './merge.js';
+import { mergeApplicationStatus, mergeGroup, mergeLifecycle } from './merge.js';
 
 const BASE_TIME = '2026-09-14T12:00:00.000Z';
 
@@ -119,5 +119,44 @@ describe('occurrenceHash et état de candidature', () => {
     const base = occurrenceHash(occurrence('paruvendu:1'));
     expect(occurrenceHash({ ...occurrence('paruvendu:1'), deposit: 660 })).not.toBe(base);
     expect(occurrenceHash({ ...occurrence('paruvendu:1'), tenantFees: 0 })).not.toBe(base);
+  });
+});
+
+describe('mergeLifecycle', () => {
+  const vue = (id: string, lifecycle: NormalizedListing['lifecycle'], lastSeenAt: string) => ({
+    ...occurrence(id),
+    lifecycle,
+    lastSeenAt,
+  });
+
+  it('une alerte e-mail ne garde pas en ligne un bien que l’agence a retiré depuis', () => {
+    expect(
+      mergeLifecycle([
+        vue('email-alerts:seloger:1', 'active', '2026-09-10T08:00:00Z'),
+        vue('agence:1', 'inactive', '2026-09-12T08:00:00Z'),
+      ]),
+    ).toBe('inactive');
+  });
+
+  it('une alerte reçue APRÈS le retrait est une remise en ligne', () => {
+    expect(
+      mergeLifecycle([
+        vue('email-alerts:seloger:1', 'active', '2026-09-13T08:00:00Z'),
+        vue('agence:1', 'inactive', '2026-09-12T08:00:00Z'),
+      ]),
+    ).toBe('active');
+  });
+
+  it('seule, l’alerte garde son cycle de vie', () => {
+    expect(mergeLifecycle([vue('email-alerts:seloger:1', 'active', BASE_TIME)])).toBe('active');
+  });
+
+  it('deux sources relues : la plus optimiste l’emporte, comme avant', () => {
+    expect(
+      mergeLifecycle([
+        vue('a:1', 'inactive', BASE_TIME),
+        vue('b:1', 'possiblyInactive', BASE_TIME),
+      ]),
+    ).toBe('possiblyInactive');
   });
 });
