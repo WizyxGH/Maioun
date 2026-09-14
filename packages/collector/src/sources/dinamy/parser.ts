@@ -19,7 +19,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
-import { compactListing } from '../shared/raw-listing.js';
+import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';
 
 /** Typologie déduite du dossier photo `Ap3P-53-Nice-Cimiez-51`. */
@@ -174,9 +174,9 @@ export function parseDetailPage(html: string, pageUrl: string): DinamyDetail {
     dpe?: string;
   } = {};
 
-  // `htmlToText` et non `.text()` : la description est écrite en paragraphes,
-  // et n'en lire que le PREMIER `<p>` perdait le reste — dont la rue, parfois
-  // citée plus bas. Les retours à la ligne sont conservés.
+  // Le texte entier tient dans le PREMIER `<p>`, lignes séparées par de simples
+  // retours à la ligne, que `htmlToText` conserve ; le `<p>` suivant n'est que
+  // la date de mise à jour.
   const description = htmlToText($, '#description_annonce p');
   if (description !== '') detail.description = description;
 
@@ -211,23 +211,26 @@ export function parseDetailPage(html: string, pageUrl: string): DinamyDetail {
 }
 
 /**
- * Complète une annonce lue sur la liste par ce que sa fiche apporte.
+ * Ce que la fiche ajoute à l'annonce de la liste, ou `null` si elle n'apprend
+ * rien.
  *
- * La liste reste la source des faits qu'elle publie déjà (prix, surface,
- * pièces, quartier) : la fiche ne fait qu'ajouter ce qui lui manque. Un champ
- * déjà rempli n'est jamais écrasé — la fiche n'est pas plus fiable, seulement
- * plus complète.
+ * Seuls les champs que la liste n'a pas y figurent : prix, surface, pièces et
+ * quartier restent ceux de la carte. `extra` se fusionne à l'enrichissement,
+ * la référence et le quartier de la carte sont donc gardés.
  */
-export function withDetail(listing: RawListing, detail: DinamyDetail): RawListing {
-  return compactListing({
-    ...listing,
-    description: listing.description ?? detail.description,
-    imageUrls: detail.imageUrls ?? listing.imageUrls,
-    extra: {
-      ...listing.extra,
-      ...(detail.dpe !== undefined ? { dpe: detail.dpe } : {}),
-    },
-  });
+export function detailDraft(detail: DinamyDetail): RawDraft | null {
+  if (
+    detail.description === undefined &&
+    detail.imageUrls === undefined &&
+    detail.dpe === undefined
+  ) {
+    return null;
+  }
+  return {
+    description: detail.description,
+    imageUrls: detail.imageUrls,
+    ...(detail.dpe !== undefined ? { extra: { dpe: detail.dpe } } : {}),
+  };
 }
 
 /** Nombre total de pages annoncé par la liste (`<span id="nbPages">`). */

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseListPage, referenceOf } from './parser.js';
+import { parseDetailPage, parseListPage, referenceOf } from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(
@@ -62,5 +62,32 @@ describe('parseListPage (Borne & Delaunay)', () => {
     expect(normalized?.rooms).toBe(2);
     expect(normalized?.city).toBe('nice');
     expect(normalized?.propertyType).toBe('apartment');
+  });
+});
+
+describe('parseDetailPage (Borne & Delaunay)', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(
+      new URL('../../../../../tests/fixtures/borne-delaunay/fiche.html', import.meta.url),
+    ),
+    'utf8',
+  );
+  const description = parseDetailPage(FICHE)?.description ?? '';
+
+  it('lit la description entière, au-delà de la coupe « Lire la suite »', () => {
+    expect(description).toMatch(/^À Nice, dans le quartier de Libération/);
+    expect(description).toContain("L'appartement est libre de suite.");
+    // Dernière phrase du texte.
+    expect(description).toMatch(/par e-mail à contact@example\.invalid\.$/);
+    // Les paragraphes restent séparés.
+    expect(description).toContain('nombreux rangements.\n\nL');
+  });
+
+  it('ne reprend pas le bouton « Lire la suite »', () => {
+    expect(description).not.toContain('Lire la suite');
+  });
+
+  it('ne conclut rien d’une page sans description (§17)', () => {
+    expect(parseDetailPage('<html><body></body></html>')).toBeNull();
   });
 });

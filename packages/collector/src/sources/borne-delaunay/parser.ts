@@ -5,8 +5,8 @@
  * Site Rails maison, rendu côté serveur, sans anti-bot. `robots.txt` n'interdit
  * qu'un endpoint de formulaire (`/contacts/success_landing`).
  *
- * TOUT EST SUR LA CARTE : titre, ville, code postal, type, pièces, surface,
- * loyer et photo. Aucune visite de fiche n'est donc nécessaire (§30).
+ * LA CARTE porte titre, ville, code postal, type, pièces, surface, loyer et
+ * photo — mais pas la description, que seule la fiche donne.
  *
  * Les classes sont utilitaires (Tailwind) et changeraient à la moindre
  * retouche de style : on s'ancre sur celles qui portent un SENS —
@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** `/location-appartement-t2-nice-06000-2082` → `2082`. */
@@ -100,4 +101,16 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
   });
 
   return { listings, warnings };
+}
+
+/**
+ * Lit la description d'une fiche, que la carte ne porte pas.
+ *
+ * Le texte est servi ENTIER dans le HTML : « Lire la suite » ne fait que lever
+ * une coupe CSS. On lit donc le bloc, et non la meta, qui ne reprend que le titre.
+ */
+export function parseDetailPage(html: string): { description: string } | null {
+  const $ = cheerio.load(html);
+  const description = htmlToText($, '.accommodation-show__text');
+  return description === '' ? null : { description };
 }

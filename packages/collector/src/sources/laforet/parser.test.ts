@@ -9,7 +9,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { agencyNameFromSlug, extractCity, parseListingUrl, parseSearchPage } from './parser.js';
+import {
+  agencyNameFromSlug,
+  extractCity,
+  parseDetailPage,
+  parseListingUrl,
+  parseSearchPage,
+} from './parser.js';
 import { normalizeAll } from '../../normalization/normalize.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -252,5 +258,25 @@ describe('surveillance des sources (§61)', () => {
     const listing = page.listings.find((l) => l.sourceRef === '52444935');
     expect(listing?.title).toBe('Appartement 620 €/mois NICE (06100) 22 m² 1 pièce Meublé');
     expect(listing?.title).not.toMatch(/gtm|data-/);
+  });
+});
+
+describe('parseDetailPage (Laforêt)', () => {
+  const description = parseDetailPage(readFixture('fiche.html'))?.description ?? '';
+
+  it('lit la description entière, pas la meta coupée par « ... »', () => {
+    expect(description).toMatch(/^Votre agence Laforêt Nice Centre vous propose/);
+    expect(description).toContain('de nombreux espaces de rangement complètent ce bien.');
+    // La dernière phrase du texte de l'agence, puis les montants.
+    expect(description).toContain('Garage fermé inclus à proximité');
+    expect(description).toContain('Dépôt de garantie : 6 370,00 €');
+  });
+
+  it('écarte les mentions légales et les références de l’agence', () => {
+    expect(description).not.toMatch(/Siège social|Mentions légales|Référence web/);
+  });
+
+  it('ne conclut rien d’une page sans description (§17)', () => {
+    expect(parseDetailPage('<html><body></body></html>')).toBeNull();
   });
 });

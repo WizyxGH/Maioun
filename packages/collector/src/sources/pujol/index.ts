@@ -92,7 +92,8 @@ export const pujolScraper: Scraper = {
       warnings.push('Aucune annonce niçoise dans les plans de site — gabarit modifié ?');
     }
 
-    // 2. Les fiches nouvelles seulement : une annonce clôturée ne change plus.
+    // 2. Les fiches nouvelles seulement, hors rattrapage : une annonce clôturée
+    // ne change plus.
     let budget = MAX_DETAILS;
     for (const url of urls) {
       if (budget <= 0 || context.shouldStop()) {
@@ -101,7 +102,9 @@ export const pujolScraper: Scraper = {
       }
       const reference = referenceOf(url);
       if (reference === null) continue;
-      if (context.isKnown(reference)) {
+      // En rattrapage, on relit aussi les connues : celles collectées avant la
+      // lecture du texte complet gardent sinon leur description tronquée.
+      if (context.isKnown(reference) && context.mode !== 'backfill') {
         confirmedRefs.push(reference);
         continue;
       }

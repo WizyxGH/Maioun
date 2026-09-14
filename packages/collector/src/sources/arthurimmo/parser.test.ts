@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseDetail, parseListPage, parseSocialTitle } from './parser.js';
+import { linkOf, parseDetail, parseList, parseListPage, parseSocialTitle } from './parser.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (nom: string): string =>
@@ -18,6 +18,7 @@ const fixture = (nom: string): string =>
 
 const liste = fixture('liste.html');
 const fiche = fixture('fiche.html');
+const ficheComplete = fixture('fiche-description.html');
 
 describe('parseListPage', () => {
   it('relève les fiches de location et lit ville et code postal dans l’adresse', () => {
@@ -47,6 +48,19 @@ describe('parseListPage', () => {
 
   it('ne rend rien sur une page vide, sans lever', () => {
     expect(parseListPage('<html><body>Aucun résultat</body></html>')).toEqual([]);
+  });
+});
+
+describe('parseList', () => {
+  it('rend des ébauches sans loyer, que la fiche complétera', () => {
+    const ebauches = parseList(liste);
+    expect(ebauches.length).toBe(parseListPage(liste).length);
+    for (const ebauche of ebauches) {
+      expect(ebauche.priceText).toBeUndefined();
+      expect(linkOf(ebauche)).toEqual(
+        parseListPage(liste).find((lien) => lien.reference === ebauche.sourceRef),
+      );
+    }
   });
 });
 
@@ -114,6 +128,29 @@ describe('parseDetail', () => {
     expect(annonce?.imageUrls?.length).toBeGreaterThan(0);
     expect(annonce?.imageUrls?.every((u) => u.startsWith('https://'))).toBe(true);
     expect(annonce?.extra?.['dpe']).toMatch(/^[A-G]$/);
+  });
+
+  it('lit la description ENTIÈRE dans le corps, pas celle coupée de l’en-tête', () => {
+    // L'en-tête s'arrête à « un séjour lumineux... » ; le corps va jusqu'au bout.
+    const description = parseDetail(ficheComplete, lien)?.description ?? '';
+    expect(description).not.toMatch(/\.\.\.$/);
+    expect(description).toContain('Location consentie pour une durée de 9 mois, BAIL MOBILITÉ.');
+    expect(description).toMatch(/prêt à accueillir ses occupants\.$/);
+    expect(description.length).toBeGreaterThan(1000);
+  });
+
+  it('lit la classe énergie du badge actuel (`…&letter=D`)', () => {
+    expect(parseDetail(ficheComplete, lien)?.extra?.['dpe']).toBe('D');
+  });
+
+  it('garde un retour à la ligne pour un seul <br />', () => {
+    const description = parseDetail(ficheComplete, lien)?.description ?? '';
+    expect(description).toContain('Les atouts du logement :\n- 3 pièces meublé\n- 58,93 m²');
+    expect(description).not.toContain('Voir plus');
+  });
+
+  it('se rabat sur l’en-tête quand le corps manque', () => {
+    expect(parseDetail(fiche, lien)?.description).toMatch(/^NICE CIMIEZ/);
   });
 
   it('REFUSE une page qui n’est pas une annonce', () => {

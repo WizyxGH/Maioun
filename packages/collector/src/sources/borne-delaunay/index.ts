@@ -6,7 +6,8 @@
  * réduire la dépendance aux alertes e-mail des portails, dont proviennent
  * aujourd'hui trois quarts de l'inventaire et qui ne publient aucune adresse.
  *
- * Une seule requête : la page de locations porte tout (§30).
+ * Une requête pour la page de locations, puis la fiche des annonces NOUVELLES :
+ * elle seule porte la description.
  */
 
 import type {
@@ -17,9 +18,13 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetailPage, parseListPage } from './parser.js';
 
 const LIST_URL = 'https://www.borne-delaunay.com/immobilier/louer-13';
+
+/** Fiches lues par passage : le stock tient en trois ou quatre annonces. */
+const MAX_DETAILS = 5;
 
 export const BORNE_DELAUNAY_DESCRIPTOR: SourceDescriptor = {
   id: 'borne-delaunay',
@@ -29,15 +34,15 @@ export const BORNE_DELAUNAY_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 2,
   schedule: scheduleFor('localAgency'),
-  budget: budgetFor('localAgency', { maxPagesPerRun: 1, maxListingsPerRun: 40 }),
+  budget: budgetFor('localAgency', { maxPagesPerRun: 1 + MAX_DETAILS, maxListingsPerRun: 40 }),
   enabled: true,
   allowedPaths: ['/immobilier/louer-*', '/location-*'],
   notes:
-    'Agence Nice (gestion locative, syndic). robots.txt vérifié le 2026-09-04 : ' +
-    'seul /contacts/success_landing est interdit. Site Rails maison, rendu côté ' +
-    'serveur, sans anti-bot. La page /immobilier/louer-13 porte toutes les ' +
-    'locations, cartes complètes (titre, ville, CP, type, pièces, surface, ' +
-    'loyer, photo) : une requête, aucune visite de fiche (§30).',
+    'Agence Nice (gestion locative, syndic). robots.txt vérifié le 2026-09-04 ' +
+    'et le 2026-09-14 : seul /contacts/success_landing est interdit. Site Rails ' +
+    'maison, rendu côté serveur, sans anti-bot. La page /immobilier/louer-13 porte ' +
+    'toutes les locations (titre, ville, CP, type, pièces, surface, loyer, photo) ; ' +
+    'la description n’est que sur la fiche /location-*, lue pour les nouvelles.',
 };
 
 export const borneDelaunayScraper: Scraper = {
@@ -64,13 +69,20 @@ export const borneDelaunayScraper: Scraper = {
 
       const parsed = parseListPage(response.body, LIST_URL, BORNE_DELAUNAY_DESCRIPTOR.name);
       context.log('list.parsed', { listings: parsed.listings.length });
+
+      const enriched = await enrichNewListings(context, parsed.listings, {
+        max: MAX_DETAILS,
+        detailUrl: (listing) => listing.sourceUrl,
+        parse: (html) => parseDetailPage(html),
+      });
+
       return {
         sourceId: BORNE_DELAUNAY_DESCRIPTOR.id,
-        listings: parsed.listings,
-        requestCount,
-        pagesFetched,
+        listings: enriched.listings,
+        requestCount: requestCount + enriched.requestCount,
+        pagesFetched: pagesFetched + enriched.pagesFetched,
         stopReason: 'completed',
-        warnings: [...parsed.warnings],
+        warnings: [...parsed.warnings, ...enriched.warnings],
       };
     } catch (error) {
       // §69 : échec propre, les autres sources continuent.

@@ -47,8 +47,24 @@ describe('parseListPage (Votre Agence Immo)', () => {
   });
 });
 
+const FICHE = readFileSync(
+  fileURLToPath(
+    new URL('../../../../../tests/fixtures/votre-agence-immo/detail.html', import.meta.url),
+  ),
+  'utf8',
+);
+
 describe('parseDetail (Votre Agence Immo)', () => {
-  it('récupère la description, qui porte l’adresse en clair', () => {
+  it('lit le texte ENTIER du corps, pas la meta coupée à 160 caractères', () => {
+    const description = parseDetail(FICHE)?.description ?? '';
+    expect(description.length).toBeGreaterThan(600);
+    expect(description).toContain('73 Boulevard Virgile Barel');
+    expect(description).toContain('Ce bien est donc toujours disponible.');
+    // Les paragraphes du texte restent séparés.
+    expect(description).toContain("charges (eau froide inclus).\nL'appartement");
+  });
+
+  it('se rabat sur la meta description si le paragraphe manque', () => {
     const html =
       '<html><head><meta name="description" content="Appartement situé au 73 Boulevard Exemple." /></head></html>';
     expect(parseDetail(html)?.description).toContain('73 Boulevard Exemple');

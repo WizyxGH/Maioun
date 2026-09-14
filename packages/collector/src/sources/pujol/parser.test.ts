@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { isClosed, niceListingUrls, parseDetail, referenceOf } from './parser.js';
+import { descriptionOf, isClosed, niceListingUrls, parseDetail, referenceOf } from './parser.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (nom: string): string =>
@@ -93,6 +93,23 @@ describe('parseDetail', () => {
     const photos = parseDetail(louee, URL_LOUEE)?.listing.imageUrls ?? [];
     expect(photos.length).toBeGreaterThan(0);
     expect(photos.some((u) => /logo/i.test(u))).toBe(false);
+  });
+
+  it('lit la description ENTIÈRE dans la page, et non le JSON-LD coupé à 500 caractères', () => {
+    const texte = parseDetail(louee, URL_LOUEE)?.listing.description ?? '';
+    expect(texte.length).toBeGreaterThan(1_000);
+    expect(texte).toContain('La gestionnaire de cet appartement est Camille.');
+    // Les <BR> du site deviennent des retours à la ligne, jamais du texte.
+    expect(texte).not.toMatch(/<br/i);
+    expect(texte).toContain('66 rue Barberis 06300 Nice.\nCet appartement se compose');
+    expect(parseDetail(active, URL_ACTIVE)?.listing.description).toContain(
+      'nous ne manquerons pas de revenir vers vous.',
+    );
+  });
+
+  it('se rabat sur le JSON-LD, <BR> convertis, si le bloc de la page manque', () => {
+    expect(descriptionOf('<html></html>', 'Deux pièces.<BR>Balcon.')).toBe('Deux pièces.\nBalcon.');
+    expect(descriptionOf('<html></html>', undefined)).toBeUndefined();
   });
 
   it('refuse une page sans annonce exploitable', () => {

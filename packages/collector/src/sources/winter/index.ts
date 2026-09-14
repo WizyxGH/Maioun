@@ -1,6 +1,7 @@
 /**
  * Source : Winter Immobilier (agence-winter.com) — voir l'étude dans `parser.ts`.
- * Page `/louer` en SSR : une requête, aucune visite de fiche (§30).
+ * Page `/louer` en SSR : une requête, puis la fiche des annonces qui en ont
+ * besoin — la liste ne porte aucune description.
  */
 
 import type {
@@ -12,9 +13,13 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetail, parseListPage } from './parser.js';
 
 const LIST_URL = 'https://www.agence-winter.com/louer';
+
+/** Fiches visitées par exécution : le stock tient en une dizaine d'annonces. */
+const MAX_DETAILS = 10;
 
 export const WINTER_DESCRIPTOR: SourceDescriptor = {
   id: 'winter',
@@ -26,14 +31,15 @@ export const WINTER_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 2,
   schedule: scheduleFor('localAgency'),
-  budget: budgetFor('localAgency', { maxPagesPerRun: 1, maxListingsPerRun: 40 }),
+  budget: budgetFor('localAgency', { maxPagesPerRun: 1 + MAX_DETAILS, maxListingsPerRun: 40 }),
   enabled: true,
   allowedPaths: ['/louer', '/biens/a-louer-*'],
   notes:
     'Agence Nice, site custom (Rails). robots.txt vérifié le 2026-08-24 : ' +
     'permissif (interdit /admin/, tris, PDF). Page `/louer` SSR : cartes ' +
     'div.anim-fade-up avec ville, titre (pièces/meublé), prix « … €/mois », ' +
-    'lien /biens/a-louer-…-{id}. Une requête, pas de visite de fiche.',
+    'lien /biens/a-louer-…-{id}. La description ne vit que sur la fiche ' +
+    '(.readmore__content), lue pour les nouvelles annonces.',
 };
 
 export const winterScraper: Scraper = {
@@ -74,14 +80,21 @@ export const winterScraper: Scraper = {
           : 'tooManyErrors';
     }
 
-    context.log('list.parsed', { listings: listings.length });
+    // La liste n'a aucune description : la fiche la donne en entier.
+    const enriched = await enrichNewListings(context, listings, {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl ?? null,
+      parse: (html) => parseDetail(html),
+    });
+
+    context.log('list.parsed', { listings: enriched.listings.length });
     return {
       sourceId: WINTER_DESCRIPTOR.id,
-      listings,
-      requestCount,
-      pagesFetched,
+      listings: enriched.listings,
+      requestCount: requestCount + enriched.requestCount,
+      pagesFetched: pagesFetched + enriched.pagesFetched,
       stopReason,
-      warnings,
+      warnings: [...warnings, ...enriched.warnings],
     };
   },
 };

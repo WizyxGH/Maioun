@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseListPage } from './parser.js';
+import { parseDetail, parseListPage } from './parser.js';
 
 const PAGE = 'https://www.agence-winter.com/louer';
 
@@ -51,5 +53,28 @@ describe('parseListPage (Winter)', () => {
     const l = listings.find((x) => x.sourceRef === '1690');
     expect(l?.roomsText).toBe('studio');
     expect(l?.areaText).toBeUndefined();
+  });
+});
+
+describe('parseDetail (Winter)', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(new URL('../../../../../tests/fixtures/winter/detail.html', import.meta.url)),
+    'utf8',
+  );
+
+  it('lit la description ENTIÈRE dans le bloc « Lire la suite »', () => {
+    const description = parseDetail(FICHE)?.description ?? '';
+    expect(description).toContain('au 5 rue Châteauneuf');
+    expect(description).toContain('Location exclusivement destinée aux étudiants.');
+    // Paragraphes et <br> deviennent des retours à la ligne.
+    expect(description).toMatch(/Provision EDF : 70 € \/ mois\n+Provision eau froide/);
+    expect(description).not.toMatch(/<br|<p/i);
+  });
+
+  it('ignore la meta description, qui est le slogan de l’agence', () => {
+    expect(parseDetail(FICHE)?.description).not.toContain('Vente, location, gestion');
+    expect(
+      parseDetail('<html><head><meta name="description" content="Winter" /></head></html>'),
+    ).toBeNull();
   });
 });

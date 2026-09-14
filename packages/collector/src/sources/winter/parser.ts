@@ -4,15 +4,16 @@
  *
  * Site custom (Ruby on Rails), page `/louer` en SSR : chaque carte
  * (`div.anim-fade-up`) porte la ville, le titre (typologie/pièces/meublé), le
- * prix et un lien `/biens/a-louer-…-{id}`. On parse la LISTE en une requête, pas
- * de visite de fiche (§30). robots.txt permissif pour /biens (n'interdit que
- * /admin/, les tris et les PDF). La surface n'est pas toujours affichée : on la
+ * prix et un lien `/biens/a-louer-…-{id}`. La LISTE donne tout sauf la
+ * description, que seule la fiche porte. robots.txt permissif pour /biens
+ * (n'interdit que /admin/, les tris et les PDF). La surface n'est pas toujours affichée : on la
  * prend dans le slug de l'URL quand il la porte, sinon on n'invente rien (§17).
  */
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** Surface « 114-72-m » ou « 25-m » dans le slug → « 114.72 m² ». */
@@ -115,4 +116,16 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
     listings,
     warnings: listings.length === 0 ? [`Aucune annonce sur la liste : ${pageUrl}`] : [],
   };
+}
+
+/**
+ * Ce que la FICHE ajoute : la description, absente de la liste.
+ *
+ * Elle vit dans le bloc « Lire la suite » (`.readmore__content`), en entier —
+ * le repli n'est que visuel. La meta description, elle, est le slogan de
+ * l'agence, identique sur toutes les pages : on ne la lit surtout pas.
+ */
+export function parseDetail(html: string): { description: string } | null {
+  const description = htmlToText(cheerio.load(html), '.readmore__content');
+  return description === '' ? null : { description };
 }

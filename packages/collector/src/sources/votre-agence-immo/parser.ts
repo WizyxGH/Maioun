@@ -19,6 +19,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** L'identifiant WordPress de l'article : `post-445540` → `445540`. */
@@ -68,11 +69,14 @@ export function parseListPage(html: string): ParsedList {
  *
  * « situé au 73 Boulevard Virgile Barel » — de quoi placer une punaise et
  * calculer un trajet (§20), là où la liste ne donne que le quartier dans son
- * titre. Elle vit dans la balise `meta description`, que le greffon SEO
- * remplit avec le début du texte.
+ * titre. Le texte ENTIER vit dans `p.description-bien` ; la balise
+ * `meta description`, que le greffon SEO coupe à 160 caractères, ne sert que
+ * si le gabarit perd ce paragraphe.
  */
 export function parseDetail(html: string): { description: string } | null {
   const $ = cheerio.load(html);
-  const description = ($('meta[name="description"]').attr('content') ?? '').trim();
+  const description =
+    htmlToText($, '.description-bien') ||
+    ($('meta[name="description"]').attr('content') ?? '').trim();
   return description === '' ? null : { description };
 }

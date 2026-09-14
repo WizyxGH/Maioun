@@ -20,6 +20,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 
 /**
  * Forme d'une URL d'annonce :
@@ -216,4 +217,25 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const hasNextPage = $(`a[href*="page=${currentPage + 1}"]`).length > 0;
 
   return { listings, hasNextPage, warnings };
+}
+
+/**
+ * Lit la description d'une fiche : la page de ville n'en porte aucune.
+ *
+ * Le bloc `.prose` enchaîne le texte de l'agence, les montants (loyer, charges,
+ * dépôt), puis les mentions légales et les références. Les deux derniers sont
+ * retirés : communs à toutes les annonces de l'agence, ils ne décrivent pas le
+ * bien et leur siège social passerait pour une adresse.
+ */
+export function parseDetailPage(html: string): { description: string } | null {
+  const $ = cheerio.load(html);
+  const prose = $('#section-description .prose').first().clone();
+  if (prose.length === 0) return null;
+  prose.find('[data-controller="show"]').remove();
+  prose
+    .children('div')
+    .filter((_index, element) => /Référence web/i.test($(element).text()))
+    .remove();
+  const description = htmlToText($, prose as cheerio.Cheerio<never>);
+  return description === '' ? null : { description };
 }
