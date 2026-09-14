@@ -8,6 +8,7 @@
  */
 
 import type {
+  ApplicationStatus,
   Contact,
   ListingScores,
   MergedField,
@@ -96,6 +97,11 @@ export interface ListingView {
   readonly favorite?: boolean;
   /** `true` si la source affiche le bien comme DÉJÀ LOUÉ (§32, §33). */
   readonly rented?: boolean;
+  /**
+   * Candidature en ligne chez la source : `full` quand le plafond de dossiers
+   * est atteint (réversible). Absent ou `null` : la source ne le dit pas.
+   */
+  readonly applicationStatus?: ApplicationStatus | null;
   readonly actionPriority: number;
   readonly tracking: TrackingStatus;
   readonly lifecycle: 'active' | 'possiblyInactive' | 'inactive';

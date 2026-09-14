@@ -7,6 +7,7 @@ import {
   extractAddress,
   parseAgencies,
   parseAgencyByReference,
+  parseApplicationOverview,
   parseDetail,
   parseListingUrl,
   parseSearchPage,
@@ -67,8 +68,9 @@ describe('parseSearchPage — fixture nominale', () => {
     expect(page.warnings).toHaveLength(0);
   });
 
-  it("n'annonce jamais de page suivante (pagination interdite par robots.txt)", () => {
+  it('sans <link rel="next">, la page est la dernière', () => {
     expect(page.hasNextPage).toBe(false);
+    expect(page.nextPageUrl).toBeNull();
   });
 
   it("extrait l'annonce complète avec adresse et DPE", () => {
@@ -195,5 +197,85 @@ describe('parseDetail (Foncia)', () => {
 
   it('ne conclut rien d’une page vide (§17)', () => {
     expect(parseDetail('<html><body></body></html>', '330719254')).toBeNull();
+  });
+});
+
+describe('parseSearchPage — pagination (Foncia)', () => {
+  const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+
+  it('suit <link rel="next"> et lit le total annoncé', () => {
+    const page = parseSearchPage(read('liste-page1.html'), PAGE_URL);
+    expect(page.nextPageUrl).toBe('https://fr.foncia.com/location/nice-06/appartement/page-2');
+    expect(page.hasNextPage).toBe(true);
+    expect(page.total).toBe(3);
+  });
+
+  it('s’arrête sur la dernière page', () => {
+    const page = parseSearchPage(read('liste-page2.html'), PAGE_URL);
+    expect(page.nextPageUrl).toBeNull();
+    expect(page.listings.map((l) => l.sourceRef)).toEqual(['900200003']);
+  });
+
+  it('ne suit pas une page suivante à paramètres (robots.txt)', () => {
+    const html =
+      '<html><head><link rel="next" href="/location/nice-06/appartement?page=2"></head></html>';
+    expect(parseSearchPage(html, PAGE_URL).nextPageUrl).toBeNull();
+  });
+});
+
+describe('parseApplicationOverview (Foncia)', () => {
+  const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+
+  it('complet : dossiers actifs au plafond de l’agence', () => {
+    expect(parseApplicationOverview(read('overview-full.json'))).toEqual({
+      rented: false,
+      applications: 'full',
+    });
+  });
+
+  it('ouvert : sous le plafond', () => {
+    expect(parseApplicationOverview(read('overview-open.json'))).toEqual({
+      rented: false,
+      applications: 'open',
+    });
+  });
+
+  it('loué : prime sur le compteur', () => {
+    expect(parseApplicationOverview(read('overview-rented.json'))).toEqual({
+      rented: true,
+      applications: null,
+    });
+  });
+
+  it('agence sans candidature en ligne : rien à dire, même au plafond', () => {
+    expect(parseApplicationOverview(read('overview-disabled.json'))).toEqual({
+      rented: false,
+      applications: null,
+    });
+  });
+
+  it('`rented` absent vaut non loué', () => {
+    const json =
+      '{"id":"1","activeApplicationsCount":1,"agency":{"id":"3443","enabled":true,"max":2}}';
+    expect(parseApplicationOverview(json)).toEqual({ rented: false, applications: 'open' });
+  });
+
+  it('ne conclut rien d’un JSON invalide ou d’une forme inattendue', () => {
+    expect(parseApplicationOverview('<html>erreur</html>')).toBeNull();
+    expect(parseApplicationOverview('null')).toBeNull();
+    expect(parseApplicationOverview('{"activeApplicationsCount":2,"rented":false}')).toBeNull();
+    expect(
+      parseApplicationOverview(
+        '{"activeApplicationsCount":"2","rented":false,"agency":{"enabled":true,"max":2}}',
+      ),
+    ).toBeNull();
+    expect(
+      parseApplicationOverview(
+        '{"activeApplicationsCount":2,"rented":"non","agency":{"enabled":true,"max":2}}',
+      ),
+    ).toBeNull();
+    expect(
+      parseApplicationOverview('{"activeApplicationsCount":2,"agency":{"enabled":1,"max":2}}'),
+    ).toBeNull();
   });
 });

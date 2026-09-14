@@ -47,6 +47,13 @@ export type LifecycleStatus = 'active' | 'possiblyInactive' | 'inactive';
 /**
  * Étape de la relation avec l'annonce, pilotée par l'utilisateur (§35).
  */
+/**
+ * Candidature en ligne chez la source : `open` on peut déposer son dossier,
+ * `full` le plafond de dossiers actifs est atteint. Réversible : un dossier
+ * refusé libère une place. Absent ou `null` : la source ne le dit pas.
+ */
+export type ApplicationStatus = 'open' | 'full';
+
 export type TrackingStatus =
   | 'new'
   | 'toContact'
@@ -206,6 +213,9 @@ export interface ListingOccurrence {
   readonly views: Maybe<number>;
   readonly favorites: Maybe<number>;
 
+  /** Candidature en ligne ouverte ou complète, relevée à ce passage. */
+  readonly applicationStatus?: Maybe<ApplicationStatus>;
+
   // --- Historique minimal (§31) --------------------------------------------
   readonly firstSeenAt: IsoDateTime;
   readonly lastSeenAt: IsoDateTime;
@@ -291,6 +301,9 @@ export interface AggregatedListing {
 
   readonly views: MergedField<Maybe<number>>;
   readonly favorites: MergedField<Maybe<number>>;
+
+  /** `full` seulement si toutes les sources qui le savent disent complet. */
+  readonly applicationStatus?: Maybe<ApplicationStatus>;
 
   /**
    * Toutes les occurrences regroupées, avec leurs URLs d'origine (§13, §38).

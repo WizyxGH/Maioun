@@ -25,7 +25,12 @@ import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { checkEligibility, type TenantProfile } from '@maioun/shared';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
-import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
+import {
+  PRIORITY_HOT,
+  PRIORITY_WORTH_SEEING,
+  SHORT_TERM_LEASE_FEATURE,
+  STUDENT_HOUSING_FEATURE,
+} from '@maioun/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Progress } from '@/components/ui/progress.js';
@@ -71,8 +76,8 @@ interface ListingCardProps {
 const SUSPICIOUS_RISK = 40;
 
 function priorityLabel(priority: number): string {
-  if (priority >= 85) return 'à contacter';
-  if (priority >= 70) return 'à voir';
+  if (priority >= PRIORITY_HOT) return 'à contacter';
+  if (priority >= PRIORITY_WORTH_SEEING) return 'à voir';
   return 'à étudier';
 }
 
@@ -93,7 +98,7 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
     <div className="mt-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide text-good uppercase">
-          {priority >= 85 && <Flame aria-hidden="true" className="size-3.5" />}
+          {priority >= PRIORITY_HOT && <Flame aria-hidden="true" className="size-3.5" />}
           {priorityLabel(priority)}
         </span>
         {/* « 65/100 » et non « 65 » : le barème est ainsi dit, sans que
@@ -106,6 +111,18 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
       <Progress value={priority} aria-label="Priorité d’action" indicatorClassName="bg-good" />
     </div>
   );
+}
+
+/** Réversible : un dossier refusé rouvre une place, d'où l'absence de grisé. */
+function ApplicationsFullBadge({
+  listing,
+  rented,
+}: {
+  readonly listing: ListingView;
+  readonly rented: boolean;
+}): React.JSX.Element | null {
+  if (listing.applicationStatus !== 'full' || rented) return null;
+  return <Badge variant="warning">Candidatures complètes</Badge>;
 }
 
 /**
@@ -153,6 +170,7 @@ function StatusBadges({
         listing.viewed === true && !archived && <Badge>Consultée</Badge>
       )}
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+      <ApplicationsFullBadge listing={listing} rented={rented} />
       {barre === 'income' && <Badge variant="warning">Revenu exigé</Badge>}
       {barre === 'situation' && <Badge variant="warning">Situation non listée</Badge>}
       {/* « Trop beau pour être vrai ? » — le doute, pas le verdict, d'où le
@@ -246,7 +264,7 @@ export function ListingCard({
   profile,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
-  const isHot = listing.actionPriority >= 85;
+  const isHot = listing.actionPriority >= PRIORITY_HOT;
   const archived = listing.archived === true;
   const rented = listing.rented === true;
   const uncertain = listing.lifecycle === 'possiblyInactive';

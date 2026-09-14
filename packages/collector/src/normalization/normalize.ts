@@ -8,6 +8,7 @@
  */
 
 import type {
+  ApplicationStatus,
   Contact,
   LandlordKind,
   NormalizedListing,
@@ -308,6 +309,11 @@ function resolveAvailability(raw: RawListing, nowMs: number): string | null {
   );
 }
 
+/** État de candidature posé par le scraper ; toute autre valeur vaut « inconnu ». */
+function parseApplicationStatus(value: string | undefined): ApplicationStatus | null {
+  return value === 'open' || value === 'full' ? value : null;
+}
+
 /**
  * Les textes libres d'une annonce brute, recousus une fois pour toutes.
  *
@@ -421,6 +427,7 @@ export function normalizeListing(
     // §17 : `null` signifie « la source ne publie pas cette information ».
     views: extractNumber(raw.viewsText, { min: 0, max: 10_000_000 }),
     favorites: extractNumber(raw.favoritesText, { min: 0, max: 1_000_000 }),
+    applicationStatus: parseApplicationStatus(raw.extra?.['applicationStatus']),
 
     firstSeenAt: options.firstSeenAt ?? nowIso,
     lastSeenAt: nowIso,

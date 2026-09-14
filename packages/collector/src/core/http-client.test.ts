@@ -164,6 +164,22 @@ describe('createHttpClient', () => {
     expect(headers['if-none-match']).toBe('W/"abc123"');
   });
 
+  it('n’envoie ni ne mémorise d’ETag pour une requête non conditionnelle', async () => {
+    const cache = createMemoryCacheStore();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, 'v1', { etag: 'W/"abc123"' }))
+      .mockResolvedValueOnce(response(200, 'v2', { etag: 'W/"abc123"' }));
+
+    const client = createHttpClient({ ...baseOptions(), cache, fetchImpl: fetchImpl as never });
+    await client.get('https://example.invalid/api', { conditional: false });
+    await client.get('https://example.invalid/api', { conditional: false });
+
+    const headers = fetchImpl.mock.calls[1]?.[1]?.headers as Record<string, string>;
+    expect(headers['if-none-match']).toBeUndefined();
+    expect(await cache.get('https://example.invalid/api')).toBeNull();
+  });
+
   it('mémorise Last-Modified et l’envoie en If-Modified-Since', async () => {
     const cache = createMemoryCacheStore();
     const lastModified = 'Thu, 14 Aug 2026 07:00:00 GMT';

@@ -121,6 +121,8 @@ export interface RequestInitLite {
    * — donc sans solliciter un portail qui interdit l'accès automatisé (§10).
    */
   readonly redirect?: 'follow' | 'manual';
+  /** `false` : requête non conditionnelle, et rien n'est mémorisé en cache. */
+  readonly conditional?: boolean;
 }
 
 export interface HttpClient {
@@ -153,6 +155,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     method: 'GET' | 'POST',
     body: string | undefined,
     redirect: 'follow' | 'manual' = 'follow',
+    conditional = true,
   ): Promise<FetchResult> {
     await limiter.acquire();
 
@@ -201,7 +204,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       // une réponse POST n'est pas revalidable par ETag, §30).
       const etag = responseHeaders['etag'] ?? null;
       const lastModified = responseHeaders['last-modified'] ?? null;
-      if (method === 'GET' && (etag !== null || lastModified !== null)) {
+      if (method === 'GET' && conditional && (etag !== null || lastModified !== null)) {
         await cache.set(url, {
           etag,
           lastModified,
@@ -234,7 +237,8 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
 
       // Le cache conditionnel (ETag/If-Modified-Since) ne vaut que pour GET :
       // une réponse POST n'est pas revalidable ainsi (§30).
-      if (method === 'GET') {
+      const conditional = init?.conditional !== false;
+      if (method === 'GET' && conditional) {
         const cached = await cache.get(url);
         if (cached?.etag) headers['if-none-match'] = cached.etag;
         if (cached?.lastModified) headers['if-modified-since'] = cached.lastModified;
@@ -243,7 +247,14 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       let lastError: unknown;
       for (let tryIndex = 0; tryIndex <= budget.retryLimit; tryIndex += 1) {
         try {
-          return await attempt(url, headers, method, init?.body, init?.redirect ?? 'follow');
+          return await attempt(
+            url,
+            headers,
+            method,
+            init?.body,
+            init?.redirect ?? 'follow',
+            conditional,
+          );
         } catch (error) {
           // 429 et blocage ne sont jamais réessayés : ce sont des refus, pas
           // des incidents passagers (§10).
