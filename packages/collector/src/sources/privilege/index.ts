@@ -15,7 +15,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseApimoDetail } from '../apimo/parser.js';
-import { parseLocationLinks } from './parser.js';
+import { parseLocationLinks } from '../apimo/location-links.js';
 
 const LIST_URL = 'https://www.agenceprivilege.com/fr/locations';
 const MAX_DETAILS_LIVE = 8;
