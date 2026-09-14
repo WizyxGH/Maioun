@@ -1,0 +1,25 @@
+{
+  "id": "twimmo-2125653",
+  "reference": "1062L34A",
+  "title": "Location appartement 1 Pièce(s)",
+  "price": 700,
+  "generatedTitle": "Appartement 1 pièce 28 m², Nice - 700 €",
+  "contactRelativeData": {
+    "agencyNameToDisplay": "ELITIMO",
+    "contactNameToDisplay": "ELITIMO",
+    "phoneToDisplay": "+33600000012",
+    "hasEmailToDisplay": true,
+    "contactIsAgency": true,
+    "contactIsPro": true,
+    "address": {
+      "street": "7 Rue de Rivoli",
+      "city": "Nice",
+      "postalCode": "06000"
+    },
+    "agencyId": "twimmo-elitimo",
+    "accountWebsite": null,
+    "accountType": "agency",
+    "agencyPageEnabled": true,
+    "callTrackingEnabled": true
+  }
+}

@@ -105,3 +105,61 @@ describe('pages inchangées', () => {
     expect(resultat.confirmedRefs).toEqual([]);
   });
 });
+
+describe('fiches JSON', () => {
+  const DETAIL = readFileSync(
+    resolve(here, '../../../../../tests/fixtures/bienici/detail-twimmo-2125653.json'),
+    'utf8',
+  );
+
+  it('complète les annonces par leur fiche, après la pagination', async () => {
+    const urls: string[] = [];
+    const saved: string[] = [];
+    const { ctx } = contexte([], new Map());
+    const resultat = await bieniciScraper.run({
+      ...ctx,
+      fetch: (url) => {
+        urls.push(url);
+        const body = url.includes('/realEstateAd.json') ? DETAIL : PLEINE;
+        return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
+      },
+      detailMemory: {
+        get: () => null,
+        save: (entries) => {
+          saved.push(...entries.map((one) => one.sourceRef));
+          return Promise.resolve();
+        },
+      },
+    });
+
+    expect(urls[0]).toContain('/realEstateAds.json');
+    expect(urls.slice(1).every((url) => url.includes('/realEstateAd.json?id='))).toBe(true);
+    expect(urls).toHaveLength(1 + resultat.listings.length);
+    expect(resultat.requestCount).toBe(urls.length);
+    expect(saved).toHaveLength(resultat.listings.length);
+    expect(resultat.listings[0]).toMatchObject({ phoneText: '+33600000012' });
+  });
+
+  it('réapplique la mémoire des fiches sans requête', async () => {
+    const urls: string[] = [];
+    const { ctx } = contexte([], new Map());
+    const resultat = await bieniciScraper.run({
+      ...ctx,
+      isKnown: () => true,
+      fetch: (url) => {
+        urls.push(url);
+        return Promise.resolve({ status: 200, body: PLEINE, headers: {}, notModified: false });
+      },
+      detailMemory: {
+        get: () => ({
+          draft: { agencyName: 'ELITIMO', phoneText: '+33600000012' },
+          fetchedAt: new Date().toISOString(),
+        }),
+        save: () => Promise.resolve(),
+      },
+    });
+
+    expect(urls).toHaveLength(1);
+    expect(resultat.listings.every((one) => one.agencyName === 'ELITIMO')).toBe(true);
+  });
+});
