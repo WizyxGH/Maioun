@@ -125,12 +125,12 @@ test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', asy
   // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
   // et on scope les assertions au bloc déplié (le même libellé peut exister
   // ailleurs, replié).
-  const risk = page.locator('details').filter({ hasText: 'Risque' });
+  const risk = page.locator('details').filter({ hasText: 'Signaux d’alerte' });
   await risk.locator('summary').click();
   await expect(risk.getByText('Loyer cohérent avec le marché')).toBeVisible();
   await expect(risk.getByText('Agence identifiable')).toBeVisible();
 
-  const visit = page.locator('details').filter({ hasText: 'Probabilité de visite' });
+  const visit = page.locator('details').filter({ hasText: 'Facilité de contact' });
   await visit.locator('summary').click();
 
   // §17 : ce qui manque est dit, pas comblé.
@@ -149,7 +149,7 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
   await risky.click();
 
   // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
-  const risk = page.locator('details').filter({ hasText: 'Risque' });
+  const risk = page.locator('details').filter({ hasText: 'Signaux d’alerte' });
   await risk.locator('summary').click();
   await expect(risk.getByText('Loyer très inférieur au marché (5,8 €/m²)')).toBeVisible();
   await expect(risk.getByText('Le bailleur déclare être à l’étranger')).toBeVisible();
