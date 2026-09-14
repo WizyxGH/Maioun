@@ -167,13 +167,18 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
   let matchesCriteria = true;
   let total = 0;
   let maxTotal = 0;
+  // Poids des dimensions dont la valeur est inconnue, retirés du dénominateur.
+  let unknownWeight = 0;
 
   // --- Ville : critère éliminatoire ----------------------------------------
   maxTotal += 30;
   const cityOutcome = evaluateCity(listing, criteria);
   total += cityOutcome.points;
   if (!cityOutcome.matches) matchesCriteria = false;
-  if (cityOutcome.unknown) unknownSignals.push('ville');
+  if (cityOutcome.unknown) {
+    unknownSignals.push('ville');
+    unknownWeight += 30;
+  }
   reasons.push(cityOutcome.reason);
 
   // --- Loyer : critère éliminatoire ----------------------------------------
@@ -181,6 +186,7 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
   const price = listing.price.value;
   if (price === null) {
     unknownSignals.push('loyer');
+    unknownWeight += 40;
     reasons.push({ code: 'price.unknown', label: 'Loyer non publié', delta: 0 });
   } else if (criteria.minPrice !== undefined && price < criteria.minPrice) {
     // Sous ce plancher, ce n'est presque jamais un logement (parking/box/cave
@@ -217,6 +223,7 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
   const area = listing.area.value;
   if (area === null) {
     unknownSignals.push('surface');
+    unknownWeight += 30;
     reasons.push({ code: 'area.unknown', label: 'Surface non publiée', delta: 0 });
   } else if (area >= criteria.minArea) {
     // Au-delà du minimum, chaque m² compte de moins en moins.
@@ -270,6 +277,7 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
       reasons.push({ code: 'type.match', label: `Type recherché (${type})`, delta: 10 });
     } else if (type === 'unknown') {
       unknownSignals.push('type de bien');
+      unknownWeight += 10;
     }
   }
 
@@ -278,6 +286,7 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     const furnished = listing.furnished.value;
     if (furnished === null) {
       unknownSignals.push('meublé');
+      unknownWeight += 10;
     } else if (furnished === criteria.furnished) {
       total += 10;
       reasons.push({
@@ -290,7 +299,8 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
 
   // Le score est rapporté au total réellement évaluable : une annonce dont la
   // surface est inconnue n'est pas pénalisée comme si elle était trop petite.
-  const evaluated = maxTotal - unknownSignals.length * 10;
+  // On retire le poids réel de chaque dimension inconnue (30 ou 40), pas 10.
+  const evaluated = maxTotal - unknownWeight;
   const normalized = evaluated > 0 ? (total / evaluated) * 100 : 0;
 
   return {

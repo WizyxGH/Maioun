@@ -31,13 +31,19 @@ export interface OpportunityOptions {
 }
 
 /**
+ * Part des points de fraîcheur accordée quand l'âge vient de `firstSeenAt` :
+ * une première observation est moins fiable qu'une date de publication.
+ */
+export const FIRST_SEEN_WEIGHT = 0.7;
+
+/**
  * Détermine l'âge de l'annonce en minutes.
  *
  * On préfère `publishedAt` quand la source le fournit. À défaut, `firstSeenAt`
  * donne une borne supérieure honnête : « vue pour la première fois il y a X ».
  * La distinction est signalée, car les deux n'ont pas la même valeur.
  */
-function ageMinutes(
+export function ageMinutes(
   listing: AggregatedListing,
   nowMs: number,
 ): { minutes: number; basis: 'published' | 'firstSeen' } | null {
@@ -72,9 +78,7 @@ export function scoreOpportunity(
   } else {
     const tier = FRESHNESS_TIERS.find((candidate) => age.minutes <= candidate.maxMinutes);
     const points = tier?.points ?? 0;
-    // Une date de première observation est moins fiable qu'une date de
-    // publication : on n'accorde que 70 % des points dans ce cas.
-    const adjusted = age.basis === 'published' ? points : Math.round(points * 0.7);
+    const adjusted = age.basis === 'published' ? points : Math.round(points * FIRST_SEEN_WEIGHT);
     total += adjusted;
     reasons.push({
       code: `freshness.${age.basis}`,
@@ -117,19 +121,9 @@ export function scoreOpportunity(
     reasons.push({ code: 'price.dropped', label: 'Loyer récemment en baisse', delta: 12 });
   }
 
-  // --- Multi-diffusion (jusqu'à 10 points) ---------------------------------
-  // Une annonce présente sur plusieurs portails est vue par plus de monde :
-  // la concurrence est plus forte, donc il faut agir plus vite.
-  const sourceCount = new Set(listing.occurrences.map((o) => o.sourceId)).size;
-  if (sourceCount > 1) {
-    const points = Math.min(10, sourceCount * 3);
-    total += points;
-    reasons.push({
-      code: 'exposure.multi',
-      label: `Diffusée sur ${sourceCount} sources — concurrence probable`,
-      delta: points,
-    });
-  }
+  // Pas de bonus « plusieurs sources » : la probabilité de visite le comptait
+  // à l'inverse, et les annonces relevées ne disparaissent pas plus vite
+  // quand elles sont multi-diffusées.
 
   // --- Signaux d'intérêt, uniquement s'ils existent (§17) -------------------
   const views = listing.views.value;

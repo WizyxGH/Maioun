@@ -194,6 +194,25 @@ describe('scoreMatch (§16)', () => {
     expect(unknown.score.confidence).toBeLessThan(1);
   });
 
+  // Retirer 10 points par dimension inconnue, qui en pèse 30 ou 40, plafonnait
+  // un loyer inconnu à 67 et une surface inconnue vers 72.
+  it('rapporte le score aux seules dimensions connues', () => {
+    const known = scoreMatch(makeAggregated({ price: 650, area: 20 }), MVP_CRITERIA).score;
+    const cityPoints = 30;
+    const areaPoints = 20;
+    const pricePoints = known.value - cityPoints - areaPoints;
+
+    const noArea = scoreMatch(makeAggregated({ price: 650, area: null }), MVP_CRITERIA).score;
+    expect(noArea.value).toBe(Math.round(((cityPoints + pricePoints) / 70) * 100));
+    expect(noArea.confidence).toBeCloseTo(0.7);
+
+    const noPrice = scoreMatch(makeAggregated({ price: null, area: 20 }), MVP_CRITERIA).score;
+    expect(noPrice.value).toBe(Math.round(((cityPoints + areaPoints) / 60) * 100));
+    // Jamais moins bien qu'un loyer connu au plafond.
+    const atCeiling = scoreMatch(makeAggregated({ price: 700, area: 20 }), MVP_CRITERIA).score;
+    expect(noPrice.value).toBeGreaterThanOrEqual(atCeiling.value);
+  });
+
   it('justifie chaque contribution', () => {
     const { score } = scoreMatch(makeAggregated({ price: 650, area: 20 }), MVP_CRITERIA);
     expect(score.reasons.length).toBeGreaterThan(0);
@@ -270,19 +289,20 @@ describe('scoreOpportunity (§17)', () => {
     expect(dropped.reasons.some((reason) => reason.code === 'price.dropped')).toBe(true);
   });
 
-  it('tient compte de la diffusion multi-sources', () => {
-    const multi = scoreOpportunity(
-      makeAggregated({
-        publishedAt: minutesBefore(10),
-        occurrences: [
-          makeOccurrence({ id: 'leboncoin:1', sourceId: 'leboncoin' }),
-          makeOccurrence({ id: 'seloger:1', sourceId: 'seloger' }),
-          makeOccurrence({ id: 'bienici:1', sourceId: 'bienici' }),
-        ],
-      }),
-      { nowMs: TEST_NOW },
+  it('ne compte plus la diffusion multi-sources, ni en opportunité ni en visite', () => {
+    const occurrences = [
+      makeOccurrence({ id: 'leboncoin:1', sourceId: 'leboncoin' }),
+      makeOccurrence({ id: 'seloger:1', sourceId: 'seloger' }),
+      makeOccurrence({ id: 'bienici:1', sourceId: 'bienici' }),
+    ];
+    const single = makeAggregated({ publishedAt: minutesBefore(10) });
+    const multi = makeAggregated({ publishedAt: minutesBefore(10), occurrences });
+    const options = { nowMs: TEST_NOW };
+
+    expect(scoreOpportunity(multi, options).value).toBe(scoreOpportunity(single, options).value);
+    expect(scoreVisitProbability(multi, options).value).toBe(
+      scoreVisitProbability(single, options).value,
     );
-    expect(multi.reasons.some((reason) => reason.code === 'exposure.multi')).toBe(true);
   });
 });
 
@@ -304,25 +324,29 @@ describe('scoreVisitProbability (§18)', () => {
     expect(score.reasons.some((reason) => reason.code === 'channel.none')).toBe(true);
   });
 
-  it('signale l’absence de statistiques personnelles plutôt que de les simuler (§18)', () => {
-    const score = scoreVisitProbability(makeAggregated(), { nowMs: TEST_NOW });
-    expect(score.unknownSignals.join(' ')).toMatch(/statistiques personnelles/);
-    expect(score.confidence).toBeLessThan(1);
-  });
+  // Sans date, l'âge était ignoré : une vieille annonce non datée passait
+  // devant la même annonce datée.
+  it('vieillit une annonce sans date d’après sa découverte, au rabais de 70 %', () => {
+    const contact = makeContact();
+    const tenDays = minutesBefore(60 * 24 * 10);
+    const options = { nowMs: TEST_NOW };
+    const dated = scoreVisitProbability(
+      makeAggregated({ publishedAt: tenDays, firstSeenAt: tenDays, contact }),
+      options,
+    );
+    const undated = scoreVisitProbability(
+      makeAggregated({ publishedAt: null, firstSeenAt: tenDays, contact }),
+      options,
+    );
+    const justSeen = scoreVisitProbability(
+      makeAggregated({ publishedAt: null, firstSeenAt: minutesBefore(20), contact }),
+      options,
+    );
 
-  it('intègre les statistiques observées lorsqu’elles existent', () => {
-    const listing = makeAggregated({
-      publishedAt: minutesBefore(20),
-      contact: makeContact(),
-      occurrences: [makeOccurrence({ id: 'laforet:1', sourceId: 'laforet' })],
-    });
-
-    const withStats = scoreVisitProbability(listing, {
-      nowMs: TEST_NOW,
-      observedStats: { visitRateBySource: { laforet: 0.6 } },
-    });
-
-    expect(withStats.reasons.some((reason) => reason.code === 'stats.observed')).toBe(true);
+    expect(undated.reasons.find((reason) => reason.code === 'timing.late')?.delta).toBe(-14);
+    expect(dated.value).toBeLessThan(undated.value);
+    expect(undated.value).toBeLessThan(justSeen.value);
+    expect(undated.unknownSignals).toContain('date de publication exacte');
   });
 
   it('reste borné à [0, 100]', () => {
@@ -402,6 +426,38 @@ describe('scoreRisk (§19)', () => {
       options,
     );
     expect(score.reasons.some((reason) => reason.code === 'identity.none')).toBe(true);
+  });
+
+  // LocService, Bien'ici et les digests masquent tout derrière un formulaire :
+  // le signal tombait sur une annonce sur deux, selon la seule source.
+  it('ne pénalise pas un contact limité au formulaire du portail', () => {
+    const contact = makeContact({
+      agencyName: null,
+      phone: null,
+      email: null,
+      formUrl: 'https://portail.example.invalid/contact/1',
+    });
+    const score = scoreRisk(makeAggregated({ contact }), options);
+    expect(score.reasons.some((reason) => reason.code === 'identity.none')).toBe(false);
+    expect(score.unknownSignals.join(' ')).toContain('formulaire');
+  });
+
+  it('contrôle le loyer au m² d’un bien au type non précisé, pas d’une cave', () => {
+    const veryLow = (listing: Parameters<typeof scoreRisk>[0]): boolean =>
+      scoreRisk(listing, options).reasons.some((reason) => reason.code === 'price.veryLow');
+
+    expect(veryLow(makeAggregated({ price: 250, area: 60, rooms: 3, propertyType: 'other' }))).toBe(
+      true,
+    );
+    expect(
+      veryLow(makeAggregated({ price: 250, area: 60, rooms: 3, propertyType: 'unknown' })),
+    ).toBe(true);
+    expect(
+      veryLow(makeAggregated({ price: 20, area: 8, rooms: null, propertyType: 'other' })),
+    ).toBe(false);
+    expect(veryLow(makeAggregated({ price: 250, area: 60, propertyType: 'commercial' }))).toBe(
+      false,
+    );
   });
 
   it('ignore un écart de loyer explicable par les charges', () => {

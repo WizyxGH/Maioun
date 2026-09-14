@@ -17,17 +17,31 @@
 
 import type { AggregatedListing, ExplainedScore, ScoreReason } from '@maioun/shared';
 import { clampScore } from '@maioun/shared';
+import { ageMinutes, FIRST_SEEN_WEIGHT } from './opportunity.js';
 
 export interface VisitProbabilityOptions {
   readonly nowMs: number;
-  /**
-   * Statistiques personnelles observées, quand elles existent (§33).
-   * Absentes au démarrage : le score reste alors purement basé sur les règles.
-   */
-  readonly observedStats?: {
-    /** Taux de visite constaté par source, dans [0, 1]. */
-    readonly visitRateBySource?: Readonly<Record<string, number>>;
-  };
+}
+
+/** Contribution du délai de contact, pour un âge en heures. */
+function timing(ageHours: number): { code: string; label: string; delta: number } | null {
+  if (ageHours <= 1) {
+    return {
+      code: 'timing.veryEarly',
+      label: 'Contact dans l’heure suivant la publication',
+      delta: 25,
+    };
+  }
+  if (ageHours <= 6) return { code: 'timing.early', label: 'Contact le jour même', delta: 15 };
+  if (ageHours <= 24) return { code: 'timing.sameDay', label: 'Contact sous 24 h', delta: 5 };
+  if (ageHours > 72) {
+    return {
+      code: 'timing.late',
+      label: `Annonce vieille de ${Math.round(ageHours / 24)} jours — probablement déjà pourvue`,
+      delta: -20,
+    };
+  }
+  return null;
 }
 
 /** Base de départ : sans aucune information, on ne présume rien de tranché. */
@@ -45,32 +59,24 @@ export function scoreVisitProbability(
   // --- Délai entre publication et contact ----------------------------------
   // Le facteur le mieux documenté du marché locatif tendu : être parmi les
   // premiers à répondre.
-  const published = listing.publishedAt.value;
-  if (published === null) {
+  // Sans date de publication, on se rabat sur la première observation, au
+  // même rabais que l'opportunité : ignorer l'âge favorisait les dates absentes.
+  const age = ageMinutes(listing, options.nowMs);
+  if (age === null) {
     unknownSignals.push('date de publication');
   } else {
-    const ageHours = (options.nowMs - Date.parse(published)) / 3_600_000;
-    if (ageHours <= 1) {
-      total += 25;
+    const tier = timing(age.minutes / 60);
+    if (tier !== null) {
+      const delta =
+        age.basis === 'published' ? tier.delta : Math.round(tier.delta * FIRST_SEEN_WEIGHT);
+      total += delta;
       reasons.push({
-        code: 'timing.veryEarly',
-        label: 'Contact dans l’heure suivant la publication',
-        delta: 25,
-      });
-    } else if (ageHours <= 6) {
-      total += 15;
-      reasons.push({ code: 'timing.early', label: 'Contact le jour même', delta: 15 });
-    } else if (ageHours <= 24) {
-      total += 5;
-      reasons.push({ code: 'timing.sameDay', label: 'Contact sous 24 h', delta: 5 });
-    } else if (ageHours > 72) {
-      total -= 20;
-      reasons.push({
-        code: 'timing.late',
-        label: `Annonce vieille de ${Math.round(ageHours / 24)} jours — probablement déjà pourvue`,
-        delta: -20,
+        code: tier.code,
+        label: age.basis === 'published' ? tier.label : `${tier.label} (d’après la découverte)`,
+        delta,
       });
     }
+    if (age.basis === 'firstSeen') unknownSignals.push('date de publication exacte');
   }
 
   // --- Canal de contact disponible -----------------------------------------
@@ -113,38 +119,11 @@ export function scoreVisitProbability(
     unknownSignals.push('nature du bailleur');
   }
 
-  // --- Concurrence ----------------------------------------------------------
-  const sourceCount = new Set(listing.occurrences.map((o) => o.sourceId)).size;
-  if (sourceCount >= 3) {
-    total -= 10;
-    reasons.push({
-      code: 'competition.high',
-      label: `Diffusée sur ${sourceCount} portails — forte concurrence`,
-      delta: -10,
-    });
-  }
+  // Pas de malus « plusieurs portails » : l'opportunité le comptait à
+  // l'inverse, et les annonces multi-diffusées ne partent pas plus vite.
 
-  // --- Statistiques personnelles, si elles existent (§33) -------------------
-  const rates = options.observedStats?.visitRateBySource;
-  if (rates !== undefined) {
-    const primarySource = listing.occurrences[0]?.sourceId;
-    const rate = primarySource !== undefined ? rates[primarySource] : undefined;
-    if (rate !== undefined) {
-      // L'observation réelle corrige la règle, sans l'écraser : l'échantillon
-      // est encore trop petit pour lui faire pleinement confiance.
-      const delta = Math.round((rate - 0.3) * 30);
-      total += delta;
-      reasons.push({
-        code: 'stats.observed',
-        label: `Taux de visite constaté sur ${primarySource} : ${Math.round(rate * 100)} %`,
-        delta,
-      });
-    }
-  } else {
-    unknownSignals.push('statistiques personnelles (aucun historique)');
-  }
-
-  const optionalSignals = 4;
+  // Publication, canal, nature du bailleur.
+  const optionalSignals = 3;
   const missing = Math.min(optionalSignals, unknownSignals.length);
 
   return {
