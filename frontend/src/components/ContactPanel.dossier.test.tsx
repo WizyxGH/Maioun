@@ -8,11 +8,12 @@ import userEvent from '@testing-library/user-event';
 import type { TenantProfile } from '@maioun/shared';
 import type { ListingView } from '../types.js';
 import { MOCK_LISTINGS } from '../api/mock-data.js';
+import type * as Client from '../api/client.js';
 
 const documents = vi.hoisted(() => ({ list: [] as { name: string; size: number }[] }));
 
 vi.mock('../api/client.js', async (original) => ({
-  ...(await original<typeof import('../api/client.js')>()),
+  ...(await original<typeof Client>()),
   canStoreDocuments: () => true,
   fetchDocuments: () => Promise.resolve(documents.list),
 }));
