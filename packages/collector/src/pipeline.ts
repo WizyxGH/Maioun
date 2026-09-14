@@ -415,6 +415,7 @@ async function missingWouldBeUnfounded(
   // Rien n'a été observé : aucune information sur ce qui existe encore.
   if (reason === undefined) return 'aucun résultat';
   if (reason === 'notModified') return 'page inchangée, rien de retéléchargé';
+  if (reason === 'incomplete') return 'inventaire lu en partie seulement';
   if (reason === 'rateLimited' || reason === 'blocked' || reason === 'tooManyErrors') {
     return `passage interrompu (${reason})`;
   }

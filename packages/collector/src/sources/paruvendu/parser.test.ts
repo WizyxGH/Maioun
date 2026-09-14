@@ -25,6 +25,21 @@ describe('parseSearchPage', () => {
   const { listings, hasNextPage } = parseSearchPage(PAGE, URL_PAGE);
   const particulier = listings.find((l) => l.sourceRef === '1295002360');
 
+  it('suit la page suivante d’une tranche par pièces', () => {
+    const tranche = PAGE.replace('?p=2', '?nbpieces=1&amp;p=2');
+    expect(pageUrlFor(2, 1)).toContain('?nbpieces=1&p=2');
+    expect(parseSearchPage(tranche, pageUrlFor(1, 1)).hasNextPage).toBe(true);
+  });
+
+  it('lit le nombre d’annonces que la recherche annonce', () => {
+    const avecCompte = PAGE.replace(
+      '</body>',
+      '<span class="aff_nbann">165 annonces</span></body>',
+    );
+    expect(parseSearchPage(avecCompte, URL_PAGE).totalCount).toBe(165);
+    expect(parseSearchPage(PAGE, URL_PAGE).totalCount).toBeNull();
+  });
+
   it('lit les trois cartes, et voit qu’il y a une page suivante', () => {
     expect(listings).toHaveLength(3);
     expect(hasNextPage).toBe(true);
@@ -151,7 +166,7 @@ describe('parseDetail', () => {
 
 describe('le passage', () => {
   /** Deux pages pleines, puis une page sans lien « suivante » ; les fiches rendent celle de BEP. */
-  const contexte = (connues: boolean) => {
+  const contexte = (connues: boolean, annoncees?: number) => {
     const vues: string[] = [];
     let pages = 0;
     const ctx: ScrapeContext = {
@@ -163,6 +178,12 @@ describe('le passage', () => {
         if (url.includes('/recherche/')) {
           pages += 1;
           body = pages < 3 ? PAGE : PAGE.replace(/\?p=\d/g, '?p=0');
+          if (annoncees !== undefined) {
+            body = body.replace(
+              '</body>',
+              `<span class="aff_nbann">${annoncees} annonces</span></body>`,
+            );
+          }
         }
         return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
       },
@@ -186,7 +207,21 @@ describe('le passage', () => {
     const { ctx, vues } = contexte(true);
     const resultat = await paruvenduScraper.run(ctx);
     // TOUT EST CONNU, et on continue quand même : pas d'arrêt anticipé.
-    expect(vues).toHaveLength(3);
+    // Trois pages de la recherche entière, puis une par tranche de pièces.
+    expect(vues).toHaveLength(7);
+    expect(vues.filter((url) => url.includes('nbpieces='))).toHaveLength(4);
+    expect(resultat.stopReason).toBe('completed');
+  });
+
+  it('ne retire rien quand le site annonce plus d’annonces qu’il n’en laisse lire', async () => {
+    const { ctx } = contexte(true, 165);
+    const resultat = await paruvenduScraper.run(ctx);
+    expect(resultat.stopReason).toBe('incomplete');
+  });
+
+  it('retire normalement quand le compte y est', async () => {
+    const { ctx } = contexte(true, 3);
+    const resultat = await paruvenduScraper.run(ctx);
     expect(resultat.stopReason).toBe('completed');
   });
 

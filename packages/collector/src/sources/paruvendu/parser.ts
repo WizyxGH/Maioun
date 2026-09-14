@@ -35,15 +35,22 @@ import type { RawDraft } from '../shared/raw-listing.js';
 
 export const SITE = 'https://www.paruvendu.fr';
 
-/** L'adresse de la page `n` de la recherche niçoise. */
-export function pageUrlFor(page: number): string {
-  const base = `${SITE}/immobilier/recherche/location/appartement/nice/`;
-  return page <= 1 ? base : `${base}?p=${page}`;
+/**
+ * L'adresse de la page `n` de la recherche niçoise, éventuellement limitée à un
+ * nombre de pièces (`?nbpieces=`, un lien que le site propose lui-même).
+ */
+export function pageUrlFor(page: number, rooms?: number): string {
+  const url = new URL(`${SITE}/immobilier/recherche/location/appartement/nice/`);
+  if (rooms !== undefined) url.searchParams.set('nbpieces', String(rooms));
+  if (page > 1) url.searchParams.set('p', String(page));
+  return url.toString();
 }
 
 export interface ParsedPage {
   readonly listings: readonly RawListing[];
   readonly hasNextPage: boolean;
+  /** Le nombre d'annonces que la recherche annonce, `null` s'il n'est pas lisible. */
+  readonly totalCount: number | null;
   readonly warnings: readonly string[];
 }
 
@@ -131,8 +138,16 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   if (listings.length === 0) warnings.push('Aucune annonce trouvée : gabarit peut-être changé');
 
   const current = Number(new URL(pageUrl).searchParams.get('p') ?? '1');
-  const hasNextPage = $(`a[href*="?p=${current + 1}"]`).length > 0;
-  return { listings, hasNextPage, warnings };
+  // `?p=2` comme `?nbpieces=1&p=2` : on compare le paramètre, pas le texte.
+  const hasNextPage = $('a[href*="p="]')
+    .toArray()
+    .some((a) => {
+      const href = $(a).attr('href') ?? '';
+      return new URL(href, pageUrl).searchParams.get('p') === String(current + 1);
+    });
+  const count = /(\d+)\s+annonces?/.exec($('.aff_nbann').first().text());
+  const totalCount = count?.[1] !== undefined ? Number(count[1]) : null;
+  return { listings, hasNextPage, totalCount, warnings };
 }
 
 /**
