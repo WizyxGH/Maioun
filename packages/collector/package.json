@@ -24,6 +24,7 @@
     "build": "tsc --build",
     "collect": "tsc --build && node dist/cli/collect.js",
     "draft": "tsc --build && node dist/cli/draft.js",
+    "email:test": "tsc --build && node dist/cli/email-test.js",
     "reprocess": "tsc --build && node dist/cli/reprocess.js",
     "db:migrate": "tsc --build && node dist/cli/migrate.js",
     "audit:data": "tsc --build && node dist/cli/audit.js",
