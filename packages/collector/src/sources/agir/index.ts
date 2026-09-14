@@ -12,7 +12,7 @@ import { makeHektorScraper } from '../hektor/scraper.js';
 
 export const agirScraper = makeHektorScraper({
   id: 'agir',
-  name: 'Cabinet AGIR',
+  name: 'Cabinet A.G.I.R.',
   domain: 'agir.immo',
   logo: 'https://www.agir.immo/images/favicon.png',
   listUrls: ['https://www.agir.immo/location/1'],
