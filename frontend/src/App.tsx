@@ -1048,7 +1048,16 @@ function AppView(): React.JSX.Element {
         includeArchived: showArchived,
         favoritesOnly,
       });
-      setListings(response.listings);
+      // Une archivée ne s'affiche pas avec un badge : elle sort de la liste,
+      // de l'accueil et de la carte. Y compris celle que sa source ferme aux
+      // candidatures, même si l'API ne l'a pas encore écartée.
+      setListings(
+        showArchived
+          ? response.listings
+          : response.listings.filter(
+              (listing) => listing.archived !== true && listing.applicationStatus !== 'full',
+            ),
+      );
       setNowMs(Date.now());
     } catch (caught) {
       // UNE SESSION EXPIRÉE N'EST PAS UNE PANNE : on renvoie à la connexion au
