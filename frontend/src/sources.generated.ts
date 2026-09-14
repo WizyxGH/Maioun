@@ -31,6 +31,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
   },
+  afedim: { name: 'AFEDIM', domain: 'afedim.fr', logo: null, paidContact: false },
   'agence-du-centre': {
     name: 'Agence du Centre',
     domain: 'agenceducentrenice.com',
