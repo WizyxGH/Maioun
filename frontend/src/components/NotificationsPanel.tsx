@@ -42,6 +42,8 @@ interface NotificationsPanelProps {
    * et les repères disparaîtraient sous les yeux.
    */
   readonly seenAtMs: number;
+  /** Annonces dont la fiche a été ouverte : lues, quelle que soit leur date. */
+  readonly readIds?: ReadonlySet<string>;
   /**
    * Efface les repères « non lue », sans rien ouvrir ni écarter.
    *
@@ -162,6 +164,7 @@ export function NotificationsPanel({
   nowMs,
   onOpen,
   seenAtMs,
+  readIds,
   onMarkAllRead,
 }: NotificationsPanelProps): React.JSX.Element {
   // Lignes écartées d'un glissement. Persisté : ranger une alerte ne doit pas
@@ -209,7 +212,7 @@ export function NotificationsPanel({
     else days.push({ label, items: [entry] });
   }
 
-  const unread = history.filter(({ listing }) => isUnreadAlert(listing, seenAtMs)).length;
+  const unread = history.filter(({ listing }) => isUnreadAlert(listing, seenAtMs, readIds)).length;
 
   return (
     <section className="flex flex-col gap-5">
@@ -254,7 +257,7 @@ export function NotificationsPanel({
                       <HistoryRow
                         listing={listing}
                         event={event}
-                        unread={isUnreadAlert(listing, seenAtMs)}
+                        unread={isUnreadAlert(listing, seenAtMs, readIds)}
                         onOpen={onOpen}
                         onDismiss={dismiss}
                       />

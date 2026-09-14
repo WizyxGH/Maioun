@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ListingView } from './types.js';
-import { diffForNotification, notificationContentFor, type SeenState } from './notifications.js';
+import {
+  diffForNotification,
+  isUnreadAlert,
+  markAlertRead,
+  notificationContentFor,
+  readReadAlerts,
+  unreadAlertCount,
+  type SeenState,
+} from './notifications.js';
 
 /** Fabrique une annonce minimale pour les tests de notification. */
 function listing(over: {
@@ -72,5 +80,28 @@ describe('notificationContentFor', () => {
     expect(title).toContain('Nice');
     expect(body).toContain('690');
     expect(body).toContain('25');
+  });
+});
+
+describe('alerte lue en ouvrant l’annonce', () => {
+  const SEEN_AT = Date.parse('2026-09-14T08:00:00Z');
+  const signalee = (id: string): ListingView => ({
+    ...listing({ id }),
+    notifiedAt: '2026-09-14T09:00:00Z',
+  });
+
+  it('une annonce ouverte n’est plus « non lue », même signalée après la visite', () => {
+    localStorage.clear();
+    const ouverte = signalee('a');
+    expect(isUnreadAlert(ouverte, SEEN_AT)).toBe(true);
+    const read = markAlertRead('a');
+    expect(isUnreadAlert(ouverte, SEEN_AT, read)).toBe(false);
+    expect(unreadAlertCount([ouverte, signalee('b')], SEEN_AT, read)).toBe(1);
+  });
+
+  it('s’en souvient d’une session à l’autre', () => {
+    localStorage.clear();
+    markAlertRead('a');
+    expect(readReadAlerts().has('a')).toBe(true);
   });
 });
