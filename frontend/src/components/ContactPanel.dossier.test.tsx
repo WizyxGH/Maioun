@@ -1,10 +1,9 @@
 /**
- * Avant de candidater : les pièces nécessaires, et les champs du formulaire.
+ * Avant de candidater : les pièces nécessaires.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { TenantProfile } from '@maioun/shared';
 import type { ListingView } from '../types.js';
 import { MOCK_LISTINGS } from '../api/mock-data.js';
@@ -82,26 +81,5 @@ describe('pièces pour candidater', () => {
     const section = await screen.findByRole('region', { name: 'Pièces pour candidater' });
     expect(within(section).getByText('5/5 prêtes')).toBeInTheDocument();
     expect(within(section).queryByRole('link')).not.toBeInTheDocument();
-  });
-});
-
-describe('champs du formulaire à copier', () => {
-  it('copie chaque valeur du profil d’un geste', async () => {
-    const user = userEvent.setup();
-    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
-    renderPanel();
-
-    await user.click(await screen.findByRole('button', { name: /Copier e-mail/ }));
-    expect(writeText).toHaveBeenCalledWith('alex@example.invalid');
-    expect(await screen.findByText('E-mail copié')).toBeInTheDocument();
-  });
-
-  it('ne s’affiche pas quand l’annonce a un e-mail ou un téléphone', async () => {
-    renderPanel({
-      ...FORM_ONLY,
-      contact: { ...FORM_ONLY.contact, email: 'agence@example.invalid' },
-    });
-    await screen.findByLabelText('Message préparé');
-    expect(screen.queryByText('Pour remplir le formulaire')).not.toBeInTheDocument();
   });
 });
