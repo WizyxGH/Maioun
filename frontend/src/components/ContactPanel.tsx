@@ -391,56 +391,6 @@ function useDossierChecklist(profile: TenantProfile | null): {
 }
 
 /**
- * Les champs d'un formulaire de contact, à copier un par un.
- *
- * Une page d'agence ne se remplit pas depuis Maïoun : elle vit sur un autre
- * site. Copier chaque valeur d'un geste évite de la retaper au clavier du
- * téléphone ; le message, lui, est copié à l'ouverture du formulaire.
- */
-function FormFields({ profile }: { readonly profile: TenantProfile }): React.JSX.Element | null {
-  const [copied, setCopied] = useState<string | null>(null);
-  const fields = (
-    [
-      ['Prénom', profile.firstName],
-      ['Nom', profile.lastName],
-      ['E-mail', profile.email],
-      ['Téléphone', profile.phone],
-    ] as const
-  ).filter(([, value]) => value.trim() !== '');
-  if (fields.length === 0) return null;
-
-  const copy = async (label: string, value: string): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(label);
-      setTimeout(() => setCopied((current) => (current === label ? null : current)), 2000);
-    } catch {
-      /* presse-papiers refusé : la valeur reste lisible */
-    }
-  };
-
-  return (
-    <div className="mt-3">
-      <p className="text-[0.85rem] text-muted-foreground">Pour remplir le formulaire</p>
-      <div className="mt-1.5 flex flex-wrap gap-2">
-        {fields.map(([label, value]) => (
-          <Button
-            key={label}
-            variant="outline"
-            size="sm"
-            onClick={() => void copy(label, value)}
-            aria-label={`Copier ${label.toLowerCase()} : ${value}`}
-          >
-            {copied === label ? <Check aria-hidden="true" className="size-3.5 text-good" /> : null}
-            {copied === label ? `${label} copié` : label}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
  * Ce qu'on affiche à la place du message quand le profil manque.
  *
  * Sans lui, rien ne peut être composé : le message cite le métier, le revenu
@@ -557,8 +507,6 @@ export function ContactPanel({
           />
 
           {checklist}
-
-          {channel === 'form' && <FormFields profile={profile} />}
 
           <MessageActions
             editing={editing}
