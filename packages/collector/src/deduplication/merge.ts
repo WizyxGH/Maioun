@@ -22,7 +22,7 @@ import type {
   Sourced,
   TenancyRequirements,
 } from '@maioun/shared';
-import { hasRequirements, NO_REQUIREMENTS } from '@maioun/shared';
+import { hasRequirements, NO_REQUIREMENTS, ONE_SHOT_SOURCES } from '@maioun/shared';
 import { parseRequirements } from '../normalization/parse-requirements.js';
 
 /** Champs pris en compte pour mesurer la complétude d'une occurrence. */
@@ -166,10 +166,19 @@ export function mergeContacts(occurrences: readonly NormalizedListing[]): Contac
 /**
  * Le cycle de vie du groupe est le plus optimiste de ses occurrences : tant
  * qu'une source voit encore l'annonce, le logement est disponible (§32).
+ *
+ * SAUF UNE ALERTE E-MAIL PLUS ANCIENNE qu'une source revérifiée. SeLoger ne se
+ * relit pas : son occurrence reste « en ligne » dix jours par défaut. Quand
+ * l'agence, qui se relit, a retiré le bien depuis, c'est elle qui sait.
  */
-function mergeLifecycle(occurrences: readonly NormalizedListing[]): LifecycleStatus {
-  if (occurrences.some((o) => o.lifecycle === 'active')) return 'active';
-  if (occurrences.some((o) => o.lifecycle === 'possiblyInactive')) return 'possiblyInactive';
+export function mergeLifecycle(occurrences: readonly NormalizedListing[]): LifecycleStatus {
+  const checked = occurrences.filter((o) => !ONE_SHOT_SOURCES.includes(o.sourceId));
+  const lastChecked = Math.max(...checked.map((o) => Date.parse(o.lastSeenAt)));
+  const relevant = occurrences.filter(
+    (o) => !ONE_SHOT_SOURCES.includes(o.sourceId) || !(Date.parse(o.lastSeenAt) <= lastChecked),
+  );
+  if (relevant.some((o) => o.lifecycle === 'active')) return 'active';
+  if (relevant.some((o) => o.lifecycle === 'possiblyInactive')) return 'possiblyInactive';
   return 'inactive';
 }
 
