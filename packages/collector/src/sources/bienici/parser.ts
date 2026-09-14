@@ -111,6 +111,8 @@ export interface BieniciAd {
   readonly hasCellar?: boolean;
   readonly hasPool?: boolean;
   readonly safetyDeposit?: number;
+  /** Honoraires du locataire, état des lieux compris (13 €/m² = 10 + 3). */
+  readonly agencyRentalFee?: number;
   readonly photos?: readonly Photo[];
 }
 
@@ -212,6 +214,9 @@ function toRawListing(ad: BieniciAd): RawListing | null {
      */
     priceText: ad.price !== undefined ? `${ad.price} € CC` : undefined,
     chargesText: ad.charges !== undefined ? `${ad.charges} €` : undefined,
+    depositText: ad.safetyDeposit !== undefined ? `${ad.safetyDeposit} €` : undefined,
+    // `inventoryOfFixturesFees` est la part d'état des lieux, déjà comprise ici.
+    feesText: ad.agencyRentalFee !== undefined ? `${ad.agencyRentalFee} €` : undefined,
     areaText: ad.surfaceArea !== undefined ? `${ad.surfaceArea} m²` : undefined,
     roomsText: ad.roomsQuantity !== undefined ? `${ad.roomsQuantity} pièces` : undefined,
     propertyTypeText: `${typeText} ${ad.title ?? ''}`.trim(),

@@ -97,6 +97,12 @@ const euros = (value: unknown): string | undefined => {
   return amount === undefined ? undefined : `${amount} €`;
 };
 
+/** Somme des montants positifs ; `undefined` s'il n'y en a aucun. */
+function sumOf(...values: unknown[]): number | undefined {
+  const amounts = values.map(positive).filter((v): v is number => v !== undefined);
+  return amounts.length === 0 ? undefined : Math.round(amounts.reduce((a, b) => a + b) * 100) / 100;
+}
+
 /** « 3ème étage » → `3`, « 1er étage » → `1`, « Rez-de-chaussée » → `0`. */
 export function floorOf(text: unknown): string | undefined {
   const value = str(text);
@@ -258,6 +264,10 @@ export function parseDetail(html: string, expectedReference: string): RawDraft |
     title: programme !== undefined && nom !== undefined ? `${programme} - ${nom}` : undefined,
     description: description === '' ? undefined : description,
     chargesText: euros(data['ProviCharges']),
+    depositText: euros(data['Garantie']),
+    // Honoraires de location (10 €/m²) et d'état des lieux (3 €/m²) sont donnés
+    // à part : le locataire paie les deux.
+    feesText: euros(sumOf(data['HonLocLct'], data['HonEdlLct'])),
     addressText: str(data['AdresseComplete']),
     availableAtText: str(data['Disponibilite']),
     ...furnished(data['EstMeuble']),
@@ -269,9 +279,6 @@ export function parseDetail(html: string, expectedReference: string): RawDraft |
       etage: floorOf(data['Etage']),
       ascenseur: data['Ascenceur'] === true ? '1' : undefined,
       features: features.length > 0 ? features.join(' · ') : undefined,
-      depotGarantie: euros(data['Garantie']),
-      honorairesLocation: euros(data['HonLocLct']),
-      honorairesEtatDesLieux: euros(data['HonEdlLct']),
       loyerHorsCharges: euros(data['Prix2']),
       plafondRessources: incomeCap ? 'oui' : undefined,
       regimeFiscal: str(data['RegimeFiscStr']),

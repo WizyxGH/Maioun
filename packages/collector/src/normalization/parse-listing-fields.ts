@@ -1089,6 +1089,134 @@ export function parseChargesFromText(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Dépôt de garantie et honoraires du locataire
+// ---------------------------------------------------------------------------
+
+/**
+ * Plafonds rapportés au loyer : un dépôt au-delà de trois loyers, des
+ * honoraires au-delà de deux, sont un prix de vente ou un montant mal attribué.
+ * Sans loyer connu, seul le plafond absolu joue.
+ */
+const DEPOSIT_RENT_RATIO = 3;
+const FEES_RENT_RATIO = 2;
+
+const AMOUNT = String.raw`(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)`;
+/** « € », « eur », « euros » — puis rien qui en fasse un prix au m². */
+const EURO_UNIT = String.raw`\s*(?:€|eur(?:os?)?\b)(?:\s*ttc\b)?(?!\s*(?:\/|par|le|du|au)\s*m)`;
+
+function withinRent(
+  value: number | null,
+  ratio: number,
+  rent: number | null,
+  allowZero: boolean,
+): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  if (allowZero ? value < 0 : value <= 0) return null;
+  const max = ratio * (rent ?? PRICE_BOUNDS.max);
+  return value <= max ? value : null;
+}
+
+/**
+ * Un montant de champ dédié : un nombre, une devise, « TTC » au plus.
+ * « NC », « 1 mois de loyer » ou « 13 €/m² » ne sont pas des montants.
+ */
+function amountField(text: string | null | undefined): number | null {
+  const cleaned = cleanText(text);
+  const match = /^(\d[\d\s.,]*?)\s*(?:€|eur|euros?)?\s*(?:ttc)?$/i.exec(cleaned);
+  return match?.[1] === undefined ? null : parseFrenchNumber(match[1]);
+}
+
+/** Dépôt de garantie lu dans le champ dédié d'une source. */
+export function parseDepositField(
+  text: string | null | undefined,
+  rent: number | null = null,
+): number | null {
+  return withinRent(amountField(text), DEPOSIT_RENT_RATIO, rent, false);
+}
+
+/** Honoraires du locataire lus dans le champ dédié. `0` affiché reste `0`. */
+export function parseFeesField(
+  text: string | null | undefined,
+  rent: number | null = null,
+): number | null {
+  return withinRent(amountField(text), FEES_RENT_RATIO, rent, true);
+}
+
+const DEPOSIT_IN_TEXT: readonly RegExp[] = [
+  new RegExp(
+    String.raw`d[ée]p[ôo]ts?\s+de\s+garantie\s*(?:\([^)]*\))?\s*(?:[:=]\s*|de\s+|d['’]un\s+montant\s+de\s+)?${AMOUNT}${EURO_UNIT}`,
+    'i',
+  ),
+  // « Caution » seule désigne aussi le garant : on exige les deux-points.
+  new RegExp(String.raw`\bcaution\s*[:=]\s*${AMOUNT}${EURO_UNIT}`, 'i'),
+];
+
+/**
+ * Dépôt de garantie écrit dans la description : « Dépôt de garantie : 1 000 € »,
+ * « DEPOT DE GARANTIE 630 EUROS ». Le montant doit suivre l'intitulé ;
+ * « un mois de loyer » ne se convertit pas.
+ */
+export function parseDepositFromText(
+  text: string | null | undefined,
+  rent: number | null = null,
+): number | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+  for (const pattern of DEPOSIT_IN_TEXT) {
+    const raw = pattern.exec(cleaned)?.[1];
+    const value = withinRent(
+      raw === undefined ? null : parseFrenchNumber(raw),
+      DEPOSIT_RENT_RATIO,
+      rent,
+      false,
+    );
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+/** L'intitulé entre « honoraires » et le montant : court, dans la même phrase. */
+const FEES_IN_TEXT = new RegExp(
+  String.raw`honoraires([^\d:€.;]{0,60}?)\s*(?:[:=]\s*|sont\s+de\s+|de\s+)?${AMOUNT}${EURO_UNIT}`,
+  'gi',
+);
+const EDL_LABEL = /^\s*(?:d['’]|de\s+l['’]|pour\s+l['’])?\s*[ée]tat\s+des\s+lieux/i;
+const LANDLORD_LABEL = /bailleur|propri[ée]taire/i;
+
+/**
+ * Honoraires du locataire écrits dans la description.
+ *
+ * Le premier montant intitulé « honoraires » est le total. Des honoraires
+ * d'état des lieux énoncés À PART s'y ajoutent, sauf s'ils sont annoncés
+ * « dont » : sinon on afficherait une somme d'entrée trop basse.
+ */
+export function parseFeesFromText(
+  text: string | null | undefined,
+  rent: number | null = null,
+): number | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+
+  let total: number | null = null;
+  let totalEnd = 0;
+  for (const match of cleaned.matchAll(FEES_IN_TEXT)) {
+    const label = match[1] ?? '';
+    const amount = match[2] === undefined ? null : parseFrenchNumber(match[2]);
+    if (amount === null || LANDLORD_LABEL.test(label)) continue;
+    const isInventory = EDL_LABEL.test(label);
+    if (total === null) {
+      if (isInventory) continue;
+      total = amount;
+      totalEnd = (match.index ?? 0) + match[0].length;
+    } else if (isInventory && !/\bdont\b/i.test(cleaned.slice(totalEnd, match.index))) {
+      total += amount;
+      break;
+    }
+  }
+  return withinRent(total, FEES_RENT_RATIO, rent, true);
+}
+
 /**
  * Adjectifs qu'une annonce accole au mot « quartier » sans nommer de lieu —
  * « quartier Calme », « secteur Résidentiel ». Ce ne sont pas des quartiers.

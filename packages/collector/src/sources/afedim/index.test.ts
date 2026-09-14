@@ -92,7 +92,8 @@ describe('le passage', () => {
     expect(enrichie?.addressText).toBe('439 AVENUE DE PESSICART');
     // `extra` fusionné : la référence de la liste reste, la fiche ajoute.
     expect(enrichie?.extra).toMatchObject({ reference: '0028370', applicationStatus: 'full' });
-    expect(enrichie?.extra?.['depotGarantie']).toBe('704 €');
+    expect(enrichie?.extra?.['loyerHorsCharges']).toBe('704 €');
+    expect(enrichie?.depositText).toBe('704 €');
     expect(enrichie?.imageUrls).toHaveLength(3);
     expect(enrichie?.title).toBe('SUNSET VILLA - Appartement - 2 pièces');
 

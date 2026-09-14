@@ -188,6 +188,32 @@ function ApplicationsFullNotice({
   );
 }
 
+/** Loyer charges comprises : les charges y sont déjà, on ne les ajoute pas. */
+function ChargesNote({ listing }: { readonly listing: ListingView }): React.JSX.Element | null {
+  const charges = listing.charges.value;
+  if (charges === null) return null;
+  return (
+    <span className="text-sm text-muted-foreground">
+      {listing.chargesIncluded === true ? ' dont ' : ' + '}
+      {charges} € de charges
+    </span>
+  );
+}
+
+/** Ce qui se paie à l'entrée, sous le loyer. Rien quand la source ne dit rien. */
+function EntryCosts({ listing }: { readonly listing: ListingView }): React.JSX.Element | null {
+  const deposit = listing.deposit?.value ?? null;
+  const fees = listing.tenantFees?.value ?? null;
+  if (deposit === null && fees === null) return null;
+  return (
+    <p className="-mt-2 mb-3 text-sm text-muted-foreground">
+      {deposit !== null && <span>Dépôt de garantie : {formatPrice(deposit)}</span>}
+      {deposit !== null && fees !== null && <span aria-hidden="true"> · </span>}
+      {fees !== null && <span>Honoraires : {formatPrice(fees)}</span>}
+    </p>
+  );
+}
+
 /** Grille étiquette/valeur utilisée par la fiche et le contact. */
 const FACTS_GRID = 'mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]';
 const FACT_LABEL = 'text-muted-foreground';
@@ -329,7 +355,6 @@ export function ListingDetail({
   onConfigureProfile,
 }: ListingDetailProps): React.JSX.Element {
   const points = useReferencePoints();
-  const charges = listing.charges.value;
   const archived = listing.archived === true;
   const favorite = listing.favorite === true;
 
@@ -375,9 +400,7 @@ export function ListingDetail({
           conflicts={listing.price.conflicts}
           render={(value) => formatPrice(value as number | null)}
         />
-        {charges !== null && (
-          <span className="text-sm text-muted-foreground"> + {charges} € de charges</span>
-        )}
+        <ChargesNote listing={listing} />
         <span aria-hidden="true"> · </span>
         {formatArea(listing.area.value)}
         <ConflictNote
@@ -387,6 +410,7 @@ export function ListingDetail({
         <span aria-hidden="true"> · </span>
         {formatRooms(listing.rooms.value)}
       </p>
+      <EntryCosts listing={listing} />
 
       <TrackingSelect listing={listing} onChange={onTrackingChange} />
 

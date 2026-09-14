@@ -89,6 +89,10 @@ export interface RawListing {
   /** Texte brut du prix, ex. `"1 890 €/mois"`. Le parsing est fait plus tard. */
   readonly priceText?: string;
   readonly chargesText?: string;
+  /** Texte brut du dépôt de garantie, ex. `"660 €"`. */
+  readonly depositText?: string;
+  /** Honoraires à la charge du locataire, état des lieux compris, ex. `"220 €"`. */
+  readonly feesText?: string;
   /** Texte brut de la surface, ex. `"67 m²"`. */
   readonly areaText?: string;
   readonly roomsText?: string;
@@ -149,6 +153,14 @@ export interface ListingOccurrence {
   readonly price: Maybe<number>;
   readonly charges: Maybe<number>;
   readonly chargesIncluded: Maybe<boolean>;
+  /** Dépôt de garantie en euros, ou `null` si la source ne le publie pas. */
+  readonly deposit: Maybe<number>;
+  /**
+   * Honoraires d'agence payés par le locataire, en euros, état des lieux
+   * compris : c'est la somme versée à l'entrée, et la seule que toutes les
+   * sources savent donner. `0` quand la source l'affiche (bailleur particulier).
+   */
+  readonly tenantFees: Maybe<number>;
   /** Surface habitable en m². */
   readonly area: Maybe<number>;
   readonly rooms: Maybe<number>;
@@ -264,6 +276,13 @@ export interface AggregatedListing {
 
   readonly price: MergedField<Maybe<number>>;
   readonly charges: MergedField<Maybe<number>>;
+  /**
+   * Le loyer retenu inclut-il les charges ? Lu sur l'occurrence qui fournit
+   * `price`, pas fusionné à part : ailleurs, il pourrait qualifier un autre loyer.
+   */
+  readonly chargesIncluded: Maybe<boolean>;
+  readonly deposit: MergedField<Maybe<number>>;
+  readonly tenantFees: MergedField<Maybe<number>>;
   readonly area: MergedField<Maybe<number>>;
   readonly rooms: MergedField<Maybe<number>>;
   readonly propertyType: MergedField<PropertyType>;

@@ -26,6 +26,8 @@ function listing(overrides: Partial<NormalizedListing> & { id: string }): Normal
     price: 690,
     charges: null,
     chargesIncluded: null,
+    deposit: null,
+    tenantFees: null,
     area: 34,
     rooms: 2,
     bedrooms: null,

@@ -100,12 +100,17 @@ function priceFields($: cheerio.CheerioAPI, html: string, offer: JsonLdNode | un
   const priceSpan = cleanText($('.price').first().text().replace(/\s+/g, ' '));
   const offerPrice = asString(offer?.['price']);
   const provision = html.match(/Provision sur charges[^<]*<span>\s*([\d\s.,]+)\s*€/i)?.[1];
+  // Même bloc « Mentions légales » que la provision.
+  const deposit = html.match(/D[ée]p[ôo]t de garantie[^<]*<span>\s*([\d\s.,]+)\s*€/i)?.[1];
+  const fees = html.match(/Honoraires locataire[^<]*<span>\s*([\d\s.,]+)\s*€/i)?.[1];
   let priceText: string | undefined;
   if (priceSpan !== '') priceText = priceSpan;
   else if (offerPrice !== undefined) priceText = `${offerPrice} € par mois`;
   return {
     priceText,
     chargesText: provision === undefined ? undefined : `${provision.trim()} € de charges`,
+    depositText: deposit === undefined ? undefined : `${deposit.trim()} €`,
+    feesText: fees === undefined ? undefined : `${fees.trim()} €`,
   };
 }
 

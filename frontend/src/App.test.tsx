@@ -148,6 +148,15 @@ describe('fiche détaillée', () => {
     ).toBeInTheDocument();
   });
 
+  it('montre dépôt de garantie, honoraires, et des charges déjà comprises', async () => {
+    await openFirstListing();
+    await screen.findByRole('heading', { name: /Appartement T2 lumineux/ });
+    expect(screen.getByText(/dont\s+45 € de charges/)).toBeInTheDocument();
+    expect(screen.queryByText(/\+\s*45 € de charges/)).not.toBeInTheDocument();
+    expect(screen.getByText('Dépôt de garantie : 645 €')).toBeInTheDocument();
+    expect(screen.getByText('Honoraires : 442 €')).toBeInTheDocument();
+  });
+
   it('liste toutes les sources avec leurs URLs d’origine (§38)', async () => {
     await openFirstListing();
 
