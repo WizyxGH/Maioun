@@ -493,6 +493,30 @@ Enseignement à garder : un taux à zéro n'est pas forcément un bug. Trois des
 quatre sources examinées ne publient pas l'information, et seule la famille
 Apimo laissait vraiment passer ce qu'elle affichait.
 
+## Descriptions complètes (relevé du 2026-09-14)
+
+Mesure par source de la description stockée : absente, ou coupée à une
+longueur fixe. Les lignes du tableau plus haut qui disent « pas de visite de
+fiche » ou « seules les fiches nouvelles » sont dépassées pour ces sources.
+
+| Source            | Avant                             | Correctif                                                               |
+| ----------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| Laforêt           | aucune (31 annonces)              | fiche, `#section-description .prose`, ≤ 6 par passage                   |
+| Dinamy            | aucune (27)                       | fiches jamais relues : `enrichNewListings`, photos et DPE en prime      |
+| Winter            | aucune (8)                        | fiche, `.readmore__content`, ≤ 10 par passage                           |
+| Borne & Delaunay  | aucune (3)                        | fiche, `.accommodation-show__text`, ≤ 5 par passage                     |
+| Agence du Centre  | aucune (6)                        | gabarit éditorial Hektor (`.editorial__text`), commun avec Aurus        |
+| Pujol             | JSON-LD coupé à 500, `<BR>` bruts | corps de la fiche (`.annonce-desc`)                                     |
+| Votre Agence Immo | meta description, 160 caractères  | `p.description-bien`                                                    |
+| Arthurimmo        | en-tête coupé à ~150 « … »        | bloc `[x-ref="content"]` ; `runListAndDetails` ; DPE du badge `letter=` |
+| L'Adresse         | « 3 pièces, 2 chambres 76.25 m² » | fiche, `#annonce-description`, ≤ 10 par passage                         |
+| Rentumo           | accroche de 58 caractères         | **non fait** : le texte est derrière l'inscription obligatoire          |
+
+Les fiches déjà en base sans description sont revisitées d'elles-mêmes (cinq
+par source et par passage). Colocation et bail étudiant : aucune annonce dont
+le texte dit « en colocation », « bail étudiant » ou « bail mobilité » n'était
+restée sans son badge.
+
 ## Ordre d'implémentation recommandé
 
 1. **Laforêt** — fait. Sert de source pilote et de référence d'architecture.

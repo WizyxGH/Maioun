@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  detailDraft,
   parseDetailPage,
   parseListPage,
   parsePageCount,
   parsePhotoSlug,
   splitLocality,
-  withDetail,
 } from './parser.js';
 
 const HTML = readFileSync(
@@ -100,6 +100,12 @@ describe('parseDetailPage (Dinamy)', () => {
     expect(detail.description).toMatch(/^Rue Smolett, tout proche du port/);
   });
 
+  it('lit la description jusqu’à sa dernière ligne, sans la date de mise à jour', () => {
+    expect(detail.description).toContain('Libre de Suite.\nGaranties exigées.\nA bientôt.');
+    expect(detail.description).toMatch(/A bientôt\.$/);
+    expect(detail.description).not.toContain('Mise à jour');
+  });
+
   it('prend tout le diaporama, et pas la reprise du gabarit d’impression', () => {
     // La liste ne donne qu'une photo : c'est ici que le carrousel se remplit.
     expect(detail.imageUrls).toHaveLength(3);
@@ -116,16 +122,18 @@ describe('parseDetailPage (Dinamy)', () => {
   });
 });
 
-describe('withDetail (Dinamy)', () => {
-  const card = parseListPage(HTML, PAGE, 'Dinamy Immobilier').find((l) => l.sourceRef === '33');
-  const merged = withDetail(card as never, parseDetailPage(FICHE, FICHE_URL));
+describe('detailDraft (Dinamy)', () => {
+  const draft = detailDraft(parseDetailPage(FICHE, FICHE_URL));
 
-  it('ajoute ce qui manquait sans toucher aux faits de la liste', () => {
-    expect(merged.priceText).toBe('700 €');
-    expect(merged.areaText).toBe('23 m²');
-    expect(merged.extra?.['quartier']).toBe('Carras');
-    expect(merged.description).toMatch(/Rue Smolett/);
-    expect(merged.imageUrls).toHaveLength(3);
-    expect(merged.extra?.['dpe']).toBe('DPE C');
+  it('n’apporte que ce que la liste n’a pas', () => {
+    expect(draft?.description).toMatch(/Rue Smolett/);
+    expect(draft?.imageUrls).toHaveLength(3);
+    expect(draft?.extra).toEqual({ dpe: 'DPE C' });
+    expect(draft?.priceText).toBeUndefined();
+    expect(draft?.areaText).toBeUndefined();
+  });
+
+  it('ne rend rien d’une fiche vide', () => {
+    expect(detailDraft({})).toBeNull();
   });
 });

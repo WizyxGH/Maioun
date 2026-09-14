@@ -21,7 +21,9 @@
  * où le titre visible, lui, est libre.
  */
 
+import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
 const ORIGIN = 'https://groupenicetransactions.arthurimmo.com';
@@ -66,6 +68,50 @@ export function parseListPage(html: string): readonly ArthurimmoLink[] {
     }
   }
   return [...found.values()];
+}
+
+/**
+ * Les fiches listées, en ébauches que la lecture de la fiche complétera.
+ *
+ * Sans loyer, elles ne sont pas publiées : seule la fiche le donne.
+ */
+export function parseList(html: string): readonly RawListing[] {
+  return parseListPage(html).map((link) =>
+    compactListing({
+      sourceRef: link.reference,
+      sourceUrl: link.url,
+      cityText: link.city,
+      postalCodeText: link.postalCode,
+    }),
+  );
+}
+
+/** Le lien d'origine, reconstitué depuis l'ébauche de la liste. */
+export function linkOf(listing: RawListing): ArthurimmoLink {
+  return {
+    url: listing.sourceUrl,
+    reference: listing.sourceRef,
+    city: listing.cityText ?? '',
+    postalCode: listing.postalCodeText ?? '',
+  };
+}
+
+/**
+ * Un `<br />` suivi d'un saut de ligne : c'est ainsi que la fiche rend CHAQUE
+ * retour à la ligne. Les deux comptés, chaque ligne était suivie d'une vide.
+ */
+const BR_THEN_NEWLINE = /(<br\s*\/?>)[^\S\n]*\r?\n/gi;
+
+/**
+ * Le texte entier de l'annonce, dans le corps de la fiche.
+ *
+ * Les balises `og:description` et le JSON-LD le coupent vers 150 caractères,
+ * points de suspension compris ; le bloc « Détails de l'annonce » le porte en
+ * entier, simplement replié à l'affichage (`x-ref="content"`).
+ */
+function fullDescription(html: string): string {
+  const $ = cheerio.load(html.replace(BR_THEN_NEWLINE, '$1'));
+  return htmlToText($, '[x-ref="content"]');
 }
 
 /** Contenu d'une balise `meta`, ou `''`. */
@@ -134,11 +180,15 @@ export function parseDetail(html: string, link: ArthurimmoLink): RawListing | nu
   const facts = parseSocialTitle(title);
   if (facts.price === undefined && facts.area === undefined) return null;
 
-  const description = decode(meta(html, 'og:description'));
+  // L'en-tête ne sert plus que de secours, si le gabarit du corps change.
+  const description = fullDescription(html) || decode(meta(html, 'og:description'));
   const photos = [
     ...new Set(html.match(/https:\/\/media\.studio-net\.fr\/biens\/[^"'\s]+/g) ?? []),
   ];
-  const dpe = /dpe\.lesiteimmo\.com\/badge\/dpe\?dpe=([A-G])/i.exec(html)?.[1];
+  // Ancien badge : `?dpe=D` ; actuel : `?dpe=199.6&…&letter=D`.
+  const badge = /dpe\.lesiteimmo\.com\/badge\/dpe\?([^"'\s]+)/i.exec(html)?.[1] ?? '';
+  const dpe = (/(?:^|&(?:amp;)?)letter=([A-G])\b/i.exec(badge) ??
+    /^dpe=([A-G])\b/i.exec(badge))?.[1];
 
   return compactListing({
     sourceRef: link.reference,

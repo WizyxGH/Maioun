@@ -12,6 +12,9 @@
  *   - Étant un réseau d'agences, il publie des biens parfois absents des grands
  *     portails, ce qui est précisément l'objectif du projet (§3).
  *
+ * LES FICHES des annonces nouvelles sont lues ensuite : seules elles portent la
+ * description, que la page de ville ne donne pas du tout.
+ *
  * CONFORMITÉ. Le scraper n'émet aucune requête vers une page interdite, ne
  * cherche pas à récupérer les coordonnées masquées, et s'arrête au premier 429.
  */
@@ -25,7 +28,8 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseSearchPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetailPage, parseSearchPage } from './parser.js';
 
 /**
  * Codes postaux couverts. Nice s'étend sur quatre codes ; les interroger tous
@@ -34,6 +38,15 @@ import { parseSearchPage } from './parser.js';
 const NICE_POSTAL_CODES = ['06000', '06100', '06200', '06300'] as const;
 
 const BASE_URL = 'https://www.laforet.com/ville/location-appartement-nice';
+
+/** Une page par code postal, plus une éventuelle page 2. */
+const MAX_LIST_PAGES = 6;
+
+/**
+ * Fiches lues par passage, pour la description : la page de ville n'en porte
+ * aucune. Une trentaine d'annonces en stock se complètent en quelques cycles.
+ */
+const MAX_DETAILS = 6;
 
 export const LAFORET_DESCRIPTOR: SourceDescriptor = {
   id: 'laforet',
@@ -44,16 +57,16 @@ export const LAFORET_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 45 }),
   budget: budgetFor('agencyNetwork', {
-    // Une page par code postal, plus une éventuelle page 2 : six requêtes
-    // suffisent à couvrir Nice entièrement.
-    maxPagesPerRun: 6,
+    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  allowedPaths: ['/ville/location-appartement-*'],
+  allowedPaths: ['/ville/location-appartement-*', '/agence-immobiliere/*/louer/*'],
   notes:
     'robots.txt vérifié le 2026-08-14 : seul /louer/rechercher?* est interdit, ' +
     "les pages /ville/* sont autorisées et la pagination ?page=N l'est également. " +
+    'Revérifié le 2026-09-14 : les fiches /agence-immobiliere/*/louer/* sont ' +
+    'ouvertes (seuls leurs /bien/*/pdf, mentions légales et formulaires sont fermés). ' +
     'Les pages incluent les agences voisines (Cagnes, Beausoleil, Cannes) : le ' +
     'filtrage sur la ville est assuré par le scoring, pas par le scraper.',
 };
@@ -83,7 +96,8 @@ export const laforetScraper: Scraper = {
 
     outer: for (const postalCode of NICE_POSTAL_CODES) {
       for (let page = 1; page <= maxPagesPerCode; page += 1) {
-        if (context.shouldStop()) {
+        // La liste s'arrête à sa part du budget : le reste revient aux fiches.
+        if (context.shouldStop() || requestCount >= MAX_LIST_PAGES) {
           stopReason = 'maxPages';
           break outer;
         }
@@ -154,11 +168,18 @@ export const laforetScraper: Scraper = {
       }
     }
 
+    const enriched = await enrichNewListings(context, listings, {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetailPage(html),
+    });
+    warnings.push(...enriched.warnings);
+
     return {
       sourceId: LAFORET_DESCRIPTOR.id,
-      listings,
-      requestCount,
-      pagesFetched,
+      listings: enriched.listings,
+      requestCount: requestCount + enriched.requestCount,
+      pagesFetched: pagesFetched + enriched.pagesFetched,
       stopReason,
       warnings,
     };

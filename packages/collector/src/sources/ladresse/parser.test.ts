@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseListPage, parseWithdrawn } from './parser.js';
+import { parseDetail, parseListPage, parseWithdrawn } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/ladresse');
 const LIST_URL = 'https://www.ladresse.com/recherche/location/appartement/nice-06000';
@@ -61,6 +61,32 @@ describe('parseListPage — L’Adresse', () => {
   it('conserve les communes voisines (écartées ensuite au scoring)', () => {
     const cannet = listings.find((l) => l.postalCodeText === '06110');
     expect(cannet).toBeDefined();
+  });
+});
+
+describe('parseDetail — L’Adresse', () => {
+  const fiche = readFileSync(join(FIXTURES, 'fiche.html'), 'utf8');
+
+  it('lit la description ENTIÈRE, que la carte ne fait que résumer', () => {
+    // La carte ne donnait que « 3 pièces , 2 chambres 76.25 m² Avec balcon ».
+    const description = parseDetail(fiche)?.description ?? '';
+    expect(description).toMatch(/^Avenue Jean Barès/);
+    expect(description).toContain('Une cave et un box fermé vient compléter le bien.');
+    expect(description).toContain('Proche de toutes commodités.');
+    // Les retours à la ligne de l'agence sont gardés.
+    expect(description).toContain('\nDisponible début septembre.');
+  });
+
+  it('ne prend ni la mention Géorisques commune ni les biens similaires', () => {
+    const description = parseDetail(fiche)?.description ?? '';
+    expect(description).not.toContain('Les informations sur les risques');
+    expect(description).not.toContain('21.54 m²');
+  });
+
+  it('ne rend rien sans bloc de description', () => {
+    expect(
+      parseDetail('<html><body><div class="bien-description">1 pièce</div></body></html>'),
+    ).toBeNull();
   });
 });
 

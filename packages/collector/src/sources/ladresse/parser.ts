@@ -6,8 +6,9 @@
  * /conf/…). La page de résultats `/recherche/location/appartement/nice-06000`
  * est en SSR et porte TOUT sur chaque carte (`a.bien`) : prix charges comprises,
  * type, pièces/chambres, surface, ville/CP (dans l'`alt` de la photo), photo et
- * lien `/annonce/location/…/{id}`. On parse donc la LISTE en une requête — pas
- * de visite de fiche (§30). Pas de JSON-LD.
+ * lien `/annonce/location/…/{id}`. On parse donc la LISTE en une requête, sauf
+ * la description : la carte n'en porte qu'un résumé, et la fiche des annonces
+ * nouvelles est lue pour le texte entier. Pas de JSON-LD.
  *
  * La page inclut aussi des communes voisines (Cannes, Le Cannet, Mandelieu) :
  * elles sont conservées telles quelles et écartées ensuite par le scoring de
@@ -18,7 +19,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { compactListing, type ParsedList } from '../shared/raw-listing.js';
+import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 
 /** Type de bien depuis le libellé français de la carte. */
 const TYPE_LABELS = /appartement|maison|studio|villa|duplex|loft|chambre/i;
@@ -113,6 +114,30 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
     listings,
     warnings: listings.length === 0 ? [`Aucune annonce sur la liste : ${pageUrl}`] : [],
   };
+}
+
+/**
+ * Un `<br />` suivi d'un saut de ligne : c'est ainsi que la fiche rend CHAQUE
+ * retour à la ligne. Les deux comptés, chaque ligne était suivie d'une vide.
+ */
+const BR_THEN_NEWLINE = /(<br\s*\/?>)[^\S\n]*\r?\n/gi;
+
+/**
+ * La description entière, lue sur la fiche.
+ *
+ * La carte n'en donne qu'un résumé fabriqué — « 3 pièces, 2 chambres 76.25 m²
+ * Avec balcon » — alors que le texte de l'agence, avec rue, étage et
+ * disponibilité, n'est que sur la fiche. On vise `#annonce-description` : la
+ * page liste aussi des biens similaires, chacun avec son `.bien-description`.
+ *
+ * `null` si le bloc manque : on garde alors ce que la carte a donné.
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html.replace(BR_THEN_NEWLINE, '$1'));
+  // Le premier paragraphe seul : le suivant est la mention Géorisques, commune
+  // à toutes les fiches.
+  const description = htmlToText($, '#annonce-description > p');
+  return description !== '' ? { description } : null;
 }
 
 /**

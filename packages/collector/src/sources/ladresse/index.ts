@@ -1,6 +1,7 @@
 /**
  * Source : L'Adresse — voir l'étude dans `parser.ts`. Page de résultats unique
- * en SSR : tout est sur la carte, une seule requête, aucune visite de fiche (§30).
+ * en SSR : tout est sur la carte sauf la description, lue sur la fiche des
+ * annonces nouvelles.
  */
 
 import type {
@@ -12,7 +13,8 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage, parseWithdrawn } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetail, parseListPage, parseWithdrawn } from './parser.js';
 
 const LIST_URL = 'https://www.ladresse.com/recherche/location/appartement/nice-06000';
 
@@ -26,6 +28,9 @@ const LIST_URL = 'https://www.ladresse.com/recherche/location/appartement/nice-0
  */
 const MAX_WITHDRAWN_CHECKS = 5;
 
+/** Fiches lues pour la description : une vingtaine d'annonces, couvertes en deux passages. */
+const MAX_DETAILS = 10;
+
 export const LADRESSE_DESCRIPTOR: SourceDescriptor = {
   id: 'ladresse',
   name: "L'Adresse",
@@ -35,7 +40,7 @@ export const LADRESSE_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', {
-    maxPagesPerRun: 1 + MAX_WITHDRAWN_CHECKS,
+    maxPagesPerRun: 1 + MAX_DETAILS + MAX_WITHDRAWN_CHECKS,
     maxListingsPerRun: 40,
   }),
   enabled: true,
@@ -44,7 +49,8 @@ export const LADRESSE_DESCRIPTOR: SourceDescriptor = {
     'Réseau coopératif, agence Nice. robots.txt vérifié le 2026-08-22 : permissif. ' +
     'Page de résultats SSR `/recherche/location/appartement/nice-06000` : cartes ' +
     'a.bien avec prix CC, type, pièces, surface, ville/CP (alt), photo, lien. ' +
-    'Une requête pour la liste. Les annonces DISPARUES de la liste voient leur ' +
+    'Une requête pour la liste, puis la fiche des nouvelles (10 par run) pour ' +
+    'la description entière, que la carte résume. Les annonces DISPARUES de la liste voient leur ' +
     'fiche vérifiée (5 par run) : l’agence y pose « CE BIEN N’EST PLUS ' +
     'DISPONIBLE A LA LOCATION », ce qui lève le doute du cycle de vie (§32). ' +
     'Communes voisines écartées au scoring.',
@@ -88,6 +94,16 @@ export const ladresseScraper: Scraper = {
           : 'tooManyErrors';
     }
 
+    // La carte ne résume la description qu'en trois mots : la fiche la donne entière.
+    const enriched = await enrichNewListings(context, listings, {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetail(html),
+    });
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
     // --- Annonces disparues de la liste : la fiche tranche -----------------
     //
     // Sans cette vérification elles restaient « peut-être retirée » pendant des
@@ -122,7 +138,7 @@ export const ladresseScraper: Scraper = {
     });
     return {
       sourceId: LADRESSE_DESCRIPTOR.id,
-      listings,
+      listings: enriched.listings,
       rentedRefs,
       requestCount,
       pagesFetched,

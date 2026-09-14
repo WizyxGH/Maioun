@@ -14,12 +14,17 @@
  * vient de l'adresse de la fiche, qui se termine par la commune.
  *
  * TOUT LE RESTE VIENT DU JSON-LD `Accommodation` : loyer, surface, pièces,
- * adresse de rue, photos. Une exception cependant — sa `availability` annonce
- * `InStock` même sur un bien loué. La clôture se lit donc dans la page, où
- * elle est écrite en toutes lettres.
+ * adresse de rue, photos. Deux exceptions cependant. Sa `availability` annonce
+ * `InStock` même sur un bien loué : la clôture se lit dans la page, où elle
+ * est écrite en toutes lettres. Et sa `description` est coupée à 500
+ * caractères, balises `<BR>` brutes comprises : le texte entier se lit dans
+ * le corps de la fiche.
  */
 
+import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import { cleanMultiline } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
 const ORIGIN = 'https://www.immobiliere-pujol.fr';
@@ -106,6 +111,19 @@ export function isClosed(html: string): boolean {
   return /Location\s+cl[oô]tur[ée]e|Ce bien a [ée]t[ée] lou[ée]/i.test(html);
 }
 
+/**
+ * La description ENTIÈRE, retours à la ligne compris.
+ *
+ * Le bloc `.annonce-desc` porte tout le texte ; le JSON-LD n'en garde que
+ * 500 caractères, et ne sert que si le gabarit perd ce bloc.
+ */
+export function descriptionOf(html: string, jsonLd: string | undefined): string | undefined {
+  const body = htmlToText(cheerio.load(html), '.annonce-desc');
+  if (body !== '') return body;
+  if (jsonLd === undefined) return undefined;
+  return cleanMultiline(jsonLd.replace(/<br\s*\/?>/gi, '\n')) || undefined;
+}
+
 export interface PujolListing {
   readonly listing: RawListing;
   /** `true` quand la fiche porte le bandeau de clôture. */
@@ -138,7 +156,7 @@ export function parseDetail(html: string, url: string): PujolListing | null {
       sourceRef: reference,
       sourceUrl: url,
       title: bien.name !== undefined ? decode(bien.name) : undefined,
-      description: bien.description !== undefined ? decode(bien.description) : undefined,
+      description: descriptionOf(html, bien.description),
       priceText: typeof price === 'number' ? `${price} €` : undefined,
       areaText: typeof area === 'number' ? `${area} m²` : undefined,
       roomsText:
