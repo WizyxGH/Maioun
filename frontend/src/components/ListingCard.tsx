@@ -113,6 +113,11 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
   );
 }
 
+/** Archivée à la main, ou d'office parce que sa source ferme les candidatures. */
+function isArchived(listing: ListingView): boolean {
+  return listing.archived === true || listing.applicationStatus === 'full';
+}
+
 /** Réversible : un dossier refusé rouvre une place, d'où l'absence de grisé. */
 function ApplicationsFullBadge({
   listing,
@@ -265,7 +270,7 @@ export function ListingCard({
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= PRIORITY_HOT;
-  const archived = listing.archived === true;
+  const archived = isArchived(listing);
   const rented = listing.rented === true;
   const uncertain = listing.lifecycle === 'possiblyInactive';
   const favorite = listing.favorite === true;
@@ -344,7 +349,11 @@ export function ListingCard({
     >
       {/* La photo ne porte plus de pastille de score : la barre de priorité,
           sous le titre, joue ce rôle et laisse l'image entière. */}
-      {photos.length > 0 && <PhotoCarousel urls={photos} />}
+      {photos.length > 0 && (
+        <div className={archived ? 'grayscale' : undefined}>
+          <PhotoCarousel urls={photos} />
+        </div>
+      )}
       <header className="flex items-start gap-3">
         <CardHeading listing={listing} addressLine={addressLine} />
 
