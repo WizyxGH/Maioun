@@ -226,7 +226,10 @@ async function runSource(
     // n'a rien de neuf mais confirme son stock reste saine — ne pas la marquer
     // dégradée à tort.
     const discovered = result.listings.length + (result.confirmedRefs?.length ?? 0);
-    const degraded = result.pagesFetched > 0 && discovered === 0;
+    // Une page inchangée (304) ne dit rien du parseur : Centragence passait
+    // « dégradée » à chaque passage où son site n'avait pas bougé.
+    const degraded =
+      result.pagesFetched > 0 && discovered === 0 && result.stopReason !== 'notModified';
 
     return {
       outcome: { sourceId: descriptor.id, success: true, result, error: null },
