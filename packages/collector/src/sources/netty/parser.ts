@@ -44,9 +44,12 @@ import {
  * nom de ville, mais collé à tout le reste — `appartement-t2-2-pieces-nice` —
  * et une commune en plusieurs mots (`saint-laurent-du-var`) rend tout découpage
  * naïf faux. On garde donc le slug entier et l'on compare par sa FIN.
+ *
+ * Certains sites omettent le code postal (`location-appartement-nice,LA1968`) :
+ * la commune se lit alors sur la fin du slug, et le code postal sur la fiche.
  */
 const LISTING_URL_PATTERN =
-  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/(location|vente)\/([a-z0-9-]+)-(\d{5}),([^/,?#]+)\/?$/i;
+  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/(location|vente)\/([a-z0-9-]+?)(?:-(\d{5}))?,([^/,?#]+)\/?$/i;
 
 export interface ParsedListingUrl {
   readonly transaction: 'location' | 'vente';
@@ -54,7 +57,8 @@ export interface ParsedListingUrl {
   readonly slug: string;
   /** Premier segment du slug : `appartement`, `maison`, `local`… */
   readonly typeSlug: string;
-  readonly postalCode: string;
+  /** `null` quand l'URL ne le porte pas. */
+  readonly postalCode: string | null;
   readonly reference: string;
   readonly canonicalUrl: string;
 }
@@ -64,19 +68,16 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
   const match = LISTING_URL_PATTERN.exec(href.trim());
   if (match === null) return null;
   const [, transaction, slug, postalCode, reference] = match;
-  if (
-    transaction === undefined ||
-    slug === undefined ||
-    postalCode === undefined ||
-    reference === undefined
-  ) {
+  if (transaction === undefined || slug === undefined || reference === undefined) {
     return null;
   }
+  // Le préfixe « location- » de ces URL n'est pas un type de bien.
+  const cleanSlug = slug.toLowerCase().replace(/^(?:location|vente)-/, '');
   return {
     transaction: transaction.toLowerCase() as 'location' | 'vente',
-    slug: slug.toLowerCase(),
-    typeSlug: slug.toLowerCase().split('-')[0] ?? '',
-    postalCode,
+    slug: cleanSlug,
+    typeSlug: cleanSlug.split('-')[0] ?? '',
+    postalCode: postalCode ?? null,
     reference,
     canonicalUrl: href.trim().replace(/[?#].*$/, ''),
   };
@@ -363,7 +364,7 @@ export function parseDetailPage(
       `${criterion(criteria, [/ameublement/]) ?? ''} ${title ?? ''} ${description ?? ''}`,
     ),
     cityText: jsonLd.city,
-    postalCodeText: jsonLd.postalCode ?? parsedUrl.postalCode,
+    postalCodeText: jsonLd.postalCode ?? parsedUrl.postalCode ?? undefined,
     agencyName: defaultAgencyName,
     phoneText: $('a[href^="tel:"]').first().attr('href')?.replace(/^tel:/, ''),
     contactFormUrl: parsedUrl.canonicalUrl,

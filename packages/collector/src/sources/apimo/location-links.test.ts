@@ -13,7 +13,7 @@ const HTML = `
 <a href="/fr/ventes">Ventes</a>
 <a href="/fr/contact">Contact</a>`;
 
-describe('parseLocationLinks (Privilège)', () => {
+describe('parseLocationLinks (Apimo, ancien schéma)', () => {
   const links = parseLocationLinks(HTML, PAGE);
 
   it('extrait les fiches location, dédoublonnées, sans les liens de nav', () => {

@@ -216,7 +216,9 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   // un aller-retour qui couplait silencieusement les deux fichiers.
   if (/\bstudio\b|\bstudette\b/.test(lower)) return 'studio';
   if (/\bloft\b/.test(lower)) return 'loft';
-  if (/\b(chambre|room)\b/.test(lower) && !/\b(appartement|apartment)\b/.test(lower)) {
+  // « 3 chambre(s) » compte les chambres d'un logement, il ne le désigne pas.
+  const uncounted = lower.replace(/\b\d+ (chambres?|rooms?)( s)?\b/g, ' ');
+  if (/\b(chambre|room)\b/.test(uncounted) && !/\b(appartement|apartment)\b/.test(lower)) {
     return 'room';
   }
   if (/\b(appartement|appart|apartment|flat|duplex|t\d|f\d)\b/.test(lower)) return 'apartment';

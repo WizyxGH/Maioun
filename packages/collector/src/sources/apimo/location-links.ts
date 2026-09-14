@@ -1,9 +1,8 @@
 /**
- * Source : Agence Privilège (agenceprivilege.com) — agence niçoise sur Apimo,
- * mais ANCIEN schéma d'URL : les fiches sont `/fr/propriété/{id}` (accentué,
- * souvent %-encodé), sans slug ville/type, et le sitemap mélange ventes et
- * locations sans marqueur. On ne peut donc PAS filtrer par le sitemap comme les
- * autres sources Apimo.
+ * Sites Apimo à l'ANCIEN schéma d'URL (Agence Privilège, Cabinet Reynier…) :
+ * les fiches sont `/fr/propriété/{id}` (accentué, souvent %-encodé), sans slug
+ * ville/type, et le sitemap mélange ventes et locations sans marqueur. On ne
+ * peut donc PAS filtrer par le sitemap comme les autres sources Apimo.
  *
  * En revanche la page `/fr/locations` liste, en HTML, les liens des fiches de
  * LOCATION. On y récupère donc les références, puis on visite chaque fiche : le
