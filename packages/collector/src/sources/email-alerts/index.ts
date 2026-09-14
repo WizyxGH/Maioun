@@ -51,6 +51,9 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
     'Activée si IMAP_USER/IMAP_APP_PASSWORD sont configurés (Gmail par défaut).',
 };
 
+export const NOT_CONFIGURED_WARNING =
+  'Alertes e-mail inactives : IMAP_USER ou IMAP_APP_PASSWORD absent de cet environnement';
+
 /** Hôtes de redirection des portails : leur lien expire, pas l'annonce. */
 const TRACKING_HOSTS = /(^|\.)(click|link|clic|url\d*|email|mail|t)\./i;
 
@@ -135,22 +138,34 @@ export const emailAlertsScraper: Scraper = {
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const config = loadImapConfig();
     if (config === null) {
-      // Non configuré : rien à faire (l'import est simplement inactif).
+      // Sans avertissement, la source passait pour saine en ne lisant rien :
+      // c'est ainsi que la collecte GitHub a tourné des jours sans IMAP_*.
       return {
         sourceId: EMAIL_ALERTS_DESCRIPTOR.id,
         listings: [],
         requestCount: 0,
         pagesFetched: 0,
         stopReason: 'completed',
-        warnings: [],
+        warnings: [NOT_CONFIGURED_WARNING],
       };
     }
+
+    // Les échecs IMAP ne sortent qu'en journal de débogage : on les remonte
+    // aussi en avertissements, visibles dans l'historique des passages. Sans
+    // le texte de l'erreur : l'historique est public, et un message IMAP peut
+    // citer l'adresse de la boîte.
+    const warnings: string[] = [];
+    const log: ScrapeContext['log'] = (event, fields) => {
+      if (event === 'email.connect_failed') warnings.push('IMAP : connexion refusée ou impossible');
+      if (event === 'email.fetch_failed') warnings.push('IMAP : lecture de la boîte en échec');
+      context.log(event, fields);
+    };
 
     // Fenêtre courte (4 j) : les annonces des portails expirent vite. Au-delà,
     // le lien renvoie souvent vers une annonce « plus disponible » et rouvrir
     // beaucoup de ces liens fait rate-limiter l'utilisateur par le portail. On
     // privilégie donc le frais au volume (§17, §29).
-    const emails = await fetchAlertEmails({ config, log: context.log, sinceDays: 4 });
+    const emails = await fetchAlertEmails({ config, log, sinceDays: 4 });
 
     /**
      * QUI A FAIT SUIVRE CE MESSAGE. La boîte lue est celle du PROJET : chaque
@@ -213,7 +228,7 @@ export const emailAlertsScraper: Scraper = {
       requestCount: accepted.length + requests,
       pagesFetched: accepted.length,
       stopReason: 'completed',
-      warnings: [],
+      warnings,
     };
   },
 };
