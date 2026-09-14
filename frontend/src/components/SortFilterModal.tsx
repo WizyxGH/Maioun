@@ -72,7 +72,10 @@ export interface SortFilterModalProps {
   /** Types réellement présents dans la liste, pour ne proposer qu'eux. */
   readonly availableTypes: readonly PropertyType[];
 
+  /** Sources présentes dans la liste chargée — les autres ne filtreraient rien. */
   readonly sources: readonly string[];
+  /** Annonces par source, affichées à côté du nom. */
+  readonly sourceCounts?: ReadonlyMap<string, number>;
   readonly selectedSources: ReadonlySet<string>;
   readonly onToggleSource: (sourceId: string) => void;
   readonly onClearSources: () => void;
@@ -127,6 +130,7 @@ export function SortFilterModal({
   onQuickFiltersChange,
   availableTypes,
   sources,
+  sourceCounts,
   selectedSources,
   onToggleSource,
   onClearSources,
@@ -142,8 +146,13 @@ export function SortFilterModal({
 
   // Les sources sont une cinquantaine : `MultiSelect` porte la recherche.
   const sourceOptions = useMemo(
-    () => sources.map((id) => ({ value: id, label: formatSourceName(id) })),
-    [sources],
+    () =>
+      sources.map((id) => {
+        const count = sourceCounts?.get(id);
+        const name = formatSourceName(id);
+        return { value: id, label: count === undefined ? name : `${name} (${count})` };
+      }),
+    [sources, sourceCounts],
   );
 
   // Les bascules d'affichage deviennent une sélection multiple : ce sont
