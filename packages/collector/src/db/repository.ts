@@ -23,7 +23,11 @@ import type {
   SourceRuntimeState,
 } from '@maioun/shared';
 import { canonicalDistrict, CURRENT_USER, NEAR_MATCH_MARGIN } from '@maioun/shared';
-import { traitConditions, type TraitFilters } from '../core/trait-filters.js';
+import {
+  OPEN_TO_APPLICATIONS_SQL,
+  traitConditions,
+  type TraitFilters,
+} from '../core/trait-filters.js';
 import { actionPriority } from '@maioun/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
@@ -1752,6 +1756,7 @@ export function createRepository(db: Database): Repository {
               WHERE sc.matches_criteria = 1
                 AND COALESCE(us.notified, 0) = 0
                 AND COALESCE(us.archived, 0) = 0
+                AND ${OPEN_TO_APPLICATIONS_SQL}
                 AND listings.lifecycle = 'active'
                 AND listings.rented = 0
                 AND COALESCE(sc.action_priority, 0) >= ?

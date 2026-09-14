@@ -86,6 +86,9 @@ describe('ordre de la liste', () => {
     expect(filter).toContain('COALESCE(sc.matches_criteria, 0) = 1');
     expect(filter).toContain('rented = 0');
     expect(filter).toContain('COALESCE(us.archived, 0) = 0');
+    // Fermée aux candidatures par sa source : rangée d'office avec les archivées.
+    expect(filter).toContain("json_extract(listings.payload, '$.applicationStatus')");
+    expect(query('?archived=true').filter).not.toContain('applicationStatus');
   });
 
   it('ouvre aux hors-critères sur demande explicite', () => {
@@ -164,6 +167,12 @@ describe('rowToListing', () => {
     expect(listing['archived']).toBe(false);
     expect(listing['favorite']).toBe(true);
     expect(listing['tracking']).toBe('contacted');
+  });
+
+  it('tient pour archivée une annonce que sa source ferme aux candidatures', () => {
+    const fermee = vueMoi(row({ payload: '{"applicationStatus":"full"}' }));
+    expect(fermee['archived']).toBe(true);
+    expect(vueMoi(row({ payload: '{"applicationStatus":"open"}' }))['archived']).toBe(false);
   });
 
   it('déplie le payload par-dessus, sans écraser l’identifiant', () => {

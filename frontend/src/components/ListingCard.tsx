@@ -122,7 +122,7 @@ function ApplicationsFullBadge({
   readonly rented: boolean;
 }): React.JSX.Element | null {
   if (listing.applicationStatus !== 'full' || rented) return null;
-  return <Badge variant="warning">Candidatures complètes</Badge>;
+  return <Badge variant="warning">Candidatures fermées</Badge>;
 }
 
 /**

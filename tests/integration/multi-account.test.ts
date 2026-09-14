@@ -181,6 +181,23 @@ describe('cloisonnement entre comptes (§26)', () => {
     expect(await repository.pendingNotifications('bob', 0)).toHaveLength(0);
   });
 
+  it('ne signale pas une annonce fermée aux candidatures, et la rend si elle rouvre', async () => {
+    const repository = createRepository(db);
+    const statut = (value: string): Promise<unknown> =>
+      db.execute({
+        sql: "UPDATE listings SET payload = json_set(payload, '$.applicationStatus', ?)",
+        args: [value],
+      });
+
+    await statut('full');
+    expect(await repository.pendingNotifications('alice', 0)).toHaveLength(0);
+    const liste = (await call(db, 'alice', 'GET', '/api/listings')) as { listings: unknown[] };
+    expect(liste.listings).toHaveLength(0);
+
+    await statut('open');
+    expect(await repository.pendingNotifications('alice', 0)).toHaveLength(1);
+  });
+
   it('ne tait pas à l’un ce que l’autre a DÉJÀ reçu', async () => {
     // « Signalée » était une colonne de la fiche : dès que le premier compte
     // recevait une annonce, le second ne la recevait jamais.

@@ -174,7 +174,7 @@ function DetailActions({
   );
 }
 
-/** Seule Foncia publie cet état : il se lit sur l'API qu'appelle sa fiche. */
+/** Foncia (plafond de dossiers) et AFEDIM (dépôts suspendus) publient cet état. */
 function ApplicationsFullNotice({
   listing,
 }: {
@@ -183,7 +183,8 @@ function ApplicationsFullNotice({
   if (listing.applicationStatus !== 'full' || listing.rented === true) return null;
   return (
     <p className="mb-3 text-[0.9rem] text-medium">
-      Candidatures en ligne complètes chez Foncia pour le moment — elles peuvent rouvrir.
+      Candidatures fermées pour le moment chez l’annonceur : l’annonce est rangée avec les
+      archivées, et reviendra d’elle-même si elles rouvrent.
     </p>
   );
 }
@@ -380,7 +381,11 @@ export function ListingDetail({
             favorite={favorite}
             archived={archived}
             {...(onFavorite !== undefined ? { onFavorite } : {})}
-            {...(onArchive !== undefined ? { onArchive } : {})}
+            // Archivée par sa source (candidatures fermées) : la désarchiver
+            // n'aurait aucun effet, le bouton n'est pas proposé.
+            {...(onArchive !== undefined && listing.applicationStatus !== 'full'
+              ? { onArchive }
+              : {})}
           />
         </span>
       </header>
