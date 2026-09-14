@@ -8,7 +8,8 @@
  * UN SEUL MESSAGE PAR PASSAGE, et c'est la différence de fond avec le push :
  * huit e-mails en dix minutes sont du courrier indésirable, et c'est ainsi
  * qu'on se fait ranger dans le dossier qui va avec — après quoi plus rien
- * n'arrive. En texte brut, ce qui se lit partout.
+ * n'arrive. En HTML aux couleurs de l'application, avec le texte brut en
+ * secours pour les messageries qui refusent le HTML.
  *
  * Sans clé d'API ni expéditeur, on ne prétend pas avoir envoyé : le rapport le
  * déclare (§17), comme le push sans clés VAPID.
@@ -16,6 +17,7 @@
 
 import type { NotifiableListing } from '../db/repository.js';
 import type { Logger } from '../core/logger.js';
+import { alertEmailHtml } from './email-html.js';
 import { mailerConfigured, sendEmail, type MailerEnv } from './mailer.js';
 
 /** Au-delà, le message devient une liste qu'on ne lit plus. Le reste est résumé. */
@@ -80,7 +82,8 @@ export function composeAlertEmail(deps: {
   readonly listings: readonly NotifiableListing[];
   readonly siteUrl: string;
   readonly heading: string;
-}): { subject: string; text: string } {
+  readonly nowMs?: number;
+}): { subject: string; text: string; html: string } {
   const { listings, siteUrl, heading } = deps;
   const detailed = listings.slice(0, MAX_DETAILED);
   const rest = listings.length - detailed.length;
@@ -105,7 +108,15 @@ export function composeAlertEmail(deps: {
     .filter((part): part is string => part !== null)
     .join('\n');
 
-  return { subject, text };
+  const html = alertEmailHtml({
+    heading,
+    listings: detailed,
+    rest,
+    siteUrl,
+    nowMs: deps.nowMs ?? Date.now(),
+  });
+
+  return { subject, text, html };
 }
 
 /**
@@ -121,8 +132,8 @@ export async function sendEmailAlert(deps: EmailAlertDeps): Promise<EmailAlertRe
     return { notifiedIds: [], unconfigured: true };
   }
 
-  const { subject, text } = composeAlertEmail({ listings, siteUrl, heading });
-  const sent = await sendEmail(mailer, { to, subject, text });
+  const { subject, text, html } = composeAlertEmail({ listings, siteUrl, heading });
+  const sent = await sendEmail(mailer, { to, subject, text, html });
 
   if (!sent) {
     logger.warn('email.failed', { count: listings.length });

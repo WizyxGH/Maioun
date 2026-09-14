@@ -12,8 +12,11 @@
 
 import { SEARCH_CRITERIA_SETTING } from '@maioun/shared';
 import { loadDotEnv, loadPublicConfig, publicSiteUrl, withStoredCriteria } from '../config.js';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { openDatabaseFromEnv } from '../db/client.js';
-import { createRepository, type NotifiableListing } from '../db/repository.js';
+import { createRepository, toNotifiable, type NotifiableListing } from '../db/repository.js';
 import { composeAlertEmail } from '../notify/email-alerts.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { mailerConfigured, sendEmailResult } from '../notify/mailer.js';
@@ -52,9 +55,8 @@ async function main(): Promise<void> {
   const to = option('to') ?? (await repository.verifiedEmailFor(userId));
   console.log(`  Destinataire  ${to ?? '— aucune adresse vérifiée sur le compte'}`);
 
-  // Les annonces en attente d'abord ; déjà toutes signalées, les meilleures
-  // du moment, pour que l'aperçu montre de vraies fiches.
-  // Mêmes critères et même filtre des doublons que la collecte.
+  // Les annonces en attente, avec les critères et le filtre des doublons de la
+  // collecte ; déjà toutes signalées, les meilleures du moment.
   const criteria = withStoredCriteria(
     loadPublicConfig(),
     await repository.readSettingFor(userId, SEARCH_CRITERIA_SETTING),
@@ -67,8 +69,20 @@ async function main(): Promise<void> {
   if (listings.length === 0) listings = await bestListings(db, userId);
 
   const siteUrl = publicSiteUrl() ?? '';
-  const { subject, text } = composeAlertEmail({ listings, siteUrl, heading: 'Nouvelles annonces' });
+  const { subject, text, html } = composeAlertEmail({
+    listings,
+    siteUrl,
+    heading: 'Nouvelles annonces',
+  });
   console.log(`\nObjet : ${subject}\n\n${text}\n`);
+  // Dans `data/`, ignoré par git : le message porte de vraies annonces.
+  const preview = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../data/email-preview.html',
+  );
+  mkdirSync(dirname(preview), { recursive: true });
+  writeFileSync(preview, html);
+  console.log(`Rendu HTML : ${preview}\n`);
 
   if (!send) {
     console.log('Aperçu seulement. `pnpm email:test --send` pour l’envoyer.');
@@ -78,7 +92,7 @@ async function main(): Promise<void> {
   if (to === null)
     throw new Error('Pas de destinataire : vérifiez l’adresse du compte ou passez --to=.');
 
-  const outcome = await sendEmailResult(mailer, { to, subject: `[Essai] ${subject}`, text });
+  const outcome = await sendEmailResult(mailer, { to, subject: `[Essai] ${subject}`, text, html });
   console.log(
     outcome === 'sent'
       ? `✓ Envoyé à ${to}.`
@@ -94,7 +108,7 @@ async function bestListings(
 ): Promise<NotifiableListing[]> {
   const result = await db.execute({
     sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
-                 listings.city, listings.postal_code, listings.district, sc.action_priority
+                 listings.city, listings.postal_code, sc.action_priority, listings.payload
           FROM listings
           JOIN listing_user_score AS sc ON sc.listing_id = listings.id AND sc.user_id = ?
           WHERE sc.matches_criteria = 1 AND listings.lifecycle = 'active' AND listings.rented = 0
@@ -102,23 +116,7 @@ async function bestListings(
           LIMIT 3`,
     args: [userId],
   });
-  return result.rows.map((row) => ({
-    id: String(row['id']),
-    title: row['title'] === null ? null : String(row['title']),
-    price: row['price'] === null ? null : Number(row['price']),
-    area: row['area'] === null ? null : Number(row['area']),
-    rooms: row['rooms'] === null ? null : Number(row['rooms']),
-    city: row['city'] === null ? null : String(row['city']),
-    postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
-    address: null,
-    district: row['district'] === null ? null : String(row['district']),
-    availableAt: null,
-    actionPriority: Number(row['action_priority'] ?? 0),
-    url: null,
-    photoUrls: [],
-    sourceId: null,
-    phone: null,
-  }));
+  return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
 }
 
 main().catch((error: unknown) => {

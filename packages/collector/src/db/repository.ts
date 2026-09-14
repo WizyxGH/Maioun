@@ -701,7 +701,7 @@ export interface NearMatch extends NotifiableListing {
   readonly overshoot: string;
 }
 
-function toNotifiable(row: Record<string, unknown>): NotifiableListing {
+export function toNotifiable(row: Record<string, unknown>): NotifiableListing {
   let url: string | null = null;
   let photoUrls: string[] = [];
   let address: string | null = null;

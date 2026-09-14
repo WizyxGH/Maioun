@@ -42,8 +42,10 @@
 export interface EmailMessage {
   readonly to: string;
   readonly subject: string;
-  /** Corps en texte brut. Aucun HTML : rien ici n'a besoin de mise en forme. */
+  /** Corps en texte brut, toujours : c'est le secours des messageries sans HTML. */
   readonly text: string;
+  /** Version mise en forme, facultative. */
+  readonly html?: string;
 }
 
 export interface MailerEnv {
@@ -113,6 +115,7 @@ export async function sendEmailResult(env: MailerEnv, message: EmailMessage): Pr
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.html !== undefined ? { html: message.html } : {}),
       }),
     });
     if (response.ok) return 'sent';
