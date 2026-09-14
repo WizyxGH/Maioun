@@ -62,6 +62,17 @@ export function clampScore(value: number): Score {
 }
 
 /**
+ * Paliers d'affichage de `actionPriority`.
+ *
+ * Calés sur la distribution réelle, pas sur une échelle idéale : aucune annonce
+ * n'atteignait les anciens 85 et 70, la section « à contacter » restait vide. Mesuré le
+ * 2026-09-14 sur les annonces actives dans les critères : ≥ 58 ≈ 12 %,
+ * ≥ 50 ≈ 32 %. À recaler si les poids ou les scores changent.
+ */
+export const PRIORITY_HOT = 58;
+export const PRIORITY_WORTH_SEEING = 50;
+
+/**
  * Score de tri global, utilisé pour classer la liste principale (§36).
  *
  * L'interface doit répondre à « que dois-je contacter maintenant ? ». On

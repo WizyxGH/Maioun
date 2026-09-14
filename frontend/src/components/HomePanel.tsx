@@ -19,7 +19,12 @@
  */
 
 import type { ListingView, SourceStateView } from '../types.js';
-import { NICE_RENT_REFERENCE, RENT_REFERENCE_SOURCE, RENT_REFERENCE_YEAR } from '@maioun/shared';
+import {
+  NICE_RENT_REFERENCE,
+  PRIORITY_HOT,
+  RENT_REFERENCE_SOURCE,
+  RENT_REFERENCE_YEAR,
+} from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
@@ -32,9 +37,6 @@ import { ArrowRight, Bell, Bookmark, Heart, PhoneCall, Search, TriangleAlert } f
 
 /** Au-delà, une annonce n'est plus une nouveauté. */
 const FRESH_HOURS = 48;
-
-/** Priorité à partir de laquelle l'annonce mérite un appel aujourd'hui. */
-const HOT_PRIORITY = 85;
 
 interface HomePanelProps {
   readonly listings: readonly ListingView[];
@@ -190,7 +192,7 @@ export function HomePanel({
   // encore été appelée ; un favori laissé en « nouvelle » non plus.
   const toCall = active.filter(
     (listing) =>
-      listing.actionPriority >= HOT_PRIORITY &&
+      listing.actionPriority >= PRIORITY_HOT &&
       listing.tracking === 'new' &&
       listing.archived !== true,
   );

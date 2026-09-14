@@ -110,10 +110,18 @@ const SUSPICIOUS_PATTERNS: readonly { pattern: RegExp; label: string; points: nu
  * `true` si le bien est un LOGEMENT, au sens où son loyer au mètre carré se
  * compare à celui du marché résidentiel. Un parking, un garage ou un local
  * n'entrent pas dans cette comparaison.
+ *
+ * Un type non précisé (`unknown`, `other`) compte, sauf sous 9 m² (cave, box) :
+ * les digests et certains sites ne typent pas leurs logements, et les exclure
+ * laissait le contrôle muet sur eux.
  */
 function isDwelling(listing: AggregatedListing): boolean {
   const type = listing.propertyType.value;
-  return type === 'apartment' || type === 'house' || type === 'studio' || type === 'loft';
+  if (type === 'apartment' || type === 'house' || type === 'studio' || type === 'loft') {
+    return true;
+  }
+  const area = listing.area.value;
+  return (type === 'unknown' || type === 'other') && (area === null || area >= 9);
 }
 
 /** Évalue le risque d'une annonce et énumère ses raisons. */
@@ -132,6 +140,26 @@ function marketReference(listing: AggregatedListing, options: RiskOptions): numb
   return listing.city.value === 'nice'
     ? referenceRentPerSqm(listing.rooms.value)
     : options.referencePricePerSqm;
+}
+
+/**
+ * Ce que le contact dit de l'identité du bailleur : une raison, ou un signal
+ * inconnu (chaîne).
+ *
+ * Un formulaire sans coordonnées, c'est la règle du portail (LocService,
+ * Bien'ici, digests) et non un choix du bailleur : le signal tombait sur une
+ * annonce sur deux, selon la seule source. Il reste donc inconnu.
+ */
+function identitySignal(listing: AggregatedListing): ScoreReason | string {
+  const { agencyName, phone, email, formUrl } = listing.contact;
+  if (agencyName !== null) {
+    return { code: 'identity.agency', label: `Agence identifiable (${agencyName})`, delta: 0 };
+  }
+  if (phone !== null || email !== null) {
+    return { code: 'identity.partial', label: 'Bailleur non identifié nommément', delta: 5 };
+  }
+  if (formUrl !== null) return 'identité du bailleur (masquée derrière un formulaire)';
+  return { code: 'identity.none', label: 'Aucune identité ni coordonnée vérifiable', delta: 15 };
 }
 
 export function scoreRisk(listing: AggregatedListing, options: RiskOptions): ExplainedScore {
@@ -220,23 +248,12 @@ export function scoreRisk(listing: AggregatedListing, options: RiskOptions): Exp
   }
 
   // --- Identité vérifiable --------------------------------------------------
-  const { agencyName, phone, email } = listing.contact;
-  if (agencyName !== null) {
-    reasons.push({
-      code: 'identity.agency',
-      label: `Agence identifiable (${agencyName})`,
-      delta: 0,
-    });
-  } else if (phone === null && email === null) {
-    total += 15;
-    reasons.push({
-      code: 'identity.none',
-      label: 'Aucune identité ni coordonnée vérifiable',
-      delta: 15,
-    });
+  const identity = identitySignal(listing);
+  if (typeof identity === 'string') {
+    unknownSignals.push(identity);
   } else {
-    total += 5;
-    reasons.push({ code: 'identity.partial', label: 'Bailleur non identifié nommément', delta: 5 });
+    total += identity.delta;
+    reasons.push(identity);
   }
 
   // --- Formulations suspectes dans la description ---------------------------

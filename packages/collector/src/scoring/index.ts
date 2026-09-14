@@ -29,9 +29,6 @@ export interface ScoringOptions {
   readonly referencePricePerSqm: number;
   /** Points de référence privés. Vide = aucune distance affichée (§20). */
   readonly referencePoints: readonly ReferencePoint[];
-  readonly observedStats?: {
-    readonly visitRateBySource?: Readonly<Record<string, number>>;
-  };
   /** Ids d'occurrences dont le loyer a récemment baissé (§17). */
   readonly priceDroppedIds?: ReadonlySet<string>;
   /** Coordonnées issues du géocodage de l'adresse, si la source n'a pas de GPS (§20). */
@@ -111,10 +108,7 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
     scores: {
       match: match.score,
       opportunity: scoreOpportunity(listing, { nowMs: options.nowMs, priceDropped }),
-      visitProbability: scoreVisitProbability(listing, {
-        nowMs: options.nowMs,
-        ...(options.observedStats !== undefined ? { observedStats: options.observedStats } : {}),
-      }),
+      visitProbability: scoreVisitProbability(listing, { nowMs: options.nowMs }),
       risk: scoreRisk(listing, { referencePricePerSqm: options.referencePricePerSqm }),
     },
     distances,

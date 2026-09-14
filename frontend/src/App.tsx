@@ -13,7 +13,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { TenantProfile } from '@maioun/shared';
-import { MVP_CRITERIA } from '@maioun/shared';
+import { MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
   ApiError,
@@ -214,9 +214,6 @@ const PERSONAL_VIEWS: ReadonlySet<View> = new Set<View>([
   'alerts',
   'onboarding',
 ]);
-
-/** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
-const HOT_PRIORITY = 85;
 
 /**
  * Options de tri de la liste (§36). L'ordre définit celui du menu.
@@ -1025,11 +1022,11 @@ function AppView(): React.JSX.Element {
   // revoir ce qu'on a retenu, pas se faire hiérarchiser sa propre sélection.
   const grouped = sort === 'priority' && !favoritesOnly;
   const hot = useMemo(
-    () => (grouped ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : []),
+    () => (grouped ? ranked.filter((l) => l.actionPriority >= PRIORITY_HOT) : []),
     [ranked, grouped],
   );
   const rest = useMemo(
-    () => (grouped ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked),
+    () => (grouped ? ranked.filter((l) => l.actionPriority < PRIORITY_HOT) : ranked),
     [ranked, grouped],
   );
 

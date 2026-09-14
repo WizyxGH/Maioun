@@ -13,6 +13,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { PRIORITY_HOT } from '@maioun/shared';
 import type { ListingView } from '../types.js';
 import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../format.js';
 
@@ -43,7 +44,7 @@ const CONTACTED_STATUSES = new Set([
  * agence.
  */
 function priceIcon(listing: ListingView): L.DivIcon {
-  const hot = listing.actionPriority >= 85;
+  const hot = listing.actionPriority >= PRIORITY_HOT;
   const label = listing.price.value !== null ? `${listing.price.value} €` : '— €';
   const favorite = listing.favorite === true;
   const contacted = CONTACTED_STATUSES.has(listing.tracking);

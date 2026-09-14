@@ -20,7 +20,6 @@ function descriptor(overrides: Partial<SourceDescriptor> = {}): SourceDescriptor
     schedule: scheduleFor('portal'),
     budget: budgetFor('portal'),
     enabled: true,
-    manualOnly: false,
     allowedPaths: [],
     notes: '',
     ...overrides,
