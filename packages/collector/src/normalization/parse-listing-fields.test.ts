@@ -1050,6 +1050,7 @@ describe('atouts : ce qui appartient au bien, et ce qui est à côté', () => {
     expect(atouts('Parking public à proximité immédiate')).not.toContain('Parking');
     expect(atouts('Studio proche garage et transports')).not.toContain('Garage');
     expect(atouts('Appartement, stationnement municipal en bas')).not.toContain('Parking');
+    expect(atouts("Les plus : stationnement facile devant l'immeuble")).not.toContain('Parking');
   });
 
   it('reconnaît toujours un atout RÉEL', () => {

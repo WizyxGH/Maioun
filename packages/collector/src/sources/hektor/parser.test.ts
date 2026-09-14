@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { SHORT_TERM_LEASE_FEATURE } from '@maioun/shared';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseDetailPage, parseListingUrl, parseListPage } from './parser.js';
 
@@ -160,5 +161,36 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(normalized?.price).toBe(1980);
     expect(normalized?.rooms).toBe(4);
     expect(normalized?.postalCode).toBe('06000');
+  });
+
+  it('gabarit éditorial, table sans classes de clé (Aurus)', () => {
+    const url =
+      'https://www.aurusimmo.com/location/06-alpes-maritimes/73-nice/2-appartement/t1/22-magnifique-f1-apercu-mer/';
+    const { listing, warnings } = parseDetailPage(read('detail-aurus.html'), url, 'Aurus');
+    expect(warnings).toHaveLength(0);
+    // Le premier span du h1 est la commune, pas le titre.
+    expect(listing?.title).toBe('Magnifique F1 Aperçu Mer');
+    expect(listing?.priceText).toBe('750 € HC');
+    expect(listing?.description).toContain('BAIL ÉTUDIANT DÉROGATOIRE 9 MOIS');
+    // « Non renseigné » ne dit pas « non meublé ».
+    expect(listing?.furnishedText).toBe('');
+    expect(listing?.phoneText).toBe('0600000010');
+    // Les photos de « Ces biens peuvent aussi vous intéresser » sont écartées.
+    expect(listing?.imageUrls?.every((photo) => photo.includes('de31e27798b1697e'))).toBe(true);
+
+    const normalized = normalize(listing as NonNullable<typeof listing>);
+    expect(normalized).toMatchObject({
+      price: 750,
+      chargesIncluded: false,
+      charges: 30,
+      deposit: 1100,
+      tenantFees: 500,
+      propertyType: 'apartment',
+      district: 'Cimiez',
+      availableAt: '2026-09-05T00:00:00.000Z',
+    });
+    expect(normalized?.features).toContain('Balcon');
+    expect(normalized?.features).toContain(SHORT_TERM_LEASE_FEATURE);
+    expect(normalized?.features).not.toContain('Parking');
   });
 });

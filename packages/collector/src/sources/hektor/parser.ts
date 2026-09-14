@@ -92,6 +92,21 @@ export interface ParsedDetail {
   readonly warnings: readonly string[];
 }
 
+/** Libellés de la table sans classe de clé, ramenés aux clés des autres gabarits. */
+const LABEL_KEYS: readonly (readonly [RegExp, string])[] = [
+  [/^loyer cc/i, 'loyer_cc'],
+  [/^code postal/i, 'cp'],
+  [/^nombre de pièces/i, 'nbpiecees'],
+  [/^meublé/i, 'meuble'],
+  [/^charges locatives/i, 'ChargesAnnonceLocation_forfaitaires_mensuelles'],
+  [/^surface habitable/i, 'surface_habitable'],
+];
+
+function keyOfLabel(label: string): string | undefined {
+  if (label === '') return undefined;
+  return LABEL_KEYS.find(([pattern]) => pattern.test(label))?.[1] ?? slugify(label);
+}
+
 /**
  * Lit la table clé/valeur `table-aria` de la fiche.
  *
@@ -101,18 +116,22 @@ export interface ParsedDetail {
  * Ne lire que la première laissait des fiches entières sans prix ni surface
  * (constaté sur immobiliere-nicoise.com : 26 lignes, aucune reconnue). On
  * accepte donc les deux formes.
+ *
+ * Une troisième n'a aucune classe de clé, seulement le libellé dans sa
+ * première cellule (aurusimmo.com) : il est ramené à la clé équivalente.
  */
 function readAriaTable($: cheerio.CheerioAPI): Map<string, string> {
   const rows = new Map<string, string>();
   $('[class*="table-aria__tr"]').each((_i, el) => {
     const className = $(el).attr('class') ?? '';
+    const cells = $(el).find('[role="cell"]');
     // Variante « modifieur » d'abord ; sinon, la première classe qui n'est pas
-    // un nom de bloc de la plateforme fait office de clé.
+    // un nom de bloc de la plateforme ; sinon, le libellé.
     const key =
       /table-aria__tr--([\w-]+)/.exec(className)?.[1] ??
-      className.split(/\s+/).find((name) => name !== '' && !name.startsWith('table-aria'));
+      className.split(/\s+/).find((name) => name !== '' && !name.startsWith('table-aria')) ??
+      (cells.length > 1 ? keyOfLabel(cleanText($(cells.get(0)).text())) : undefined);
     if (key === undefined || rows.has(key)) return;
-    const cells = $(el).find('[role="cell"]');
     const value = cleanText($(cells.get(cells.length - 1)).text());
     if (value !== '') rows.set(key, value);
   });
@@ -133,6 +152,9 @@ interface LabelledValues {
   readonly furnished?: string;
   readonly charges?: string;
   readonly city?: string;
+  readonly rentHc?: string;
+  readonly deposit?: string;
+  readonly fees?: string;
 }
 
 function readLabels($: cheerio.CheerioAPI): LabelledValues {
@@ -150,6 +172,9 @@ function readLabels($: cheerio.CheerioAPI): LabelledValues {
     city: pick(/La ville de ([^()]+?)\s*\(\d{5}\)/),
     // Le libellé porte sa parenthèse : on s'arrête au premier chiffre.
     charges: pick(new RegExp(String.raw`Charges locatives[^:€\d]*:?\s*${amount}`)),
+    rentHc: pick(new RegExp(String.raw`Loyer HC\* \/ mois\s*:?\s*${amount}`)),
+    deposit: pick(new RegExp(String.raw`Dépôt de garantie[^:€\d]*:?\s*${amount}`)),
+    fees: pick(new RegExp(String.raw`Honoraires[^:€\d]*charge locataire\s*:?\s*${amount}`)),
   };
   return Object.fromEntries(
     Object.entries(values).filter(([, value]) => value !== undefined),
@@ -167,6 +192,14 @@ function cityFromPostalCode(postalCode: string | undefined): string | undefined 
   return postalCode !== undefined && /^06[0-3]00$/.test(postalCode) ? 'Nice' : undefined;
 }
 
+/** Le téléphone de l'agence, en pied de page (`coords-phone`). */
+function agencyPhone($: cheerio.CheerioAPI): string | undefined {
+  const href = $('.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"]')
+    .first()
+    .attr('href');
+  return href !== undefined ? href.replace(/^tel:/, '') : undefined;
+}
+
 /** Emplacements de la description, du gabarit courant aux plus anciens. */
 const DESCRIPTION_SELECTORS = [
   '[class*="description__text"]',
@@ -174,6 +207,7 @@ const DESCRIPTION_SELECTORS = [
   '.editorial-v2__text_structure .text__content',
   '.offreContent',
   '.description .details',
+  '.editorial__text',
 ];
 
 /** Clés booléennes de la table promues en atouts quand elles valent OUI. */
@@ -206,8 +240,14 @@ function parseTypeAndCity(
   const fromTitle = match?.[2]?.trim();
   const slug = parsedUrl.citySlug;
   const titleAgrees = fromTitle !== undefined && (slug === null || slugify(fromTitle) === slug);
+  // Titre libre (« Location Magnifique F1 Aperçu Mer ») : le type est dans l'URL
+  // (`/2-appartement/`).
+  const fromUrl =
+    /\/\d{1,3}-(appartement|studio|maison|villa|parking|garage|local|chambre)\//i.exec(
+      parsedUrl.canonicalUrl,
+    )?.[1];
   return {
-    propertyTypeText: match?.[1] ?? parsedUrl.canonicalUrl,
+    propertyTypeText: match?.[1] ?? fromUrl ?? parsedUrl.canonicalUrl,
     cityText:
       labelledCity ??
       (titleAgrees ? fromTitle : slug !== null ? slug.replace(/-/g, ' ') : undefined),
@@ -231,8 +271,11 @@ function readFigures(
   // Prix : la table (loyer CC) fait foi, puis le libellé, le <title> en secours.
   const loyerCc =
     table.get('loyer_cc') ?? (labels.rentCc !== undefined ? `${labels.rentCc} €` : undefined);
+  const loyerHc = labels.rentHc !== undefined ? `${labels.rentHc} € HC` : undefined;
   const priceText =
-    loyerCc !== undefined ? `${loyerCc} CC` : (pageTitle.match(/[\d\s.,]+\s*€/)?.[0] ?? undefined);
+    loyerCc !== undefined
+      ? `${loyerCc} CC`
+      : (loyerHc ?? pageTitle.match(/[\d\s.,]+\s*€/)?.[0] ?? undefined);
 
   // Surface : d'abord le titre (le plus courant), sinon la table — certaines
   // agences ne la mettent pas dans le titre mais la déclarent en loi Boutin ou
@@ -256,7 +299,13 @@ function readFigures(
   // Meublé : la table est explicite (OUI/NON) — un texte fidèle à sa valeur,
   // jamais un « meublé » par défaut qui inverserait le sens (§17).
   const meuble = table.get('meuble') ?? labels.furnished;
-  const furnishedText = meuble === undefined ? '' : /^oui$/i.test(meuble) ? 'meublé' : 'non meublé';
+  // « Non renseigné » ne dit rien : seuls OUI et NON tranchent.
+  const furnishedText =
+    meuble === undefined || !/^(oui|non)$/i.test(meuble)
+      ? ''
+      : /^oui$/i.test(meuble)
+        ? 'meublé'
+        : 'non meublé';
 
   return { priceText, areaText, roomsText, furnishedText };
 }
@@ -274,7 +323,11 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // <title> « Location appartement Nice 3 pièces 54.25m² 1460€ | Agence » —
   // généré par la plateforme, riche ; le h1 est le titre libre de l'annonce.
   const pageTitle = cleanText($('title').first().text()).split('|')[0]?.trim() ?? '';
-  const rawH1 = cleanText($('h1').first().text().replace(/\s+/g, ' '));
+  // Le gabarit éditorial préfixe le titre de la commune (« Nice (06000) ») dans
+  // un premier `span` : le titre de l'annonce est le second.
+  const rawH1 = cleanText(
+    ($('h1 .title__content-2').first().text() || $('h1').first().text()).replace(/\s+/g, ' '),
+  );
   const h1 = JUNK_H1.test(rawH1) ? '' : rawH1;
   const title = h1 !== '' ? h1 : pageTitle;
   const labels = readLabels($);
@@ -309,6 +362,9 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // CHARGEMENT DIFFÉRÉ. La plateforme met un SVG vide dans `src` et la vraie
   // URL dans `data-src` : lire `src` ne ramenait aucune photo sur les fiches
   // ainsi rendues. On lit donc `data-src` en premier.
+  //
+  // « Ces biens peuvent aussi vous intéresser » : les photos des AUTRES annonces.
+  $('[class*="property-more"]').remove();
   const imageUrls: string[] = [];
   // Le nom de fichier identifie la photo : la même image apparaît sous
   // plusieurs chemins (`/original/…` et `/1600xauto/…`), et les montrer toutes
@@ -350,6 +406,9 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     roomsText,
     propertyTypeText,
     furnishedText,
+    depositText: labels.deposit !== undefined ? `${labels.deposit} €` : undefined,
+    feesText: labels.fees !== undefined ? `${labels.fees} €` : undefined,
+    phoneText: agencyPhone($),
     cityText: cityText ?? cityFromPostalCode(table.get('cp') ?? labels.postalCode),
     postalCodeText: table.get('cp') ?? labels.postalCode,
     agencyName,

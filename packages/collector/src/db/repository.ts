@@ -883,6 +883,9 @@ export function createRepository(db: Database): Repository {
        * pouvait le rattraper : ni le rejeu, qui ne retélécharge rien, ni la
        * collecte, qui saute les références connues.
        *
+       * Même chose pour une fiche sans loyer ni description : Aurus, dont le
+       * gabarit n'était pas lu, n'en avait aucun le 2026-09-14.
+       *
        * LE NOMBRE EST BORNÉ, et il le faut : une annonce que la source publie
        * réellement sans photo serait sinon revisitée à chaque passage, pour
        * rien, indéfiniment. Cinq par source et par cycle rattrapent un retard en
@@ -891,8 +894,10 @@ export function createRepository(db: Database): Repository {
       const photoless = await db.execute({
         sql: `SELECT source_ref FROM occurrences
               WHERE source_id = ? AND lifecycle != 'inactive'
-                AND json_array_length(COALESCE(json_extract(payload, '$.imageUrls'), '[]')) = 0
-              ORDER BY last_seen_at DESC
+                AND (json_array_length(COALESCE(json_extract(payload, '$.imageUrls'), '[]')) = 0
+                  OR price IS NULL
+                  OR json_extract(payload, '$.description') IS NULL)
+              ORDER BY scraped_at ASC
               LIMIT ?`,
         args: [sourceId, REVISIT_PHOTOLESS_PER_RUN],
       });
