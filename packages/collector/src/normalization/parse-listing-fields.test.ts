@@ -750,6 +750,13 @@ describe('parseChargesFromText', () => {
     );
   });
 
+  it('lit le point comme une virgule, sauf devant trois chiffres', () => {
+    // Century 21 sur ParuVendu, 2026-09-14 : « 50.0 euros » valait 500.
+    expect(parseChargesFromText('dont charges mensuelles : 50.0 euros', 900)).toBe(50);
+    expect(parseChargesFromText('Charges : 45.50 €', 900)).toBe(45.5);
+    expect(parseChargesFromText('Charges : 1.200 €', 2500)).toBeNull(); // au-delà du plafond
+  });
+
   it('ne prend PAS un loyer « charges comprises » pour des charges (§17)', () => {
     // Le piège : le montant est voisin du mot, mais c'est le loyer.
     expect(parseChargesFromText('750.00 € CHARGES COMPRISES', null)).toBeNull();
