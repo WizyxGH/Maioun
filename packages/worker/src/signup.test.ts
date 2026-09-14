@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import type { Client } from '@libsql/client/web';
 import { verifyPassword } from './auth.js';
 import { hashToken } from './password-reset.js';
-import { changeEmail, confirmEmail, confirmLink, createAccount, deleteAccount } from './signup.js';
+import {
+  changeEmail,
+  confirmEmail,
+  confirmEmailBody,
+  confirmEmailCode,
+  confirmLink,
+  createAccount,
+  deleteAccount,
+  hashCode,
+} from './signup.js';
 
 type Row = Record<string, unknown>;
 
@@ -135,8 +144,12 @@ describe('createAccount', () => {
     const db = fakeDb();
     const created = await createAccount(db, GOOD, NOW);
     if (!created.ok) throw new Error('inattendu');
-    expect(db.verifications).toHaveLength(1);
+    // Deux lignes : le lien et le code.
+    expect(db.verifications).toHaveLength(2);
     expect(db.verifications[0]?.['token_hash']).toBe(await hashToken(created.account.token));
+    expect(db.verifications[1]?.['token_hash']).toBe(
+      await hashCode(created.account.userId, created.account.code),
+    );
     // Le jeton en clair n'existe que dans le lien.
     expect(db.verifications[0]?.['token_hash']).not.toBe(created.account.token);
   });
@@ -188,6 +201,47 @@ describe('confirmEmail', () => {
     const troisJours = NOW + 3 * 24 * 3_600_000;
     expect(await confirmEmail(db, created.account.token, troisJours)).toBe('invalid');
     expect(await confirmEmail(db, 'jeton-invente', NOW)).toBe('invalid');
+  });
+});
+
+describe('confirmEmailCode', () => {
+  it('confirme l’adresse par le code, espaces tolérés, une seule fois', async () => {
+    const db = fakeDb();
+    const created = await createAccount(db, GOOD, NOW);
+    if (!created.ok) throw new Error('inattendu');
+    const { userId, code } = created.account;
+    expect(code).toMatch(/^\d{6}$/);
+
+    const recopie = `${code.slice(0, 3)} ${code.slice(3)}`;
+    expect(await confirmEmailCode(db, userId, recopie, NOW + 1000)).toBe('ok');
+    expect(db.users[0]?.['email_verified']).toBe(1);
+    expect(await confirmEmailCode(db, userId, code, NOW + 2000)).toBe('invalid');
+  });
+
+  it('ne vaut que pour SON compte : le même code saisi ailleurs ne prouve rien', async () => {
+    const db = fakeDb();
+    const created = await createAccount(db, GOOD, NOW);
+    if (!created.ok) throw new Error('inattendu');
+    expect(await confirmEmailCode(db, 'un-autre-compte', created.account.code, NOW)).toBe(
+      'invalid',
+    );
+  });
+
+  it('refuse un code expiré, faux ou mal formé', async () => {
+    const db = fakeDb();
+    const created = await createAccount(db, GOOD, NOW);
+    if (!created.ok) throw new Error('inattendu');
+    const { userId, code } = created.account;
+    expect(await confirmEmailCode(db, userId, code, NOW + 3 * 24 * 3_600_000)).toBe('invalid');
+    expect(await confirmEmailCode(db, userId, 'abcdef', NOW)).toBe('invalid');
+    const faux = String((Number(code) + 1) % 1_000_000).padStart(6, '0');
+    expect(await confirmEmailCode(db, userId, faux, NOW)).toBe('invalid');
+  });
+
+  it('le message donne le code, lisible par groupes de trois, et le lien', () => {
+    const body = confirmEmailBody('https://exemple.invalid/confirm/x', '042517');
+    expect(body).toContain('042 517');
+    expect(body).toContain('https://exemple.invalid/confirm/x');
   });
 });
 
@@ -281,7 +335,7 @@ describe('changeEmail', () => {
     );
     if (!changed.ok) throw new Error('le changement aurait dû aboutir');
 
-    expect(db.verifications).toHaveLength(1);
+    expect(db.verifications).toHaveLength(2);
     expect(db.verifications[0]?.['token_hash']).toBe(await hashToken(changed.token));
     expect(db.verifications[0]?.['token_hash']).not.toBe(changed.token);
   });

@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input.js';
 import { Card } from '@/components/ui/card.js';
 import { GoogleSignIn } from './GoogleSignIn.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { EmailCodeForm } from './EmailCodeForm.js';
 
 export function SignupScreen({
   onSignedIn,
@@ -44,6 +45,7 @@ export function SignupScreen({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ confirmationSent: boolean } | null>(null);
+  const [verified, setVerified] = useState(false);
 
   const submit = async (): Promise<void> => {
     setBusy(true);
@@ -66,15 +68,20 @@ export function SignupScreen({
         <h1 className="mb-1 text-2xl font-bold tracking-tight">Compte créé</h1>
         <Card>
           <div className="flex flex-col gap-3">
-            {created.confirmationSent ? (
-              <p className="flex items-start gap-2 text-sm">
-                <Mail aria-hidden="true" className="text-primary mt-0.5 size-5 shrink-0" />
-                <span>
-                  Un message vient de partir vers <strong>{email}</strong>. Suivez le lien qu’il
-                  contient pour confirmer votre adresse : sans cela, vous ne pourrez pas
-                  réinitialiser votre mot de passe si vous l’oubliez.
-                </span>
-              </p>
+            {verified ? (
+              <p className="text-good text-sm">Adresse confirmée.</p>
+            ) : created.confirmationSent ? (
+              <>
+                <p className="flex items-start gap-2 text-sm">
+                  <Mail aria-hidden="true" className="text-primary mt-0.5 size-5 shrink-0" />
+                  <span>
+                    Un code vient de partir vers <strong>{email}</strong>. Saisissez-le pour
+                    confirmer votre adresse : sans cela, vous ne pourrez pas réinitialiser votre mot
+                    de passe si vous l’oubliez.
+                  </span>
+                </p>
+                <EmailCodeForm onVerified={() => setVerified(true)} />
+              </>
             ) : (
               <p className="border-border rounded-lg border px-3 py-2 text-sm">
                 Votre compte est prêt. L’envoi d’e-mails n’est pas configuré sur cette installation

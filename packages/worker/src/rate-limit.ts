@@ -61,6 +61,8 @@ export const LIMITS = {
   signup: { limit: 3, windowMs: HOUR },
   forgot: { limit: 5, windowMs: HOUR },
   login: { limit: 10, windowMs: HOUR },
+  // Dix codes faux par heure : on se trompe de chiffre, pas dix fois.
+  confirmCode: { limit: 10, windowMs: HOUR },
 } as const satisfies Record<string, RateLimit>;
 
 /**
