@@ -8,8 +8,9 @@ name: Collecte
 
 on:
   schedule:
-    # Toutes les 30 minutes. Le scheduler interne filtre ensuite : une source
-    # dont l'intervalle n'est pas écoulé n'émet aucune requête.
+    # Toutes les 15 minutes. Le scheduler interne filtre ensuite : une source
+    # dont l'intervalle n'est pas écoulé n'émet aucune requête. Plus de réveils
+    # ne chargent donc aucun site ; ils laissent passer à l'heure les sources dues.
     #
     # MINUTES DÉCALÉES, volontairement. GitHub ne garantit pas la ponctualité
     # des crons et écarte les réveils quand la file est chargée : sur `*/30`,
@@ -17,7 +18,7 @@ on:
     # les autres ayant été demandées à `:00` et `:30`, les minutes les plus
     # encombrées. Rien ne le garantit non plus ici, mais la file y est moins
     # longue.
-    - cron: '7,37 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
     inputs:
       backfill:

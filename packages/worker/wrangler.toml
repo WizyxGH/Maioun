@@ -140,7 +140,9 @@ id = "de510f7eb71d40c9814b440d0e2b202e"
 # l'écrit dans le journal (`npx wrangler tail`). Le dépôt visé est désigné par
 # `GITHUB_REPOSITORY_ID`, plus haut dans `[vars]`.
 [triggers]
-crons = ["7,37 * * * *"]
+# Toutes les 15 minutes (2026-09-14) : une collecte dure désormais moins de dix
+# minutes, sources en parallèle.
+crons = ["7,22,37,52 * * * *"]
 
 # --- Journal du Worker (§17) ---------------------------------------------------
 #
