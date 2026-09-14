@@ -1074,7 +1074,14 @@ export function parseChargesFromText(
   for (const pattern of CHARGES_IN_TEXT) {
     const raw = pattern.exec(cleaned)?.[1];
     if (raw === undefined) continue;
-    const value = Number(raw.replace(/[ \u00a0.]/g, '').replace(',', '.'));
+    // Le point n'est un s\u00e9parateur de milliers que suivi de trois chiffres :
+    // \u00ab 1.200 \u00bb vaut mille deux cents, \u00ab 50.0 \u00bb vaut cinquante \u2014 il valait 500.
+    const value = Number(
+      raw
+        .replace(/[ \u00a0]/g, '')
+        .replace(/\.(?=\d{3}(?!\d))/g, '')
+        .replace(',', '.'),
+    );
     if (!Number.isFinite(value) || value <= 0 || value >= MAX_CHARGES) continue;
     if (maxPlausible !== null && value >= maxPlausible) continue;
     return value;

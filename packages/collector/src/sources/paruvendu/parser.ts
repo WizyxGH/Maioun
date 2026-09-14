@@ -14,10 +14,12 @@
  * `?fulltext=`). La pagination passe par `?p=N`, qui n'y figure pas ; les
  * fiches vivent sous `/immobilier/location/appartement/<id>`, ouvert.
  *
- * TOUT EST SUR LA CARTE : loyer charges comprises, surface, pièces, DPE, un
- * extrait de description que la page ne tronque qu'à l'affichage, les photos,
- * et l'annonceur — « Particulier », ou le nom de l'agence. La fiche n'ajoute que
- * le code postal : on ne la visite pas.
+ * LA CARTE : loyer charges comprises (« CC* », jamais hors charges), surface,
+ * pièces, DPE, un extrait de description coupé, les photos, et l'annonceur —
+ * « Particulier », ou le nom de l'agence.
+ *
+ * LA FICHE (`parseDetail`) : le montant des charges et la description entière.
+ * Elle affiche aussi dépôt de garantie et honoraires, que le modèle ne porte pas.
  *
  * LA DATE AFFICHÉE EST CELLE DE LA DERNIÈRE MISE À JOUR, pas de la parution —
  * le site l'intitule ainsi. On ne la fait pas passer pour une date de
@@ -26,7 +28,10 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import { parseChargesFromText, parsePrice } from '../../normalization/parse-listing-fields.js';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
+import type { RawDraft } from '../shared/raw-listing.js';
 
 export const SITE = 'https://www.paruvendu.fr';
 
@@ -128,4 +133,43 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const current = Number(new URL(pageUrl).searchParams.get('p') ?? '1');
   const hasNextPage = $(`a[href*="?p=${current + 1}"]`).length > 0;
   return { listings, hasNextPage, warnings };
+}
+
+/**
+ * Ce que la fiche ajoute à la carte : les charges et la description entière.
+ *
+ * « Dont charges/mois » est la part des charges DANS le loyer affiché. Absente
+ * chez les particuliers et quelques agences, qui l'écrivent parfois dans le
+ * texte (« dont charges mensuelles : 50.0 euros »).
+ *
+ * Le loyer n'est pas repris : la mémoire des fiches le figerait une semaine,
+ * et masquerait une baisse que la liste montre.
+ */
+export function parseDetail(html: string, priceText?: string): RawDraft | null {
+  const $ = cheerio.load(html);
+
+  let chargesText: string | undefined;
+  $('#autoprix .opt19_hd_det').each((_i, row) => {
+    const label = cleanText($(row).find('span').first().text());
+    const value = cleanText($(row).find('strong').first().text());
+    // « NC » ou vide : rien à retenir.
+    if (/charges/i.test(label) && /\d/.test(value)) chargesText = value;
+  });
+
+  const body = $('#txtAnnonceTrunc').first().clone();
+  // Bloc caché « Lieu : Alpes-Maritimes (06) », qui n'est pas du texte d'annonce.
+  body.find('#localisation_bar_header').remove();
+  const description = htmlToText($, body as cheerio.Cheerio<never>);
+
+  // Charges écrites dans le texte (« dont charges mensuelles : 50.0 euros »).
+  if (chargesText === undefined && description !== '') {
+    const inText = parseChargesFromText(description, parsePrice(priceText).amount);
+    if (inText !== null) chargesText = `${String(inText)} €`;
+  }
+
+  if (chargesText === undefined && description === '') return null;
+  return {
+    chargesText,
+    description: description !== '' ? description : undefined,
+  };
 }

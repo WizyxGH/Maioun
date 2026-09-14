@@ -7,6 +7,9 @@
  * retirer une annonce partie.
  *
  * Les pages inchangées (304) sont confirmées par la mémoire des pages.
+ *
+ * LES FICHES des annonces nouvelles sont lues ensuite, pour les charges et la
+ * description entière que la carte n'a pas.
  */
 
 import type {
@@ -18,10 +21,14 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { pageUrlFor, parseSearchPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { pageUrlFor, parseDetail, parseSearchPage } from './parser.js';
 
 /** Cinq pages aujourd'hui ; la marge couvre un marché qui gonfle. */
 const MAX_PAGES = 8;
+
+/** Fiches lues par passage : le stock de 150 se complète en quelques cycles. */
+const MAX_DETAILS = 20;
 
 export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   id: 'paruvendu',
@@ -33,7 +40,7 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_PAGES,
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
@@ -107,9 +114,18 @@ export const paruvenduScraper: Scraper = {
     // Un inventaire à trou ne doit rien retirer.
     if (pageInconnue && stopReason === 'completed') stopReason = 'notModified';
 
+    const enriched = await enrichNewListings(context, listings, {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html, listing) => parseDetail(html, listing.priceText),
+    });
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
     return {
       sourceId: PARUVENDU_DESCRIPTOR.id,
-      listings,
+      listings: enriched.listings,
       confirmedRefs,
       requestCount,
       pagesFetched,
