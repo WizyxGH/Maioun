@@ -10,11 +10,27 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildSearchUrl, NICE_ZONE_ID, parseSearchResponse } from './parser.js';
+import {
+  buildDetailUrl,
+  buildSearchUrl,
+  NICE_ZONE_ID,
+  parseAdDetail,
+  parseSearchResponse,
+} from './parser.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = resolve(here, '../../../../../tests/fixtures/bienici/search.json');
 const body = readFileSync(FIXTURE, 'utf8');
+/** Relevé du 2026-09-14 : une annonce Twimmo, une Century 21, une Citya. */
+const body0914 = readFileSync(
+  resolve(here, '../../../../../tests/fixtures/bienici/search-2026-09-14.json'),
+  'utf8',
+);
+/** Fiche JSON de la même annonce Twimmo ; le numéro y est remplacé par un fictif. */
+const detail = readFileSync(
+  resolve(here, '../../../../../tests/fixtures/bienici/detail-twimmo-2125653.json'),
+  'utf8',
+);
 
 describe('buildSearchUrl', () => {
   it('vise le chemin déclaré dans allowedPaths', () => {
@@ -166,5 +182,64 @@ describe('parseSearchResponse', () => {
     expect(parseSearchResponse('<html>').listings).toEqual([]);
     expect(parseSearchResponse('<html>').warnings[0]).toContain('illisible');
     expect(parseSearchResponse('{"total":0}').warnings[0]).toContain('sans tableau');
+  });
+});
+
+describe('relevé du 2026-09-14', () => {
+  const listings = parseSearchResponse(body0914).listings;
+  const byRef = (ref: string) => listings.find((one) => one.sourceRef === ref);
+
+  it('retombe sur la copie HTTPS du portail quand l’original est en http', () => {
+    // Twimmo et Citya publient leurs clichés en `http://` : sans repli, aucune photo.
+    for (const ref of ['twimmo-2125653', 'citya-immobilier-1127-GES84100033-53']) {
+      const urls = byRef(ref)?.imageUrls ?? [];
+      expect(urls.length).toBeGreaterThan(0);
+      expect(urls.every((url) => url.startsWith('https://file.bienici.com/'))).toBe(true);
+    }
+  });
+
+  it('garde l’original quand il est déjà en HTTPS', () => {
+    const urls = byRef('century-21-202_579_16656')?.imageUrls ?? [];
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls.some((url) => url.includes('file.bienici.com'))).toBe(false);
+  });
+
+  it('traduit balcon, terrasse, parking, jardin et climatisation déclarés', () => {
+    const c21 = byRef('century-21-202_579_16656')?.extra?.['features'] ?? '';
+    for (const atout of ['Balcon', 'Terrasse', 'Parking', 'Climatisation']) {
+      expect(c21).toContain(atout);
+    }
+    expect(byRef('citya-immobilier-1127-GES84100033-53')?.extra?.['features']).toContain('Jardin');
+    // Twimmo : « hasTerrace: false », pas de balcon déclaré.
+    expect(byRef('twimmo-2125653')?.extra?.['features']).toBe('6e étage, Ascenseur');
+  });
+
+  it('ne nomme pas d’agence que la liste tait', () => {
+    // `accountDisplayName` absent : la fiche JSON le donnera.
+    expect(byRef('twimmo-2125653')?.agencyName).toBeUndefined();
+    expect(byRef('twimmo-2125653')?.extra?.['landlord']).toBe('agency');
+  });
+});
+
+describe('parseAdDetail', () => {
+  it('vise la fiche JSON de l’annonce', () => {
+    expect(buildDetailUrl('twimmo-2125653')).toBe(
+      'https://www.bienici.com/realEstateAd.json?id=twimmo-2125653',
+    );
+  });
+
+  it('reprend l’agence et son téléphone d’un contact professionnel', () => {
+    expect(parseAdDetail(detail)).toEqual({
+      agencyName: 'ELITIMO',
+      phoneText: '+33600000012',
+    });
+  });
+
+  it('ne collecte rien d’un contact que le site ne déclare pas professionnel', () => {
+    const prive = JSON.parse(detail) as { contactRelativeData: Record<string, unknown> };
+    prive.contactRelativeData['contactIsPro'] = false;
+    expect(parseAdDetail(JSON.stringify(prive))).toBeNull();
+    expect(parseAdDetail('{}')).toBeNull();
+    expect(parseAdDetail('<html>')).toBeNull();
   });
 });

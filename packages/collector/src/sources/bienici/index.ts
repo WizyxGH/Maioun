@@ -1,7 +1,8 @@
 /**
  * Source : Bien'ici — voir l'étude complète en tête de `parser.ts` et dans
  * `docs/sources.md`. Collecte par l'API de recherche du site, en GET, six
- * pages de cent annonces pour couvrir Nice.
+ * pages de cent annonces pour couvrir Nice, puis la fiche JSON des annonces
+ * dont on ne connaît pas encore l'agence et son téléphone.
  */
 
 import type {
@@ -13,10 +14,25 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { buildSearchUrl, NICE_ZONE_ID, PAGE_SIZE, parseSearchResponse } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import {
+  buildDetailUrl,
+  buildSearchUrl,
+  NICE_ZONE_ID,
+  PAGE_SIZE,
+  parseAdDetail,
+  parseSearchResponse,
+} from './parser.js';
 
 /** Six pages de cent couvrent les ~512 locations niçoises, avec de la marge. */
 const MAX_PAGES = 8;
+
+/**
+ * Fiches lues par passage. Une fiche lue est gardée une semaine : le stock
+ * (~520) se complète en une vingtaine de passages, puis seules les parutions
+ * et les relectures hebdomadaires coûtent une requête.
+ */
+const MAX_DETAILS = 30;
 
 export const BIENICI_DESCRIPTOR: SourceDescriptor = {
   id: 'bienici',
@@ -29,7 +45,7 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
   priority: 1,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_PAGES,
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS,
     maxListingsPerRun: 1000,
     delayBetweenRequestsMs: 2_000,
   }),
@@ -41,13 +57,15 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
    * où le même cliché tamponné illustre vingt biens (§14).
    */
   relaysListings: true,
-  allowedPaths: ['/realEstateAds.json'],
+  allowedPaths: ['/realEstateAds.json', '/realEstateAd.json'],
   notes:
     'API de recherche du site (GET realEstateAds.json?filters=…), vérifiée le ' +
     '2026-09-08. robots.txt relu le même jour : ni ce chemin ni nos paramètres ' +
     'n’y figurent. Zone Nice = -170100 (via suggest.json). Prix charges ' +
     'comprises. Position publiée seulement quand blurInfo la déclare exacte ou ' +
-    'floutée à 100 m au plus — au-delà, le site ne situe que la commune.',
+    'floutée à 100 m au plus — au-delà, le site ne situe que la commune. ' +
+    'Fiche JSON realEstateAd.json?id=… (robots.txt relu le 2026-09-14, chemin ' +
+    'non listé, aucune protection) : agence et téléphone des comptes pro.',
 };
 
 export const bieniciScraper: Scraper = {
@@ -102,7 +120,7 @@ export const bieniciScraper: Scraper = {
 
         const parsed = parseSearchResponse(response.body);
         warnings.push(...parsed.warnings);
-        for (const listing of parsed.listings) listings.push(listing);
+        listings.push(...parsed.listings);
         await context.pageRefs.set(
           url,
           parsed.listings.map((listing) => listing.sourceRef),
@@ -127,6 +145,17 @@ export const bieniciScraper: Scraper = {
       }
     }
 
+    // Les fiches APRÈS la pagination, pour ne pas lui prendre son budget ; et
+    // aucune après un 429 — la mémoire s'applique quand même, sans requête.
+    const enriched = await enrichNewListings(context, listings, {
+      max: stopReason === 'rateLimited' ? 0 : MAX_DETAILS,
+      detailUrl: (listing) => buildDetailUrl(listing.sourceRef),
+      parse: (body) => parseAdDetail(body),
+    });
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
     // UN INVENTAIRE INCOMPLET NE DOIT RIEN RETIRER : une page dont on ignore le
     // contenu fait sauter le cycle de vie de ce passage, plutôt que de compter
     // ses annonces comme disparues.
@@ -134,7 +163,7 @@ export const bieniciScraper: Scraper = {
 
     return {
       sourceId: BIENICI_DESCRIPTOR.id,
-      listings,
+      listings: enriched.listings,
       confirmedRefs,
       requestCount,
       pagesFetched,

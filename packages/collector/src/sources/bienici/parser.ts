@@ -26,7 +26,7 @@
  */
 
 import type { RawListing } from '@maioun/shared';
-import { compactListing } from '../shared/raw-listing.js';
+import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 const SITE = 'https://www.bienici.com';
 export const SEARCH_PATH = '/realEstateAds.json';
@@ -108,6 +108,13 @@ export interface BieniciAd {
   readonly floor?: number;
   readonly hasElevator?: boolean;
   readonly hasTerrace?: boolean;
+  readonly terracesQuantity?: number;
+  readonly hasBalcony?: boolean;
+  readonly balconyQuantity?: number;
+  readonly hasGarden?: boolean;
+  readonly hasAirConditioning?: boolean;
+  readonly parkingPlacesQuantity?: number;
+  readonly garagesQuantity?: number;
   readonly hasCellar?: boolean;
   readonly hasPool?: boolean;
   readonly safetyDeposit?: number;
@@ -167,13 +174,19 @@ function positionOf(blur: BlurInfo | undefined): { lat: number; lon: number } | 
  * c'est la vraie provenance (§11), et surtout c'est l'URL que publie AUSSI le
  * site de l'agence, que le projet collecte souvent en direct : deux annonces
  * qui la partagent sont le même bien (§14).
+ *
+ * Un original en `http://` (Twimmo, Citya) ne s'affiche pas sur un site HTTPS,
+ * et sa variante `https://` ne répond pas toujours : on prend alors la copie
+ * de Bien'ici, en HTTPS. Sans ce repli, ces annonces n'avaient aucune photo.
  */
 function photoUrls(photos: readonly Photo[] | undefined): readonly string[] | undefined {
   if (photos === undefined) return undefined;
   const urls: string[] = [];
   for (const photo of photos) {
-    const url = photo.url_photo ?? photo.url;
-    if (typeof url === 'string' && url.startsWith('https://') && !urls.includes(url)) {
+    const url = [photo.url_photo, photo.url].find(
+      (one): one is string => typeof one === 'string' && one.startsWith('https://'),
+    );
+    if (url !== undefined && !urls.includes(url)) {
       urls.push(url);
     }
   }
@@ -185,10 +198,16 @@ function featuresOf(ad: BieniciAd): string | undefined {
   const parts: string[] = [];
   if (ad.bedroomsQuantity !== undefined) parts.push(`${ad.bedroomsQuantity} chambres`);
   if (ad.floor !== undefined && ad.floor > 0) parts.push(`${ad.floor}e étage`);
+  // Libellés que `extractFeatures` reconnaît : un booléen absent ne dit rien.
   if (ad.hasElevator === true) parts.push('Ascenseur');
-  if (ad.hasTerrace === true) parts.push('Terrasse');
+  if (ad.hasBalcony === true || (ad.balconyQuantity ?? 0) > 0) parts.push('Balcon');
+  if (ad.hasTerrace === true || (ad.terracesQuantity ?? 0) > 0) parts.push('Terrasse');
+  if (ad.hasGarden === true) parts.push('Jardin');
+  if ((ad.parkingPlacesQuantity ?? 0) > 0) parts.push('Parking');
+  if ((ad.garagesQuantity ?? 0) > 0) parts.push('Garage');
   if (ad.hasCellar === true) parts.push('Cave');
   if (ad.hasPool === true) parts.push('Piscine');
+  if (ad.hasAirConditioning === true) parts.push('Climatisation');
   return parts.length > 0 ? parts.join(', ') : undefined;
 }
 
@@ -251,6 +270,47 @@ function compactExtra(
     if (value !== undefined) out[key] = value;
   }
   return out;
+}
+
+/** Fiche JSON d'une annonce : la liste n'a ni le nom de l'agence partout, ni son numéro. */
+export const DETAIL_PATH = '/realEstateAd.json';
+
+export function buildDetailUrl(id: string): string {
+  return `${SITE}${DETAIL_PATH}?id=${encodeURIComponent(id)}`;
+}
+
+interface ContactRelativeData {
+  readonly agencyNameToDisplay?: string;
+  readonly phoneToDisplay?: string;
+  readonly contactIsPro?: boolean;
+}
+
+/**
+ * Ce que la fiche JSON ajoute à la liste : l'agence et son téléphone.
+ *
+ * `realEstateAds.json` tait le nom du compte pour plus de la moitié des
+ * annonces (271 sur 520 le 2026-09-14) et ne donne jamais de numéro
+ * (`phoneDisplays` vide). La fiche porte les deux dans `contactRelativeData`,
+ * sans clic ni jeton. On ne les reprend que pour un contact que le site déclare
+ * professionnel : le numéro d'un particulier ne se collecte pas.
+ */
+export function parseAdDetail(body: string): RawDraft | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const contact = (parsed as { contactRelativeData?: ContactRelativeData } | null)
+    ?.contactRelativeData;
+  if (contact?.contactIsPro !== true) return null;
+
+  const text = (value: unknown): string | undefined =>
+    typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+  const agencyName = text(contact.agencyNameToDisplay);
+  const phoneText = text(contact.phoneToDisplay);
+  if (agencyName === undefined && phoneText === undefined) return null;
+  return { agencyName, phoneText };
 }
 
 export interface ParsedSearch {
