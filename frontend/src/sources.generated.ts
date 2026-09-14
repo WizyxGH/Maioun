@@ -199,7 +199,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
   },
-  rentumo: { name: 'Rentumo', domain: null, logo: null, paidContact: false },
+  rentumo: { name: 'Rentumo', domain: null, logo: null, paidContact: true },
   'saint-roch': {
     name: 'Saint Roch Immobilier',
     domain: 'saintrochimmobilier.com',
