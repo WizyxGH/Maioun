@@ -119,3 +119,39 @@ describe('envoi de l’alerte e-mail', () => {
     vi.restoreAllMocks();
   });
 });
+
+describe('version HTML de l’alerte', () => {
+  const compose = (over: Partial<NotifiableListing> = {}) =>
+    composeAlertEmail({
+      listings: [listing(over)],
+      siteUrl: SITE,
+      heading: 'Nouvelles annonces',
+      nowMs: Date.parse('2026-09-14T12:00:00Z'),
+    }).html;
+
+  it('échappe ce que les sources écrivent', () => {
+    const html = compose({ title: '<script>alert(1)</script> & "T2"' });
+    expect(html).not.toContain('<script>alert');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;T2&quot;');
+  });
+
+  it('porte le lien de la fiche, le téléphone et la photo', () => {
+    const html = compose({
+      phone: '+33600000010',
+      photoUrls: ['http://exemple.invalid/a.jpg', 'https://exemple.invalid/b.jpg'],
+    });
+    expect(html).toContain('href="https://exemple.invalid/app/listing/orpi%3A1"');
+    expect(html).toContain('href="tel:+33600000010"');
+    // Une photo en http ne s'afficherait pas : on prend la première en https.
+    expect(html).toContain('src="https://exemple.invalid/b.jpg"');
+  });
+
+  it('écrit les chiffres comme l’application, et tait ce qui manque', () => {
+    expect(compose({ price: 483.62, area: 24.35 })).toContain('484&nbsp;€');
+    expect(compose({ price: 483.62, area: 24.35 })).toContain('24,4&nbsp;m²');
+    const html = compose({ area: null, rooms: null, phone: null, district: null, city: null });
+    expect(html).not.toContain('m²');
+    expect(html).not.toContain('📍');
+    expect(html).not.toContain('tel:');
+  });
+});
