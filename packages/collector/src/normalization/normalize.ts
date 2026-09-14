@@ -327,6 +327,22 @@ function parseApplicationStatus(value: string | undefined): ApplicationStatus | 
  * ici plutôt qu'à chaque appel évite d'éparpiller vingt `?? ''` dans le corps
  * de `normalizeListing`, qui n'y gagnait que du bruit.
  */
+/**
+ * Un titre qui NOMME un parking : « BOX HAUT MALAUSSENA », « Le Fenice - Garage
+ * à louer ». La catégorie de la source disait « appartement » (relevé du
+ * 2026-09-14, trois annonces). Seulement en tête de titre ou suivi de « à
+ * louer », et sur une petite surface : « 3 pièces, garage » reste un logement.
+ */
+function parkingByTitle(raw: RawListing): boolean {
+  const title = comparable(raw.title ?? '');
+  const names =
+    /^(?:location\s+)?(?:box|garage|parking|stationnement|place de (?:parking|stationnement))\b|\b(?:box|garage|parking) a louer\b/.test(
+      title,
+    );
+  const area = resolveArea(raw);
+  return names && (area === null || area <= 25);
+}
+
 function textSources(raw: RawListing): {
   type: string;
   furnished: string;
@@ -403,8 +419,10 @@ export function normalizeListing(
     area: resolveArea(raw),
     rooms: parseRooms(text.rooms),
     bedrooms: parseBedrooms(text.bedrooms),
-    propertyType: parsePropertyType(text.type),
-    furnished: parseFurnished(text.furnished),
+    propertyType: parkingByTitle(raw) ? 'parking' : parsePropertyType(text.type),
+    // Le titre d'abord : « 3 PIÈCES MEUBLÉ » l'emporte sur une case « non »
+    // de la source, que plusieurs agences laissent à sa valeur par défaut.
+    furnished: parseFurnished(raw.title) ?? parseFurnished(text.furnished),
     flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
     dpe: resolveDpe(raw),
     /**

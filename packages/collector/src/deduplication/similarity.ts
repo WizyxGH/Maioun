@@ -37,6 +37,12 @@ export interface SimilarityResult {
 /** Au-delà de ce score, la fusion est automatique. */
 export const DUPLICATE_THRESHOLD = 70;
 
+/** Signaux purement chiffrés, qui concordent aussi entre deux biens voisins. */
+const FIGURES_ONLY = new Set(['price', 'area', 'exactArea', 'rooms', 'postalCode']);
+
+/** Longueur à partir de laquelle une description aurait pu concorder. */
+const DESCRIBED = 100;
+
 /** En dessous de ce score, les annonces sont considérées distinctes. */
 const AMBIGUOUS_THRESHOLD = 45;
 
@@ -505,6 +511,27 @@ export function similarity(
   let verdict: SimilarityVerdict = 'distinct';
   if (score >= DUPLICATE_THRESHOLD) verdict = 'duplicate';
   else if (score >= AMBIGUOUS_THRESHOLD) verdict = 'ambiguous';
+
+  /**
+   * DES CHIFFRES SEULS NE SUFFISENT PAS ENTRE DEUX ANNONCES QUI ONT UN TEXTE.
+   *
+   * Loyer, surface au centième, pièces et code postal font soixante-seize
+   * points. Relevé du 2026-09-14 : 21 fusions sur 573 ne tenaient qu'à cela, et
+   * 8 réunissaient deux biens distincts — « F2 vide Parc Chambrun » et « 2
+   * pièces meublé Pessicart », un appartement de Cimiez et une colocation rue
+   * Trachel, qui lui prêtait ses badges. Toutes les fausses opposaient deux
+   * descriptions ; les vraies avaient un côté muet (alerte SeLoger, fiche sans
+   * texte), où rien d'autre ne peut concorder. Entre deux textes, il faut donc
+   * un autre accord : photo, adresse, titre, description, contact, quartier.
+   */
+  if (
+    verdict === 'duplicate' &&
+    signals.every((signal) => FIGURES_ONLY.has(signal.code)) &&
+    (a.description ?? '').length >= DESCRIBED &&
+    (b.description ?? '').length >= DESCRIBED
+  ) {
+    verdict = 'ambiguous';
+  }
 
   return { score, verdict, signals, blocker: null };
 }
