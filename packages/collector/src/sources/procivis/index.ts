@@ -1,11 +1,11 @@
 /**
  * Source : Procivis / Immo de France — voir `parser.ts`.
  *
- * Deux pages de liste par passage (appartements et maisons de Nice), puis les
+ * Deux pages de liste par passage (appartements et maisons des Alpes-Maritimes), puis les
  * fiches des annonces nouvelles. robots.txt vérifié le 2026-09-14 : interdit
  * les recherches à paramètres (`/louer?*`, `/agences?*`) et `*\/rental$` ; les
  * pages par type et commune et les fiches ne le sont pas. Le sitemap (3 Mo)
- * n'est pas lu. 4 appartements à Nice au relevé.
+ * n'est pas lu. 7 appartements dans le département au relevé, dont 4 à Nice.
  */
 
 import type { Scraper, SourceDescriptor } from '@maioun/shared';
@@ -17,7 +17,7 @@ const MAX_DETAILS = 6;
 
 export const PROCIVIS_DESCRIPTOR: SourceDescriptor = {
   id: 'procivis',
-  name: 'Immo de France (Procivis)',
+  name: 'Immo de France Côte d’Azur',
   domain: 'procivis.fr',
   kind: 'agencyNetwork',
   method: 'html',

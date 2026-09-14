@@ -491,7 +491,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
   },
-  procivis: { name: 'Immo de France (Procivis)', domain: null, logo: null, paidContact: false },
+  procivis: { name: 'Immo de France Côte d’Azur', domain: null, logo: null, paidContact: false },
   provencalpes: { name: 'Provencalpes', domain: 'provencalpes.fr', logo: null, paidContact: false },
   pujol: {
     name: 'Immobilière Pujol',

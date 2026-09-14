@@ -413,7 +413,7 @@ valeur » des fiches à gabarit maison.
 | **Cabinet Crouzet & Breil** (crouzet-breil.com) | 2026-09-14 | WordPress Elementor, flux Apimo | 7 à Nice                                | liste + fiches nouvelles (≤ 8)     |
 | **Kapera Immobilier** (kapera-immobilier.com)   | 2026-09-14 | WordPress Elementor, flux Apimo | 7 (Nice ×5)                             | liste + fiches nouvelles (≤ 8)     |
 | **MK Immo** (mk-immo.fr, ex-MCE Immobilier)     | 2026-09-14 | Twimmo                          | 10 (Nice ×4, Cagnes, Villeneuve-Loubet) | liste + fiches nouvelles (≤ 8)     |
-| **Immo de France** (procivis.fr)                | 2026-09-14 | Procivis, JSON-LD               | 4 appartements à Nice                   | 2 listes + fiches nouvelles (≤ 6)  |
+| **Immo de France Côte d’Azur** (procivis.fr)    | 2026-09-14 | Procivis, JSON-LD               | 7 appartements dans le 06, 4 à Nice     | 2 listes + fiches nouvelles (≤ 6)  |
 | **SAFI Méditerranée** (safimediterranee.fr)     | 2026-09-14 | WordPress Houzez, flux Apimo    | 3 à Nice (chalets à la semaine écartés) | liste + fiches nouvelles (≤ 6)     |
 
 Deux particularités assumées : Kapera qualifie parfois de « hors charges » un

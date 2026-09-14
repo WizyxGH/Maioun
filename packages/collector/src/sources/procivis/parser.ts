@@ -1,8 +1,9 @@
 /**
  * Source : Procivis (procivis.fr), réseau qui a repris l'enseigne Immo de
- * France ; son agence niçoise est Immo de France Nice.
+ * France ; ses agences des Alpes-Maritimes sont Immo de France Côte d'Azur
+ * (Nice) et Immo de France Mougins.
  *
- * Les pages par type et par commune (`/louer/appartements/…/nice`) listent les
+ * Les pages par type et par département (`/louer/appartements/…/alpes-maritimes`) listent les
  * fiches `/louer/{type}/…/{commune}/{id}` en rendu serveur. La fiche porte un
  * JSON-LD `RealEstateListing` complet (loyer, adresse, surface, pièces, charges,
  * meublé, date de parution, agence) ; honoraires, dépôt et DPE ne sont que dans
@@ -24,9 +25,13 @@ import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 export const SITE = 'https://www.procivis.fr';
 const REGION = 'provence-alpes-cote-d-azur/alpes-maritimes';
 
-/** Pages de liste retenues : logements de Nice. */
+/**
+ * Pages de liste retenues : logements des Alpes-Maritimes. Nice seule laissait
+ * les biens de Mougins et Grasse (3 sur 7 le 2026-09-14) ; les critères de
+ * commune trient ensuite.
+ */
 export const LIST_URLS = ['appartements', 'maisons'].map(
-  (type) => `${SITE}/louer/${type}/${REGION}/nice`,
+  (type) => `${SITE}/louer/${type}/${REGION}`,
 );
 
 /** Identifiant de fiche : huit caractères, dont au moins un chiffre (`2dh7jsqs`). */
