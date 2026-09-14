@@ -32,8 +32,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert.js';
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
   cycling: 'à vélo',
-  transit: 'en transports en commun',
-  train: 'en train',
+  transit: 'en bus ou tram',
+  train: 'en train (TER)',
   driving: 'en voiture',
 };
 

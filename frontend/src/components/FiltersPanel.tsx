@@ -42,8 +42,8 @@ import { Select } from '@/components/ui/select.js';
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
   cycling: 'à vélo',
-  transit: 'en transports',
-  train: 'en train',
+  transit: 'en bus ou tram',
+  train: 'en train (TER)',
   driving: 'en voiture',
 };
 import { PanelSkeleton } from './Skeletons.js';
