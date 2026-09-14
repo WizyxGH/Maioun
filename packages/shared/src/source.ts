@@ -419,7 +419,9 @@ export type StopReason =
   | 'rateLimited'
   | 'tooManyErrors'
   | 'blocked'
-  | 'notModified';
+  | 'notModified'
+  // Le site annonce plus d'annonces qu'il n'en laisse lire : rien ne se retire.
+  | 'incomplete';
 
 /**
  * Le contrat que tout scraper implémente (§47).
