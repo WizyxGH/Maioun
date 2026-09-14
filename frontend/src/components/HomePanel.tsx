@@ -26,7 +26,7 @@ import {
   RENT_REFERENCE_YEAR,
 } from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
-import { describeSearch } from '../saved-searches.js';
+import { SearchSummary } from './SearchSummary.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
@@ -328,7 +328,7 @@ export function HomePanel({
                 <ChoreRow
                   Icon={Bookmark}
                   title={search.name}
-                  description={describeSearch(search)}
+                  description={<SearchSummary search={search} className="text-[0.82rem]" />}
                   onClick={() => onApplySearch(search)}
                   truncate
                 />

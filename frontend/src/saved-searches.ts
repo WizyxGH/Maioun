@@ -91,36 +91,66 @@ export function toQuickFilters(view: Partial<SavedView> | undefined): QuickFilte
  * elle doit tenir sur une ligne et ne citer que ce qui est RÉGLÉ. Un critère
  * laissé à sa valeur d'usine n'apprend rien et n'y figure pas.
  */
-export function describeSearch(search: SavedSearch): string {
-  const parts: string[] = [];
+/** Ce qu'un critère de recherche désigne : sert à lui choisir une icône. */
+export type SearchPartKind =
+  | 'place'
+  | 'budget'
+  | 'area'
+  | 'rooms'
+  | 'occupants'
+  | 'types'
+  | 'commute'
+  | 'landlord'
+  | 'furnished'
+  | 'sources'
+  | 'text';
+
+export interface SearchPart {
+  readonly kind: SearchPartKind;
+  readonly label: string;
+}
+
+/** Les critères d'une recherche, un par un, dans l'ordre où on les lit. */
+export function searchParts(search: SavedSearch): readonly SearchPart[] {
+  const parts: SearchPart[] = [];
+  const add = (kind: SearchPartKind, label: string): void => {
+    parts.push({ kind, label });
+  };
   const { criteria, view } = search;
 
   const cities = criteria.cities.filter((city) => city !== '');
-  if (cities.length > 0) parts.push(cities.join(', '));
+  if (cities.length > 0) add('place', cities.join(', '));
 
   const low = view.minPrice ?? criteria.minPrice ?? null;
   const high = view.maxPrice ?? criteria.maxPrice;
-  if (low !== null && high !== undefined) parts.push(`${low}–${high} €`);
-  else if (high !== undefined) parts.push(`≤ ${high} €`);
+  if (low !== null && high !== undefined) add('budget', `${low}–${high} €`);
+  else if (high !== undefined) add('budget', `≤ ${high} €`);
 
   const area = view.minArea ?? criteria.minArea;
-  if (area > 0) parts.push(`≥ ${area} m²`);
+  if (area > 0) add('area', `≥ ${area} m²`);
 
-  if (view.minRooms !== null) parts.push(`≥ ${view.minRooms} pièce${view.minRooms > 1 ? 's' : ''}`);
-  if (view.minOccupants !== null) parts.push(`${view.minOccupants} pers.`);
-  if (view.types.length > 0) parts.push(view.types.join(', '));
+  if (view.minRooms !== null)
+    add('rooms', `≥ ${view.minRooms} pièce${view.minRooms > 1 ? 's' : ''}`);
+  if (view.minOccupants !== null) add('occupants', `${view.minOccupants} pers.`);
+  if (view.types.length > 0) add('types', view.types.join(', '));
 
   if (criteria.maxCommuteMinutes !== undefined) {
-    parts.push(`trajet ≤ ${criteria.maxCommuteMinutes} min`);
+    add('commute', `trajet ≤ ${criteria.maxCommuteMinutes} min`);
   }
-  if (criteria.landlordFilter === 'private') parts.push('particuliers');
-  if (criteria.landlordFilter === 'agency') parts.push('agences');
-  if (criteria.furnishedFilter === 'furnished') parts.push('meublé');
-  if (criteria.furnishedFilter === 'unfurnished') parts.push('non meublé');
-  if (view.sources.length > 0) parts.push(`${view.sources.length} source(s)`);
-  if (view.search !== '') parts.push(`« ${view.search} »`);
+  if (criteria.landlordFilter === 'private') add('landlord', 'particuliers');
+  if (criteria.landlordFilter === 'agency') add('landlord', 'agences');
+  if (criteria.furnishedFilter === 'furnished') add('furnished', 'meublé');
+  if (criteria.furnishedFilter === 'unfurnished') add('furnished', 'non meublé');
+  if (view.sources.length > 0) {
+    add('sources', `${view.sources.length} source${view.sources.length > 1 ? 's' : ''}`);
+  }
+  if (view.search !== '') add('text', `« ${view.search} »`);
+  return parts;
+}
 
-  return parts.length === 0 ? 'Tous les logements' : parts.join(' · ');
+export function describeSearch(search: SavedSearch): string {
+  const parts = searchParts(search);
+  return parts.length === 0 ? 'Tous les logements' : parts.map((part) => part.label).join(' · ');
 }
 
 /**

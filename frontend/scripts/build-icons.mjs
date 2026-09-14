@@ -90,6 +90,12 @@ const ICONS = {
   Upload: 'UploadSimple',
   User: 'User',
   UserPlus: 'UserPlus',
+  Armchair: 'Armchair',
+  Door: 'Door',
+  Ruler: 'Ruler',
+  Stack: 'Stack',
+  UserCircle: 'UserCircle',
+  Users: 'Users',
   X: 'X',
 };
 
