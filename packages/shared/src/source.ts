@@ -288,6 +288,11 @@ export interface ScrapeContext {
        * destination — donc sans accès automatisé au portail visé (§10).
        */
       readonly redirect?: 'follow' | 'manual';
+      /**
+       * `false` : ni ETag ni If-Modified-Since. Pour une réponse dont on doit
+       * relire le contenu à chaque passage — un 304 n'apprendrait rien.
+       */
+      readonly conditional?: boolean;
     },
   ) => Promise<FetchResult>;
 

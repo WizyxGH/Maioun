@@ -174,6 +174,20 @@ function DetailActions({
   );
 }
 
+/** Seule Foncia publie cet état : il se lit sur l'API qu'appelle sa fiche. */
+function ApplicationsFullNotice({
+  listing,
+}: {
+  readonly listing: ListingView;
+}): React.JSX.Element | null {
+  if (listing.applicationStatus !== 'full' || listing.rented === true) return null;
+  return (
+    <p className="mb-3 text-[0.9rem] text-medium">
+      Candidatures en ligne complètes chez Foncia pour le moment — elles peuvent rouvrir.
+    </p>
+  );
+}
+
 /** Grille étiquette/valeur utilisée par la fiche et le contact. */
 const FACTS_GRID = 'mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]';
 const FACT_LABEL = 'text-muted-foreground';
@@ -490,6 +504,8 @@ export function ListingDetail({
         message déjà rédigé arrive trop tard. Ne s'affiche que si l'annonce
         énonce quelque chose, ce qui est rare. */}
       <RequirementsPanel listing={listing} profile={profile} />
+
+      <ApplicationsFullNotice listing={listing} />
 
       {/* §22 : préparation du contact, en haut de page car c'est l'action utile. */}
       <ContactPanel

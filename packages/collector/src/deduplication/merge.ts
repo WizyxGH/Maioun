@@ -13,6 +13,7 @@
 
 import type {
   AggregatedListing,
+  ApplicationStatus,
   Contact,
   LifecycleStatus,
   MergedField,
@@ -173,6 +174,21 @@ function mergeLifecycle(occurrences: readonly NormalizedListing[]): LifecycleSta
 }
 
 /**
+ * Candidature en ligne du groupe. Une source ouverte suffit à pouvoir
+ * candidater ; « complet » n'est affirmé que si toutes celles qui savent le
+ * disent. Aucune ne sait : `null`.
+ */
+export function mergeApplicationStatus(
+  occurrences: readonly NormalizedListing[],
+): ApplicationStatus | null {
+  const known = occurrences
+    .map((occurrence) => occurrence.applicationStatus ?? null)
+    .filter((status): status is ApplicationStatus => status !== null);
+  if (known.length === 0) return null;
+  return known.includes('open') ? 'open' : 'full';
+}
+
+/**
  * Les conditions d'accès, prises là où elles sont écrites.
  *
  * ON NE FUSIONNE PAS, ON CHOISIT. Deux sources qui énoncent des conditions
@@ -265,6 +281,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
 
     views: mergeField(occurrences, primary, (l) => l.views),
     favorites: mergeField(occurrences, primary, (l) => l.favorites),
+    applicationStatus: mergeApplicationStatus(occurrences),
 
     // §13 : toutes les occurrences sont conservées, avec leurs URLs d'origine.
     occurrences: [...occurrences],

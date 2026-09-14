@@ -151,6 +151,9 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.previousPrice,
     listing.maxOccupants,
     listing.features,
+    // Réversible : un « complet » qui rouvre doit réécrire l'occurrence. Omis
+    // quand inconnu, pour ne pas changer l'empreinte de tout le stock.
+    ...(listing.applicationStatus != null ? [listing.applicationStatus] : []),
     listing.address,
     listing.city,
     listing.postalCode,
@@ -203,6 +206,7 @@ export function listingHash(listing: ScoredListing): string {
     listing.dpe.value,
     listing.maxOccupants.value,
     listing.features,
+    ...(listing.applicationStatus != null ? [listing.applicationStatus] : []),
     // Les conditions du bailleur s'affichent — encart de fiche, badge de carte
     // — donc elles sont ici. Elles apparaissent presque toujours APRÈS COUP :
     // la description arrive tronquée de sa source, et c'est la visite de la
@@ -2318,6 +2322,7 @@ function serializeListing(listing: ScoredListing): unknown {
     scores: listing.scores,
     distances: listing.distances,
     priceDropped: listing.priceDropped,
+    applicationStatus: listing.applicationStatus ?? null,
     occurrences: listing.occurrences.map((occurrence) => ({
       id: occurrence.id,
       sourceId: occurrence.sourceId,
@@ -2501,6 +2506,7 @@ function occurrencePayload(listing: NormalizedListing): Record<string, unknown> 
     maxOccupants: listing.maxOccupants,
     district: listing.district,
     features: listing.features,
+    applicationStatus: listing.applicationStatus ?? null,
     contactName: listing.contact.name,
     contactFormUrl: listing.contact.formUrl,
     landlordKind: listing.contact.kind,
@@ -2560,6 +2566,10 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     imageUrls: (payload['imageUrls'] as string[] | undefined) ?? [],
     views: (payload['views'] as number | null) ?? null,
     favorites: (payload['favorites'] as number | null) ?? null,
+    applicationStatus:
+      payload['applicationStatus'] === 'open' || payload['applicationStatus'] === 'full'
+        ? payload['applicationStatus']
+        : null,
     firstSeenAt: String(row['first_seen_at']),
     lastSeenAt: String(row['last_seen_at']),
     scrapedAt: String(row['scraped_at']),

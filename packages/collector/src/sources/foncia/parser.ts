@@ -1,11 +1,10 @@
 /**
  * Parser des pages de location de fr.foncia.com (réseau d'agences).
  *
- * CONFORMITÉ (revérifiée le 2026-08-15) : le `robots.txt` interdit les URLs à
- * paramètres (`/*?`, sauf `?datemaj` explicitement autorisé) et des pages
- * avancées ; les pages `/location/{ville}/appartement` n'y figurent pas. La
- * pagination à paramètres n'est PAS utilisée : une seule page (~60 annonces)
- * couvre Nice — excellent rapport information/requête (§6).
+ * CONFORMITÉ (revérifiée le 2026-09-14) : le `robots.txt` interdit les URLs à
+ * paramètres (`/*?`, sauf `?datemaj`) et des pages avancées. La pagination
+ * passe par le chemin (`/appartement/page-2`), qui n'y figure pas. Une page
+ * porte 15 annonces.
  *
  * VALEUR PARTICULIÈRE : le titre des cartes contient l'ADRESSE COMPLÈTE du
  * bien (« … - 260 BOULEVARD X Nice 06200 ») — signal de dédoublonnage très
@@ -18,7 +17,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawDraft } from '../shared/raw-listing.js';
-import type { RawListing } from '@maioun/shared';
+import type { ApplicationStatus, RawListing } from '@maioun/shared';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
 
 /** Forme d'une URL de fiche : `/location/{ville}-{dept}/{type}/{réf}.htm`. */
@@ -74,7 +73,38 @@ export function extractAddress(title: string): string | undefined {
 export interface ParsedPage {
   readonly listings: readonly RawListing[];
   readonly hasNextPage: boolean;
+  /** URL absolue de la page suivante, ou `null` sur la dernière. */
+  readonly nextPageUrl: string | null;
+  /** Nombre d'annonces annoncé par la recherche, toutes pages confondues. */
+  readonly total: number | null;
   readonly warnings: readonly string[];
+}
+
+/**
+ * Page suivante, lue sur `<link rel="next">`. Seul un chemin sans paramètre est
+ * suivi : le robots.txt ferme les URLs à `?` et à `--`.
+ */
+function nextPageOf($: cheerio.CheerioAPI, pageUrl: string): string | null {
+  const href = $('link[rel="next"]').attr('href');
+  if (href === undefined) return null;
+  let url: URL;
+  try {
+    url = new URL(href, pageUrl);
+  } catch {
+    return null;
+  }
+  const allowed =
+    url.hostname === 'fr.foncia.com' &&
+    url.search === '' &&
+    /^\/location\/[a-z0-9-]+\/[a-z0-9-]+\/page-\d+$/.test(url.pathname) &&
+    !url.pathname.includes('--');
+  return allowed ? url.toString() : null;
+}
+
+/** « "count":15,"total":22 » dans la réponse de recherche de l'état de transfert. */
+function searchTotal(html: string): number | null {
+  const match = /"count"\s*:\s*\d+\s*,\s*"total"\s*:\s*(\d+)/.exec(html.replace(/&q;/g, '"'));
+  return match?.[1] === undefined ? null : Number(match[1]);
 }
 
 /**
@@ -171,9 +201,14 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     }
   }
 
-  // Pas de pagination : le robots.txt interdit les URLs à paramètres, et une
-  // page couvre déjà tout Nice. `hasNextPage` est donc toujours faux.
-  return { listings, hasNextPage: false, warnings };
+  const nextPageUrl = nextPageOf($, pageUrl);
+  return {
+    listings,
+    hasNextPage: nextPageUrl !== null,
+    nextPageUrl,
+    total: searchTotal(html),
+    warnings,
+  };
 }
 
 /** Coordonnées d'une agence Foncia, lues sur la page des agences d'une ville. */
@@ -322,4 +357,46 @@ export function parseDetail(html: string, reference: string): RawDraft | null {
   }
   const description = cleanMultiline(decoded.replace(/<br\s*\/?>/gi, '\n'));
   return description.length > 0 ? { description } : null;
+}
+
+/** Ce que Foncia dit de la candidature en ligne sur une annonce. */
+export interface ApplicationOverview {
+  readonly rented: boolean;
+  /** `null` : pas de candidature en ligne chez cette agence. */
+  readonly applications: ApplicationStatus | null;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+/**
+ * Lit la réponse de `parcours-locataire/api/v1/properties/overview`, que la
+ * fiche appelle pour choisir son bouton. Même règle que le site : agence sans
+ * candidature en ligne → rien ; loué → loué ; dossiers actifs ≥ plafond →
+ * complet ; sinon ouvert. `rented` absent vaut `false`.
+ *
+ * L'API ne connaît pas les annonces retirées (elle répond « ouvert ») : le
+ * retrait reste l'affaire de `parseWithdrawn`.
+ *
+ * @returns `null` si la réponse n'a pas la forme attendue — rien n'est conclu.
+ */
+export function parseApplicationOverview(json: string): ApplicationOverview | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!isRecord(data) || !isRecord(data['agency'])) return null;
+  const { activeApplicationsCount: active, rented = false } = data;
+  const { enabled, max } = data['agency'];
+  if (!isCount(active) || typeof rented !== 'boolean') return null;
+  if (typeof enabled !== 'boolean' || !isCount(max)) return null;
+
+  if (rented) return { rented: true, applications: null };
+  if (!enabled) return { rented: false, applications: null };
+  return { rented: false, applications: active >= max ? 'full' : 'open' };
 }
