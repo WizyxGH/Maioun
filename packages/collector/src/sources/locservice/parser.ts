@@ -12,9 +12,8 @@
  * QUE celles-là (§10) — jamais l'espace locataire, qui est leur service payant.
  *
  * LE CONTACT RESTE CHEZ EUX. Leur modèle est de mettre en relation contre
- * paiement : on ne cherche pas à en extraire une adresse ni un téléphone, et la
- * source est `manualOnly`. Le lien mène à leur fiche, où l'utilisateur fait ce
- * qu'il veut.
+ * paiement : on ne cherche pas à en extraire une adresse ni un téléphone. Le
+ * lien mène à leur fiche, où l'utilisateur fait ce qu'il veut.
  */
 
 import * as cheerio from 'cheerio';

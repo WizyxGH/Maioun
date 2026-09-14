@@ -182,7 +182,8 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
    « inconnu », dans le modèle comme à l'écran.
 3. **Rien de personnel dans le dépôt** — il est public ; six barrières
    automatiques l'assurent ([privacy.md](docs/privacy.md)).
-4. **Aucun message sans action humaine** en mode manuel — le mode par défaut.
+4. **Contact manuel par défaut** — l'automatisation se décide source par
+   source, sous garde-fous (offre payante, interrupteur, seuils, quotas).
 5. **Économie** — minimum de requêtes, d'écritures et de minutes CI pour le
    maximum d'information utile.
 

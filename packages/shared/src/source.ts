@@ -107,12 +107,6 @@ export interface SourceDescriptor {
   readonly enabled: boolean;
 
   /**
-   * `true` interdit tout contact automatique via cette source (§23).
-   * À utiliser dès que l'automatisation n'est manifestement pas appropriée.
-   */
-  readonly manualOnly: boolean;
-
-  /**
    * Chemins que le `robots.txt` de la source autorise et sur lesquels le
    * scraper s'appuie. Documenté ici pour que la conformité soit auditable
    * sans relire le code (§10).

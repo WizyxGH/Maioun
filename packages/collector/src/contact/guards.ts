@@ -16,7 +16,6 @@ import type {
   AutoContactLimits,
   ContactAttempt,
   ScoredListing,
-  SourceDescriptor,
   SubscriptionState,
 } from '@maioun/shared';
 import { hasPaidPlan } from '@maioun/shared';
@@ -30,8 +29,6 @@ export interface AutoContactDecision {
 export interface AutoContactInput {
   readonly listing: ScoredListing;
   readonly limits: AutoContactLimits;
-  /** Descripteurs des sources d'où provient l'annonce. */
-  readonly descriptors: readonly SourceDescriptor[];
   /** Journal des envois, tous listings confondus (§23). */
   readonly history: readonly ContactAttempt[];
   /**
@@ -47,7 +44,7 @@ export interface AutoContactInput {
 
 /** Refuse ou autorise un envoi automatique. */
 export function evaluateAutoContact(input: AutoContactInput): AutoContactDecision {
-  const { listing, limits, descriptors, history, subscription, nowMs } = input;
+  const { listing, limits, history, subscription, nowMs } = input;
 
   // 0. L'abonnement. Consulter est libre, agir demande un compte, candidater à
   //    votre place se paie — et c'est ici que la troisième marche se vérifie,
@@ -62,22 +59,15 @@ export function evaluateAutoContact(input: AutoContactInput): AutoContactDecisio
     return { allowed: false, reason: 'contact automatique désactivé globalement' };
   }
 
-  // 2. Sources déclarées manuelles uniquement.
-  const manualOnly = descriptors.find((descriptor) => descriptor.manualOnly);
-  if (manualOnly !== undefined) {
-    return {
-      allowed: false,
-      reason: `la source « ${manualOnly.id} » est déclarée manualOnly`,
-    };
-  }
-
-  // 3. Un seul contact par annonce, jamais deux.
+  // 2. Un seul contact par annonce, jamais deux. Aucune source n'est plus
+  //    interdite d'office : l'automatisation se décide au cas par cas, quand
+  //    on la construit pour une source.
   const alreadyContacted = history.some((attempt) => attempt.listingId === listing.id);
   if (alreadyContacted) {
     return { allowed: false, reason: 'annonce déjà contactée' };
   }
 
-  // 4. Seuils de score.
+  // 3. Seuils de score.
   const { scores } = listing;
   const { thresholds } = limits;
   if (scores.match.value < thresholds.minMatch) {
@@ -99,7 +89,7 @@ export function evaluateAutoContact(input: AutoContactInput): AutoContactDecisio
     return { allowed: false, reason: `risque ${scores.risk.value} > ${thresholds.maxRisk}` };
   }
 
-  // 5. Quotas glissants.
+  // 4. Quotas glissants.
   const sentAt = history.map((attempt) => Date.parse(attempt.sentAt)).filter(Number.isFinite);
   const lastHour = sentAt.filter((time) => nowMs - time < 3_600_000).length;
   if (lastHour >= limits.maxPerHour) {
@@ -124,14 +114,14 @@ export function evaluateAutoContact(input: AutoContactInput): AutoContactDecisio
     }
   }
 
-  // 6. Cooldown entre deux envois.
+  // 5. Cooldown entre deux envois.
   const lastSent = sentAt.length > 0 ? Math.max(...sentAt) : null;
   if (lastSent !== null && nowMs - lastSent < limits.cooldownSeconds * 1000) {
     const remaining = Math.ceil((limits.cooldownSeconds * 1000 - (nowMs - lastSent)) / 1000);
     return { allowed: false, reason: `cooldown actif encore ${remaining} s` };
   }
 
-  // 7. Un moyen de contact doit exister.
+  // 6. Un moyen de contact doit exister.
   if (listing.contact.email === null && listing.contact.formUrl === null) {
     return { allowed: false, reason: 'aucun canal automatisable (ni e-mail ni formulaire)' };
   }

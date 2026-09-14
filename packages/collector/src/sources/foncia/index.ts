@@ -83,8 +83,6 @@ export const FONCIA_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  // Le formulaire de la fiche est le canal prévu (§23).
-  manualOnly: true,
   allowedPaths: ['/location/*', '/agence-immobiliere/*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : URLs à paramètres interdites (sauf ' +

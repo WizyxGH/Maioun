@@ -32,8 +32,6 @@ export const STUDAPART_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 2_000,
   }),
   enabled: true,
-  // Plateforme : le contact passe par la fiche Studapart (§23).
-  manualOnly: true,
   allowedPaths: ['/property'],
   notes:
     'API de recherche publique search-api.studapart.com (proxy Elasticsearch), ' +

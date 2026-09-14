@@ -28,8 +28,6 @@ export const WINTER_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', { maxPagesPerRun: 1, maxListingsPerRun: 40 }),
   enabled: true,
-  // Premier contact via le lien du site, à la main de l'utilisateur (§23).
-  manualOnly: true,
   allowedPaths: ['/louer', '/biens/a-louer-*'],
   notes:
     'Agence Nice, site custom (Rails). robots.txt vérifié le 2026-08-24 : ' +

@@ -33,8 +33,6 @@ export const MIRABELLO_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: MAX_DETAILS_BACKFILL,
   }),
   enabled: true,
-  // Petite agence : premier contact téléphone/formulaire (§23).
-  manualOnly: true,
   allowedPaths: ['/fr/locations', '/fr/propriété/*'],
   notes:
     'Backend Apimo, frontend Symfony maison (« Design by Apimo ») : chaque fiche ' +

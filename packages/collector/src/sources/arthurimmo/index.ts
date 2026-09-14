@@ -41,8 +41,6 @@ export const ARTHURIMMO_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  // Premier contact via le formulaire de l'agence : on ne l'automatise pas.
-  manualOnly: true,
   allowedPaths: ['/recherche,basic.htm', '/annonces/location/*'],
   notes:
     'robots.txt vérifié le 2026-09-09 : « User-agent: * » n’interdit rien. Le ' +

@@ -76,7 +76,6 @@ export const NOUSGERONS_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', { maxPagesPerRun: 1, delayBetweenRequestsMs: 2_000 }),
   enabled: true,
-  manualOnly: true,
   allowedPaths: ['/location/*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : Allow: / pour tous, Crawl-delay: 1, ' +

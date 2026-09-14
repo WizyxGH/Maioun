@@ -37,8 +37,6 @@ export function makeIcsDescriptor(config: IcsConfig): SourceDescriptor {
     schedule: scheduleFor('localAgency'),
     budget: budgetFor('localAgency', { maxPagesPerRun: 1, maxListingsPerRun: 40 }),
     enabled: true,
-    // Petite structure : premier contact téléphonique/formulaire (§23).
-    manualOnly: true,
     allowedPaths: ['/location*'],
     notes:
       'Plateforme ICS (ics.fr), adaptateur générique (§47). La page de liste ' +

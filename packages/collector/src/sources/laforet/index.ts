@@ -50,9 +50,6 @@ export const LAFORET_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  // Le premier contact passe par le formulaire de l'agence : l'automatiser
-  // sans supervision n'est pas approprié (§23).
-  manualOnly: true,
   allowedPaths: ['/ville/location-appartement-*'],
   notes:
     'robots.txt vérifié le 2026-08-14 : seul /louer/rechercher?* est interdit, ' +

@@ -48,7 +48,6 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('aggregator'),
   budget: budgetFor('aggregator', { maxPagesPerRun: MAX_PAGES, maxListingsPerRun: 100 }),
   enabled: true,
-  manualOnly: true,
   // Agrégateur : les photos décodées portent l'URL d'origine, propre à UNE
   // annonce — deux fiches qui la partagent sont le même bien (§14).
   relaysListings: true,

@@ -97,10 +97,8 @@ export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 2_000,
   }),
   enabled: true,
-  // LEUR MÉTIER EST LA MISE EN RELATION, contre paiement. On ne cherche donc
-  // ni adresse ni téléphone, et l'on n'écrit jamais à leur place (§23, §24).
-  manualOnly: true,
-  // Et on le DIT à l'écran, avant le clic : découvrir le péage après avoir
+  // LEUR MÉTIER EST LA MISE EN RELATION, contre paiement : l'annonce ne porte
+  // ni adresse ni téléphone. Et on le DIT à l'écran, avant le clic : découvrir le péage après avoir
   // ouvert l'annonce est une déception qu'un mot suffit à éviter.
   paidContact: true,
   allowedPaths: ['/alpes-maritimes-06/location-*'],

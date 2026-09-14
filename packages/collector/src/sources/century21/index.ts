@@ -51,7 +51,6 @@ export const CENTURY21_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  manualOnly: true,
   allowedPaths: ['/annonces/location-appartement/v-*', '/trouver_logement/detail/*'],
   notes:
     'robots.txt vérifié le 2026-08-15, relu le 2026-09-08 : cp-* et ' +

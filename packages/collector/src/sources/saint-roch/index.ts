@@ -43,8 +43,6 @@ export const SAINT_ROCH_DESCRIPTOR: SourceDescriptor = {
   // coordonnée professionnelle, déjà publique, et c'est ici la fonctionnalité.
   agencyContact: { email: 'contact@saintroch-immobilier.com' }, // secret-scan-ignore
   enabled: true,
-  // Petite agence : premier contact téléphone/formulaire (§23).
-  manualOnly: true,
   allowedPaths: ['/location-immobilier-nice.asp', '/annonce/*'],
   notes:
     'Site ASP maison, SSR. robots.txt vérifié le 2026-08-18 : seuls l’admin et ' +

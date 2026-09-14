@@ -34,8 +34,6 @@ export const PRIVILEGE_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: MAX_DETAILS_BACKFILL,
   }),
   enabled: true,
-  // Petite agence : premier contact à la main de l'utilisateur (§23).
-  manualOnly: true,
   allowedPaths: ['/fr/locations', '/fr/propri*'],
   notes:
     'Agence Nice, Apimo ANCIEN schéma (/fr/propriété/{id}, sitemap non ' +

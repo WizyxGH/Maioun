@@ -33,8 +33,6 @@ export const VOTRE_AGENCE_IMMO_DESCRIPTOR: SourceDescriptor = {
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', { maxPagesPerRun: 6, maxListingsPerRun: 40 }),
   enabled: true,
-  // Premier contact par le formulaire du site, à la main de l'utilisateur (§23).
-  manualOnly: true,
   allowedPaths: ['/type_biens/location/', '/biens/*'],
   notes:
     'Agence Nice (trois secteurs), WordPress devant Apimo — les photos ' +

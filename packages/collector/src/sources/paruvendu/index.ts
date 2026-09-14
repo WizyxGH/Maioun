@@ -37,8 +37,6 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  // Le contact passe par le formulaire du site : jamais automatisé.
-  manualOnly: true,
   // Le portail REPUBLIE des annonces d'agences — LocService, BEP, Citya… Deux
   // annonces de cette source qui partagent une photo sont donc le même bien.
   relaysListings: true,

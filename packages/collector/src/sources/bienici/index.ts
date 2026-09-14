@@ -41,9 +41,6 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
    * où le même cliché tamponné illustre vingt biens (§14).
    */
   relaysListings: true,
-  // Le contact passe par la fiche du portail, qui présente le formulaire de
-  // l'agence : automatiser n'est pas approprié (§23).
-  manualOnly: true,
   allowedPaths: ['/realEstateAds.json'],
   notes:
     'API de recherche du site (GET realEstateAds.json?filters=…), vérifiée le ' +

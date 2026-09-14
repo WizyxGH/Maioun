@@ -37,7 +37,6 @@ export const CITYA_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: MAX_DETAILS_BACKFILL,
   }),
   enabled: true,
-  manualOnly: true,
   allowedPaths: ['/annonces/location/*'],
   notes:
     'robots.txt vérifié le 2026-08-19 : /annonces/* autorisé ; /recherche, ' +

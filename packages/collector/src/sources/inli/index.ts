@@ -38,9 +38,6 @@ export const INLI_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: MAX_DETAILS_BACKFILL,
   }),
   enabled: true,
-  // Bailleur institutionnel : candidature en ligne, premier contact via la
-  // fiche (§23).
-  manualOnly: true,
   allowedPaths: ['/locations/offres/', '/location-*'],
   notes:
     'Logement intermédiaire (Action Logement), loyers à prix maîtrisé sous ' +

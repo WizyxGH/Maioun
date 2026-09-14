@@ -51,8 +51,6 @@ export const LAMY_DESCRIPTOR: SourceDescriptor = {
     maxListingsPerRun: MAX_DETAILS_BACKFILL,
   }),
   enabled: true,
-  // Réseau d'agences : premier contact via le formulaire de la fiche (§23).
-  manualOnly: true,
   allowedPaths: ['/sitemap.xml', '/louer/*'],
   notes:
     'robots.txt vérifié le 2026-08-17 : tout autorisé sauf /is_admin/ et ' +
