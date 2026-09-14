@@ -30,7 +30,7 @@
  */
 
 import type { Client } from '@libsql/client';
-import { traitConditions } from '../core/trait-filters.js';
+import { OPEN_TO_APPLICATIONS_SQL, traitConditions } from '../core/trait-filters.js';
 import { shareAlive, survivalCurve } from '../core/survival.js';
 import {
   ANONYMOUS_USER,
@@ -181,7 +181,8 @@ export function rowToListing(
     matchesCriteria: Number(row['matches_criteria']) === 1,
     actionPriority: Number(row['action_priority'] ?? 0),
     viewed: Number(row['viewed'] ?? 0) === 1,
-    archived: Number(row['archived'] ?? 0) === 1,
+    // Fermée aux candidatures par sa source : archivée d'office, sans écriture.
+    archived: Number(row['archived'] ?? 0) === 1 || payload['applicationStatus'] === 'full',
     favorite: Number(row['favorite'] ?? 0) === 1,
     rented: Number(row['rented'] ?? 0) === 1,
     ...(partial ? { partial: true } : {}),
@@ -431,7 +432,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
 
   // Les annonces archivées sont masquées, sauf demande explicite (§ archivage).
   if (url.searchParams.get('archived') !== 'true') {
-    conditions.push('COALESCE(us.archived, 0) = 0');
+    conditions.push('COALESCE(us.archived, 0) = 0', OPEN_TO_APPLICATIONS_SQL);
   }
   // Vue « favoris uniquement » sur demande.
   if (url.searchParams.get('favorite') === 'true') {

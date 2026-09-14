@@ -148,3 +148,14 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
 
   return { sql, args };
 }
+
+/**
+ * Condition SQL : l'annonce accepte encore des candidatures.
+ *
+ * Une annonce que sa source déclare fermée (`applicationStatus = 'full'` —
+ * plafond de dossiers Foncia, dépôts suspendus AFEDIM) est rangée d'office
+ * avec les archivées : ni liste principale, ni alerte. Rien n'est écrit en
+ * base, si bien qu'elle revient d'elle-même quand la source la rouvre.
+ */
+export const OPEN_TO_APPLICATIONS_SQL =
+  "COALESCE(json_extract(listings.payload, '$.applicationStatus'), '') != 'full'";
