@@ -142,6 +142,23 @@ describe('surface identique au centième', () => {
     );
   });
 
+  it('NE fusionne PAS deux annonces décrites sur la foi des seuls chiffres', () => {
+    // Relevé réel : « F2 vide Parc Chambrun » et « 2 pièces meublé Pessicart »,
+    // même loyer, même surface au centième — deux biens distincts.
+    const texte = (lieu: string) => `${lieu}. `.repeat(12);
+    const une = {
+      ...bien('palais-immobilier', 51.2),
+      title: 'F2 vide Parc Chambrun',
+      description: texte('Parc Chambrun, vide'),
+    };
+    const autre = {
+      ...bien('groupe-picado', 51.2),
+      title: '2 pièces meublé Pessicart',
+      description: texte('Pessicart, meublé'),
+    };
+    expect(similarity(une, autre).verdict).toBe('ambiguous');
+  });
+
   it('laisse les garde-fous souverains', () => {
     // Même surface au centième, mais une autre commune : rien ne fusionne.
     const digest = bien('email-alerts', 22.81);

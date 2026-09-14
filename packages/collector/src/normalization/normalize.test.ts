@@ -414,3 +414,49 @@ describe('meublé rattrapé par le rejeu', () => {
     expect(rederiveFromText(stored!)).toBeNull();
   });
 });
+
+describe('faux positifs relevés le 2026-09-14', () => {
+  const normalize = (over: Partial<RawListing>) =>
+    normalizeListing(
+      { sourceRef: '1', sourceUrl: 'https://exemple.invalid/1', priceText: '690 €', ...over },
+      { sourceId: 'test', nowMs: Date.parse('2026-09-14T12:00:00Z') },
+    );
+
+  it('un titre qui nomme un box ou un garage est un parking, quoi que dise la catégorie', () => {
+    expect(
+      normalize({
+        title: 'BOX HAUT MALAUSSENA LIBERATION',
+        propertyTypeText: 'Appartement',
+        areaText: '10 m²',
+      })?.propertyType,
+    ).toBe('parking');
+    expect(
+      normalize({ title: 'Le Fenice - Garage à louer', propertyTypeText: 'Appartement' })
+        ?.propertyType,
+    ).toBe('parking');
+    // Un garage cité dans le titre d'un logement reste un atout.
+    expect(
+      normalize({ title: '3 Pièces Garage', propertyTypeText: 'Appartement', areaText: '70 m²' })
+        ?.propertyType,
+    ).toBe('apartment');
+  });
+
+  it('« 3 PIÈCES MEUBLÉ » en titre l’emporte sur une case « non » de la source', () => {
+    expect(
+      normalize({ title: '2 PIECES MEUBLE NICE CARABACEL', furnishedText: 'non meublé' })
+        ?.furnished,
+    ).toBe(true);
+    expect(
+      normalize({ title: 'Deux pièces Carabacel', furnishedText: 'non meublé' })?.furnished,
+    ).toBe(false);
+  });
+
+  it('« possibilité colocation » décrit un logement entier', () => {
+    expect(
+      normalize({
+        title: '2P meublé',
+        description: 'Grand 2P rénové. Possibilité colocation, canapé lit.',
+      })?.flatShare,
+    ).toBe(false);
+  });
+});

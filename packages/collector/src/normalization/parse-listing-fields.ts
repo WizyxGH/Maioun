@@ -282,7 +282,7 @@ export function parseFlatShare(
   const lower = comparable(text);
   const heading = comparable(title);
   if (lower === '' && heading === '') return null;
-  if (/colocation (possible|acceptee|envisageable)|possibilite de colocation/.test(lower)) {
+  if (/colocation (possible|acceptee|envisageable)|possibilite (de )?colocation/.test(lower)) {
     return false;
   }
   if (/\bcolocation\b|\bcoloc\b/.test(lower)) return true;
