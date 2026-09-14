@@ -69,6 +69,31 @@ function priceIcon(listing: ListingView): L.DivIcon {
   });
 }
 
+/**
+ * Combien d'annonces de la liste sont sur la carte.
+ *
+ * Le total est celui de la LISTE, décomposé comme le compteur de la recherche
+ * (« 55 résultats · 6 à vérifier ») : « sur 61 » seul ne s'y retrouvait pas.
+ */
+function LocatedNote({
+  located,
+  listings,
+}: {
+  readonly located: readonly ListingView[];
+  readonly listings: readonly ListingView[];
+}): React.JSX.Element {
+  const active = listings.filter((listing) => listing.lifecycle === 'active').length;
+  const uncertain = listings.length - active;
+  const plural = located.length > 1 ? 's' : '';
+  return (
+    <p className="mt-2 text-[0.85rem] text-muted-foreground">
+      {located.length} annonce{plural} localisée{plural} sur les {listings.length} de la liste
+      {uncertain > 0 ? ` (${active} en ligne, ${uncertain} à vérifier)` : ''} — les autres ne
+      publient ni coordonnées ni adresse géocodable.
+    </p>
+  );
+}
+
 export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -214,13 +239,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
         className="border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-[calc(100dvh-7rem)]"
       />
       {/* §17 : les annonces non localisables sont dites, pas placées au hasard. */}
-      {located.length < listings.length && (
-        <p className="mt-2 text-[0.85rem] text-muted-foreground">
-          {located.length} annonce{located.length > 1 ? 's' : ''} localisée
-          {located.length > 1 ? 's' : ''} sur {listings.length} — les autres ne publient ni
-          coordonnées ni adresse géocodable.
-        </p>
-      )}
+      {located.length < listings.length && <LocatedNote located={located} listings={listings} />}
     </div>
   );
 }
