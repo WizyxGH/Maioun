@@ -35,6 +35,15 @@ describe('parseSearchResponse', () => {
     expect(listing?.imageUrls?.[0]).toMatch(/^https:\/\/media\.studapart\.com\//);
   });
 
+  it('lit le dépôt de garantie, qu’il soit nombre ou chaîne', () => {
+    expect(listings.find((l) => l.sourceRef === '140526')?.depositText).toBe('2000 €');
+    const coloc = listings.find((l) => l.sourceRef === '153641');
+    expect(coloc?.depositText).toBe('1150 €');
+    expect(coloc && normalizeListing(coloc, { sourceId: 'studapart', nowMs: 0 })?.deposit).toBe(
+      1150,
+    );
+  });
+
   it('marque explicitement les colocations (§17)', () => {
     const coloc = listings.find((l) => l.sourceRef === '153641');
     expect(coloc?.description ?? '').toMatch(/colocation/i);

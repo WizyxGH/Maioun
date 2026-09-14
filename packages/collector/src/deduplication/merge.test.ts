@@ -19,6 +19,8 @@ function occurrence(id: string, applicationStatus?: ApplicationStatus | null): N
     price: 690,
     charges: null,
     chargesIncluded: null,
+    deposit: null,
+    tenantFees: null,
     area: 34,
     rooms: 2,
     bedrooms: null,
@@ -75,6 +77,31 @@ describe('mergeApplicationStatus', () => {
   });
 });
 
+describe('dépôt de garantie, honoraires et charges comprises', () => {
+  it('prend le dépôt là où il est publié, et garde le désaccord', () => {
+    const merged = mergeGroup([
+      { ...occurrence('seloger:1'), deposit: null, tenantFees: 220 },
+      { ...occurrence('paruvendu:1'), deposit: 660, tenantFees: 250 },
+    ]);
+    expect(merged.deposit.value).toBe(660);
+    expect(merged.deposit.sourceId).toBe('paruvendu');
+    expect(merged.tenantFees.value).toBe(220);
+    expect(merged.tenantFees.conflicts).toEqual([
+      expect.objectContaining({ value: 250, sourceId: 'paruvendu' }),
+    ]);
+  });
+
+  it('suit la mention « charges comprises » de la source du loyer retenu', () => {
+    const merged = mergeGroup([
+      { ...occurrence('pap:1'), price: null, chargesIncluded: false },
+      { ...occurrence('bienici:1'), price: 720, chargesIncluded: true },
+    ]);
+    expect(merged.price.value).toBe(720);
+    expect(merged.chargesIncluded).toBe(true);
+    expect(mergeGroup([{ ...occurrence('pap:1'), price: null }]).chargesIncluded).toBeNull();
+  });
+});
+
 describe('occurrenceHash et état de candidature', () => {
   it('change quand l’état change, dans les deux sens', () => {
     const full = occurrenceHash(occurrence('foncia:1', 'full'));
@@ -86,5 +113,11 @@ describe('occurrenceHash et état de candidature', () => {
     expect(occurrenceHash(occurrence('seloger:1', null))).toBe(
       occurrenceHash(occurrence('seloger:1')),
     );
+  });
+
+  it('change quand un dépôt ou des honoraires apparaissent', () => {
+    const base = occurrenceHash(occurrence('paruvendu:1'));
+    expect(occurrenceHash({ ...occurrence('paruvendu:1'), deposit: 660 })).not.toBe(base);
+    expect(occurrenceHash({ ...occurrence('paruvendu:1'), tenantFees: 0 })).not.toBe(base);
   });
 });

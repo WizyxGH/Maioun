@@ -115,6 +115,31 @@ describe('parseDetail', () => {
     expect(normaliser('fiche-1295199212.html', '1 550 € CC*')?.charges).toBeNull();
   });
 
+  it('lit dépôt de garantie et honoraires dans le bloc prix', () => {
+    const draft = parseDetail(fixture('fiche-1295274200.html'), '690 € CC*');
+    expect(draft).toMatchObject({ depositText: '660 €', feesText: '220 €' });
+    expect(normaliser('fiche-1295274200.html', '690 € CC*')).toMatchObject({
+      deposit: 660,
+      tenantFees: 220,
+    });
+    expect(normaliser('fiche-1295275678.html', '890 € CC*')).toMatchObject({
+      deposit: 1680,
+      tenantFees: 261,
+    });
+  });
+
+  it('« NC » ou une fiche muette ne donnent ni dépôt ni honoraires', () => {
+    const nc =
+      '<div id="autoprix"><div class="opt19_hd_det"><span>Dépôt garantie :</span><strong>NC</strong></div>' +
+      '<div class="opt19_hd_det"><span>Honoraires :</span><strong>NC</strong></div></div>' +
+      '<div id="txtAnnonceTrunc">Studio lumineux.</div>';
+    expect(parseDetail(nc)).toMatchObject({ depositText: undefined, feesText: undefined });
+    expect(normaliser('fiche-1295199212.html', '1 550 € CC*')).toMatchObject({
+      deposit: null,
+      tenantFees: null,
+    });
+  });
+
   it('ne reprend pas le loyer : la mémoire des fiches le figerait', () => {
     expect(parseDetail(fixture('fiche-1295274200.html'))?.priceText).toBeUndefined();
   });

@@ -45,6 +45,12 @@ export interface ListingView {
   readonly description: MergedField<string | null>;
   readonly price: MergedField<number | null>;
   readonly charges: MergedField<number | null>;
+  /** Le loyer affiché inclut-il les charges ? Absent sur les fiches anciennes. */
+  readonly chargesIncluded?: boolean | null;
+  /** Dépôt de garantie — absent sur les fiches anciennes. */
+  readonly deposit?: MergedField<number | null>;
+  /** Honoraires du locataire, état des lieux compris — absent sur les fiches anciennes. */
+  readonly tenantFees?: MergedField<number | null>;
   readonly area: MergedField<number | null>;
   readonly rooms: MergedField<number | null>;
   readonly propertyType: MergedField<PropertyType>;

@@ -70,6 +70,8 @@ interface StudapartSource {
   readonly isFurnished?: boolean;
   readonly rentedByRoom?: boolean;
   readonly rentWithExpensesAmount?: number;
+  /** Nombre ou chaîne selon l'annonce (`2000`, `"1150"`). */
+  readonly depositAmount?: number | string;
   readonly address?: string;
   readonly full_address?: string;
   readonly city?: string;
@@ -164,6 +166,10 @@ function toRawListing(source: StudapartSource): RawListing | null {
     priceText:
       source.rentWithExpensesAmount !== undefined
         ? `${source.rentWithExpensesAmount} € CC`
+        : undefined,
+    depositText:
+      source.depositAmount !== undefined && source.depositAmount !== ''
+        ? `${source.depositAmount} €`
         : undefined,
     areaText: source.propertySurface !== undefined ? `${source.propertySurface} m²` : undefined,
     roomsText: source.roomsCount !== undefined ? `${source.roomsCount} pièces` : undefined,

@@ -189,6 +189,21 @@ export function mergeApplicationStatus(
 }
 
 /**
+ * « Charges comprises » de l'occurrence dont vient le loyer retenu : la même
+ * mention sur une autre source qualifierait peut-être un autre montant.
+ */
+function priceChargesIncluded(
+  occurrences: readonly NormalizedListing[],
+  primary: NormalizedListing,
+  price: number | null,
+): boolean | null {
+  if (price === null) return null;
+  if (primary.price !== null) return primary.chargesIncluded;
+  const origin = occurrences.find((occurrence) => occurrence.price === price);
+  return origin?.chargesIncluded ?? null;
+}
+
+/**
  * Les conditions d'accès, prises là où elles sont écrites.
  *
  * ON NE FUSIONNE PAS, ON CHOISIT. Deux sources qui énoncent des conditions
@@ -237,6 +252,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
 
   const timestamps = occurrences.map((o) => Date.parse(o.firstSeenAt)).filter(Number.isFinite);
   const lastSeen = occurrences.map((o) => Date.parse(o.lastSeenAt)).filter(Number.isFinite);
+  const price = mergeField(occurrences, primary, (l) => l.price, numbersEqual(0.01));
 
   return {
     id: oldest.id,
@@ -244,8 +260,11 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     title: mergeField(occurrences, primary, (l) => l.title),
     description: mergeField(occurrences, primary, (l) => l.description),
 
-    price: mergeField(occurrences, primary, (l) => l.price, numbersEqual(0.01)),
+    price,
     charges: mergeField(occurrences, primary, (l) => l.charges, numbersEqual(0.01)),
+    chargesIncluded: priceChargesIncluded(occurrences, primary, price.value),
+    deposit: mergeField(occurrences, primary, (l) => l.deposit, numbersEqual(0.01)),
+    tenantFees: mergeField(occurrences, primary, (l) => l.tenantFees, numbersEqual(0.01)),
     area: mergeField(occurrences, primary, (l) => l.area, numbersEqual(0.01)),
     rooms: mergeField(occurrences, primary, (l) => l.rooms),
     propertyType: mergeField<PropertyType>(occurrences, primary, (l) => l.propertyType),

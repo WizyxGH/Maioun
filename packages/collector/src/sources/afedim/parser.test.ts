@@ -109,6 +109,9 @@ describe('parseDetail', () => {
       title: 'SUNSET VILLA - Appartement - 2 pièces',
       addressText: '439 AVENUE DE PESSICART',
       chargesText: '120 €',
+      depositText: '704 €',
+      // 406 € de location et 122 € d'état des lieux.
+      feesText: '528 €',
       availableAtText: 'Disponible dès le 05/10/2026',
       phoneText: '0 809 102 880',
     });
@@ -120,13 +123,17 @@ describe('parseDetail', () => {
       dpe: 'B',
       etage: '3',
       ascenseur: '1',
-      depotGarantie: '704 €',
-      honorairesLocation: '406 €',
-      honorairesEtatDesLieux: '122 €',
       loyerHorsCharges: '704 €',
       plafondRessources: 'oui',
     });
     expect(detail?.extra?.['features']).toContain('Location soumise à un plafond de ressources');
+  });
+
+  it('additionne honoraires de location et d’état des lieux', () => {
+    expect(parseDetail(OUVERTE, '0070421')).toMatchObject({
+      depositText: '762 €',
+      feesText: '546 €',
+    });
   });
 
   it('ne reprend pas le loyer : la mémoire des fiches le figerait', () => {

@@ -18,8 +18,8 @@
  * pièces, DPE, un extrait de description coupé, les photos, et l'annonceur —
  * « Particulier », ou le nom de l'agence.
  *
- * LA FICHE (`parseDetail`) : le montant des charges et la description entière.
- * Elle affiche aussi dépôt de garantie et honoraires, que le modèle ne porte pas.
+ * LA FICHE (`parseDetail`) : charges, dépôt de garantie, honoraires et la
+ * description entière.
  *
  * LA DATE AFFICHÉE EST CELLE DE LA DERNIÈRE MISE À JOUR, pas de la parution —
  * le site l'intitule ainsi. On ne la fait pas passer pour une date de
@@ -136,7 +136,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
 }
 
 /**
- * Ce que la fiche ajoute à la carte : les charges et la description entière.
+ * Ce que la fiche ajoute à la carte : charges, dépôt, honoraires et la
+ * description entière.
  *
  * « Dont charges/mois » est la part des charges DANS le loyer affiché. Absente
  * chez les particuliers et quelques agences, qui l'écrivent parfois dans le
@@ -149,11 +150,16 @@ export function parseDetail(html: string, priceText?: string): RawDraft | null {
   const $ = cheerio.load(html);
 
   let chargesText: string | undefined;
+  let depositText: string | undefined;
+  let feesText: string | undefined;
   $('#autoprix .opt19_hd_det').each((_i, row) => {
     const label = cleanText($(row).find('span').first().text());
     const value = cleanText($(row).find('strong').first().text());
     // « NC » ou vide : rien à retenir.
-    if (/charges/i.test(label) && /\d/.test(value)) chargesText = value;
+    if (!/\d/.test(value)) return;
+    if (/charges/i.test(label)) chargesText = value;
+    else if (/d[ée]p[ôo]t/i.test(label)) depositText = value;
+    else if (/honoraires/i.test(label)) feesText = value;
   });
 
   const body = $('#txtAnnonceTrunc').first().clone();
@@ -167,9 +173,13 @@ export function parseDetail(html: string, priceText?: string): RawDraft | null {
     if (inText !== null) chargesText = `${String(inText)} €`;
   }
 
-  if (chargesText === undefined && description === '') return null;
+  if ([chargesText, depositText, feesText].every((v) => v === undefined) && description === '') {
+    return null;
+  }
   return {
     chargesText,
+    depositText,
+    feesText,
     description: description !== '' ? description : undefined,
   };
 }

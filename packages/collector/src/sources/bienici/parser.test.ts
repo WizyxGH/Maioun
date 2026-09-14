@@ -63,6 +63,16 @@ describe('parseSearchResponse', () => {
     expect(listing?.chargesText).toBe('40 €');
   });
 
+  it('reprend dépôt de garantie et honoraires, état des lieux compris', () => {
+    const listings = parseSearchResponse(body).listings;
+    const listing = listings.find((one) => one.sourceRef === 'apimo-87323377');
+    // Relevé : agencyRentalFee 305,24 dont inventoryOfFixturesFees 70,44.
+    expect(listing).toMatchObject({ depositText: '740 €', feesText: '305.24 €' });
+    const sansHonoraires = listings.find((one) => one.sourceRef === 'apimo-87323089');
+    expect(sansHonoraires?.depositText).toBe('950 €');
+    expect(sansHonoraires?.feesText).toBeUndefined();
+  });
+
   it('publie la position quand la source la déclare exacte', () => {
     const listing = parseSearchResponse(body).listings.find(
       (one) => one.sourceRef === 'apimo-87323377',

@@ -154,6 +154,9 @@ export function occurrenceHash(listing: NormalizedListing): string {
     // Réversible : un « complet » qui rouvre doit réécrire l'occurrence. Omis
     // quand inconnu, pour ne pas changer l'empreinte de tout le stock.
     ...(listing.applicationStatus != null ? [listing.applicationStatus] : []),
+    // Même raison : omis quand inconnus.
+    ...(listing.deposit !== null ? [`deposit:${listing.deposit}`] : []),
+    ...(listing.tenantFees !== null ? [`fees:${listing.tenantFees}`] : []),
     listing.address,
     listing.city,
     listing.postalCode,
@@ -215,6 +218,11 @@ export function listingHash(listing: ScoredListing): string {
     listing.requirements,
     listing.description.value,
     listing.charges.value,
+    // Affichés avec le loyer ; omis quand inconnus, pour ne pas réécrire tout
+    // le stock — seules les fiches qui les portent le seront, une fois.
+    ...(listing.chargesIncluded !== null ? [`cc:${listing.chargesIncluded}`] : []),
+    ...(listing.deposit.value !== null ? [`deposit:${listing.deposit.value}`] : []),
+    ...(listing.tenantFees.value !== null ? [`fees:${listing.tenantFees.value}`] : []),
     listing.flatShare.value,
     listing.furnished.value,
     // Le caractère étudiant et la nature du bailleur SE FILTRENT désormais en
@@ -2298,6 +2306,9 @@ function serializeListing(listing: ScoredListing): unknown {
     description: listing.description,
     price: listing.price,
     charges: listing.charges,
+    chargesIncluded: listing.chargesIncluded,
+    deposit: listing.deposit,
+    tenantFees: listing.tenantFees,
     area: listing.area,
     rooms: listing.rooms,
     propertyType: listing.propertyType,
@@ -2501,6 +2512,8 @@ function occurrencePayload(listing: NormalizedListing): Record<string, unknown> 
     views: listing.views,
     favorites: listing.favorites,
     chargesIncluded: listing.chargesIncluded,
+    deposit: listing.deposit,
+    tenantFees: listing.tenantFees,
     dpe: listing.dpe,
     previousPrice: listing.previousPrice,
     maxOccupants: listing.maxOccupants,
@@ -2535,6 +2548,8 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     price: num('price'),
     charges: num('charges'),
     chargesIncluded: (payload['chargesIncluded'] as boolean | null) ?? null,
+    deposit: (payload['deposit'] as number | null | undefined) ?? null,
+    tenantFees: (payload['tenantFees'] as number | null | undefined) ?? null,
     area: num('area'),
     rooms: num('rooms'),
     bedrooms: num('bedrooms'),

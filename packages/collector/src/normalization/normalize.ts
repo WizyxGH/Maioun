@@ -29,6 +29,10 @@ import {
   parseCharges,
   parseChargesField,
   parseChargesFromText,
+  parseDepositField,
+  parseDepositFromText,
+  parseFeesField,
+  parseFeesFromText,
   parseEmail,
   parseDistrictOf,
   parseDpe,
@@ -391,6 +395,11 @@ export function normalizeListing(
       parseCharges(raw.priceText) ??
       parseChargesFromText(text.prose, price.amount),
     chargesIncluded: price.chargesIncluded,
+    deposit:
+      parseDepositField(raw.depositText, price.amount) ??
+      parseDepositFromText(text.prose, price.amount),
+    tenantFees:
+      parseFeesField(raw.feesText, price.amount) ?? parseFeesFromText(text.prose, price.amount),
     area: resolveArea(raw),
     rooms: parseRooms(text.rooms),
     bedrooms: parseBedrooms(text.bedrooms),
@@ -453,6 +462,8 @@ function fillGaps(
   NormalizedListing,
   | 'flatShare'
   | 'charges'
+  | 'deposit'
+  | 'tenantFees'
   | 'rooms'
   | 'dpe'
   | 'district'
@@ -483,6 +494,15 @@ function fillGaps(
       occurrence.charges === null
         ? parseChargesFromText(occurrence.description, occurrence.price)
         : occurrence.charges,
+    // Même règle du silence : un montant publié par la source fait autorité.
+    deposit:
+      occurrence.deposit === null
+        ? parseDepositFromText(occurrence.description, occurrence.price)
+        : occurrence.deposit,
+    tenantFees:
+      occurrence.tenantFees === null
+        ? parseFeesFromText(occurrence.description, occurrence.price)
+        : occurrence.tenantFees,
     // Les pièces se lisent dans le TITRE : « une pièce à vivre » d'une
     // description est le séjour d'un trois-pièces, pas le logement entier.
     rooms: occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms,
@@ -649,7 +669,8 @@ export function rederiveFromText(
   const { features, changed: featuresChanged } = reconcileFeatures(occurrence.features, text);
 
   const filled = fillGaps(occurrence, text, nowMs);
-  const { flatShare, charges, rooms, dpe, district, maxOccupants, furnished, availableAt } = filled;
+  const { flatShare, charges, deposit, tenantFees, rooms, dpe, district, maxOccupants } = filled;
+  const { furnished, availableAt } = filled;
 
   if (
     address === occurrence.address &&
@@ -657,6 +678,8 @@ export function rederiveFromText(
     !featuresChanged &&
     flatShare === occurrence.flatShare &&
     charges === occurrence.charges &&
+    deposit === occurrence.deposit &&
+    tenantFees === occurrence.tenantFees &&
     rooms === occurrence.rooms &&
     dpe === occurrence.dpe &&
     district === occurrence.district &&
@@ -673,6 +696,8 @@ export function rederiveFromText(
     features,
     flatShare,
     charges,
+    deposit,
+    tenantFees,
     rooms,
     dpe,
     district,

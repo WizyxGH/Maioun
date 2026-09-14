@@ -69,6 +69,9 @@ describe('parseDetailPage', () => {
     expect(normalized.area).toBe(36);
     expect(normalized.rooms).toBe(2);
     expect(normalized.city).toBe('nice');
+    // Bloc « Mentions légales » : dépôt de garantie et honoraires locataire.
+    expect(normalized.deposit).toBe(1780);
+    expect(normalized.tenantFees).toBe(468);
   });
 
   it('renvoie null (sans planter) sur une fiche sans JSON-LD logement', () => {
