@@ -883,8 +883,10 @@ export function createRepository(db: Database): Repository {
        * pouvait le rattraper : ni le rejeu, qui ne retélécharge rien, ni la
        * collecte, qui saute les références connues.
        *
-       * Même chose pour une fiche sans loyer ni description : Aurus, dont le
-       * gabarit n'était pas lu, n'en avait aucun le 2026-09-14.
+       * Même chose pour une fiche sans loyer ni description (Aurus, dont le
+       * gabarit n'était pas lu, le 2026-09-14), ou d'un type indéterminé (dix
+       * titres « Sommaire » le même jour, dont un local commercial passé pour
+       * un logement).
        *
        * LE NOMBRE EST BORNÉ, et il le faut : une annonce que la source publie
        * réellement sans photo serait sinon revisitée à chaque passage, pour
@@ -896,6 +898,7 @@ export function createRepository(db: Database): Repository {
               WHERE source_id = ? AND lifecycle != 'inactive'
                 AND (json_array_length(COALESCE(json_extract(payload, '$.imageUrls'), '[]')) = 0
                   OR price IS NULL
+                  OR property_type IN ('other', 'unknown')
                   OR COALESCE(json_extract(payload, '$.description'), '') = '')
               ORDER BY scraped_at ASC
               LIMIT ?`,

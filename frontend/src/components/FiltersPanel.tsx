@@ -305,10 +305,10 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
           quartier est ce qui manquait le plus — c'est lui qui décide du trajet,
           du voisinage et du prix au mètre.
 
-          LE MENU NE PROPOSE QUE CE QUI EXISTE, avec le nombre d'annonces : la
-          table en compte une soixantaine, l'inventaire n'en couvre qu'une
-          partie, et offrir un quartier vide ferait cocher un filtre qui vide la
-          liste sans dire pourquoi. */}
+          TOUS LES QUARTIERS DE NICE, avec leur nombre d'annonces du moment :
+          n'offrir que ceux qui en avaient empêchait de viser un quartier encore
+          vide, pour la liste comme pour les alertes. Le « (0) » dit ce qu'il
+          donnera aujourd'hui. */}
         {districts.length > 0 && (
           <div className="py-2">
             <div className="mb-1.5 flex items-baseline justify-between gap-3">

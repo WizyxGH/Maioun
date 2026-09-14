@@ -69,18 +69,52 @@ export const NICE_DISTRICTS: readonly District[] = [
   { slug: 'rabiac-estagnol', label: 'Rabiac Estagnol', aliases: ['rabiac'] },
   { slug: 'val-fleuri', label: 'Val Fleuri' },
   { slug: 'la-victorine', label: 'La Victorine', aliases: ['victorine'] },
-  { slug: 'le-ray', label: 'Le Ray' },
+  { slug: 'le-ray', label: 'Le Ray', aliases: ['ray'] },
   { slug: 'roi-soleil', label: 'Roi Soleil' },
   { slug: 'albert-1er', label: 'Albert 1er', aliases: ['albert premier'] },
+  // Ajouts du 2026-09-14 : noms que les sources écrivaient sans qu'on les
+  // reconnaisse (988 annonces niçoises sans quartier).
+  {
+    slug: 'saint-jean-d-angely',
+    label: "Saint-Jean-d'Angély",
+    aliases: ['saint jean d angely'],
+  },
+  {
+    slug: 'promenade-des-anglais',
+    label: 'Promenade des Anglais',
+    aliases: ['rue de france'],
+  },
+  { slug: 'mont-alban', label: 'Mont Alban' },
+  { slug: 'sainte-helene', label: 'Sainte-Hélène' },
+  { slug: 'saint-lambert', label: 'Saint-Lambert' },
+  { slug: 'les-poetes', label: 'Les Poètes', aliases: ['poetes'] },
+  { slug: 'la-bornala', label: 'La Bornala', aliases: ['bornala'] },
+  { slug: 'le-piol', label: 'Le Piol', aliases: ['piol'] },
 
   // --- Noms simples --------------------------------------------------------
   { slug: 'borriglione', label: 'Borriglione' },
+  { slug: 'arenas', label: 'Arenas' },
+  { slug: 'garibaldi', label: 'Garibaldi' },
+  { slug: 'valrose', label: 'Valrose' },
+  { slug: 'gorbella', label: 'Gorbella' },
+  { slug: 'chambrun', label: 'Chambrun' },
+  { slug: 'roquebilliere', label: 'Roquebillière' },
+  { slug: 'cremat', label: 'Crémat' },
+  { slug: 'ventabrun', label: 'Ventabrun' },
+  { slug: 'lepante', label: 'Lépante' },
+  { slug: 'massena', label: 'Masséna' },
+  { slug: 'dubouchage', label: 'Dubouchage' },
+  { slug: 'carlone', label: 'Carlone' },
+  { slug: 'grosso', label: 'Grosso' },
+  { slug: 'lingostiere', label: 'Lingostière' },
+  { slug: 'brancolar', label: 'Brancolar' },
+  { slug: 'bellet', label: 'Bellet' },
   { slug: 'liberation', label: 'Libération' },
   { slug: 'californie', label: 'Californie' },
   { slug: 'carabacel', label: 'Carabacel' },
   { slug: 'baumettes', label: 'Baumettes' },
   { slug: 'madeleine', label: 'Madeleine' },
-  { slug: 'musiciens', label: 'Musiciens' },
+  { slug: 'musiciens', label: 'Musiciens', aliases: ['muscisiens'] },
   { slug: 'pessicart', label: 'Pessicart' },
   { slug: 'republique', label: 'République' },
   { slug: 'gambetta', label: 'Gambetta' },
@@ -99,7 +133,7 @@ export const NICE_DISTRICTS: readonly District[] = [
   { slug: 'pasteur', label: 'Pasteur' },
   { slug: 'magnan', label: 'Magnan' },
   { slug: 'ariane', label: 'Ariane' },
-  { slug: 'cimiez', label: 'Cimiez' },
+  { slug: 'cimiez', label: 'Cimiez', aliases: ['cymiez'] },
   { slug: 'rimiez', label: 'Rimiez' },
   { slug: 'carras', label: 'Carras' },
   { slug: 'thiers', label: 'Thiers' },
@@ -144,13 +178,18 @@ export function districtLabel(slug: string): string {
  * collecteur pour six lignes.
  */
 function comparable(input: string): string {
-  return input
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    input
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      // « St Isidore », « Ste Marguerite » : les abréviations valent le nom entier.
+      .replace(/\bst\b/g, 'saint')
+      .replace(/\bste\b/g, 'sainte')
+  );
 }
 
 /** Les graphies d'un quartier : son nom, plus ses alias. */

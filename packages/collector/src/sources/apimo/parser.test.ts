@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDetailPage } from './parser.js';
+import { parseApimoDetail, parseDetailPage } from './parser.js';
 
 const AGENCY = 'Agence Test';
 
@@ -53,5 +53,25 @@ describe('parseDetailPage — garde-fous (§3, §17)', () => {
     const { listing, warnings } = parseDetailPage(html, RESIDENTIAL_URL, AGENCY);
     expect(listing).toBeNull();
     expect(warnings.join(' ')).toMatch(/lou[ée]|vendu/i);
+  });
+});
+
+describe('titre « Sommaire » (relevé du 2026-09-14)', () => {
+  // Adresse sans type : `/fr/propriété/{id}` (Groupe Picado, Cabinet Cordier).
+  const url = {
+    transaction: 'location' as const,
+    typeSlug: '',
+    citySlug: '',
+    reference: '8188166',
+    canonicalUrl: 'https://agence.invalid/fr/propri%C3%A9t%C3%A9/8188166',
+  };
+
+  it('écarte un local commercial dont seul le titre de la page dit la nature', () => {
+    const html = `<html><head><meta property="og:title" content=" Local commercial Ariane"></head>
+      <body><div class="module-property-info"><h2 class="title property-title-3"> Sommaire</h2>
+      <span class="price">500 €</span></div></body></html>`;
+    const { listing, warnings } = parseApimoDetail(html, url, 'Agence');
+    expect(listing).toBeNull();
+    expect(warnings.join(' ')).toMatch(/commercial/);
   });
 });

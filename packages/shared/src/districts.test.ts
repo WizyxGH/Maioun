@@ -72,3 +72,24 @@ describe('table des quartiers', () => {
     }
   });
 });
+
+describe('quartiers ajoutés le 2026-09-14', () => {
+  it('reconnaît les noms que les sources écrivaient sans qu’on les range', () => {
+    expect(canonicalDistrict('Nice - Arenas')).toBe('arenas');
+    expect(canonicalDistrict('Nice - Garibaldi')).toBe('garibaldi');
+    expect(canonicalDistrict('Nice - Promenade des Anglais - Rue de France')).toBe(
+      'promenade-des-anglais',
+    );
+    expect(canonicalDistrict('Nice - Roquebillière')).toBe('roquebilliere');
+    expect(canonicalDistrict('Valrose')).toBe('valrose');
+    expect(canonicalDistrict('Poètes')).toBe('les-poetes');
+  });
+
+  it('comprend les abréviations et les fautes de frappe relevées', () => {
+    expect(canonicalDistrict('St Isidore')).toBe('saint-isidore');
+    expect(canonicalDistrict('Ste Marguerite')).toBe('sainte-marguerite');
+    expect(canonicalDistrict('St Jean d’Angely')).toBe('saint-jean-d-angely');
+    expect(canonicalDistrict('Cymiez')).toBe('cimiez');
+    expect(canonicalDistrict('Muscisiens')).toBe('musiciens');
+  });
+});
