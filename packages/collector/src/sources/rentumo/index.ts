@@ -51,6 +51,9 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
   // Agrégateur : les photos décodées portent l'URL d'origine, propre à UNE
   // annonce — deux fiches qui la partagent sont le même bien (§14).
   relaysListings: true,
+  // Les coordonnées de l'annonceur sont réservées aux abonnés : on le dit
+  // avant le clic, comme pour LocService.
+  paidContact: true,
   allowedPaths: ['/rent-apartment/*', '/listings/*'],
   notes:
     'robots.txt vérifié le 2026-09-03 : Allow: / ; seuls *?sort_by=*, ' +
