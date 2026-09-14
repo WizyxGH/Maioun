@@ -208,6 +208,8 @@ const DESCRIPTION_SELECTORS = [
   '.offreContent',
   '.description .details',
   '.editorial__text',
+  // Gabarit « contentDt » (immobilieregti.com) : le texte n'a que son microdata.
+  'p[itemprop="description"], div[itemprop="description"]',
 ];
 
 /** Clés booléennes de la table promues en atouts quand elles valent OUI. */

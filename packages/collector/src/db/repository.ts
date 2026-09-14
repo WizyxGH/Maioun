@@ -896,7 +896,7 @@ export function createRepository(db: Database): Repository {
               WHERE source_id = ? AND lifecycle != 'inactive'
                 AND (json_array_length(COALESCE(json_extract(payload, '$.imageUrls'), '[]')) = 0
                   OR price IS NULL
-                  OR json_extract(payload, '$.description') IS NULL)
+                  OR COALESCE(json_extract(payload, '$.description'), '') = '')
               ORDER BY scraped_at ASC
               LIMIT ?`,
         args: [sourceId, REVISIT_PHOTOLESS_PER_RUN],
