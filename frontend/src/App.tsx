@@ -48,7 +48,14 @@ import {
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { formatSourceName } from './format.js';
-import { markAlertsSeen, readAlertsSeenAt, readOptIn, unreadAlertCount } from './notifications.js';
+import {
+  markAlertRead,
+  markAlertsSeen,
+  readAlertsSeenAt,
+  readOptIn,
+  readReadAlerts,
+  unreadAlertCount,
+} from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
@@ -914,6 +921,12 @@ function AppView(): React.JSX.Element {
   // marquer les alertes comme vues effacerait les repères « non lue » dans la
   // seconde où on arrive dessus.
   const [alertsViewedFrom, setAlertsViewedFrom] = useState(alertsSeenAt);
+  // Annonces ouvertes : leur alerte est lue, d'où qu'on soit venu — la
+  // notification du téléphone comprise, qui mène droit à la fiche.
+  const [readAlerts, setReadAlerts] = useState(readReadAlerts);
+  useEffect(() => {
+    if (selectedId !== null) setReadAlerts(markAlertRead(selectedId));
+  }, [selectedId]);
   // Bandeaux d'alerte affichés DANS la page : la notification navigateur ne se
   // voit pas quand l'onglet a le focus, et pas du tout sans permission.
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
@@ -955,8 +968,8 @@ function AppView(): React.JSX.Element {
     displayMode,
   ]);
   const unreadAlerts = useMemo(
-    () => unreadAlertCount(listings, alertsSeenAt),
-    [listings, alertsSeenAt],
+    () => unreadAlertCount(listings, alertsSeenAt, readAlerts),
+    [listings, alertsSeenAt, readAlerts],
   );
 
   // Dérivations d'affichage MÉMOÏSÉES : elles filtrent et trient des centaines
@@ -1902,6 +1915,7 @@ function AppView(): React.JSX.Element {
             nowMs={nowMs}
             onOpen={openListing}
             seenAtMs={alertsViewedFrom}
+            readIds={readAlerts}
             onMarkAllRead={markAllAlertsRead}
           />
         </main>

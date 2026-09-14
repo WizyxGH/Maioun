@@ -30,6 +30,7 @@ const SEEN_KEY = 'maioun.notifiedListingIds';
 const OPTIN_KEY = 'maioun.notificationsOptIn';
 const ALERTS_SEEN_KEY = 'maioun.alertsSeenAt';
 const ALERTS_DISMISSED_KEY = 'maioun.dismissedAlerts';
+const ALERTS_READ_KEY = 'maioun.readAlerts';
 
 // ---------------------------------------------------------------------------
 // Capacités du navigateur
@@ -152,8 +153,12 @@ export function markAlertsSeen(nowMs: number): void {
  * pas se contredire. Une annonce sans date est ignorée — elle date d'avant
  * l'horodatage, on ne l'invente pas (§17).
  */
-export function unreadAlertCount(listings: readonly ListingView[], seenAtMs: number): number {
-  return listings.filter((listing) => isUnreadAlert(listing, seenAtMs)).length;
+export function unreadAlertCount(
+  listings: readonly ListingView[],
+  seenAtMs: number,
+  read: ReadonlySet<string> = new Set(),
+): number {
+  return listings.filter((listing) => isUnreadAlert(listing, seenAtMs, read)).length;
 }
 
 /**
@@ -164,11 +169,48 @@ export function unreadAlertCount(listings: readonly ListingView[], seenAtMs: num
  * contredire. Une annonce sans date est tenue pour lue — elle précède
  * l'horodatage, et on ne l'invente pas (§17).
  */
-export function isUnreadAlert(listing: ListingView, seenAtMs: number): boolean {
+export function isUnreadAlert(
+  listing: ListingView,
+  seenAtMs: number,
+  read: ReadonlySet<string> = new Set(),
+): boolean {
+  if (read.has(listing.id)) return false;
   const at = listing.notifiedAt;
   if (at === null || at === undefined) return false;
   const timestamp = Date.parse(at);
   return Number.isFinite(timestamp) && timestamp > seenAtMs;
+}
+
+/**
+ * Annonces dont on a OUVERT la fiche : leur alerte est lue.
+ *
+ * Cliquer une notification mène droit à l'annonce ; la retrouver ensuite
+ * « non lue » dans l'historique disait le contraire de ce qu'on venait de
+ * faire. Propre à ce navigateur et bornée, comme les lignes écartées.
+ */
+const READ_CAP = 500;
+
+export function readReadAlerts(): ReadonlySet<string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ALERTS_READ_KEY) ?? '[]') as unknown;
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function markAlertRead(id: string): ReadonlySet<string> {
+  const next = new Set(readReadAlerts());
+  next.delete(id);
+  next.add(id);
+  try {
+    localStorage.setItem(ALERTS_READ_KEY, JSON.stringify([...next].slice(-READ_CAP)));
+  } catch {
+    /* stockage indisponible : la ligne restera marquée, sans casse */
+  }
+  return next;
 }
 
 /**
