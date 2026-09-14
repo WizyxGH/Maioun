@@ -37,19 +37,14 @@ import {
 } from '@maioun/collector/notify/mailer';
 import { relayPhoto } from './photo-relay.js';
 import { triggerCollect } from './collect-trigger.js';
-import {
-  completeReset,
-  hashToken,
-  newToken,
-  openReset,
-  resetEmailBody,
-  resetLink,
-} from './password-reset.js';
+import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 import {
   changeEmail,
   changeEmailProblemMessage,
   confirmEmail,
   confirmEmailBody,
+  confirmEmailCode,
+  verificationRows,
   confirmLink,
   createAccount,
   deleteAccount,
@@ -564,7 +559,7 @@ async function signup(
     confirmationSent = await sendEmail(env, {
       to: created.account.email,
       subject: 'Confirmez votre adresse Maïoun',
-      text: confirmEmailBody(confirmLink(siteUrl, created.account.token)),
+      text: confirmEmailBody(confirmLink(siteUrl, created.account.token), created.account.code),
     });
   }
 
@@ -694,6 +689,7 @@ async function accountEmailRoute(
 ): Promise<Response | null> {
   if (request.method === 'POST') {
     if (action === 'resend') return resendConfirmationRoute(db, env, cors, userId);
+    if (action === 'code') return confirmCodeRoute(db, request, cors, userId);
     return changeEmailRoute(db, request, env, cors, userId);
   }
   if (request.method !== 'GET') return null;
@@ -741,7 +737,7 @@ async function changeEmailRoute(
     return json({ error: changeEmailProblemMessage(changed.problem) }, cors, status);
   }
 
-  const confirmation = await sendConfirmation(env, changed.email, changed.token);
+  const confirmation = await sendConfirmation(env, changed.email, changed.token, changed.code);
   return json({ email: changed.email, confirmation }, cors);
 }
 
@@ -753,14 +749,43 @@ async function changeEmailRoute(
  * parfaitement configuré — et cela envoyait chercher le problème là où il
  * n'était pas (§17). Les trois cas se disent maintenant séparément.
  */
-async function sendConfirmation(env: Env, email: string, token: string): Promise<SendOutcome> {
+async function sendConfirmation(
+  env: Env,
+  email: string,
+  token: string,
+  code: string,
+): Promise<SendOutcome> {
   const siteUrl = env.SITE_URL ?? '';
   if (siteUrl === '') return 'unconfigured';
   return await sendEmailResult(env, {
     to: email,
-    subject: 'Confirmez votre adresse Maïoun',
-    text: confirmEmailBody(confirmLink(siteUrl, token)),
+    subject: `${code.slice(0, 3)} ${code.slice(3)} — votre code Maïoun`,
+    text: confirmEmailBody(confirmLink(siteUrl, token), code),
   });
+}
+
+/**
+ * Confirme l'adresse par le code reçu, sans quitter le site.
+ *
+ * LIMITÉE PAR COMPTE, pas par adresse IP : c'est le compte qu'on protège, et
+ * changer de réseau ne doit pas rendre dix nouveaux essais.
+ */
+async function confirmCodeRoute(
+  db: Client,
+  request: Request,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response> {
+  const bucket = await bucketFor('confirmCode', userId);
+  if (!(await allow(db, bucket, LIMITS.confirmCode, Date.now()))) {
+    return json({ error: 'Trop d’essais. Réessayez dans une heure.' }, cors, 429);
+  }
+  const body = (await request.json().catch(() => ({}))) as { code?: unknown };
+  const code = typeof body.code === 'string' ? body.code : '';
+  const outcome = await confirmEmailCode(db, userId, code, Date.now());
+  return outcome === 'ok'
+    ? json({ verified: true }, cors)
+    : json({ error: 'Code incorrect ou expiré.' }, cors, 400);
 }
 
 /**
@@ -793,20 +818,13 @@ async function resendConfirmationRoute(
     return json({ confirmation: 'sent', alreadyVerified: true }, cors);
   }
 
-  const token = newToken();
-  const now = Date.now();
-  await db.execute({
-    sql: `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
-          VALUES (?, ?, ?, ?)`,
-    args: [
-      await hashToken(token),
-      userId,
-      new Date(now).toISOString(),
-      new Date(now + 48 * 3_600_000).toISOString(),
-    ],
-  });
+  const verification = await verificationRows(userId, Date.now());
+  await db.batch(verification.statements, 'write');
 
-  return json({ confirmation: await sendConfirmation(env, email, token) }, cors);
+  return json(
+    { confirmation: await sendConfirmation(env, email, verification.token, verification.code) },
+    cors,
+  );
 }
 
 async function deleteAccountRoute(

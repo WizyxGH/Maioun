@@ -61,6 +61,8 @@ export interface CreatedAccount {
   readonly userId: string;
   /** Le jeton de confirmation en clair. Il n'existe qu'ici et dans le lien. */
   readonly token: string;
+  /** Le code à six chiffres, en clair ici et dans le message seulement. */
+  readonly code: string;
   readonly email: string;
 }
 
@@ -100,15 +102,57 @@ export function changeEmailProblemMessage(problem: ChangeEmailProblem): string {
   }
 }
 
+/**
+ * Le code à six chiffres qui double le lien.
+ *
+ * SANS QUITTER LE SITE : ouvrir sa messagerie sur le téléphone et suivre un
+ * lien ouvre souvent un autre navigateur, où l'on n'est pas connecté. Le code
+ * se recopie dans l'onglet déjà ouvert.
+ *
+ * L'EMPREINTE LIE LE CODE AU COMPTE : un million de valeurs se devinent, mais
+ * seulement depuis la session de ce compte, et au rythme que la route permet.
+ */
+export function newCode(): string {
+  const [value] = crypto.getRandomValues(new Uint32Array(1));
+  return String((value ?? 0) % 1_000_000).padStart(6, '0');
+}
+
+export async function hashCode(userId: string, code: string): Promise<string> {
+  return await hashToken(`code:${userId}:${code}`);
+}
+
+/** Les deux lignes d'une confirmation : le lien et le code, même échéance. */
+export async function verificationRows(
+  userId: string,
+  nowMs: number,
+): Promise<{ token: string; code: string; statements: { sql: string; args: string[] }[] }> {
+  const token = newToken();
+  const code = newCode();
+  const now = new Date(nowMs).toISOString();
+  const expires = new Date(nowMs + VALID_HOURS * 3_600_000).toISOString();
+  const sql = `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
+                VALUES (?, ?, ?, ?)`;
+  return {
+    token,
+    code,
+    statements: [
+      { sql, args: [await hashToken(token), userId, now, expires] },
+      { sql, args: [await hashCode(userId, code), userId, now, expires] },
+    ],
+  };
+}
+
 /** Le corps du message de confirmation. */
-export function confirmEmailBody(link: string): string {
+export function confirmEmailBody(link: string, code: string): string {
   return [
     'Bienvenue sur Maïoun.',
     '',
-    'Confirmez votre adresse en suivant ce lien :',
+    `Votre code de confirmation : ${code.slice(0, 3)} ${code.slice(3)}`,
+    '',
+    'Saisissez-le sur Maïoun, dans Paramètres, ou suivez ce lien :',
     link,
     '',
-    `Le lien expire dans ${VALID_HOURS} heures.`,
+    `Le code et le lien expirent dans ${VALID_HOURS} heures.`,
     '',
     "Tant qu'elle n'est pas confirmée, votre adresse ne permet pas de",
     'réinitialiser votre mot de passe : nous ne pouvons écrire qu’à une adresse',
@@ -153,10 +197,8 @@ export async function createAccount(
 
   const userId = crypto.randomUUID();
   const hash = await hashPassword(input.password);
-  const token = newToken();
-  const tokenHash = await hashToken(token);
+  const verification = await verificationRows(userId, nowMs);
   const now = new Date(nowMs).toISOString();
-  const expires = new Date(nowMs + VALID_HOURS * 3_600_000).toISOString();
 
   try {
     await db.batch(
@@ -174,11 +216,7 @@ export async function createAccount(
                 VALUES (?, NULL, ?, ?, ?, lower(hex(randomblob(9))), ?, 0)`,
           args: [userId, hash, email.split('@')[0] ?? email, now, email],
         },
-        {
-          sql: `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
-                VALUES (?, ?, ?, ?)`,
-          args: [tokenHash, userId, now, expires],
-        },
+        ...verification.statements,
       ],
       'write',
     );
@@ -187,7 +225,10 @@ export async function createAccount(
     return { ok: false, problem: 'email-taken' };
   }
 
-  return { ok: true, account: { userId, token, email } };
+  return {
+    ok: true,
+    account: { userId, token: verification.token, code: verification.code, email },
+  };
 }
 
 export type ChangeEmailProblem = 'email-taken' | 'wrong-password' | EmailProblem;
@@ -218,7 +259,8 @@ export async function changeEmail(
   input: { readonly email: string; readonly password: string },
   nowMs: number,
 ): Promise<
-  { ok: true; token: string; email: string } | { ok: false; problem: ChangeEmailProblem }
+  | { ok: true; token: string; code: string; email: string }
+  | { ok: false; problem: ChangeEmailProblem }
 > {
   const email = normalizeEmail(input.email);
   const problem = emailProblem(email);
@@ -242,10 +284,7 @@ export async function changeEmail(
   });
   if (taken.rows[0] !== undefined) return { ok: false, problem: 'email-taken' };
 
-  const token = newToken();
-  const tokenHash = await hashToken(token);
-  const now = new Date(nowMs).toISOString();
-  const expires = new Date(nowMs + VALID_HOURS * 3_600_000).toISOString();
+  const verification = await verificationRows(userId, nowMs);
 
   try {
     await db.batch(
@@ -254,11 +293,7 @@ export async function changeEmail(
           sql: 'UPDATE users SET email = ?, email_verified = 0 WHERE id = ?',
           args: [email, userId],
         },
-        {
-          sql: `INSERT INTO email_verifications (token_hash, user_id, created_at, expires_at)
-                VALUES (?, ?, ?, ?)`,
-          args: [tokenHash, userId, now, expires],
-        },
+        ...verification.statements,
       ],
       'write',
     );
@@ -266,7 +301,7 @@ export async function changeEmail(
     return { ok: false, problem: 'email-taken' };
   }
 
-  return { ok: true, token, email };
+  return { ok: true, token: verification.token, code: verification.code, email };
 }
 
 export type ConfirmOutcome = 'ok' | 'invalid';
@@ -283,7 +318,29 @@ export async function confirmEmail(
   token: string,
   nowMs: number,
 ): Promise<ConfirmOutcome> {
-  const tokenHash = await hashToken(token);
+  return await consumeVerification(db, await hashToken(token), nowMs);
+}
+
+/**
+ * Consomme le code à six chiffres saisi sur le site, pour CE compte seulement.
+ * Espaces et tirets tolérés : on recopie « 123 456 » tel qu'il est écrit.
+ */
+export async function confirmEmailCode(
+  db: Client,
+  userId: string,
+  code: string,
+  nowMs: number,
+): Promise<ConfirmOutcome> {
+  const digits = code.replace(/[\s-]/g, '');
+  if (!/^\d{6}$/.test(digits)) return 'invalid';
+  return await consumeVerification(db, await hashCode(userId, digits), nowMs);
+}
+
+async function consumeVerification(
+  db: Client,
+  tokenHash: string,
+  nowMs: number,
+): Promise<ConfirmOutcome> {
   const found = await db.execute({
     sql: 'SELECT user_id, expires_at, used_at FROM email_verifications WHERE token_hash = ? LIMIT 1',
     args: [tokenHash],

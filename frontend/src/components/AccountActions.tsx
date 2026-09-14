@@ -36,6 +36,7 @@ import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { SignOut, Trash2 } from './icons.js';
 import { Input } from '@/components/ui/input.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { EmailCodeForm } from './EmailCodeForm.js';
 
 /**
  * Ce qu'on dit de chaque issue d'envoi.
@@ -47,7 +48,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert.js';
  * ce ne sont pas les mêmes gestes.
  */
 const SEND_MESSAGE: Readonly<Record<SendOutcome, string>> = {
-  sent: 'Un lien de confirmation vient de partir vers cette adresse.',
+  sent: 'Un code et un lien de confirmation viennent de partir vers cette adresse.',
   unconfigured:
     'Adresse enregistrée, mais l’envoi d’e-mails n’est pas configuré sur cette installation : aucun lien ne partira.',
   // ON NE DEVINE PLUS LA CAUSE. Ce message affirmait un domaine non vérifié ;
@@ -156,6 +157,17 @@ export function AccountActions({
               <AlertDescription>{SEND_MESSAGE[sent]}</AlertDescription>
             </Alert>
           )}
+          {account.email !== null && !account.verified && (
+            <EmailCodeForm
+              onVerified={() => {
+                setAccount({ ...account, verified: true });
+                setSent(null);
+              }}
+            />
+          )}
+          {account.email !== null && account.verified && (
+            <p className="text-good mt-1 text-[0.8rem]">Confirmée.</p>
+          )}
 
           {account.email !== null && !account.verified && (
             <Button
@@ -165,7 +177,7 @@ export function AccountActions({
               disabled={busy}
               onClick={() => void resend()}
             >
-              Renvoyer le lien
+              Renvoyer le code
             </Button>
           )}
           <Button

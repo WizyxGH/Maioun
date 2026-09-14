@@ -436,6 +436,33 @@ export async function resendConfirmation(): Promise<SendOutcome> {
   }
 }
 
+/** Confirme l'adresse du compte par le code à six chiffres reçu par e-mail. */
+export async function confirmAccountEmailCode(
+  code: string,
+): Promise<{ readonly ok: true } | { readonly ok: false; readonly error: string }> {
+  if (DEMO || API_URL === '') {
+    return { ok: false, error: 'Fonctionnalité indisponible sur cette installation.' };
+  }
+  // `fetch` DIRECT : le message du serveur (« Code incorrect ou expiré », « Trop
+  // d'essais ») est celui qu'il faut montrer.
+  let response: Response;
+  try {
+    response = await apiFetch(`${API_URL}/api/account/email/code`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    return { ok: false, error: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.' };
+  }
+  if (response.ok) return { ok: true };
+  const body = (await response.json().catch(() => ({}))) as { error?: unknown };
+  return {
+    ok: false,
+    error: typeof body.error === 'string' ? body.error : 'La confirmation n’a pas abouti.',
+  };
+}
+
 export type ChangeEmailOutcome =
   | { readonly ok: true; readonly email: string; readonly confirmation: SendOutcome }
   | { readonly ok: false; readonly error: string };
