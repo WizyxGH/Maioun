@@ -528,13 +528,13 @@ export function ListingDetail({
 
       <div className="mt-4 sm:grid sm:grid-cols-2 sm:gap-3">
         <ScoreDetail title="Correspondance" score={listing.scores.match} />
-        <ScoreDetail title="Opportunité" score={listing.scores.opportunity} />
+        <ScoreDetail title="Urgence" score={listing.scores.opportunity} />
         <ScoreDetail
-          title="Probabilité de visite"
+          title="Facilité de contact"
           score={listing.scores.visitProbability}
           caveat="Indice fondé sur des règles explicites, pas sur une statistique. Il sert à comparer les annonces entre elles, pas à prédire un pourcentage réel."
         />
-        <ScoreDetail title="Risque" score={listing.scores.risk} invert />
+        <ScoreDetail title="Signaux d’alerte" score={listing.scores.risk} invert />
       </div>
     </div>
   );

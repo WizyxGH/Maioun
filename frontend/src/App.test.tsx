@@ -107,7 +107,7 @@ describe('liste des annonces', () => {
     expect(bar).toHaveAttribute('aria-valuenow', '94');
     expect(first.getByText('à contacter')).toBeInTheDocument();
     expect(first.queryByText('Match')).not.toBeInTheDocument();
-    expect(first.queryByText('Opportunité')).not.toBeInTheDocument();
+    expect(first.queryByText('Urgence')).not.toBeInTheDocument();
   });
 
   it('indique le nombre de sources (§13)', async () => {
@@ -208,7 +208,7 @@ describe('fiche détaillée', () => {
     expect(screen.getByText('Agence identifiable')).toBeInTheDocument();
   });
 
-  it('avertit que la probabilité de visite n’est pas une statistique (§18)', async () => {
+  it('avertit que la facilité de contact n’est pas une statistique (§18)', async () => {
     await openFirstListing();
     expect(
       await screen.findByText(/fondé sur des règles explicites, pas sur une statistique/),
