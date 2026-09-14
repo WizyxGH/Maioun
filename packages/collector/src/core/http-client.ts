@@ -18,6 +18,7 @@ import type { FetchResult, RateLimitBudget } from '@maioun/shared';
 import type { Clock } from './clock.js';
 import type { Logger } from './logger.js';
 import { createRateLimiter, type RateLimiter } from './rate-limiter.js';
+import type { RobotsGate } from './robots.js';
 
 /** Entrée de cache conditionnel, persistée entre deux exécutions (§30). */
 export interface CacheEntry {
@@ -108,6 +109,8 @@ export interface HttpClientOptions {
   /** Injection de `fetch` pour les tests : aucun accès réseau en CI (§59). */
   readonly fetchImpl?: typeof fetch;
   readonly timeoutMs?: number;
+  /** Contrôle du robots.txt, partagé par les sources d'un passage. */
+  readonly robots?: RobotsGate;
 }
 
 export interface RequestInitLite {
@@ -227,6 +230,8 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     limiter,
 
     async get(url, init) {
+      // Avant tout : une page interdite n'est même pas demandée (§10).
+      await options.robots?.check(url);
       const method = init?.method ?? 'GET';
       const headers: Record<string, string> = {
         'user-agent': userAgent,
