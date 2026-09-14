@@ -140,6 +140,12 @@ describe('parsePropertyType', () => {
     expect(parsePropertyType('T3')).toBe('apartment');
   });
 
+  it('ne prend pas un nombre de chambres pour une chambre', () => {
+    expect(parsePropertyType('Duplex 4 pièce(s) 3 chambre(s) 108 m²')).toBe('apartment');
+    expect(parsePropertyType('Maison 5 pièces 3 chambres')).toBe('house');
+    expect(parsePropertyType('Chambre meublée chez l’habitant')).toBe('room');
+  });
+
   it('reconnaît les biens non résidentiels comme parking', () => {
     expect(parsePropertyType('Location Stationnement')).toBe('parking');
     expect(parsePropertyType('Box')).toBe('parking');

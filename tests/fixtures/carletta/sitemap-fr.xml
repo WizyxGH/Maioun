@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<urlset xmlns="http://www.google.com/schemas/sitemap/0.84" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<url><loc>http://www.carletta.fr/fr/contact.htm</loc></url>
+<url><loc>http://www.carletta.fr/location/appartement-nice-06200/127.htm</loc>
+<lastmod>2026-08-28T17:34:23+01:00</lastmod>                
+<image:image>
+<image:loc>http://www.carletta.fr/photos/biens/127-1/appartement-nice-06200-1787931323.jpg</image:loc>
+</image:image>
+</url>
+<url><loc>http://www.carletta.fr/location/garage-nice-06200/351.htm</loc>
+<lastmod>2026-09-08T09:35:38+01:00</lastmod>                
+<image:image>
+<image:loc>http://www.carletta.fr/photos/biens/351-1/garage-nice-06200-1787211513.jpg</image:loc>
+</image:image>
+</url>
+<url><loc>http://www.carletta.fr/vente-achat/appartement-nice-06000/369.htm</loc>
+<lastmod>2025-04-01T16:51:38+01:00</lastmod>                
+<image:image>
+<image:loc>http://www.carletta.fr/photos/biens/369-1/appartement-nice-06000-1770282341.jpg</image:loc>
+</image:image>
+</url>
+</urlset>

@@ -133,16 +133,16 @@ SSR → fiches nouvelles uniquement ; table clé/valeur `table-aria` (CP, pièce
 meublé, loyer CC, charges), photos `staticlbi.com` ; DPE non extrait (image
 générée sous /admin, interdit par robots → laissé inconnu, §17).
 
-| Source                                          | Vérifié    | Verdict            | Détail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------------------------------- | ---------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Giletta Immobilier** (giletta-properties.com) | 2026-08-17 | ✅ **Implémentée** | ~47 fiches location à Nice, majoritairement étudiantes exclusives (écartées par le filtre) — le reste est le meilleur volume unitaire trouvé. Dates de disponibilité dans les titres.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **LT Immobilier** (lt-immobilier.com)           | 2026-08-17 | ✅ **Implémentée** | Seule couverture **La Trinité/Drap/Paillon**. Stock faible mais stratégique ; sitemap sans fiches → collecte par la liste `/a-louer/1`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **Agence du Centre** (agenceducentrenice.com)   | 2026-08-17 | ✅ **Implémentée** | ~5 locations Nice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Dinamy Immobilier** (dinamyimmobilier.com)    | 2026-09-03 | ✅ **Implémentée** | Agence Nice (13 rue François Guisol), demandée explicitement le 2026-08-27. Application PHP maison, SSR, sans anti-bot ; pas de robots.txt (404) donc rien d’interdit. La liste porte prix et référence dans le querystring, et la surface + les pièces sont encodés dans le CHEMIN DES PHOTOS (`Ap3P-53-Nice-Cimiez-51`). Pagination par POST lié à la session PHP. La location SAISONNIÈRE (`transactions=4`, prix à la nuitée) n’est jamais collectée. **Fiches visitées depuis le 2026-09-03**, pour les annonces NOUVELLES seulement : elles seules portent la description — qui nomme la rue (« Rue Smolett… ») et signale les baux étudiants 9 mois — et le diaporama complet (6 photos contre 1). La page pèse 2 Mo, dont l’essentiel est la liste des 35 000 communes de France réinjectée partout : d’où le plafond de 8 fiches par run. |
-| **Borne & Delaunay** (borne-delaunay.com)       | 2026-09-04 | ✅ **Implémentée** | Agence Nice (gestion locative, syndic), demandée explicitement. `robots.txt` n'interdit que `/contacts/success_landing`. Site Rails maison, SSR, sans anti-bot. La page `/immobilier/louer-13` porte toutes les locations, cartes complètes (titre d'accroche qui nomme souvent le quartier, ville, CP, type, pièces, surface, loyer, photo) : une requête, aucune visite de fiche. Relevé du 2026-09-04 : 3 locations, toutes à Nice, 882 à 1 650 € — au-dessus du budget actuel, mais le stock tourne.                                                                                                                                                                                                                                                                                                                                           |
-| immobiliere-pelou.com                           | 2026-08-17 | ⚪ Hektor confirmé | Liste `/a-louer/1` vide au moment de l'étude — à activer quand le stock (longue durée) apparaît.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| aagestion.net                                   | 2026-08-17 | ⚪ Hektor confirmé | Liste `/location/1` sans fiche au moment de l'étude.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| agencedesdomaines.com (Cagnes)                  | 2026-08-17 | ⚪ Hektor confirmé | Liste `/a-louer/1` sans fiche au moment de l'étude.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Source                                          | Vérifié    | Verdict                                                                      | Détail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | ---------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Giletta Immobilier** (giletta-properties.com) | 2026-08-17 | ✅ **Implémentée**                                                           | ~47 fiches location à Nice, majoritairement étudiantes exclusives (écartées par le filtre) — le reste est le meilleur volume unitaire trouvé. Dates de disponibilité dans les titres.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **LT Immobilier** (lt-immobilier.com)           | 2026-08-17 | ✅ **Implémentée**                                                           | Seule couverture **La Trinité/Drap/Paillon**. Stock faible mais stratégique ; sitemap sans fiches → collecte par la liste `/a-louer/1`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Agence du Centre** (agenceducentrenice.com)   | 2026-08-17 | ✅ **Implémentée**                                                           | ~5 locations Nice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Dinamy Immobilier** (dinamyimmobilier.com)    | 2026-09-03 | ✅ **Implémentée**                                                           | Agence Nice (13 rue François Guisol), demandée explicitement le 2026-08-27. Application PHP maison, SSR, sans anti-bot ; pas de robots.txt (404) donc rien d’interdit. La liste porte prix et référence dans le querystring, et la surface + les pièces sont encodés dans le CHEMIN DES PHOTOS (`Ap3P-53-Nice-Cimiez-51`). Pagination par POST lié à la session PHP. La location SAISONNIÈRE (`transactions=4`, prix à la nuitée) n’est jamais collectée. **Fiches visitées depuis le 2026-09-03**, pour les annonces NOUVELLES seulement : elles seules portent la description — qui nomme la rue (« Rue Smolett… ») et signale les baux étudiants 9 mois — et le diaporama complet (6 photos contre 1). La page pèse 2 Mo, dont l’essentiel est la liste des 35 000 communes de France réinjectée partout : d’où le plafond de 8 fiches par run. |
+| **Borne & Delaunay** (borne-delaunay.com)       | 2026-09-04 | ✅ **Implémentée**                                                           | Agence Nice (gestion locative, syndic), demandée explicitement. `robots.txt` n'interdit que `/contacts/success_landing`. Site Rails maison, SSR, sans anti-bot. La page `/immobilier/louer-13` porte toutes les locations, cartes complètes (titre d'accroche qui nomme souvent le quartier, ville, CP, type, pièces, surface, loyer, photo) : une requête, aucune visite de fiche. Relevé du 2026-09-04 : 3 locations, toutes à Nice, 882 à 1 650 € — au-dessus du budget actuel, mais le stock tourne.                                                                                                                                                                                                                                                                                                                                           |
+| immobiliere-pelou.com                           | 2026-08-17 | ✅ **Implémentée le 2026-09-14** — 1 location à l'année (Villeneuve-Loubet). |
+| aagestion.net                                   | 2026-08-17 | ✅ **Implémentée le 2026-09-14** — 6 locations (Nice ×5).                    |
+| agencedesdomaines.com (Cagnes)                  | 2026-08-17 | ✅ **Implémentée le 2026-09-14** — 1 garage au relevé.                       |
 
 **Plateforme « Netty »** — adaptateur générique implanté le 2026-09-05
 (`sources/netty`), troisième plateforme couverte après Apimo/Cello et
@@ -237,22 +237,223 @@ domaines devinés : l'**annuaire FNAIM des agences niçoises**
 donne les sites des agences adhérentes. Vingt-trois domaines externes en sont
 sortis, tous passés à `scripts/probe-agency.mjs`.
 
-| Source                                                                                                                       | Vérifié    | Verdict            | Locations ciblées                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Immo JBF** (immo-jbf.com)                                                                                                  | 2026-09-05 | ✅ **Implémentée** | **151** — la plus grosse source locale du projet.                                                                                                                                                                                                       |
-| **Immo 3000** (immo3000.com)                                                                                                 | 2026-09-05 | ✅ **Implémentée** | 63, uniquement des appartements.                                                                                                                                                                                                                        |
-| **Acropolis Immobilier** (acropolisimmo.com)                                                                                 | 2026-09-05 | ✅ **Implémentée** | 49.                                                                                                                                                                                                                                                     |
-| **Partners Immo** (partners-immo.fr)                                                                                         | 2026-09-05 | ✅ **Implémentée** | 33.                                                                                                                                                                                                                                                     |
-| **Agence Longchamp** (agencelongchamp.com)                                                                                   | 2026-09-05 | ✅ **Implémentée** | 10, le reste en commerces.                                                                                                                                                                                                                              |
-| **Cimiez Boulevard** (cimiez-boulevard.fr)                                                                                   | 2026-09-05 | ✅ **Implémentée** | 7 locations, mais les MIEUX renseignées de l'inventaire : charges, quartier, GPS, photos, meublé sur chaque fiche. Le quartier figure dans l'adresse — couverture totale là où elle plafonne à 16 % ailleurs. Premier parseur hors plateforme partagée. |
-| **AGIR** (agir.immo)                                                                                                         | 2026-09-05 | ⏸️ Écartée         | 2, plateforme La Boîte Immo — première rencontrée.                                                                                                                                                                                                      |
-| 107promenade, agencecalifornie, agerim, aifelimmo, barbera-gestion, cabinet-bgi, cabinetamandola, immobilier-nice, savi-nice | 2026-09-05 | ⏸️ Écartées        | 0 location ciblée, ou site injoignable.                                                                                                                                                                                                                 |
+| Source                                                                                                                       | Vérifié    | Verdict                                                                | Locations ciblées                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Immo JBF** (immo-jbf.com)                                                                                                  | 2026-09-05 | ✅ **Implémentée**                                                     | **151** — la plus grosse source locale du projet.                                                                                                                                                                                                       |
+| **Immo 3000** (immo3000.com)                                                                                                 | 2026-09-05 | ✅ **Implémentée**                                                     | 63, uniquement des appartements.                                                                                                                                                                                                                        |
+| **Acropolis Immobilier** (acropolisimmo.com)                                                                                 | 2026-09-05 | ✅ **Implémentée**                                                     | 49.                                                                                                                                                                                                                                                     |
+| **Partners Immo** (partners-immo.fr)                                                                                         | 2026-09-05 | ✅ **Implémentée**                                                     | 33.                                                                                                                                                                                                                                                     |
+| **Agence Longchamp** (agencelongchamp.com)                                                                                   | 2026-09-05 | ✅ **Implémentée**                                                     | 10, le reste en commerces.                                                                                                                                                                                                                              |
+| **Cimiez Boulevard** (cimiez-boulevard.fr)                                                                                   | 2026-09-05 | ✅ **Implémentée**                                                     | 7 locations, mais les MIEUX renseignées de l'inventaire : charges, quartier, GPS, photos, meublé sur chaque fiche. Le quartier figure dans l'adresse — couverture totale là où elle plafonne à 16 % ailleurs. Premier parseur hors plateforme partagée. |
+| **AGIR** (agir.immo)                                                                                                         | 2026-09-05 | ✅ **Implémentée le 2026-09-14** — 2, écartée d'abord pour son volume. |
+| 107promenade, agencecalifornie, agerim, aifelimmo, barbera-gestion, cabinet-bgi, cabinetamandola, immobilier-nice, savi-nice | 2026-09-05 | ⏸️ Écartées                                                            | 0 location ciblée, ou site injoignable.                                                                                                                                                                                                                 |
 
 **APIMO DOMINE NICE**, et c'est le fait qui compte pour la suite : cinq des six
 candidats retenus sont sur cette plateforme. Ajouter une agence Apimo coûte
 dix-huit lignes ; écrire un scraper pour une plateforme rencontrée une seule
 fois en coûte deux cents. Tant que la fabrique Apimo couvre la majorité, c'est
 là qu'est le rendement.
+
+### Balayage du 2026-09-14 : les agences que le catalogue voyait sans les lire
+
+**Consigne du propriétaire, même jour : le volume ne compte pas.** Toute agence
+conforme qui a au moins une location dans la zone est collectée et gardée
+active, même pour une ou deux annonces. Seules sont écartées les agences sans
+location dans la zone, celles qui ferment l'accès, et celles qu'on n'a pas pu
+identifier avec certitude.
+
+**Méthode, réutilisable.** Deux lectures, sans rien deviner :
+
+1. Le catalogue de Maïoun (API publique, 3 270 fiches) : les noms d'agences des
+   annonces que seules FNAIM, Bien'ici, ParuVendu, LocService et les alertes
+   e-mail apportent.
+2. La recherche Bien'ici déjà collectée (515 locations à Nice, six requêtes).
+   Chaque annonce y trahit le LOGICIEL de l'agence par son identifiant
+   (`apimo-…`, `hektor-{compte}-…`, `netty-company…`, `gedeon-…`, `ag0…` pour
+   Ubiflow) et souvent son SITE par `agencyFeeUrl`, le lien vers le barème
+   d'honoraires : `https://www.midem-immobilier.fr/i/redac/honoraires` donne le
+   domaine d'une agence La Boîte Immo sans aucune recherche.
+
+Chaque domaine a ensuite été confirmé par sa page d'accueil ou ses mentions
+légales (raison sociale, adresse dans les Alpes-Maritimes), puis sondé :
+`robots.txt`, signature de plateforme, comptage des locations de la zone, et
+lecture d'une vraie fiche par l'adaptateur du projet.
+
+**Ce que le balayage a corrigé dans les adaptateurs.**
+
+- **La Boîte Immo** sert au moins quatre gabarits de fiche. Seul le plus récent
+  (table `table-aria`) se lisait : plus de la moitié des agences sondées
+  rendaient « Fiche sans prix ». Le parseur lit désormais les libellés que tous les
+  gabarits écrivent (« Loyer CC\* / mois », « Code postal », « Surface
+  habitable (m²) », « Charges locatives… », « La ville de … »), la description
+  de chaque gabarit, et ne prend plus le département préfixé
+  (`/06-alpes-maritimes/1-nice/`) pour la commune.
+- **Apimo, ancien schéma** (`/fr/propriété/{id}`) : le scraper d'Agence
+  Privilège avait l'adresse de sa liste écrite en dur. Il devient une fabrique
+  (`apimo/list-scraper.ts`), qui sert aussi Reynier, Picado, Cordier, L'Agent
+  Niçois et Postillon.
+- **Netty** accepte une adresse de fiche sans code postal (Ferrero).
+- **Normalisation** : « Duplex 4 pièce(s) 3 chambre(s) » était typé
+  « chambre », donc écarté de la recherche. Un nombre de chambres ne désigne
+  plus une chambre.
+
+**Soixante-dix sources ajoutées** : 28 La Boîte Immo, 24 Apimo, 5 Apimo ancien
+schéma, 5 Netty, 8 parseurs dédiés (dont Immo de France, réseau Procivis).
+
+**Coût par passage.** Une agence La Boîte Immo coûte une requête de liste (deux
+pour Roseland et GTI) ; une agence Apimo ou Netty, son sitemap (conditionnel,
+souvent un index et une page) ; une agence Apimo ancien schéma ou à parseur
+dédié, sa liste. S'y ajoutent, pour les seules annonces NOUVELLES (et les fiches
+jamais lues), une requête par fiche, plafonnée à six ou huit. En régime établi :
+environ 100 requêtes pour les 70 sources, chacune sur son propre hôte, au délai
+de 4 s (5 s pour Netty).
+
+#### Implémentées — La Boîte Immo (adaptateur `hektor`)
+
+| Source                                             | Vérifié    | Locations relevées                                     |
+| -------------------------------------------------- | ---------- | ------------------------------------------------------ |
+| **Immobilière Roseland** (immobiliereroseland.fr)  | 2026-09-14 | 17 sur deux pages, Nice en majorité                    |
+| **SAG Immobilier** (sag-immobilier.com)            | 2026-09-14 | 11, toutes à Nice                                      |
+| **AA Gestion** (aagestion.net)                     | 2026-09-14 | 6 (Nice ×5, Grasse)                                    |
+| **Murta Immobilier** (murta-immobilier.com, Drap)  | 2026-09-14 | 6 (Nice ×2, Drap, Contes, arrière-pays)                |
+| **Aurus Immobilier** (aurusimmo.com, Beaulieu)     | 2026-09-14 | 5 (Nice ×3, Beaulieu-sur-Mer, Roquebrune)              |
+| **ANG Immobilier** (agence-nice-gambetta.fr)       | 2026-09-14 | 5 à Nice (dont 2 stationnements)                       |
+| **Agence Passy** (agencepassy.com)                 | 2026-09-14 | 4 (logements et garages)                               |
+| **Immobilier Côté Village** (La Trinité)           | 2026-09-14 | 4 (La Trinité ×3, Nice)                                |
+| **Midem Immobilier** (midem-immobilier.fr)         | 2026-09-14 | 4 (Nice ×3, Villeneuve-Loubet)                         |
+| **Coprogestimmo** (coprogestimmo.fr)               | 2026-09-14 | 4 (Nice ×2, Menton ×2)                                 |
+| **Liberty Agency** (agence-liberty.com)            | 2026-09-14 | 3 à Nice                                               |
+| **Belgravia** (belgravia.fr)                       | 2026-09-14 | 2 (Nice, Villefranche-sur-Mer)                         |
+| **De Vita Immobilier** (devita.immo)               | 2026-09-14 | 2 à Nice                                               |
+| **L&B Immobilier** (lb-immobilier.fr)              | 2026-09-14 | 2 à Nice                                               |
+| **Sud Contact** (nice-ouest-immobilier.com)        | 2026-09-14 | 2 à Nice (un studio, une chambre en colocation)        |
+| **Maison Quatre** (maisonquatre.la-boite-immo.com) | 2026-09-14 | 2 à Nice                                               |
+| **Riviera Concept** (rivieraconcept.com)           | 2026-09-14 | 2 à Nice                                               |
+| **Cabinet AGIR** (agir.immo)                       | 2026-09-14 | 2 (Nice, Le Rouret)                                    |
+| **Cabinet Nardi** (cabinetnardi.com)               | 2026-09-14 | 1 à Nice                                               |
+| **Immo Consult Côté Sud** (immoconsultcotesud.com) | 2026-09-14 | 1 à Nice                                               |
+| **Immobilière Pelou** (Villeneuve-Loubet)          | 2026-09-14 | 1 à l'année ; la page saisonnière n'est jamais lue     |
+| **Agence des Domaines** (Cagnes-sur-Mer)           | 2026-09-14 | 1 garage ; gardée pour les logements à venir           |
+| **Immobilière GTI** (immobilieregti.com, Orpi)     | 2026-09-14 | 16 sur deux pages, dont 14 à Nice                      |
+| **Groupe Marshall** (cabinet-marshall.com)         | 2026-09-14 | 5 dans la zone (Nice ×3, Cagnes, Saint-Laurent-du-Var) |
+| **Méditerranée Immo** (mediterranee-immo.fr)       | 2026-09-14 | 4 à Nice, pour étudiants                               |
+| **Bérénice Immobilier** (berenice-immobilier.com)  | 2026-09-14 | 3 à Nice ; commune tirée du code postal                |
+| **Orpi Agence Contesso** (agence-contesso.com)     | 2026-09-14 | 3 (Nice, Carros ×2)                                    |
+| **Anne-Sophie Lapierre** (lapierre-immobilier.com) | 2026-09-14 | 2 (Nice, Cagnes-sur-Mer)                               |
+
+#### Implémentées — Apimo (adaptateur `apimo`, sitemap)
+
+Les sitemaps Apimo gardent des fiches louées : le compte ci-dessous est celui
+du sitemap, et l'adaptateur écarte déjà ce qui a plus d'un an ou se déclare
+loué.
+
+| Source                                             | Vérifié    | Locations ciblées au sitemap                             |
+| -------------------------------------------------- | ---------- | -------------------------------------------------------- |
+| **Masséna Immobilier** (massena-immo.com)          | 2026-09-14 | 39, toutes de 2026                                       |
+| **PHT Real Estate** (phtrealestate.com)            | 2026-09-14 | 39 (26 de 2024-2025)                                     |
+| **Immobilier 2 Nice** (immobilier2nice.com)        | 2026-09-14 | 31, surtout 2025 (2 en ligne sur Bien'ici)               |
+| **Reutter Invest** (reutterinvest.fr)              | 2026-09-14 | 28                                                       |
+| **A Alliance Conseil** (allianceconseilimmo.com)   | 2026-09-14 | 25                                                       |
+| **Vizcaya** (vizcaya.fr)                           | 2026-09-14 | 24                                                       |
+| **Cabinet Ventura** (cabinetventura.com)           | 2026-09-14 | 22 (14 logements)                                        |
+| **FDS Carré d'Or** (fdscarredor.com)               | 2026-09-14 | 10                                                       |
+| **Marcele Immobilier** (ballestri-immobilier.com)  | 2026-09-14 | 6 — ex-Ballestri, nommée par les mentions légales        |
+| **Home Pearl** (homepearl.immo)                    | 2026-09-14 | 5 en ligne (104 au sitemap)                              |
+| **Réussite Immo Nice** (immonice06.fr)             | 2026-09-14 | 5                                                        |
+| **Joseph Garnier** (josephgarnier.fr)              | 2026-09-14 | 5                                                        |
+| **Sambroni Immobilier** (agencesambroni.com)       | 2026-09-14 | 5                                                        |
+| **5 Stars Holiday House** (Sima Immobilier)        | 2026-09-14 | 5 à l'année ou étudiantes ; saisonnier sur un autre site |
+| **BôMarché by Lambda** (bomarche.fr)               | 2026-09-14 | 4                                                        |
+| **Provencalpes** (provencalpes.fr)                 | 2026-09-14 | 4 (Nice, Contes, Drap)                                   |
+| **FIT Immobilier** (fit-immobilier.com)            | 2026-09-14 | 3                                                        |
+| **Agence Riviera Real Estate** (agenceriviera.com) | 2026-09-14 | 2 en ligne                                               |
+| **Diffusion Immobilière** (difimmo.com)            | 2026-09-14 | 2                                                        |
+| **La Conca d'Or** (laconcador.com)                 | 2026-09-14 | 1                                                        |
+| **Étude Lotte** (etudelotte.com)                   | 2026-09-14 | 1 en ligne                                               |
+| **Nice Premium Immobilier**                        | 2026-09-14 | 1 ; pas de page de locations, le sitemap seul            |
+| **Immobilière Victor Hugo**                        | 2026-09-14 | 1                                                        |
+| **La Firme** (proazurdagasso.com)                  | 2026-09-14 | 1 (une chambre en colocation)                            |
+
+#### Implémentées — Apimo ancien schéma (`apimo/list-scraper.ts`)
+
+| Source                                             | Vérifié    | Locations relevées                                      |
+| -------------------------------------------------- | ---------- | ------------------------------------------------------- |
+| **Cabinet Reynier** (cabinet-reynier.com)          | 2026-09-14 | 11 sur deux pages (Nice, Cap-d'Ail, Cagnes, St-Laurent) |
+| **Groupe Picado** (groupepicado.com)               | 2026-09-14 | 9 (Nice ×8)                                             |
+| **Cabinet Cordier** (cabinetcordier.com)           | 2026-09-14 | 4-5 à Nice                                              |
+| **L'Agent Niçois** (agentnicois.com)               | 2026-09-14 | 1 à Nice                                                |
+| **Postillon Immobilier** (postillon-immobilier.fr) | 2026-09-14 | 3 à Nice                                                |
+
+#### Implémentées — Netty (adaptateur `netty`)
+
+L'adaptateur accepte désormais une adresse de fiche SANS code postal
+(`location-appartement-nice,LA1968`, relevée chez Ferrero) : la commune se lit
+sur la fin du slug, le code postal sur la fiche.
+
+| Source                                            | Vérifié    | Locations relevées                                                      |
+| ------------------------------------------------- | ---------- | ----------------------------------------------------------------------- |
+| **Optimmo** (groupe-optimmo.fr)                   | 2026-09-14 | 10 ciblées (Nice ×8 dont parkings et locaux, Cagnes, Villeneuve-Loubet) |
+| **AM Concept Patrimoine** (amconcept.immo)        | 2026-09-14 | 2 (un studio à Nice, un bureau à La Trinité)                            |
+| **Lumina Immobilier** (lumina-immo.fr)            | 2026-09-14 | 1 colocation à Nice                                                     |
+| **Lienhard Immo** (lienhardimmo.fr, Alsace)       | 2026-09-14 | 1 à Nice ; le reste du sitemap écarté sans visite                       |
+| **Agence Ferrero** (ferrero-immobilier.fr, Vence) | 2026-09-14 | 1 à Nice ; Vence et Tourrettes écartées                                 |
+
+#### Implémentées — parseurs dédiés
+
+Un socle commun, `shared/list-and-details.ts` : la liste (ou le sitemap) à
+chaque passage, les fiches par `enrichNewListings`, et une annonce rendue
+seulement si elle a un loyer au mois. `shared/labels.ts` lit les « libellé :
+valeur » des fiches à gabarit maison.
+
+| Source                                          | Vérifié    | Plateforme                      | Locations relevées                      | Coût par passage                   |
+| ----------------------------------------------- | ---------- | ------------------------------- | --------------------------------------- | ---------------------------------- |
+| **Carletta Immobilier** (carletta.fr)           | 2026-09-14 | Bexter, windows-1252            | 11 à Nice                               | sitemap + fiches nouvelles (≤ 8)   |
+| **Concept Patrimoine** (conceptpatrimoine.fr)   | 2026-09-14 | WordPress, import Netty         | 9 (Nice ×6, dont 3 logements au total)  | liste + fiches nouvelles (≤ 6)     |
+| **Cabinet Griguer** (griguer-immobilier.com)    | 2026-09-14 | WordPress Essential Real Estate | 7 à Nice (4 logements)                  | recherche + fiches nouvelles (≤ 8) |
+| **Cabinet Crouzet & Breil** (crouzet-breil.com) | 2026-09-14 | WordPress Elementor, flux Apimo | 7 à Nice                                | liste + fiches nouvelles (≤ 8)     |
+| **Kapera Immobilier** (kapera-immobilier.com)   | 2026-09-14 | WordPress Elementor, flux Apimo | 7 (Nice ×5)                             | liste + fiches nouvelles (≤ 8)     |
+| **MK Immo** (mk-immo.fr, ex-MCE Immobilier)     | 2026-09-14 | Twimmo                          | 10 (Nice ×4, Cagnes, Villeneuve-Loubet) | liste + fiches nouvelles (≤ 8)     |
+| **Immo de France** (procivis.fr)                | 2026-09-14 | Procivis, JSON-LD               | 4 appartements à Nice                   | 2 listes + fiches nouvelles (≤ 6)  |
+| **SAFI Méditerranée** (safimediterranee.fr)     | 2026-09-14 | WordPress Houzez, flux Apimo    | 3 à Nice (chalets à la semaine écartés) | liste + fiches nouvelles (≤ 6)     |
+
+Deux particularités assumées : Kapera qualifie parfois de « hors charges » un
+loyer que sa description donne charges comprises — on reprend ce que le site
+affiche, sans recalcul ; Crouzet & Breil ne nomme la commune qu'en tête de la
+description (« NICE NORD – 36 BD GORBELLA »), lue telle quelle.
+
+#### Examinées, non implémentées
+
+| Candidate                                                                                                                                                   | Vérifié    | Verdict                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Confiance Immobilière** (confianceimmobiliere.com)                                                                                                        | 2026-09-14 | ⏸️ Site en maintenance (certificat `*.adaptimmo.com`, page « site indisponible ») ; 12 annonces vues sur Bien'ici et FNAIM. À resonder : sans doute en migration vers Netty.                                                                |
+| **JS Immobilier** (jsimmobilier.fr)                                                                                                                         | 2026-09-14 | 🔴 Défi anti-bot AWS dès la page d'accueil et le robots.txt : non contourné.                                                                                                                                                                |
+| **Nexity, Guy Hoquet, Nestenn, Square Habitat**                                                                                                             | 2026-09-14 | 🔴 Verdicts inchangés. Guy Hoquet Nice Gambetta publie 1 location, lisible par son sitemap Immo-Facile : à reprendre si le stock grossit.                                                                                                   |
+| **Sixième Avenue** (ex-Stéphane Plaza Nice)                                                                                                                 | 2026-09-14 | 🔴 Les agences Stéphane Plaza de Nice sont devenues Sixième Avenue ; la liste passe par un appel `/agency/products/…` qui répond 403.                                                                                                       |
+| **L'Agence Rivoli** (lagencerivoli.fr)                                                                                                                      | 2026-09-14 | 🔴 Recherche en POST AJAX, réponse compressée : pas de page de liste lisible, pour ~2 annonces.                                                                                                                                             |
+| **SOCOPRO** (socopro.fr)                                                                                                                                    | 2026-09-14 | 🟡 WordPress « WP Pro », ~4 locations ; le statut « LOUÉ! » n'est écrit que dans la description. Parseur dédié, une demi-journée.                                                                                                           |
+| **Parnasse Immobilier** (parnasse-immobilier.com)                                                                                                           | 2026-09-14 | 🟡 WordPress WP Residence, 3 appartements à Nice parmi parkings et commerce. Parseur dédié, une demi-journée.                                                                                                                               |
+| **Nicolas Pisani / Bellevue Real Estate**                                                                                                                   | 2026-09-14 | 🟡 Site ColdFusion : la liste « locations à l'année » est autorisée (6 villas et appartements haut de gamme dans la zone). Le verdict « robots interdit les annonces » du 2026-08-17 est à relire avant tout travail.                       |
+| **iad France** (iadfrance.fr)                                                                                                                               | 2026-09-14 | 🟡 `/annonces/pg-nice_06/location` et les fiches sont autorisées ; ~4 locations dans la zone. Données dans `__NUXT_DATA__`. Une demi-journée.                                                                                               |
+| **Century 21 Lafage** (century21-lafage-nice.com)                                                                                                           | 2026-09-14 | 🟡 22 locations dans la zone, lisibles par le parseur century21 existant. La source Century 21 ne lit que les appartements de Nice : lui ajouter maisons, Villefranche et Beaulieu (pages `v-*` autorisées) couvrirait ce stock. Une heure. |
+| **Orpi Agence Régionale** (Cagnes-sur-Mer)                                                                                                                  | 2026-09-14 | 🟡 Sans site propre ; ses annonces de Cagnes et Villeneuve-Loubet sont sur orpi.com. Ajouter ces pages à la source Orpi : une heure.                                                                                                        |
+| **Sun Immobilia** (sunimmobilia.fr)                                                                                                                         | 2026-09-14 | ⏸️ Netty, compatible tel quel, mais aucune location d'habitation au relevé.                                                                                                                                                                 |
+| **Madie Real Estate** (madieimmobilier.fr), **Riviera Angels** (riviera-angels.com)                                                                         | 2026-09-14 | ⏸️ La Boîte Immo, liste de locations vide au relevé.                                                                                                                                                                                        |
+| **Les Hespérides / Sopregim** (leshesperides.fr)                                                                                                            | 2026-09-14 | ⏸️ Résidence services seniors : un logement à Nice, réservé à un public âgé, que la recherche n'a pas de critère pour trier.                                                                                                                |
+| **DS Immobilier**, **Forimmo**                                                                                                                              | 2026-09-14 | 🔴 `robots.txt` en `Disallow: /` (Forimmo redirige vers la page de fermeture « Ma Boîte Immo »).                                                                                                                                            |
+| **Réseau Expertimo** (reseau-expertimo.fr)                                                                                                                  | 2026-09-14 | ⏸️ Réseau national de mandataires, 65 pages de locations sans filtre de commune pour une annonce niçoise.                                                                                                                                   |
+| **DAMA** (dama-agency.com)                                                                                                                                  | 2026-09-14 | 🟡 Site Tilda, villas de luxe à Villefranche-sur-Mer. Parseur dédié.                                                                                                                                                                        |
+| **Syngestone Immo**, **Cabinet Central Gestion**, **By Gestion**, **NIGESTIM**, **Global Gest**, **CAPGEST**, **Oralia**, **Sergic**, **Mobilité Logement** | 2026-09-14 | ⏸️ Aucune location dans la zone sur leur site (tout loué, syndic sans annonces, ou biens hors zone).                                                                                                                                        |
+| **Limandat** (limandat.fr)                                                                                                                                  | 2026-09-14 | ⏸️ Apimo au schéma d'URL incompatible, et uniquement des villas de luxe dans la zone (3 à 23 000 €/mois).                                                                                                                                   |
+| Logiciels Gedeon, Ubiflow, Twimmo, Bexter vus sur Bien'ici                                                                                                  | 2026-09-14 | Passerelles vers les portails, pas des gabarits de site : aucun site d'agence niçois n'est sur Gedeon, et Twimmo comme Bexter n'équipent qu'une agence chacun (MK Immo, Carletta). Pas d'adaptateur commun rentable.                        |
+| Maison Masséna, Viazur, My Nice Immo, Centre Immobilier, Loiselet & Daigremont (Nice)                                                                       | 2026-09-14 | ⚪ Injoignables ou introuvables : pas de domaine confirmé.                                                                                                                                                                                  |
+| Getkey / Agences de France, Diffuze                                                                                                                         | 2026-09-14 | ⏸️ Services de diffusion, pas des agences locales.                                                                                                                                                                                          |
+| Riviera Boulevard                                                                                                                                           | 2026-09-14 | ⏸️ Même équipe et même adresse que Cimiez Boulevard, déjà collectée.                                                                                                                                                                        |
+| Gabarrou Immobilier                                                                                                                                         | 2026-09-14 | ⏸️ Agence de l'Aude : ses annonces niçoises de fnaim.fr sont gérées par Syngestone, qui ne les publie pas.                                                                                                                                  |
+
+**Un écart à signaler.** Pendant le repérage, une requête vers
+`procivis.fr/louer?agency=immo-de-france-nice` est partie AVANT la lecture du
+`robots.txt`, qui interdit `/louer?*`. La page a été supprimée sans être lue ; la
+source n'utilise que les pages par type et commune, autorisées.
 
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)
 

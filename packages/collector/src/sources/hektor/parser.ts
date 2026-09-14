@@ -16,7 +16,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { cleanText } from '../../normalization/text.js';
+import { cleanText, slugify } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
@@ -50,7 +50,12 @@ export function parseListingUrl(href: string, baseUrl: string): ParsedHektorUrl 
   // Les listes paginées type `/location/2` ont un id mais pas de slug — le
   // motif exige le tiret, donc elles sont déjà écartées. Écarte aussi les
   // pages de zone `/location/1-nice/` sans fiche (le segment fiche est final).
-  const citySlug = /\/\d{1,3}-([a-z-]+)\//i.exec(resolved.pathname)?.[1] ?? null;
+  // Certains gabarits préfixent le département (`/06-alpes-maritimes/1-nice/`) :
+  // ce segment-là n'est pas la commune.
+  const citySlug =
+    [...resolved.pathname.matchAll(/\/\d{1,5}-([a-z-]+)(?=\/)/gi)]
+      .map((m) => m[1] ?? '')
+      .find((slug) => slug.toLowerCase() !== 'alpes-maritimes') ?? null;
 
   return {
     reference: match[1],
@@ -114,6 +119,63 @@ function readAriaTable($: cheerio.CheerioAPI): Map<string, string> {
   return rows;
 }
 
+/**
+ * Valeurs des libellés « Loyer CC* / mois », « Code postal »… lus dans le texte
+ * de la page. Les gabarits sans table `table-aria` (listes `<li>`, paires
+ * `title_finance`/`price_finance`, `termInfos`/`valueInfos`) écrivent tous ces
+ * mêmes libellés, avec ou sans deux-points.
+ */
+interface LabelledValues {
+  readonly rentCc?: string;
+  readonly postalCode?: string;
+  readonly area?: string;
+  readonly rooms?: string;
+  readonly furnished?: string;
+  readonly charges?: string;
+  readonly city?: string;
+}
+
+function readLabels($: cheerio.CheerioAPI): LabelledValues {
+  const body = $('body').clone();
+  body.find('script, style, noscript').remove();
+  const text = body.text().replace(/\s+/g, ' ');
+  const pick = (pattern: RegExp): string | undefined => pattern.exec(text)?.[1]?.trim();
+  const amount = String.raw`(\d[\d  .]*(?:,\d+)?)\s*€`;
+  const values = {
+    rentCc: pick(new RegExp(String.raw`Loyer CC\* \/ mois\s*:?\s*${amount}`)),
+    postalCode: pick(/Code postal\s*:?\s*(\d{5})\b/),
+    area: pick(/Surface (?:habitable|loi Boutin) \(m²\)\s*:?\s*(\d+(?:[.,]\d+)?)/),
+    rooms: pick(/Nombre de pièces\s*:?\s*(\d+)\b/),
+    furnished: pick(/Meublé\s*:?\s*(OUI|NON)\b/),
+    city: pick(/La ville de ([^()]+?)\s*\(\d{5}\)/),
+    // Le libellé porte sa parenthèse : on s'arrête au premier chiffre.
+    charges: pick(new RegExp(String.raw`Charges locatives[^:€\d]*:?\s*${amount}`)),
+  };
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== undefined),
+  ) as LabelledValues;
+}
+
+/**
+ * Titres qui ne sont pas l'annonce : bandeau de recherche, ou h1 réduit à la
+ * commune (« Nice », « La ville de Nice (06000) ») sur les anciens gabarits.
+ */
+const JUNK_H1 = /recherche de biens|^la ville de |^[\p{L}' -]{2,30}$/iu;
+
+/** Les codes postaux 06000 à 06300 ne desservent que Nice. */
+function cityFromPostalCode(postalCode: string | undefined): string | undefined {
+  return postalCode !== undefined && /^06[0-3]00$/.test(postalCode) ? 'Nice' : undefined;
+}
+
+/** Emplacements de la description, du gabarit courant aux plus anciens. */
+const DESCRIPTION_SELECTORS = [
+  '[class*="description__text"]',
+  '.detail-data-description [class*="text-content"]',
+  '.editorial-v2__text_structure .text__content',
+  '.offreContent',
+  '.description .details',
+];
+
 /** Clés booléennes de la table promues en atouts quand elles valent OUI. */
 const FEATURE_KEYS: Readonly<Record<string, string>> = {
   balcon: 'Balcon',
@@ -126,7 +188,6 @@ const FEATURE_KEYS: Readonly<Record<string, string>> = {
   climatisation: 'Climatisation',
 };
 
-/** Analyse une fiche bien et en extrait l'annonce. */
 /**
  * Type de bien et ville, depuis le `<title>` plateforme (« Location {type}
  * {Ville} … »), avec repli sur l'URL. Extrait pour alléger `parseDetailPage`.
@@ -134,17 +195,70 @@ const FEATURE_KEYS: Readonly<Record<string, string>> = {
 function parseTypeAndCity(
   pageTitle: string,
   parsedUrl: ParsedHektorUrl,
+  labelledCity: string | undefined,
 ): { propertyTypeText: string; cityText: string | undefined } {
   const match =
     /^location\s+(appartement|studio|maison|villa|parking|garage|local|chambre|duplex|loft)\s+(.+?)(?:\s+\d|$)/i.exec(
       pageTitle,
     );
+  // Le libellé « La ville de … » fait foi. Un titre libre (« Appartement meublé
+  // à Nice Musiciens ») ne donne la commune que s'il concorde avec l'URL.
+  const fromTitle = match?.[2]?.trim();
+  const slug = parsedUrl.citySlug;
+  const titleAgrees = fromTitle !== undefined && (slug === null || slugify(fromTitle) === slug);
   return {
     propertyTypeText: match?.[1] ?? parsedUrl.canonicalUrl,
     cityText:
-      match?.[2]?.trim() ??
-      (parsedUrl.citySlug !== null ? parsedUrl.citySlug.replace(/-/g, ' ') : undefined),
+      labelledCity ??
+      (titleAgrees ? fromTitle : slug !== null ? slug.replace(/-/g, ' ') : undefined),
   };
+}
+
+interface Figures {
+  readonly priceText: string | undefined;
+  readonly areaText: string | undefined;
+  readonly roomsText: string | undefined;
+  readonly furnishedText: string;
+}
+
+/** Loyer, surface, pièces et ameublement : la table d'abord, puis les libellés et titres. */
+function readFigures(
+  table: Map<string, string>,
+  labels: LabelledValues,
+  pageTitle: string,
+  h1: string,
+): Figures {
+  // Prix : la table (loyer CC) fait foi, puis le libellé, le <title> en secours.
+  const loyerCc =
+    table.get('loyer_cc') ?? (labels.rentCc !== undefined ? `${labels.rentCc} €` : undefined);
+  const priceText =
+    loyerCc !== undefined ? `${loyerCc} CC` : (pageTitle.match(/[\d\s.,]+\s*€/)?.[0] ?? undefined);
+
+  // Surface : d'abord le titre (le plus courant), sinon la table — certaines
+  // agences ne la mettent pas dans le titre mais la déclarent en loi Boutin ou
+  // Carrez (immobiliere-nicoise.com : clé `surf_carrez_loi_boutin`).
+  const areaFromTable = ['surface', 'surf_carrez_loi_boutin', 'surf_habitable', 'surface_habitable']
+    .map((key) => table.get(key))
+    .find((value) => value !== undefined && /\d/.test(value));
+  // Le h1 engendré (« Appartement 1 pièce(s) 27.46 m² ») passe avant le titre
+  // libre, qui peut nommer une autre surface (« terrasse de 8 m² »).
+  const areaText =
+    /pièce\(s\).*?(\d+(?:[.,]\d+)?\s*m²)/i.exec(h1)?.[1] ??
+    `${pageTitle} ${h1}`.match(/\d+(?:[.,]\d+)?\s*m²/i)?.[0] ??
+    (areaFromTable !== undefined ? `${areaFromTable.replace(/[^\d.,]/g, '')} m²` : undefined) ??
+    (labels.area !== undefined ? `${labels.area} m²` : undefined);
+  const roomsFromTable = table.get('nbpiecees') ?? labels.rooms;
+  const roomsText =
+    roomsFromTable !== undefined
+      ? `${roomsFromTable} pièces`
+      : pageTitle.match(/\d+\s*pièces?/i)?.[0];
+
+  // Meublé : la table est explicite (OUI/NON) — un texte fidèle à sa valeur,
+  // jamais un « meublé » par défaut qui inverserait le sens (§17).
+  const meuble = table.get('meuble') ?? labels.furnished;
+  const furnishedText = meuble === undefined ? '' : /^oui$/i.test(meuble) ? 'meublé' : 'non meublé';
+
+  return { priceText, areaText, roomsText, furnishedText };
 }
 
 export function parseDetailPage(html: string, pageUrl: string, agencyName: string): ParsedDetail {
@@ -160,38 +274,25 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // <title> « Location appartement Nice 3 pièces 54.25m² 1460€ | Agence » —
   // généré par la plateforme, riche ; le h1 est le titre libre de l'annonce.
   const pageTitle = cleanText($('title').first().text()).split('|')[0]?.trim() ?? '';
-  const h1 = cleanText($('h1').first().text().replace(/\s+/g, ' '));
+  const rawH1 = cleanText($('h1').first().text().replace(/\s+/g, ' '));
+  const h1 = JUNK_H1.test(rawH1) ? '' : rawH1;
   const title = h1 !== '' ? h1 : pageTitle;
+  const labels = readLabels($);
 
-  const description = htmlToText($, '[class*="description__text"]');
+  const description =
+    DESCRIPTION_SELECTORS.map((selector) => htmlToText($, selector))
+      .find((text) => text !== '')
+      ?.replace(/^(?:Description|Détails) de l'offre\s*/i, '') ?? '';
 
-  // Prix : la table (loyer CC) fait foi ; le <title> en secours.
-  const loyerCc = table.get('loyer_cc');
-  const priceText =
-    loyerCc !== undefined ? `${loyerCc} CC` : (pageTitle.match(/[\d\s.,]+\s*€/)?.[0] ?? undefined);
+  const { priceText, areaText, roomsText, furnishedText } = readFigures(
+    table,
+    labels,
+    pageTitle,
+    h1,
+  );
   if (priceText === undefined) warnings.push(`Fiche sans prix : ${pageUrl}`);
 
-  // Surface : d'abord le titre (le plus courant), sinon la table — certaines
-  // agences ne la mettent pas dans le titre mais la déclarent en loi Boutin ou
-  // Carrez (immobiliere-nicoise.com : clé `surf_carrez_loi_boutin`).
-  const areaFromTable = ['surface', 'surf_carrez_loi_boutin', 'surf_habitable', 'surface_habitable']
-    .map((key) => table.get(key))
-    .find((value) => value !== undefined && /\d/.test(value));
-  const areaText =
-    `${pageTitle} ${h1}`.match(/\d+(?:[.,]\d+)?\s*m²/i)?.[0] ??
-    (areaFromTable !== undefined ? `${areaFromTable.replace(/[^\d.,]/g, '')} m²` : undefined);
-  const roomsFromTable = table.get('nbpiecees');
-  const roomsText =
-    roomsFromTable !== undefined
-      ? `${roomsFromTable} pièces`
-      : pageTitle.match(/\d+\s*pièces?/i)?.[0];
-
-  // Meublé : la table est explicite (OUI/NON) — un texte fidèle à sa valeur,
-  // jamais un « meublé » par défaut qui inverserait le sens (§17).
-  const meuble = table.get('meuble');
-  const furnishedText = meuble === undefined ? '' : /^oui$/i.test(meuble) ? 'meublé' : 'non meublé';
-
-  const { propertyTypeText, cityText } = parseTypeAndCity(pageTitle, parsedUrl);
+  const { propertyTypeText, cityText } = parseTypeAndCity(pageTitle, parsedUrl, labels.city);
 
   const features = [...table.entries()]
     .filter(([key, value]) => FEATURE_KEYS[key] !== undefined && /^oui$/i.test(value))
@@ -224,7 +325,9 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     imageUrls.push(normalized);
   });
 
-  const chargesValue = table.get('ChargesAnnonceLocation_forfaitaires_mensuelles');
+  const chargesValue =
+    table.get('ChargesAnnonceLocation_forfaitaires_mensuelles') ??
+    (labels.charges !== undefined ? `${labels.charges} €` : undefined);
 
   // Atouts consolidés (caractéristiques + vue + exposition), pour la liste
   // d'atouts en normalisation.
@@ -247,8 +350,8 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     roomsText,
     propertyTypeText,
     furnishedText,
-    cityText,
-    postalCodeText: table.get('cp'),
+    cityText: cityText ?? cityFromPostalCode(table.get('cp') ?? labels.postalCode),
+    postalCodeText: table.get('cp') ?? labels.postalCode,
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,

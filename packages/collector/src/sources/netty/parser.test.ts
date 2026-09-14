@@ -79,6 +79,18 @@ describe('parseListingUrl', () => {
     });
   });
 
+  it('accepte une URL sans code postal (relevée sur ferrero-immobilier.fr)', () => {
+    const parsed = parseListingUrl(
+      'https://www.ferrero-immobilier.fr/location/location-appartement-nice,LA1968',
+    );
+    expect(parsed).toMatchObject({
+      slug: 'appartement-nice',
+      typeSlug: 'appartement',
+      postalCode: null,
+      reference: 'LA1968',
+    });
+  });
+
   it('n’est pas trompée par une page de liste', () => {
     expect(parseListingUrl('https://www.exemple.fr/location/appartement')).toBeNull();
     expect(parseListingUrl('https://www.exemple.fr/location/appartement/nice/06100')).toBeNull();
