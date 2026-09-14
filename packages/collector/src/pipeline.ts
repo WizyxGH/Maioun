@@ -45,6 +45,7 @@ import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 import { withStoredCriteria } from './config.js';
 import { resolveReferencePoints } from './core/reference-points.js';
 import { mapLimited, memoizeStore, runGrouped } from './core/concurrency.js';
+import { createRobotsGate, type RobotsGate } from './core/robots.js';
 import {
   decryptSecret,
   type SourceCredentials,
@@ -161,6 +162,7 @@ async function runSource(
   knownRefs: ReadonlySet<string>,
   credentials: SourceCredentials | null,
   lastFullPassAt: string | null,
+  robots: RobotsGate,
 ): Promise<{ outcome: SourceOutcome; nextState: Partial<SourceRuntimeState> }> {
   const { descriptor } = scraper;
   const logger = options.logger.child({ source: descriptor.id });
@@ -172,6 +174,7 @@ async function runSource(
     clock: options.clock,
     logger,
     cache: options.repository.httpCache(),
+    robots,
     ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
   });
 
@@ -906,6 +909,10 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // EN PARALLÈLE, un site à la fois. Une source qui n'a pas démarré avant la fin
   // du budget de temps n'est pas comptée comme passée : elle reste due.
   const notStarted: string[] = [];
+  const robots = createRobotsGate({
+    userAgent: options.userAgent,
+    ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
+  });
   await runGrouped(
     plan.selected,
     (decision) => registry.get(decision.sourceId)?.descriptor.domain ?? decision.sourceId,
@@ -929,6 +936,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
         knownRefs,
         credentials,
         previousState?.lastFullPassAt ?? null,
+        robots,
       );
       outcomes.push(outcome);
 

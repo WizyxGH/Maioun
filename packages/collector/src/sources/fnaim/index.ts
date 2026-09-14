@@ -45,15 +45,17 @@ import { listUrl, parseDetail, parseListPage } from './parser.js';
 const MAX_PAGES = 8;
 
 /**
- * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.
+ * AUCUNE FICHE N'EST LUE : le robots.txt les interdit.
  *
- * La carte coupe la description à environ 250 caractères — 72 des 75 annonces
- * relevées le 2026-09-04 —, et ce qu'elle coupe contient souvent l'adresse en
- * toutes lettres. La fiche du même bien fait 1 900 caractères. Vingt visites
- * par cycle : une première collecte s'étale sur quelques passages plutôt que
- * de tirer soixante-quinze requêtes d'un coup (§30).
+ * `Disallow: /annonce-immobiliere/*\/18-location*` — les fiches de LOCATION,
+ * précisément, et les sitemaps qui les listent. La règle a échappé au relevé du
+ * 2026-09-04 et la source en lisait vingt par passage jusqu'au 2026-09-14. La
+ * carte coupe la description vers 250 caractères : c'est ce qu'on garde.
+ *
+ * Ce qui avait été lu reste en mémoire et continue de s'appliquer ; rien n'est
+ * redemandé au site.
  */
-const MAX_DETAILS = 20;
+const MAX_DETAILS = 0;
 
 export const FNAIM_DESCRIPTOR: SourceDescriptor = {
   id: 'fnaim',
@@ -66,24 +68,23 @@ export const FNAIM_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_PAGES + MAX_DETAILS,
+    maxPagesPerRun: MAX_PAGES,
     maxListingsPerRun: 100,
   }),
   enabled: true,
-  allowedPaths: ['/liste-annonces-immobilieres/*', '/annonce-immobiliere/*'],
+  allowedPaths: ['/liste-annonces-immobilieres/*'],
   notes:
-    'robots.txt vérifié le 2026-09-04 : seuls /include/, /cms/, l’espace ' +
-    'adhérent et quelques paramètres d’affichage sont interdits — les listes ' +
-    'et les fiches sont autorisées. Pages entièrement rendues côté serveur, ' +
+    'robots.txt revérifié le 2026-09-14 : les listes sont autorisées, les ' +
+    'fiches de location NON (/annonce-immobiliere/*/18-location*) — elles ne ' +
+    'sont pas lues. Pages entièrement rendues côté serveur, ' +
     '25 annonces par page, pagination SEO `…-nice-06000-page-N.htm` SANS ' +
     'querystring (celle du gabarit en porte une, on ne l’utilise pas). ' +
     'La recherche par 06000 remonte aussi les 06100/06200/06300 : une seule ' +
     'URL couvre Nice. Résultats triés par loyer croissant, ce qui met la ' +
     'tranche recherchée sur les premières pages. Les cartes portent le nom de ' +
     'l’agence, son téléphone en clair, et une description qui contient ' +
-    'souvent l’adresse en toutes lettres (§14, §20). La carte COUPE la ' +
-    'description : les fiches des annonces nouvelles sont visitées (20 par ' +
-    'exécution) pour la récupérer entière — <p itemprop="description">.',
+    'souvent l’adresse en toutes lettres (§14, §20). La carte coupe la ' +
+    'description vers 250 caractères.',
 };
 
 export const fnaimScraper: Scraper = {
@@ -130,8 +131,8 @@ export const fnaimScraper: Scraper = {
       }
     }
 
-    // Les fiches NOUVELLES portent la description entière — et, avec elle,
-    // l'adresse que la carte coupait (§20, §14).
+    // Rien n'est lu (MAX_DETAILS = 0) : seule la mémoire des fiches déjà lues
+    // s'applique.
     const enriched = await enrichNewListings(context, [...byRef.values()], {
       max: MAX_DETAILS,
       detailUrl: (listing) => listing.sourceUrl,
