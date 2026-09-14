@@ -23,6 +23,16 @@ const ENTRY_URL = 'https://www.nousgerons.com/location/nice';
 /** Fiches détail visitées au maximum par run (§6, §30). */
 const MAX_DETAILS = 12;
 
+/** La cible d'un `<meta http-equiv="refresh">` sur le même site, sinon `null`. */
+export function metaRefreshTarget(html: string, pageUrl: string): string | null {
+  // `content="0;url='/logement/…'"` : l'adresse peut porter ses propres guillemets.
+  const content =
+    /<meta[^>]+http-equiv=["']refresh["'][^>]+content="[^"]*?url=['"]?([^"'>]+)/i.exec(html)?.[1];
+  if (content === undefined) return null;
+  const target = new URL(content, pageUrl);
+  return target.origin === new URL(pageUrl).origin ? target.toString() : null;
+}
+
 /** Résultat de l'enrichissement d'UNE annonce par sa fiche détail. */
 interface EnrichResult {
   /** Annonce à conserver : la fiche si elle a pu être lue, sinon celle de liste. */
@@ -41,10 +51,15 @@ interface EnrichResult {
  */
 async function enrichListing(context: ScrapeContext, listing: RawListing): Promise<EnrichResult> {
   try {
-    const detail = await context.fetch(listing.sourceUrl);
+    let detail = await context.fetch(listing.sourceUrl);
     if (detail.notModified) {
       return { listing, enriched: false, pagesFetched: 0, warnings: [], rateLimited: false };
     }
+    // L'adresse de la liste (`/203395-nice`) répond par une page de REDIRECTION
+    // HTML vers la fiche (`/203395-t4-67m2-nice`) : lue telle quelle, elle
+    // n'avait ni description ni rien d'autre. On la suit, sur le même site.
+    const target = metaRefreshTarget(detail.body, listing.sourceUrl);
+    if (target !== null) detail = await context.fetch(target);
     const parsed = parseDetailPage(detail.body, listing.sourceUrl);
     // La fiche prime ; à défaut, on garde la donnée de liste.
     return {
@@ -74,9 +89,15 @@ export const NOUSGERONS_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 3,
   schedule: scheduleFor('localAgency'),
-  budget: budgetFor('localAgency', { maxPagesPerRun: 1, delayBetweenRequestsMs: 2_000 }),
+  // La liste, puis deux requêtes par fiche : l'adresse courte redirige. Le
+  // budget d'UNE requête arrêtait la source juste après la liste — aucune
+  // fiche n'était jamais lue.
+  budget: budgetFor('localAgency', {
+    maxPagesPerRun: 1 + MAX_DETAILS * 2,
+    delayBetweenRequestsMs: 2_000,
+  }),
   enabled: true,
-  allowedPaths: ['/location/*'],
+  allowedPaths: ['/location/*', '/logement/location/*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : Allow: / pour tous, Crawl-delay: 1, ' +
     'sitemaps déclarés. Données lues dans le JSON-LD ItemList de ' +

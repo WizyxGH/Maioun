@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseDetailPage, parseListingUrl, parseSearchPage } from './parser.js';
+import { metaRefreshTarget } from './index.js';
+import { parseDetailPage, parseLenientJson, parseListingUrl, parseSearchPage } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/nousgerons');
 const PAGE_URL = 'https://www.nousgerons.com/location/nice';
@@ -86,5 +87,47 @@ describe('parseDetailPage — enrichissement par la fiche', () => {
     expect(normalized?.address).toBe('42 Bd Fictif');
     expect(normalized?.postalCode).toBe('06000');
     expect(normalized?.flatShare).toBe(true);
+  });
+});
+
+describe('fiche au JSON-LD non conforme (relevé du 2026-09-14)', () => {
+  const brut = readFileSync(join(FIXTURES, 'detail-203395-json-brut.html'), 'utf8');
+
+  it('lit la description malgré ses retours à la ligne bruts', () => {
+    const { listing, warnings } = parseDetailPage(
+      brut,
+      'https://www.nousgerons.com/logement/location/203395-nice',
+    );
+    expect(warnings).toHaveLength(0);
+    expect(listing?.description?.length).toBeGreaterThan(1500);
+    expect(listing?.addressText).toBe('10 Av. Henri Matisse');
+  });
+
+  it('parseLenientJson échappe les contrôles DANS les chaînes, pas ailleurs', () => {
+    expect(parseLenientJson('{\n "a": "ligne 1\nligne 2",\n "b": "x\\"y"\n}')).toEqual({
+      a: 'ligne 1\nligne 2',
+      b: 'x"y',
+    });
+  });
+});
+
+describe('metaRefreshTarget', () => {
+  const page = 'https://www.nousgerons.com/logement/location/203395-nice';
+
+  it('suit la redirection HTML vers la fiche, sur le même site', () => {
+    const html = `<meta http-equiv="refresh" content="0;url='/logement/location/203395-t4-67m2-nice'" />`;
+    expect(metaRefreshTarget(html, page)).toBe(
+      'https://www.nousgerons.com/logement/location/203395-t4-67m2-nice',
+    );
+  });
+
+  it('ignore une redirection vers un autre site, ou une page sans redirection', () => {
+    expect(
+      metaRefreshTarget(
+        '<meta http-equiv="refresh" content="0;url=https://ailleurs.invalid/x">',
+        page,
+      ),
+    ).toBeNull();
+    expect(metaRefreshTarget('<html></html>', page)).toBeNull();
   });
 });
