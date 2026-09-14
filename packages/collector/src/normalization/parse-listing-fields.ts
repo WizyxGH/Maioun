@@ -1657,6 +1657,8 @@ export function parseAvailabilityInText(
   if (cleaned === '') return null;
 
   for (const window of cleaned.matchAll(/(?:disponibl\w*|disponibilit\w*|libre)[^.;!]{0,70}/gi)) {
+    // « Disponible jusqu'au 15 mai » dit quand ça s'arrête, pas quand on entre.
+    if (/^\S+\s+jusqu/i.test(window[0])) continue;
     const found = parseAvailableAt(window[0], nowMs, { bareWordMeansNow: false });
     if (found !== null) return found;
   }
