@@ -15,6 +15,7 @@
     "dev": "pnpm --filter frontend run dev",
     "collect": "pnpm --filter @maioun/collector run collect",
     "draft": "pnpm --filter @maioun/collector run draft",
+    "email:test": "pnpm --filter @maioun/collector run email:test --",
     "reprocess": "pnpm --filter @maioun/collector run reprocess",
     "typecheck": "tsc --build --force && tsc --project tsconfig.test.json && tsc --project packages/worker/tsconfig.test.json",
     "lint": "eslint .",

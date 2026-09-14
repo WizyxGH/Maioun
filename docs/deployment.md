@@ -129,6 +129,7 @@ base à jeton, jamais dans le dépôt (§26).
 | `pnpm collect -- --verbose`  | collecte avec journalisation détaillée               |
 | `pnpm collect -- --backfill` | descend dans l’historique                            |
 | `pnpm publish:turso`         | pousse l'inventaire local vers la base cloud         |
+| `pnpm email:test`            | aperçu de l’alerte e-mail ; `--send` pour un essai   |
 | `pnpm dev`                   | interface seule, en mode démonstration               |
 | `pnpm verify`                | format + lint + types + tests + end-to-end + secrets |
 
@@ -367,8 +368,8 @@ tourne que sur minuterie — personne n'attend son mot de passe deux heures.
 [Resend](https://resend.com) est employé par défaut : palier gratuit **sans
 carte bancaire**, trois mille messages par mois, et son expéditeur de démarrage
 fonctionne sans posséder de domaine. Le fournisseur est isolé dans
-`packages/worker/src/mailer.ts` — en changer revient à réécrire une vingtaine de
-lignes, sans toucher au reste.
+`packages/collector/src/notify/mailer.ts` — en changer revient à réécrire une
+vingtaine de lignes, sans toucher au reste.
 
 ```bash
 npx wrangler secret put EMAIL_API_KEY   # la clé, jamais dans un fichier versionné
@@ -385,6 +386,23 @@ Puis `npx wrangler deploy`.
 
 Tant que l'un des trois manque, l'écran « mot de passe oublié » **dit qu'il
 n'est pas configuré** au lieu d'annoncer un message qui ne partira jamais (§17).
+
+**4. Les alertes par e-mail** partent de la collecte, pas du Worker : la même
+clé doit AUSSI être déposée côté GitHub (secret `EMAIL_API_KEY`, variable
+`EMAIL_FROM`). Un récapitulatif par passage part vers l'adresse vérifiée du
+compte, si « E-mail » est coché dans Paramètres → Notifications.
+
+L'expéditeur `onboarding@resend.dev` ne livre qu'à l'adresse du compte Resend : <!-- secret-scan-ignore -->
+créez ce compte avec l'adresse vérifiée dans Maïoun, ou vérifiez un domaine
+chez Resend pour écrire à d'autres.
+
+Avant de déposer la clé, validez-la depuis la machine, avec `EMAIL_API_KEY` et
+`EMAIL_FROM` dans `.env` :
+
+```bash
+pnpm email:test          # aperçu du message, rien n'est envoyé
+pnpm email:test --send   # un envoi d'essai ; aucune annonce n'est marquée signalée
+```
 
 CE QUI EST GARANTI PAR CONSTRUCTION, et qu'il vaut mieux connaître avant de
 toucher à ce code :
