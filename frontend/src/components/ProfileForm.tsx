@@ -143,6 +143,7 @@ export function ProfileForm({
           Prénom
           <Input
             type="text"
+            autoComplete="given-name"
             value={profile.firstName}
             onChange={(event) => update('firstName', event.target.value)}
             required
@@ -153,6 +154,7 @@ export function ProfileForm({
           Nom
           <Input
             type="text"
+            autoComplete="family-name"
             value={profile.lastName}
             onChange={(event) => update('lastName', event.target.value)}
             required
@@ -163,6 +165,7 @@ export function ProfileForm({
           E-mail
           <Input
             type="email"
+            autoComplete="email"
             value={profile.email}
             onChange={(event) => update('email', event.target.value)}
           />

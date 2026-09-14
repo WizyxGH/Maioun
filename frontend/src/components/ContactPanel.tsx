@@ -24,13 +24,14 @@ import {
 } from '@maioun/shared';
 import type { ListingView, OccurrenceView } from '../types.js';
 import { SOURCES } from '../sources.generated.js';
-import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
+import { canStoreDocuments, fetchDocuments, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink, buttonVariants } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Checkbox } from '@/components/ui/checkbox.js';
-import { ChevronRight, PhoneCall } from './icons.js';
+import { Check, ChevronRight, PhoneCall, X } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
-import { displayName } from '../dossier.js';
+import { dossierSlots, slotOf } from '../dossier.js';
+import { hrefOf } from '../router.js';
+import { cn } from '@/lib/utils.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -94,22 +95,6 @@ function openButtonLabel(channel: string, recipient: string | null): string {
     return portal !== null ? `Contacter via ${portal}` : 'Ouvrir le formulaire';
   }
   return 'Ouvrir';
-}
-
-/**
- * Coordonnées publiques du bien et leur provenance (§21). Affiche ce qui est
- * réellement publié — jamais une coordonnée inventée (§17). Isolé de
- * `ContactPanel` pour la clarté.
- */
-/** « Foncia » et « foncia » désignent la même source. */
-function sameName(a: string | undefined, b: string): boolean {
-  const plain = (v: string): string =>
-    v
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
-  return a !== undefined && plain(a) === plain(b);
 }
 
 /**
@@ -292,16 +277,6 @@ function ContactDetails({
         </a>
       )}
 
-      {/* La provenance ne s'affiche que si elle APPREND quelque chose : quand
-        l'agence est déjà nommée au-dessus, « issues de : foncia » ne fait que
-        répéter la même ligne (§15). */}
-      {providedBy.length > 0 &&
-        !(
-          providedBy.length === 1 &&
-          agencyName !== null &&
-          sameName(providedBy[0], agencyName)
-        ) && <p className={MUTED_NOTE}>Coordonnées issues de : {providedBy.join(', ')}</p>}
-
       {/* Le péage, dit avant le clic (§17). Remplace le message générique
         ci-dessous : ici l'absence de coordonnées n'est pas un manque de la
         source, c'est son modèle. */}
@@ -324,67 +299,145 @@ function ContactDetails({
   );
 }
 
+/** Ouvre un écran de l'application sans recharger la page : le routeur suit l'historique. */
+function openInApp(event: React.MouseEvent<HTMLAnchorElement>): void {
+  event.preventDefault();
+  window.history.pushState(null, '', event.currentTarget.href);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 /**
- * Les pièces du dossier qu'on déclare avoir jointes (§25).
+ * Les pièces à joindre pour candidater, et celles qui manquent encore.
  *
- * Chargement, sélection et rendu tiennent ensemble : les séparer obligeait
- * `ContactPanel` à porter trois états et un effet qui ne le concernaient pas,
- * et le poussait au-dessus du seuil de complexité toléré.
- *
- * COCHER N'ENVOIE RIEN. C'est une trace locale de ce qu'on déclare avoir
- * transmis avec ce contact — le projet n'envoie jamais de pièce tout seul.
- * Elles sont cochées par défaut : un dossier se transmet en entier.
+ * La liste est celle du dossier (décret n° 2015-1437), selon les garanties du
+ * profil : on voit avant d'écrire si tout est prêt. Les pièces présentes sont
+ * consignées avec le contact.
  */
-function useAttachments(): { selected: readonly string[]; picker: React.JSX.Element | null } {
-  const [documents, setDocuments] = useState<readonly DocumentInfo[]>([]);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+function useDossierChecklist(profile: TenantProfile | null): {
+  readonly attached: readonly string[];
+  readonly checklist: React.JSX.Element | null;
+} {
+  // `null` tant que la liste n'est pas arrivée : tout afficher « à déposer »
+  // un instant ferait croire à un dossier vide.
+  const [documents, setDocuments] = useState<readonly DocumentInfo[] | null>(null);
 
   useEffect(() => {
-    if (isDemoMode()) return;
+    if (!canStoreDocuments()) return;
     void fetchDocuments()
-      .then((docs) => {
-        setDocuments(docs);
-        setSelected(new Set(docs.map((doc) => doc.name)));
-      })
+      .then(setDocuments)
       .catch(() => {
-        /* API locale indisponible : pas de pièces proposées */
+        /* espace des pièces indisponible : pas de liste */
       });
   }, []);
 
-  const toggle = (name: string): void =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  if (profile === null || documents === null) return { attached: [], checklist: null };
 
-  const picker =
-    documents.length === 0 ? null : (
-      <fieldset className="border-border mt-3 rounded-lg border px-3 py-2">
-        <legend className="text-muted-foreground px-1 text-[0.82rem]">
-          Pièces jointes envoyées
-        </legend>
-        <ul className="flex flex-col gap-1">
-          {documents.map((doc) => (
-            <li key={doc.name} className="min-w-0">
-              {/* DEUX CAUSES AU DÉBORDEMENT SUR TÉLÉPHONE, et il fallait les
-                deux. Le nom était affiché BRUT, préfixe de rangement compris —
-                « identite__Carte identité recto Prénom NOM.jpg » fait
-                cinquante caractères pour vingt de contenu. Et `truncate` ne
-                peut pas rétrécir un élément flex sans `min-w-0` : il gardait
-                sa largeur naturelle et poussait la carte hors de l écran. */}
-              <label className="flex min-w-0 items-center gap-2 text-[0.9rem]">
-                <Checkbox checked={selected.has(doc.name)} onChange={() => toggle(doc.name)} />
-                <span className="min-w-0 flex-1 truncate">{displayName(doc.name)}</span>
-              </label>
+  const slots = dossierSlots(profile.guarantors);
+  const filled = new Set(documents.map((doc) => slotOf(doc.name)));
+  const ready = slots.filter((slot) => filled.has(slot.id)).length;
+  const attached = documents
+    .filter((doc) => slots.some((slot) => slot.id === slotOf(doc.name)))
+    .map((doc) => doc.name);
+
+  const checklist = (
+    <section
+      className="mt-3 rounded-lg border border-border px-3 py-2"
+      aria-labelledby="dossier-checklist"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <h4 id="dossier-checklist" className="text-[0.85rem] font-medium">
+          Pièces pour candidater
+        </h4>
+        <span
+          className={cn(
+            'text-[0.8rem]',
+            ready === slots.length ? 'text-good' : 'text-muted-foreground',
+          )}
+        >
+          {ready}/{slots.length} prête{ready > 1 ? 's' : ''}
+        </span>
+      </div>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {slots.map((slot) => {
+          const ok = filled.has(slot.id);
+          return (
+            <li key={slot.id} className="flex min-w-0 items-center gap-2 text-[0.9rem]">
+              {ok ? (
+                <Check aria-hidden="true" className="size-4 shrink-0 text-good" />
+              ) : (
+                <X aria-hidden="true" className="size-4 shrink-0 text-medium" />
+              )}
+              <span className="min-w-0 flex-1 truncate">{slot.label}</span>
+              <span className={cn('shrink-0 text-[0.78rem]', ok ? 'sr-only' : 'text-medium')}>
+                {ok ? 'fournie' : 'à déposer'}
+              </span>
             </li>
-          ))}
-        </ul>
-      </fieldset>
-    );
+          );
+        })}
+      </ul>
+      {ready < slots.length && (
+        <a
+          href={hrefOf({ view: 'documents' })}
+          onClick={openInApp}
+          className="mt-2 inline-block text-[0.85rem] text-primary underline"
+        >
+          Compléter le dossier
+        </a>
+      )}
+    </section>
+  );
 
-  return { selected: [...selected], picker };
+  return { attached, checklist };
+}
+
+/**
+ * Les champs d'un formulaire de contact, à copier un par un.
+ *
+ * Une page d'agence ne se remplit pas depuis Maïoun : elle vit sur un autre
+ * site. Copier chaque valeur d'un geste évite de la retaper au clavier du
+ * téléphone ; le message, lui, est copié à l'ouverture du formulaire.
+ */
+function FormFields({ profile }: { readonly profile: TenantProfile }): React.JSX.Element | null {
+  const [copied, setCopied] = useState<string | null>(null);
+  const fields = (
+    [
+      ['Prénom', profile.firstName],
+      ['Nom', profile.lastName],
+      ['E-mail', profile.email],
+      ['Téléphone', profile.phone],
+    ] as const
+  ).filter(([, value]) => value.trim() !== '');
+  if (fields.length === 0) return null;
+
+  const copy = async (label: string, value: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      setTimeout(() => setCopied((current) => (current === label ? null : current)), 2000);
+    } catch {
+      /* presse-papiers refusé : la valeur reste lisible */
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      <p className="text-[0.85rem] text-muted-foreground">Pour remplir le formulaire</p>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {fields.map(([label, value]) => (
+          <Button
+            key={label}
+            variant="outline"
+            size="sm"
+            onClick={() => void copy(label, value)}
+            aria-label={`Copier ${label.toLowerCase()} : ${value}`}
+          >
+            {copied === label ? <Check aria-hidden="true" className="size-3.5 text-good" /> : null}
+            {copied === label ? `${label} copié` : label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -437,10 +490,7 @@ export function ContactPanel({
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // §25 : pièces déclarées jointes. Le choix vit dans `useAttachments`, avec
-  // le chargement et la case à cocher : ici on n'a besoin que de la liste
-  // retenue, pour la consigner avec le contact.
-  const { selected, picker } = useAttachments();
+  const { attached, checklist } = useDossierChecklist(profile);
 
   const { phone, email, formUrl } = listing.contact;
   const hasAnyContact = phone !== null || email !== null || formUrl !== null;
@@ -506,11 +556,9 @@ export function ContactPanel({
             onChange={(event) => setDraft(event.target.value)}
           />
 
-          <p className={MUTED_NOTE}>
-            Rien n’est envoyé automatiquement. Vous déclenchez l’envoi vous-même.
-          </p>
+          {checklist}
 
-          {picker}
+          {channel === 'form' && <FormFields profile={profile} />}
 
           <MessageActions
             editing={editing}
@@ -520,7 +568,7 @@ export function ContactPanel({
             channel={channel}
             onToggleEdit={() => setEditing((value) => !value)}
             onCopy={() => void handleCopy()}
-            onSent={() => onRecorded(channel, message, selected)}
+            onSent={() => onRecorded(channel, message, attached)}
           />
 
           {channel === 'form' && <FormHint copied={copied} />}
@@ -595,13 +643,12 @@ function MessageActions({
   );
 }
 
-/** Rappel affiché sous les boutons quand le seul canal est un formulaire web. */
-function FormHint({ copied }: { readonly copied: boolean }): React.JSX.Element {
+/** Confirmation, une fois le formulaire ouvert et le message copié. */
+function FormHint({ copied }: { readonly copied: boolean }): React.JSX.Element | null {
+  if (!copied) return null;
   return (
     <p className="mt-2 text-sm text-muted-foreground">
-      {copied
-        ? 'Message copié — il ne reste qu’à le coller dans le formulaire.'
-        : 'Ouvrir le formulaire copie le message : plus qu’à le coller.'}
+      Message copié — il ne reste qu’à le coller dans le formulaire.
     </p>
   );
 }

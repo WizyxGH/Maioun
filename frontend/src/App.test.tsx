@@ -270,19 +270,6 @@ describe('préparation du contact (§22)', () => {
     expect(message.value).not.toMatch(/bulletin|avis d’imposition|pièce d’identité/i);
   });
 
-  it('affiche explicitement qu’aucun envoi n’est automatique (§22)', async () => {
-    const user = await openAndConfigureProfile();
-
-    await user.click(await screen.findByRole('button', { name: /Configurer mon profil/ }));
-    // Attente explicite : le formulaire de profil arrive en chargement différé,
-    // il n'est pas dans le document à l'instant du clic.
-    await user.type(await screen.findByLabelText('Prénom'), 'Alex');
-    await user.type(screen.getByLabelText('Nom'), 'Dupont');
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
-
-    expect(await screen.findByText(/Rien n’est envoyé automatiquement/)).toBeInTheDocument();
-  });
-
   it('propose les quatre actions manuelles (§22)', async () => {
     const user = await openAndConfigureProfile();
 
