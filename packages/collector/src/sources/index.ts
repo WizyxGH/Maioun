@@ -73,6 +73,7 @@ import { dragoScraper } from './drago/index.js';
 import { privilegeScraper } from './privilege/index.js';
 import { centragenceScraper } from './centragence/index.js';
 import { iciImmobilierScraper } from './ici-immobilier/index.js';
+import { afedimScraper } from './afedim/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -143,6 +144,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   dinamyScraper,
   immobiliereNicoiseScraper,
   dragoScraper,
+  afedimScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
