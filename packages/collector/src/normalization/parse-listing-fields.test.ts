@@ -590,6 +590,12 @@ describe('parseAvailableAt (§17 — disponibilité)', () => {
 describe('parseAvailabilityInText (§17 — disponibilité en texte libre)', () => {
   const now = Date.parse('2026-08-14T12:00:00.000Z');
 
+  it('« disponible jusqu’au » est une fin, pas une date d’entrée', () => {
+    expect(
+      parseAvailabilityInText("Meublé. Disponible jusqu'au 15 Mai 2026, charges comprises", now),
+    ).toBeNull();
+  });
+
   it('trouve la phrase de disponibilité au milieu d’une description', () => {
     expect(
       parseAvailabilityInText('Bel appartement rénové. Disponible le 1 ER OCTOBRE, calme.', now),
