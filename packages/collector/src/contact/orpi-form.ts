@@ -53,6 +53,8 @@ export interface OrpiContactForm {
   readonly action: string;
   /** Préfixe des noms de champs, ex. `request_or_send_contact_form`. */
   readonly prefix: string;
+  /** Champs cachés du formulaire (`[agency]`…), à renvoyer comme un navigateur. */
+  readonly hidden: Readonly<Record<string, string>>;
 }
 
 /** Ce à quoi l'utilisateur consent, explicitement. Faux par défaut. */
@@ -87,10 +89,21 @@ export function parseContactForm(html: string, pageUrl: string): OrpiContactForm
   const chosen = forms.find((form) => form[1] === 'request_or_send_contact_form') ?? forms[0];
   const prefix = chosen?.[1];
   const action = /\baction="([^"]+)"/i.exec(chosen?.[0] ?? '')?.[1];
-  if (prefix === undefined || action === undefined) return null;
+  if (chosen === undefined || prefix === undefined || action === undefined) return null;
+
+  const start = chosen.index ?? 0;
+  const end = html.indexOf('</form>', start);
+  const body = html.slice(start, end < 0 ? undefined : end);
+  const hidden: Record<string, string> = {};
+  for (const input of body.matchAll(/<input\b[^>]*>/gi)) {
+    const tag = input[0];
+    if (!/\btype="hidden"/i.test(tag)) continue;
+    const name = /\bname="([^"]+)"/i.exec(tag)?.[1];
+    if (name !== undefined) hidden[name] = decodeHtml(/\bvalue="([^"]*)"/i.exec(tag)?.[1] ?? '');
+  }
 
   try {
-    return { action: new URL(decodeHtml(action), pageUrl).toString(), prefix };
+    return { action: new URL(decodeHtml(action), pageUrl).toString(), prefix, hidden };
   } catch {
     return null;
   }
@@ -109,8 +122,10 @@ function decodeHtml(value: string): string {
 /**
  * Le corps de requête, prêt à poster.
  *
- * `email2` EST UNE CONFIRMATION, pas un second contact : le formulaire demande
- * deux fois la même adresse, et une divergence le fait refuser. On la recopie.
+ * `email2` EST UN PIÈGE À ROBOTS : champ masqué (`class="hidden"`, libellé
+ * caché, `autocomplete="off"`), non obligatoire. Un humain ne le voit pas et
+ * le laisse vide ; le remplir classerait le message en spam. On l'envoie vide,
+ * comme un navigateur — avec les champs cachés que la page porte.
  *
  * @returns le corps, ou `null` si le profil ne porte pas de quoi remplir les
  *          champs obligatoires — nom, prénom, adresse. On ne poste pas un
@@ -127,12 +142,12 @@ export function buildSubmission(
   const email = profile.email.trim();
   if (firstName === '' || lastName === '' || email === '' || message.trim() === '') return null;
 
-  const body = new URLSearchParams();
+  const body = new URLSearchParams(form.hidden);
   const champ = (name: string, value: string): void => body.set(`${form.prefix}[${name}]`, value);
   champ('firstName', firstName);
   champ('lastName', lastName);
   champ('email', email);
-  champ('email2', email);
+  champ('email2', '');
   champ('phone', profile.phone.trim());
   champ('message', message.trim());
 
