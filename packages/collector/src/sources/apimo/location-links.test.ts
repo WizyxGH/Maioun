@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLocationLinks } from './parser.js';
+import { parseLocationLinks } from './location-links.js';
 
 const PAGE = 'https://www.agenceprivilege.com/fr/locations';
 
