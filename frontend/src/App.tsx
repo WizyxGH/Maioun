@@ -980,6 +980,15 @@ function AppView(): React.JSX.Element {
       ),
     [listings],
   );
+  const sourceCounts = useMemo(() => {
+    const counts = new globalThis.Map<string, number>();
+    for (const listing of listings) {
+      for (const id of new Set(listing.occurrences.map((o) => o.sourceId))) {
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [listings]);
   const availableTypes = useMemo(
     () =>
       [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
@@ -2320,6 +2329,7 @@ function AppView(): React.JSX.Element {
             onQuickFiltersChange={setQuickFilters}
             availableTypes={availableTypes}
             sources={availableSources}
+            sourceCounts={sourceCounts}
             selectedSources={selectedSources}
             onToggleSource={toggleSource}
             onClearSources={() => setSelectedSources(new Set())}
