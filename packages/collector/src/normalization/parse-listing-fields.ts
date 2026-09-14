@@ -436,7 +436,7 @@ const NEARBY_BEFORE =
 const NEARBY_AFTER = /^\s*(?:a proximite|a deux pas|dans le quartier|a \d+\s*m(?:etres)?\b)/;
 
 const COLLECTIVE_AFTER =
-  /^\s*(?:public|publique|publics|publiques|municipale?|collectif|collective|commune?s?|de la ville|d'?\s?enfants|albert|exotique|botanique|masséna|massena|des arenes)/;
+  /^\s*(?:public|publique|publics|publiques|municipale?|collectif|collective|commune?s?|de la ville|d'?\s?enfants|albert|exotique|botanique|masséna|massena|des arenes|facile|aise|gratuit|dans la rue)/;
 
 /** Combien de caractères regarder de part et d'autre. Une phrase courte. */
 const WINDOW = 42;
