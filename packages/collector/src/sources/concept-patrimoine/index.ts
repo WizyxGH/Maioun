@@ -17,7 +17,7 @@ const MAX_DETAILS = 6;
 
 export const CONCEPT_PATRIMOINE_DESCRIPTOR: SourceDescriptor = {
   id: 'concept-patrimoine',
-  name: 'Concept Patrimoine',
+  name: 'Concept Patrimoine Immobilier',
   domain: 'conceptpatrimoine.fr',
   kind: 'localAgency',
   method: 'html',

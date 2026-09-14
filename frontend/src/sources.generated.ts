@@ -81,7 +81,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
   },
   agir: {
-    name: 'Cabinet AGIR',
+    name: 'Cabinet A.G.I.R.',
     domain: 'agir.immo',
     logo: 'https://www.agir.immo/images/favicon.png',
     paidContact: false,
@@ -193,7 +193,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   citya: { name: 'Citya Immobilier', domain: null, logo: null, paidContact: false },
   climmo: { name: 'CL Immo Gestion', domain: 'climmo.com', logo: null, paidContact: false },
   'concept-patrimoine': {
-    name: 'Concept Patrimoine',
+    name: 'Concept Patrimoine Immobilier',
     domain: 'conceptpatrimoine.fr',
     logo: null,
     paidContact: false,
