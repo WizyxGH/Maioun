@@ -29,6 +29,7 @@ import { ContactPanel } from './ContactPanel.js';
 import { RequirementsPanel } from './RequirementsPanel.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
@@ -174,18 +175,58 @@ function DetailActions({
   );
 }
 
-/** Foncia (plafond de dossiers) et AFEDIM (dépôts suspendus) publient cet état. */
-function ApplicationsFullNotice({
+/** « le 14 septembre » : la date à laquelle l'annonce a été vue en ligne pour la dernière fois. */
+function lastSeenDay(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : ` le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
+}
+
+/**
+ * Pourquoi ce bien n'est plus disponible, dit en tête de fiche.
+ *
+ * On arrive souvent ici par un lien — notification, recherche partagée,
+ * favori ancien — sans être passé par la liste qui l'aurait écarté : la fiche
+ * doit dire d'emblée qu'il est trop tard, et pourquoi, avant photos et prix.
+ */
+function AvailabilityNotice({
   listing,
 }: {
   readonly listing: ListingView;
 }): React.JSX.Element | null {
-  if (listing.applicationStatus !== 'full' || listing.rented === true) return null;
+  let title: string;
+  let detail: string;
+  let variant: 'destructive' | 'warning' | 'default' = 'warning';
+
+  if (listing.rented === true) {
+    variant = 'destructive';
+    title = 'Ce logement est loué';
+    detail = 'L’annonceur l’a indiqué comme loué : il n’est plus possible de candidater.';
+  } else if (listing.lifecycle === 'inactive') {
+    variant = 'destructive';
+    title = 'Cette annonce n’est plus en ligne';
+    detail = `Elle a disparu de sa source — vue pour la dernière fois${lastSeenDay(listing.lastSeenAt)}. Le bien est très probablement loué ou retiré.`;
+  } else if (listing.applicationStatus === 'full') {
+    title = 'Candidatures fermées';
+    detail =
+      'L’annonceur n’accepte plus de dossier pour ce bien pour le moment (plafond de candidatures atteint ou dépôts suspendus). L’annonce est rangée avec les archivées et reviendra d’elle-même si les candidatures rouvrent.';
+  } else if (listing.lifecycle === 'possiblyInactive') {
+    title = 'Peut-être plus disponible';
+    detail = `Absente de sa source lors des derniers passages — vue pour la dernière fois${lastSeenDay(listing.lastSeenAt)}. Vérifiez sur l’annonce d’origine avant de contacter.`;
+  } else if (listing.archived === true) {
+    variant = 'default';
+    title = 'Annonce archivée';
+    detail = 'Vous l’avez archivée : elle n’apparaît plus dans la liste ni dans les alertes.';
+  } else {
+    return null;
+  }
+
   return (
-    <p className="mb-3 text-[0.9rem] text-medium">
-      Candidatures fermées pour le moment chez l’annonceur : l’annonce est rangée avec les
-      archivées, et reviendra d’elle-même si elles rouvrent.
-    </p>
+    <Alert variant={variant} className="mb-3">
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{detail}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -395,6 +436,8 @@ export function ListingDetail({
           flèches, points, une image à la fois — plutôt qu'un bandeau à faire
           glisser, dont rien n'indiquait qu'il continuait hors de l'écran.
           Quand aucune n'est affichable, `Photos` propose les liens. */}
+      <AvailabilityNotice listing={listing} />
+
       <Photos urls={listing.imageUrls} />
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>
@@ -533,8 +576,6 @@ export function ListingDetail({
         message déjà rédigé arrive trop tard. Ne s'affiche que si l'annonce
         énonce quelque chose, ce qui est rare. */}
       <RequirementsPanel listing={listing} profile={profile} />
-
-      <ApplicationsFullNotice listing={listing} />
 
       {/* §22 : préparation du contact, en haut de page car c'est l'action utile. */}
       <ContactPanel
