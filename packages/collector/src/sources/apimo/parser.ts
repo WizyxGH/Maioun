@@ -18,6 +18,7 @@ import * as cheerio from 'cheerio';
 import { sitemapIndexUrls, sitemapUrls } from '../shared/sitemap.js';
 import type { RawListing } from '@maioun/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
+import { parsePropertyType } from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 import { collectJsonLdNodes, findJsonLdNode, type JsonLdNode } from '../shared/json-ld.js';
@@ -191,6 +192,9 @@ const COMMERCIAL_SLUGS =
 /** `true` si la fiche décrit un bien à usage commercial/professionnel. */
 function isCommercial($: cheerio.CheerioAPI, typeSlug: string): boolean {
   if (COMMERCIAL_SLUGS.test(comparable(typeSlug))) return true;
+  // Adresse sans type (`/fr/propriété/8188166`, Groupe Picado, Cabinet Cordier) :
+  // le titre de la page le dit — « Local commercial Ariane ».
+  if (parsePropertyType(pageTitle($) ?? '') === 'commercial') return true;
   // Type schema.org du JSON-LD : `CommercialProperty` (le graphe peut aussi le
   // porter alors que le repli résidentiel a échoué).
   return /"@type"\s*:\s*"CommercialProperty"/.test($.html());
@@ -217,6 +221,25 @@ function apimoBlockingStatus(
   return null;
 }
 
+/** Intertitres de section du gabarit, jamais le titre de l'annonce. */
+const SECTION_HEADING =
+  /^(sommaire|surfaces?|prestations|proximites?|description|details?|caracteristiques|diagnostics?|mentions legales)$/;
+
+/**
+ * Le titre de l'annonce : `og:title`, puis le premier `.title` qui n'est pas un
+ * intertitre. Le premier `.title` seul donnait « Sommaire » à dix annonces
+ * (relevé du 2026-09-14) — dont un local commercial, passé pour un logement.
+ */
+function pageTitle($: cheerio.CheerioAPI): string | undefined {
+  const og = cleanText($('meta[property="og:title"]').attr('content') ?? '');
+  if (og !== '' && !SECTION_HEADING.test(comparable(og))) return og;
+  const heading = $('.module-property-info .title, .title')
+    .toArray()
+    .map((element) => cleanText($(element).text()))
+    .find((text) => text !== '' && !SECTION_HEADING.test(comparable(text)));
+  return heading;
+}
+
 /** Champs métier d'une fiche Apimo : JSON-LD prioritaire, HTML en secours. */
 function extractApimoContent(
   $: cheerio.CheerioAPI,
@@ -237,7 +260,7 @@ function extractApimoContent(
 
   return {
     priceText,
-    title: jsonLd?.name ?? cleanText($('.module-property-info .title').first().text()) ?? undefined,
+    title: jsonLd?.name ?? pageTitle($),
     description: jsonLd?.description ?? htmlToText($, '#description') ?? undefined,
     areaText:
       jsonLd?.area !== undefined

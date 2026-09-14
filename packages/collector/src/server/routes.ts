@@ -41,6 +41,7 @@ import {
   ONE_SHOT_SOURCES,
   districtBySlug,
   districtLabel,
+  NICE_DISTRICTS,
   TENANT_PROFILE_SETTING,
   ONBOARDING_SETTING,
   REFERENCE_POINTS_SETTING,
@@ -1400,12 +1401,25 @@ async function listDistricts(db: Client): Promise<{ districts: DistrictCount[] }
       AND lifecycle != 'inactive' AND rented = 0 AND matches_criteria = 1
     GROUP BY district ORDER BY n DESC
   `);
+  /**
+   * TOUTE LA TABLE, et non les seuls quartiers qui ont des annonces : un
+   * quartier sans offre du moment doit pouvoir être visé, pour la liste comme
+   * pour les alertes. Le nombre, zéro compris, dit ce qu'il donnera aujourd'hui.
+   */
+  const counts = new Map(
+    result.rows.map((row) => [String(row['district']), Number(row['n'] ?? 0)]),
+  );
+  const known = NICE_DISTRICTS.map((district) => ({
+    slug: district.slug,
+    label: district.label,
+    count: counts.get(district.slug) ?? 0,
+  }));
+  // Un quartier en base mais absent de la table (graphie d'avant) reste visible.
+  const others = [...counts.keys()]
+    .filter((slug) => !NICE_DISTRICTS.some((district) => district.slug === slug))
+    .map((slug) => ({ slug, label: districtLabel(slug), count: counts.get(slug) ?? 0 }));
   return {
-    districts: result.rows.map((row) => ({
-      slug: String(row['district']),
-      label: districtLabel(String(row['district'])),
-      count: Number(row['n'] ?? 0),
-    })),
+    districts: [...known, ...others].sort((a, b) => a.label.localeCompare(b.label, 'fr')),
   };
 }
 

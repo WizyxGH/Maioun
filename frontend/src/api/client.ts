@@ -722,11 +722,8 @@ export async function resetPassword(
 }
 
 /**
- * Les quartiers PRÉSENTS dans l'inventaire, avec leur nombre d'annonces.
- *
- * ON NE PROPOSE PAS LA TABLE ENTIÈRE : elle compte une soixantaine d'entrées,
- * l'inventaire n'en couvre qu'une partie, et offrir un quartier vide ferait
- * cocher un filtre qui vide la liste sans dire pourquoi. Un échec rend une
+ * Tous les quartiers de Nice, avec leur nombre d'annonces, zéro compris : un
+ * quartier encore vide doit pouvoir être visé. Un échec rend une
  * liste vide — le bloc « Zone de recherche » disparaît alors, ce qui vaut mieux
  * qu'un menu inerte.
  */
