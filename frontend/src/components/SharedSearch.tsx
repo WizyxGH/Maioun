@@ -18,7 +18,8 @@
  */
 
 import { ArrowLeft, Bookmark, Check, TriangleAlert } from './icons.js';
-import { describeSearch, type SavedSearch } from '../saved-searches.js';
+import type { SavedSearch } from '../saved-searches.js';
+import { SearchSummary } from './SearchSummary.js';
 import { decodeSearch } from '../share-search.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
@@ -83,7 +84,7 @@ export function SharedSearch({
         <div className="flex flex-col gap-4">
           <div>
             <p className="font-semibold">{search.name}</p>
-            <p className="text-muted-foreground text-sm">{describeSearch(search)}</p>
+            <SearchSummary search={search} className="mt-1 text-sm" />
           </div>
 
           <p className="border-border rounded-lg border px-3 py-2 text-[0.85rem]">

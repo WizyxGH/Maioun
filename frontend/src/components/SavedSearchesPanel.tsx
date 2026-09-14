@@ -31,7 +31,7 @@ import {
   Upload,
 } from './icons.js';
 import type { SavedSearch } from '../saved-searches.js';
-import { describeSearch } from '../saved-searches.js';
+import { SearchSummary } from './SearchSummary.js';
 import { formatAge } from '../format.js';
 import { hrefOf } from '../router.js';
 import { encodeSearch } from '../share-search.js';
@@ -274,9 +274,7 @@ export function SavedSearchesPanel({
                               </span>
                             </span>
                           </div>
-                          <p className="text-muted-foreground mt-1.5 text-[0.85rem]">
-                            {describeSearch(search)}
-                          </p>
+                          <SearchSummary search={search} className="mt-1.5 text-[0.85rem]" />
                           <p className="text-muted-foreground mt-0.5 text-[0.78rem]">
                             Enregistrée {formatAge(search.createdAt, nowMs)}
                           </p>
