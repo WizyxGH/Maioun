@@ -19,6 +19,34 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 
+/**
+ * `JSON.parse`, en tolérant les retours à la ligne BRUTS dans les chaînes.
+ *
+ * La fiche écrit sa description telle que saisie, sauts de ligne compris, dans
+ * son JSON-LD : c'est du JSON invalide, et `JSON.parse` le refusait sans bruit
+ * — plus aucune description ni adresse depuis le changement (relevé du
+ * 2026-09-14). Les caractères de contrôle sont échappés, dans les chaînes
+ * seulement, ce qui garde les paragraphes.
+ */
+export function parseLenientJson(raw: string): unknown {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (const char of raw) {
+    if (inString && !escaped && char.charCodeAt(0) < 0x20) {
+      out += char === '\n' ? '\\n' : char === '\t' ? '\\t' : char === '\r' ? '' : ' ';
+      continue;
+    }
+    if (inString && char === '\\' && !escaped) escaped = true;
+    else {
+      if (char === '"' && !escaped) inString = !inString;
+      escaped = false;
+    }
+    out += char;
+  }
+  return JSON.parse(out);
+}
+
 /** Forme d'une URL de fiche : `/logement/location/{référence}-{slug}`. */
 const LISTING_URL_PATTERN =
   /^https?:\/\/(?:www\.)?nousgerons\.com\/logement\/location\/(\d{4,})(?:-[a-z0-9-]*)?\/?(?:[?#].*)?$/i;
@@ -84,7 +112,7 @@ export function parseSearchPage(html: string, _pageUrl: string): ParsedPage {
 
     let graph: unknown[];
     try {
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown = parseLenientJson(raw);
       const candidate = (parsed as { '@graph'?: unknown[] })['@graph'];
       graph = Array.isArray(candidate) ? candidate : [parsed];
     } catch {
@@ -189,7 +217,7 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
   $('script[type="application/ld+json"]').each((_index, element) => {
     if (product !== null) return;
     try {
-      const parsed: unknown = JSON.parse($(element).text());
+      const parsed: unknown = parseLenientJson($(element).text());
       const graph = (parsed as { '@graph'?: unknown[] })['@graph'];
       if (!Array.isArray(graph)) return;
       const found = graph.find(
