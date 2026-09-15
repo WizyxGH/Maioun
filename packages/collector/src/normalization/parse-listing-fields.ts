@@ -414,6 +414,16 @@ export function isStudentOnlyHousing(text: string | null | undefined): boolean {
 }
 
 /**
+ * Libellé puis lettre, en forme `comparable`. Entre les deux, seuls des mots
+ * de libellé sont franchis — « DPE : Classe C », « DPE et GES : Classe D »,
+ * « Diagnostic de performance énergétique de l'appartement : classe F »,
+ * « DPE Conso C 160 » ; la lettre peut porter sa valeur (« Classe Energie B71 »).
+ * « DPE a venir » est écarté : « a » y est une préposition.
+ */
+const DPE_IN_TEXT =
+  /\b(?:dpe|classe energ\w*|etiquette energ\w*|diagnostic de performance energetique)(?: (?:et ges|conso\w*|energie|energetique|classe|cat|categorie|de l appartement|du logement|du bien))* ([a-g])(?:\d{1,3})?\b(?! (?:venir|realiser|faire|jour|refaire))/;
+
+/**
  * Extrait la classe énergétique (DPE) : « A » à « G ». On accepte les formes
  * « DPE : D », « DPE D », « classe énergie C », « étiquette énergétique B ».
  * `null` si rien de fiable (§17) — jamais deviné, jamais « vierge → G ».
@@ -428,7 +438,7 @@ export function parseDpe(text: string | null | undefined): string | null {
   // Texte libre : on retire les accents (« énergétique » → « energetique »)
   // pour une détection robuste, puis on cherche la lettre qui SUIT le mot-clé.
   const flat = comparable(text);
-  const match = flat.match(/\b(?:dpe|classe\s+energ\w*|etiquette\s+energ\w*)\b\W*\b([a-g])\b/);
+  const match = DPE_IN_TEXT.exec(flat);
   if (match?.[1] !== undefined) return match[1].toUpperCase();
 
   // Forme du bulletin BEP : « Classe énergétique (kWh/m²/an) C ». L’unité
@@ -1140,10 +1150,36 @@ export function looksLikeStreet(address: string): boolean {
  * proche du mot « charges », se remplissait de loyers — trente relevés d'un
  * coup chez BEP. Une charge ne se laisse pas deviner par proximité (§17).
  */
+/**
+ * « € » ou sa trace : « ? » quand l'encodage de la source l'a perdu. Le « ? »
+ * n'est admis que collé à un montant de ces tournures dirigées.
+ */
+const CHARGES_UNIT = String.raw`\s*(?:€|eur\b|euros?|\?)`;
+const CHARGES_AMOUNT = String.raw`(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)`;
+/** « provision sur charges », « prov. charges », « provisions mensuelles pour charges ». */
+const PROVISION = String.raw`prov(?:isions?|\.)?\s+(?:mensuelles?\s+)?(?:(?:pour|sur|de)\s+(?:les\s+)?)?`;
+
 const CHARGES_IN_TEXT: readonly RegExp[] = [
-  /(?:provisions?\s+(?:pour|sur|de)\s+)?charges?(?:\s+(?:locatives?|mensuelles?|r[ée]cup[ée]rables?))?\s*(?:\([^)]*\))?\s*[:=]\s*(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|eur\b|euros?)/i,
-  /\+\s*(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*(?:par mois\s*)?(?:de|d['’])\s*(?:provisions?\s+(?:pour|de)\s+)?charges?/i,
-  /(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*(?:par mois\s*)?(?:de|d['’])\s+(?:provisions?\s+pour\s+)?charges?/i,
+  // « Loyer hors charges : 675 € » est le loyer : sept fiches en base portent
+  // ainsi des « charges » de plus de la moitié du loyer (relevé du 2026-09-15).
+  new RegExp(
+    String.raw`(?<!hors\s)(?:${PROVISION})?charges?(?:\s+(?:locatives?|mensuelles?|r[ée]cup[ée]rables?))?\s*(?:\([^)]*\))?\s*[:=]\s*${CHARGES_AMOUNT}${CHARGES_UNIT}`,
+    'i',
+  ),
+  // Avec « provision », le deux-points n'est plus nécessaire : « provision
+  // charges 155,00 € par mois », « provision sur charges de 55 € ».
+  new RegExp(
+    String.raw`\b${PROVISION}charges?(?:\s+r[ée]cup[ée]rables?)?\s*(?:de\s+)?${CHARGES_AMOUNT}${CHARGES_UNIT}`,
+    'i',
+  ),
+  new RegExp(
+    String.raw`(?:\+|\bdont)\s*${CHARGES_AMOUNT}${CHARGES_UNIT}\s*(?:par mois\s*)?(?:(?:de|d['’])\s*)?(?:${PROVISION})?charges?`,
+    'i',
+  ),
+  new RegExp(
+    String.raw`${CHARGES_AMOUNT}${CHARGES_UNIT}\s*(?:par mois\s*)?(?:de|d['’])\s+(?:${PROVISION})?charges?`,
+    'i',
+  ),
 ];
 
 /**
@@ -1238,36 +1274,115 @@ export function parseFeesField(
   return withinRent(amountField(text), FEES_RENT_RATIO, rent, true);
 }
 
+/**
+ * Montant d'un dépôt : l'espace fine perdue en « ? » entre les milliers
+ * (« 1?200 € ») et la virgule détachée (« 1 196 ,00 € ») s'y rencontrent.
+ */
+const DEPOSIT_AMOUNT = String.raw`(\d{1,3}(?:[ .\u00a0\u202f?]?\d{3})*(?:\s?[.,]\d{1,2})?)`;
+
+/**
+ * « € » perdu en « ? » par l'encodage de la source (FNAIM, Locservice,
+ * ParuVendu). Admis seulement après un intitulé de dépôt ou de charges.
+ */
+const LOST_EURO = String.raw`\s*\?(?!\s*\d)`;
+const DEPOSIT_UNIT = String.raw`(?:${EURO_UNIT}|${LOST_EURO})`;
+
+const DEPOSIT_LABEL = String.raw`(?:d[ée]p[ôo]ts?\s+de\s+garantie|\bcaution)`;
+
 const DEPOSIT_IN_TEXT: readonly RegExp[] = [
   new RegExp(
-    String.raw`d[ée]p[ôo]ts?\s+de\s+garantie\s*(?:\([^)]*\))?\s*(?:[:=]\s*|de\s+|d['’]un\s+montant\s+de\s+)?${AMOUNT}${EURO_UNIT}`,
+    String.raw`d[ée]p[ôo]ts?\s+de\s+garantie\s*(?:obligatoire\s*)?(?:\([^)]*\))?\s*(?:[:=;]\s*|(?:est\s+)?de\s+|d['’]un\s+montant\s+de\s+)?${DEPOSIT_AMOUNT}${DEPOSIT_UNIT}`,
     'i',
   ),
-  // « Caution » seule désigne aussi le garant : on exige les deux-points.
-  new RegExp(String.raw`\bcaution\s*[:=]\s*${AMOUNT}${EURO_UNIT}`, 'i'),
+  // « Caution » seule désigne aussi le garant — « caution solidaire », « caution
+  // des parents » : le montant doit la suivre immédiatement.
+  new RegExp(
+    String.raw`\b(?:ch[èe]que\s+)?caution\s*(?:demand[ée]e\s*)?[:=]?\s*${DEPOSIT_AMOUNT}${DEPOSIT_UNIT}`,
+    'i',
+  ),
+  // « Dépôt de garantie : 6 800 . » : sans devise, le deux-points et la
+  // ponctuation qui suit bornent le montant.
+  new RegExp(String.raw`d[ée]p[ôo]ts?\s+de\s+garantie\s*:\s*${DEPOSIT_AMOUNT}\s*(?:[.;]|$)`, 'i'),
+];
+
+/** Mois écrits en lettres, en minuscules sans accent. */
+const SPELLED_MONTHS: Readonly<Record<string, number>> = { un: 1, une: 1, deux: 2, trois: 3 };
+
+/**
+ * « Dépôt de garantie : 2 mois de loyer hors charges », « Caution un mois »,
+ * « 1 mois de loyer pour dépôt de garantie ». Le montant qui suit (« soit 880 € »)
+ * est lu par les motifs ci-dessus ou `STATED_AFTER_MONTHS`.
+ */
+const DEPOSIT_IN_MONTHS: readonly RegExp[] = [
+  new RegExp(
+    String.raw`${DEPOSIT_LABEL}\s*(?:\([^)]*\))?\s*(?:[:=;]\s*|de\s+)?(\d|un|une|deux|trois)\s+mois(\s+de\s+loyers?)?([^.;]{0,30})`,
+    'i',
+  ),
+  /\b(\d|un|une|deux|trois)\s+mois\s+(de\s+loyers?)([^.;]{0,20}?)\s+(?:pour|de|en)\s+(?:d[ée]p[ôo]t\s+de\s+garantie|caution)/i,
 ];
 
 /**
+ * « soit 880 euros », « (2 050 € TTC) », « 1 mois 980 € » juste après la durée.
+ * Ni chiffre ni deux-points avant : « hors charges Honoraires : 574 € » n'est
+ * pas le dépôt.
+ */
+const STATED_AFTER_MONTHS = new RegExp(
+  String.raw`^(?:[^.;:\d]{0,25}?(?:soit|\(|=))?\s*${DEPOSIT_AMOUNT}${DEPOSIT_UNIT}`,
+  'i',
+);
+
+/**
  * Dépôt de garantie écrit dans la description : « Dépôt de garantie : 1 000 € »,
- * « DEPOT DE GARANTIE 630 EUROS ». Le montant doit suivre l'intitulé ;
- * « un mois de loyer » ne se convertit pas.
+ * « DEPOT DE GARANTIE 630 EUROS ». Le montant doit suivre l'intitulé.
+ *
+ * « 2 mois de loyer » n'est converti que si le LOYER HORS CHARGES est connu
+ * (`rentExcludingCharges`) : c'est la base légale quand la phrase ne dit rien,
+ * et celle qu'elle nomme le plus souvent. Une durée « charges comprises » ne
+ * se convertit pas.
  */
 export function parseDepositFromText(
   text: string | null | undefined,
   rent: number | null = null,
+  rentExcludingCharges: number | null = null,
 ): number | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
+  const bounded = (value: number | null): number | null =>
+    withinRent(value, DEPOSIT_RENT_RATIO, rent, false);
+
   for (const pattern of DEPOSIT_IN_TEXT) {
     const raw = pattern.exec(cleaned)?.[1];
-    const value = withinRent(
-      raw === undefined ? null : parseFrenchNumber(raw),
-      DEPOSIT_RENT_RATIO,
-      rent,
-      false,
-    );
+    const value = bounded(raw === undefined ? null : parseFrenchNumber(raw));
     if (value !== null) return value;
   }
+  for (const pattern of DEPOSIT_IN_MONTHS) {
+    const match = pattern.exec(cleaned);
+    const count = match?.[1];
+    if (match === null || count === undefined) continue;
+    const tail = cleaned.slice(match.index + match[0].length - (match[3]?.length ?? 0));
+    const stated = STATED_AFTER_MONTHS.exec(tail)?.[1];
+    if (stated !== undefined) return bounded(parseFrenchNumber(stated));
+    const months = SPELLED_MONTHS[count.toLowerCase()] ?? Number.parseInt(count, 10);
+    const qualifier = comparable(match[3]);
+    if (/\b(?:charges comprises|cc|tcc|charges incluses)\b/.test(qualifier)) return null;
+    if (rentExcludingCharges === null || months < 1 || months > 3) return null;
+    return bounded(Math.round(months * rentExcludingCharges * 100) / 100);
+  }
+  return null;
+}
+
+/**
+ * Le loyer HORS CHARGES d'une annonce, quand il se déduit sans supposition :
+ * prix affiché hors charges, ou charges comprises avec des charges connues.
+ */
+export function rentExcludingCharges(
+  price: number | null,
+  chargesIncluded: boolean | null,
+  charges: number | null,
+): number | null {
+  if (price === null) return null;
+  if (chargesIncluded === false) return price;
+  if (chargesIncluded === true && charges !== null && charges < price) return price - charges;
   return null;
 }
 
@@ -1602,7 +1717,8 @@ const FRENCH_MONTHS: Readonly<Record<string, number>> = {
  * (« une chambre libre sur deux », « les diagnostics sont disponibles »), alors
  * qu'aucune de ces tournures-ci ne s'emploie pour autre chose.
  */
-const AVAILABLE_NOW = /\b(immediat\w*|de suite|des maintenant|des a present)\b/;
+const AVAILABLE_NOW =
+  /(?<!proximite )\b(immediat\w*|de suite|des maintenant|des a present)\b|^(?:disponible|libre) actuellement\b/;
 
 /** « Libre », « disponible », employés seuls. */
 const AVAILABLE_BARE = /\b(libre|disponible)\b/;
@@ -1628,18 +1744,37 @@ const DAY_AND_MONTH =
  * annonces n'ont pas de disponibilité du tout.
  */
 const MONTH_ONLY =
-  /\b(?:de|des|du|en|le|a partir de|a partir du|a compter de|a compter du)\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/;
+  /\b(?:de|des|du|en|le|a partir de|a partir du|a partir d|a compter de|a compter du|a compter d)\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/;
+
+/**
+ * « Début octobre », « mi-septembre », « fin septembre » : le 1er, le 15, le
+ * dernier jour. Le dernier jour plutôt que le 1er pour « fin » : mieux vaut
+ * annoncer un logement libre un peu tard que trop tôt.
+ */
+const MONTH_PART =
+  /\b(debut|mi|fin)\s+(?:de\s+|d\s+)?(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/;
+
+/** « Au 29/09 », « à partir du 12/10 » : jour et mois sans année, deux chiffres chacun. */
+const DAY_MONTH_NUMERIC = /\b(?:au|le|du)\s+(\d{2})[/.](\d{2})(?![/.]?\d)/;
+
+/** « 01/10/26 » : l'année sur deux chiffres. */
+const SHORT_YEAR_DATE = /\b(\d{2})[/.-](\d{2})[/.-](\d{2})(?![/.-]?\d)/;
 
 /**
  * Au-delà de ce recul, une date sans année désigne l'année PROCHAINE.
  *
- * QUARANTE-CINQ JOURS, ET NON UN SEUL. La tolérance d'un jour envoyait
+ * PLUSIEURS SEMAINES, ET NON UN JOUR. La tolérance d'un jour envoyait
  * « disponible le 1er septembre », lu le 7 septembre, au 1er septembre 2027 :
  * une annonce libre depuis six jours devenait indisponible pendant un an. Une
  * disponibilité qui vient de passer veut dire « c'est libre » ; une qui date de
  * six mois, elle, désigne bien le prochain tour.
+ *
+ * Porté à quatre-vingt-dix jours : « Disponible début août », encore en ligne
+ * mi-septembre (trois annonces au 2026-09-15), partait en août 2027. Une
+ * annonce reste en ligne des semaines, et n'annonce presque jamais une entrée
+ * à dix mois.
  */
-const STALE_AVAILABILITY_DAYS = 45;
+const STALE_AVAILABILITY_DAYS = 90;
 
 /** Une année explicite, quelque part dans la phrase. */
 const NEARBY_YEAR = /\b(20\d{2})\b/;
@@ -1650,27 +1785,89 @@ const NEARBY_YEAR = /\b(20\d{2})\b/;
  * SANS ANNÉE, ON PREND LA PROCHAINE OCCURRENCE : une disponibilité est toujours
  * devant soi, contrairement à une date de publication.
  */
-function frenchDateFrom(lower: string, nowMs: number): string | null {
-  const exact = DAY_AND_MONTH.exec(lower);
-  const month = exact?.[2] === undefined ? MONTH_ONLY.exec(lower)?.[1] : exact[2];
-  if (month === undefined) return null;
+interface DayOfMonth {
+  readonly index: number;
+  readonly month: number;
+  /** Jour du mois ; `'last'` pour « fin <mois> ». */
+  readonly day: number | 'last';
+  readonly year?: string;
+}
 
-  const monthNumber = FRENCH_MONTHS[month];
-  if (monthNumber === undefined) return null;
-  const day = exact?.[1] === undefined ? 1 : Number.parseInt(exact[1], 10);
-  if (day < 1 || day > 31) return null;
+/** Le jour et le mois de la PREMIÈRE date écrite : « de octobre à fin mai » part d'octobre. */
+function firstDayOfMonth(lower: string): DayOfMonth | null {
+  const candidates: DayOfMonth[] = [];
+  const exact = DAY_AND_MONTH.exec(lower);
+  if (exact?.[1] !== undefined && exact[2] !== undefined) {
+    candidates.push({
+      index: exact.index,
+      month: FRENCH_MONTHS[exact[2]] ?? 0,
+      day: Number.parseInt(exact[1], 10),
+      ...(exact[3] === undefined ? {} : { year: exact[3] }),
+    });
+  }
+  const part = MONTH_PART.exec(lower);
+  if (part?.[1] !== undefined && part[2] !== undefined) {
+    const day = part[1] === 'debut' ? 1 : part[1] === 'mi' ? 15 : 'last';
+    candidates.push({ index: part.index, month: FRENCH_MONTHS[part[2]] ?? 0, day });
+  }
+  const only = MONTH_ONLY.exec(lower);
+  if (only?.[1] !== undefined) {
+    candidates.push({ index: only.index, month: FRENCH_MONTHS[only[1]] ?? 0, day: 1 });
+  }
+  const numeric = DAY_MONTH_NUMERIC.exec(lower);
+  if (numeric?.[1] !== undefined && numeric[2] !== undefined) {
+    const month = Number.parseInt(numeric[2], 10);
+    candidates.push({ index: numeric.index, month, day: Number.parseInt(numeric[1], 10) });
+  }
+  const first = candidates.sort((a, b) => a.index - b.index)[0];
+  return first !== undefined && first.month >= 1 && first.month <= 12 ? first : null;
+}
+
+function utcDay(year: number, month: number, day: number | 'last'): Date {
+  return day === 'last'
+    ? new Date(Date.UTC(year, month, 0))
+    : new Date(Date.UTC(year, month - 1, day));
+}
+
+function frenchDateFrom(lower: string, nowMs: number): string | null {
+  // « SEPTEMBRE2026 » : l'année collée au mois.
+  const spaced = lower.replace(
+    /(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(20\d{2})\b/g,
+    '$1 $2',
+  );
+  const found = firstDayOfMonth(spaced);
+  if (found === null) return null;
+  const { month, day } = found;
+  if (day !== 'last' && (day < 1 || day > 31)) return null;
 
   // L'ANNÉE PEUT ÊTRE AILLEURS DANS LA PHRASE : « libre du 1er août au 31 août
   // 2026 » ne la porte que sur la seconde date, et l'ignorer faisait basculer
   // la première d'un an.
-  const stated = exact?.[3] ?? NEARBY_YEAR.exec(lower)?.[1];
+  // … sauf si elle renvoie à plus de onze mois : « à partir d'octobre jusqu'à
+  // juin 2027 », lu en septembre 2026, part d'octobre 2026.
+  const nearby = found.year === undefined ? NEARBY_YEAR.exec(spaced)?.[1] : undefined;
+  const farAhead =
+    nearby !== undefined &&
+    utcDay(Number.parseInt(nearby, 10), month, day).getTime() > nowMs + 330 * 86_400_000;
+  const stated = found.year ?? (farAhead ? undefined : nearby);
   let year = stated !== undefined ? Number.parseInt(stated, 10) : new Date(nowMs).getUTCFullYear();
-  let date = new Date(Date.UTC(year, monthNumber - 1, day));
+  let date = utcDay(year, month, day);
   if (stated === undefined && date.getTime() < nowMs - STALE_AVAILABILITY_DAYS * 86_400_000) {
     year += 1;
-    date = new Date(Date.UTC(year, monthNumber - 1, day));
+    date = utcDay(year, month, day);
   }
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  // « 31/02 » déborde sur mars : ce n'est pas une date.
+  if (Number.isNaN(date.getTime()) || date.getUTCMonth() !== month - 1) return null;
+  return date.toISOString();
+}
+
+/** « 01/10/26 » → 1er octobre 2026. */
+function shortYearDate(lower: string): string | null {
+  const match = SHORT_YEAR_DATE.exec(lower);
+  if (match?.[1] === undefined || match[2] === undefined || match[3] === undefined) return null;
+  const month = Number.parseInt(match[2], 10);
+  const date = new Date(Date.UTC(2000 + Number.parseInt(match[3], 10), month - 1, +match[1]));
+  return date.getUTCMonth() === month - 1 ? date.toISOString() : null;
 }
 
 export interface AvailabilityOptions {
@@ -1714,11 +1911,15 @@ export function parseAvailableAt(
 
   if (AVAILABLE_NOW.test(lower)) return new Date(nowMs).toISOString();
 
-  const textual = frenchDateFrom(lower, nowMs);
+  // Barres et points gardés : « au 29/09 » en a besoin.
+  const dated = unaccentedLower(cleaned)
+    .replace(/[^a-z0-9/.\s]/g, ' ')
+    .replace(/\s+/g, ' ');
+  const textual = frenchDateFrom(dated, nowMs);
   if (textual !== null) return textual;
 
   // Formats numériques et relatifs communs avec la date de publication.
-  const numeric = parsePublishedAt(text, nowMs);
+  const numeric = parsePublishedAt(text, nowMs) ?? shortYearDate(dated);
   if (numeric !== null) return numeric;
 
   return (options.bareWordMeansNow ?? true) && AVAILABLE_BARE.test(lower)
@@ -1749,11 +1950,24 @@ export function parseAvailabilityInText(
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
 
-  for (const window of cleaned.matchAll(/(?:disponibl\w*|disponibilit\w*|libre)[^.;!]{0,70}/gi)) {
+  for (const window of cleaned.matchAll(AVAILABILITY_WINDOW)) {
     // « Disponible jusqu'au 15 mai » dit quand ça s'arrête, pas quand on entre.
     if (/^\S+\s+jusqu/i.test(window[0])) continue;
     const found = parseAvailableAt(window[0], nowMs, { bareWordMeansNow: false });
     if (found !== null) return found;
   }
-  return null;
+  // « Immédiatement disponible » : l'adverbe précède le mot.
+  return /\b(?:imm[ée]diatement|actuellement)\s+(?:disponible|libre)\b/i.test(cleaned)
+    ? new Date(nowMs).toISOString()
+    : null;
 }
+
+/**
+ * La phrase qui annonce l'entrée : après « disponible » ou « libre », ou un
+ * « à partir du » rattaché à la location — « LOCATION ÉTUDIANTE À PARTIR DU
+ * 01 SEPTEMBRE ». Seul, « à partir du » introduit aussi l'étude des dossiers
+ * ou une révision du loyer. Un point suivi d'un chiffre ne clôt pas la phrase
+ * (« 21.09.2026 »).
+ */
+const AVAILABILITY_WINDOW =
+  /(?:disponn?ibl\w*|disponibilit\w*|libre|dispo\b|(?:location|louer|lou[ée]e?|bail)[^.;!]{0,25}?(?:[àa] partir|[àa] compter|d[èe]s le)|(?:^|[.!¦]\s*)[àa] partir d)(?:[^.;!]|\.(?=\d)){0,70}/gi;

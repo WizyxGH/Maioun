@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { buildSearchBody, parseSearchResponse } from './parser.js';
+import { buildSearchBody, chargesFromRooms, parseSearchResponse } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/studapart');
 const search = readFileSync(join(FIXTURES, 'search.json'), 'utf8');
@@ -42,6 +42,25 @@ describe('parseSearchResponse', () => {
     expect(coloc && normalizeListing(coloc, { sourceId: 'studapart', nowMs: 0 })?.deposit).toBe(
       1150,
     );
+  });
+
+  it('déduit les charges du détail par chambre', () => {
+    // Logement entier : 2 750 € affichés pour quatre fois 637 + 50, arrondis.
+    expect(listings.find((l) => l.sourceRef === '140526')?.chargesText).toBe('200 €');
+    // Colocation : la chambre à 575 + 100 donne les 675 € affichés.
+    expect(listings.find((l) => l.sourceRef === '153641')?.chargesText).toBe('100 €');
+  });
+
+  it('ne pose pas de charges quand aucune chambre ne correspond au loyer', () => {
+    expect(
+      chargesFromRooms({
+        rentedByRoom: true,
+        rentWithExpensesAmount: 900,
+        roomsRents: [600, 650],
+        roomsExpenses: [100, 100],
+      }),
+    ).toBeNull();
+    expect(chargesFromRooms({ rentWithExpensesAmount: 900 })).toBeNull();
   });
 
   it('marque explicitement les colocations (§17)', () => {

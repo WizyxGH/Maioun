@@ -8,6 +8,7 @@ import {
   parseDepositFromText,
   parseFeesField,
   parseFeesFromText,
+  rentExcludingCharges,
 } from './parse-listing-fields.js';
 
 describe('parseDepositField', () => {
@@ -66,6 +67,54 @@ describe('parseDepositFromText', () => {
 
   it('écarte un montant invraisemblable au regard du loyer', () => {
     expect(parseDepositFromText('Dépôt de garantie : 25 000 €', 700)).toBeNull();
+  });
+
+  it('lit les tournures relevées le 2026-09-15', () => {
+    expect(parseDepositFromText('Dépôt de garantie : 1 440 ? Honoraires', 800)).toBe(1440);
+    expect(parseDepositFromText('Montant du dépôt de garantie : 1?200 €.', 1020)).toBe(1200);
+    expect(parseDepositFromText('Dépôt de garantie ; 2 240€', 1280)).toBe(2240);
+    expect(parseDepositFromText('Dépôts de garantie : 1 196 ,00€ * Honoraires', 700)).toBe(1196);
+    expect(parseDepositFromText('Le dépôt de garantie est de 1 600 €, deux mois', 850)).toBe(1600);
+    expect(parseDepositFromText('Dépôt de garantie : 6 800 . Honoraires', 3600)).toBe(6800);
+    expect(parseDepositFromText('Loyer 700 euros C.C Caution 700 euros Honoraires', 700)).toBe(700);
+    expect(parseDepositFromText('Chèque caution 1000 Euros', 710)).toBe(1000);
+  });
+
+  it('lit le montant écrit après une durée', () => {
+    expect(
+      parseDepositFromText('Dépôt de garantie : 2 mois de loyer hors charges, soit 880 euros', 475),
+    ).toBe(880);
+    expect(
+      parseDepositFromText('CAUTION : 2 mois de loyer HC soit 1350€ (remboursable)', 885),
+    ).toBe(1350);
+    expect(parseDepositFromText('Caution 1 mois 980 € Direct avec Particulier', 980)).toBe(980);
+  });
+
+  it('convertit une durée seulement quand le loyer hors charges est connu', () => {
+    const text = 'Dépôt de garantie : 2 mois de loyer hors charges. Honoraires : 574 €';
+    expect(parseDepositFromText(text, 980, 930)).toBe(1860);
+    expect(parseDepositFromText(text, 980)).toBeNull();
+    expect(parseDepositFromText('Caution un mois.', 2250, 2100)).toBe(2100);
+    expect(parseDepositFromText('1 mois de loyer pour dépôt de garantie', 1150, 1100)).toBe(1100);
+    // Une durée « charges comprises » ne se rapporte pas au loyer hors charges.
+    expect(
+      parseDepositFromText('Caution : 1 mois de loyer charges comprises', 980, 930),
+    ).toBeNull();
+  });
+
+  it('ne prend pas le garant ni les honoraires pour le dépôt', () => {
+    expect(parseDepositFromText('caution visale exigée: 574€ TTC', 780)).toBeNull();
+    expect(parseDepositFromText('Caution solidaire des parents, 2 garants', 780)).toBeNull();
+  });
+});
+
+describe('rentExcludingCharges', () => {
+  it('ne rend un loyer hors charges que s’il se déduit sans supposition', () => {
+    expect(rentExcludingCharges(900, false, null)).toBe(900);
+    expect(rentExcludingCharges(980, true, 50)).toBe(930);
+    expect(rentExcludingCharges(980, true, null)).toBeNull();
+    expect(rentExcludingCharges(980, null, 50)).toBeNull();
+    expect(rentExcludingCharges(null, false, null)).toBeNull();
   });
 });
 
@@ -148,5 +197,16 @@ describe('normalisation', () => {
       tenantFees: 210,
     });
     expect(rederiveFromText(publie)).toBeNull();
+  });
+  it('le rejeu convertit une durée avec les charges qu’il vient de lire', () => {
+    const occurrence = makeOccurrence({
+      id: 'test:3',
+      sourceId: 'test',
+      price: 980,
+      chargesIncluded: true,
+      description:
+        'Loyer 930 € + 50 € de charges. Dépôt de garantie : 2 mois de loyer hors charges.',
+    });
+    expect(rederiveFromText(occurrence)).toMatchObject({ charges: 50, deposit: 1860 });
   });
 });

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { decodeProxiedImage, parseListPage } from './parser.js';
+import { decodeProxiedImage, parseDetail, parseListPage } from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(new URL('../../../../../tests/fixtures/rentumo/liste.html', import.meta.url)),
@@ -69,5 +69,29 @@ describe('parseListPage (Rentumo)', () => {
   it('suit la pagination déclarée par le site', () => {
     expect(hasNext).toBe(true);
     expect(parseListPage('<html></html>', PAGE).hasNext).toBe(false);
+  });
+});
+
+describe('parseDetail (Rentumo)', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(new URL('../../../../../tests/fixtures/rentumo/fiche.html', import.meta.url)),
+    'utf8',
+  );
+
+  it('prend le titre et le texte d’origine dans le JSON-LD', () => {
+    const detail = parseDetail(FICHE);
+    expect(detail?.title).toBe('Location Appartement 2 pièces 68m² NICE 06000');
+    expect(detail?.description).toMatch(/^Loyer :\n1 600 €/);
+    expect(detail?.description).toContain('Dépôt de garantie : 2 980 €');
+  });
+
+  it('ne reprend aucun champ « extrait par IA »', () => {
+    const detail = parseDetail(FICHE);
+    expect(detail?.roomsText).toBeUndefined();
+    expect(detail?.areaText).toBeUndefined();
+  });
+
+  it('rend null sans JSON-LD d’annonce', () => {
+    expect(parseDetail('<html><body></body></html>')).toBeNull();
   });
 });
