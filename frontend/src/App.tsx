@@ -908,6 +908,12 @@ function AppView(): React.JSX.Element {
     replace({ view: 'list', favoritesOnly });
   }, [view, favoritesOnly, replace]);
 
+  // L'accueil compte la RECHERCHE : arrivé depuis les favoris, la liste chargée
+  // ne contenait qu'eux, et chaque tuile affichait un autre total.
+  useEffect(() => {
+    if (view === 'home' && favoritesOnly) setFavoritesOnly(false);
+  }, [view, favoritesOnly]);
+
   // Instant de rendu, figé par chargement : évite que chaque carte recalcule
   // « il y a X min » à partir d'une horloge légèrement différente.
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -1939,6 +1945,7 @@ function AppView(): React.JSX.Element {
         <Shell {...shell}>
           <HomePanel
             listings={listings}
+            searchCount={filtered.length}
             sources={sources}
             savedSearches={savedSearches}
             nowMs={nowMs}

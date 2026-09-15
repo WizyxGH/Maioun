@@ -40,6 +40,12 @@ const FRESH_HOURS = 48;
 
 interface HomePanelProps {
   readonly listings: readonly ListingView[];
+  /**
+   * Nombre de résultats de la recherche où mène la tuile, filtres compris.
+   * Calculé par l'appelant avec le même filtre que la liste : recompter ici
+   * donnait un autre chiffre à chaque filtre ajouté.
+   */
+  readonly searchCount: number;
   readonly sources: readonly SourceStateView[];
   readonly savedSearches: readonly SavedSearch[];
   readonly nowMs: number;
@@ -154,6 +160,7 @@ function ChoreRow({
 
 export function HomePanel({
   listings,
+  searchCount,
   sources,
   savedSearches,
   nowMs,
@@ -281,11 +288,11 @@ export function HomePanel({
       <section>
         <h2 className="mb-2 text-lg font-bold">Votre recherche</h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, « à vérifier »
-            compris : 60 ici pour 74 résultats là-bas ne se retrouvait pas. */}
+          {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, filtres actifs
+            compris : 81 ici pour 76 résultats là-bas ne se retrouvait pas. */}
           <StatTile
             label="dans vos critères"
-            value={listings.length}
+            value={searchCount}
             Icon={Search}
             onClick={onOpenSearch}
           />
