@@ -29,7 +29,13 @@ import {
 // Chemin direct vers la source : le paquet expose bien `./server/routes`, mais
 // vers `dist`. Les tests d'intégration travaillent sur les sources.
 import { route } from '../../packages/collector/src/server/routes.js';
-import { MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  MVP_CRITERIA,
+  NOTIFICATION_PREFERENCES_SETTING,
+  parseNotificationPreferences,
+  type ScoredListing,
+} from '@maioun/shared';
 import { makeAggregated, makeContact, makeOccurrence } from '../helpers/factories.js';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');
@@ -634,5 +640,22 @@ describe('état personnel : chacun le sien, sur chaque écran', () => {
     expect(await empreinte('alice')).not.toBe(alice);
     // L'état d'Alice n'entre pas dans l'empreinte de Bob.
     expect(await empreinte('bob')).toBe(bob);
+  });
+
+  it('range les préférences d’alerte là où la collecte les relit, compte par compte', async () => {
+    const repository = createRepository(db);
+    const reglages = {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      email: true,
+      frequency: 'daily' as const,
+    };
+    const path = `/api/settings/${NOTIFICATION_PREFERENCES_SETTING}`;
+    await call(db, 'alice', 'PUT', path, reglages);
+
+    expect(await call(db, 'alice', 'GET', path)).toEqual(reglages);
+    // La collecte lit la même clé pour le même compte, et rien pour l'autre.
+    const lu = await repository.readSettingFor('alice', NOTIFICATION_PREFERENCES_SETTING);
+    expect(parseNotificationPreferences(JSON.parse(lu ?? 'null'))).toEqual(reglages);
+    expect(await repository.readSettingFor('bob', NOTIFICATION_PREFERENCES_SETTING)).toBeNull();
   });
 });
