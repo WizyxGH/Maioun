@@ -87,6 +87,7 @@ import { lbImmobilierScraper } from './lb-immobilier/index.js';
 import { midemScraper } from './midem/index.js';
 import { sudContactScraper } from './sud-contact/index.js';
 import { aaGestionScraper } from './aa-gestion/index.js';
+import { agenceAzureenneScraper } from './agence-azureenne/index.js';
 import { agirScraper } from './agir/index.js';
 import { coprogestimmoScraper } from './coprogestimmo/index.js';
 import { cabinetNardiScraper } from './cabinet-nardi/index.js';
@@ -228,6 +229,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   midemScraper,
   sudContactScraper,
   aaGestionScraper,
+  agenceAzureenneScraper,
   agirScraper,
   coprogestimmoScraper,
   cabinetNardiScraper,

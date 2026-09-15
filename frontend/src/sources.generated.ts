@@ -48,6 +48,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     address: { street: '47 rue Arson', postalCode: '06300', city: 'Nice' },
   },
   afedim: { name: 'AFEDIM', domain: 'afedim.fr', logo: null, paidContact: false, address: null },
+  'agence-azureenne': {
+    name: 'L’Agence Azuréenne',
+    domain: 'lagenceazureenne.com',
+    logo: 'https://www.lagenceazureenne.com/images/favicon.png',
+    paidContact: false,
+    address: { street: '157 avenue de Nice', postalCode: '06800', city: 'Cagnes-sur-Mer' },
+  },
   'agence-des-domaines': {
     name: 'Agence des Domaines',
     domain: 'agencedesdomaines.com',
