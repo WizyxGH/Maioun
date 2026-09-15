@@ -213,6 +213,8 @@ import { agenceCastelScraper } from './agence-castel/index.js';
 import { cdcImmobilierScraper } from './cdc-immobilier/index.js';
 import { nicolasPisaniScraper } from './nicolas-pisani/index.js';
 import { domiNiceImmobilierScraper } from './domi-nice-immobilier/index.js';
+import { figaroImmoScraper } from './figaro-immo/index.js';
+import { bbiiScraper } from './bbii/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -423,6 +425,8 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   cdcImmobilierScraper,
   nicolasPisaniScraper,
   domiNiceImmobilierScraper,
+  figaroImmoScraper,
+  bbiiScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

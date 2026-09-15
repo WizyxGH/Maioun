@@ -251,6 +251,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '29 avenue Jean Médecin', postalCode: '06000', city: 'Nice' },
   },
+  bbii: { name: 'BBii', domain: 'bbii.fr', logo: null, paidContact: false, address: null },
   beaumont: {
     name: 'Beaumont Immobilier',
     domain: 'beaumontimmo.com',
@@ -564,6 +565,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  'figaro-immo': {
+    name: 'Figaro Immobilier',
+    domain: null,
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
   'fit-immobilier': {
     name: 'FIT Immobilier',
     domain: 'fit-immobilier.com',
@@ -620,7 +628,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     domain: 'giletta-properties.com',
     logo: 'https://www.giletta-properties.com/images/favicon.png',
     paidContact: false,
-    address: null,
+    address: { street: '1 rue Maurice Jaubert', postalCode: '06000', city: 'Nice' },
   },
   'grand-metropole': {
     name: 'Grand Métropole',
@@ -1153,7 +1161,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     domain: 'immobiliere-pujol.fr',
     logo: null,
     paidContact: false,
-    address: null,
+    address: { street: '7 rue du Dr Fiolle', postalCode: '13006', city: 'Marseille' },
   },
   rentumo: { name: 'Rentumo', domain: null, logo: null, paidContact: true, address: null },
   'resid-immo': {
