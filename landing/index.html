@@ -7,7 +7,7 @@
     <title>Maïoun — toutes les locations de Nice, au même endroit</title>
     <meta
       name="description"
-      content="Maïoun rassemble les annonces de location de 57 sites et agences de Nice, écarte les doublons et vous prévient dès qu’un logement entre dans vos critères. Gratuit."
+      content="Maïoun rassemble les annonces de location de plus de %SOURCE_COUNT% sites et agences de Nice, écarte les doublons et vous prévient dès qu’un logement entre dans vos critères. Gratuit."
     />
 
     <!-- Contrairement à l'application, cette page EST faite pour être trouvée. -->
@@ -15,7 +15,7 @@
     <meta property="og:title" content="Maïoun — toutes les locations de Nice, au même endroit" />
     <meta
       property="og:description"
-      content="57 sources relevées en continu, sans doublons, avec une alerte sur votre téléphone dès qu’un logement correspond."
+      content="Plus de %SOURCE_COUNT% sources relevées toutes les quinze minutes, sans doublons, avec une alerte dès qu’un logement correspond."
     />
     <meta property="og:locale" content="fr_FR" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -90,7 +90,7 @@
           <div>
             <p class="rise badge badge-outline px-3.5 py-1.5 text-[0.82rem] font-medium">
               <span aria-hidden="true" class="ping size-1.5 rounded-full bg-primary"></span>
-              57 sources relevées en continu · Nice et alentours
+              Plus de %SOURCE_COUNT% sources relevées en continu · Nice et alentours
             </p>
 
             <h1
@@ -217,11 +217,11 @@
           </h2>
           <div class="mt-10 grid gap-8 sm:grid-cols-3">
             <div class="reveal border-l-2 border-primary pl-5">
-              <p class="text-4xl font-bold tracking-tight">57</p>
+              <p class="text-4xl font-bold tracking-tight">%SOURCE_COUNT%+</p>
               <p class="mt-1 font-semibold">sites à surveiller</p>
               <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
                 Portails, réseaux, agences de quartier, alertes e-mail. Aucun n’a tout, et personne
-                n’ouvre cinquante-sept onglets par jour.
+                n’ouvre cent onglets par jour.
               </p>
             </div>
             <div class="reveal border-l-2 border-primary pl-5">
@@ -272,8 +272,9 @@
             </div>
             <h3 class="mt-4 text-lg font-semibold">1. On rassemble</h3>
             <p class="mt-2 text-[0.95rem] text-muted-foreground">
-              Cinquante-sept sources sont relevées en continu, chacune à son rythme. Vos propres
-              alertes e-mail SeLoger ou Bien’ici s’y ajoutent : il suffit de les faire suivre.
+              Plus de %SOURCE_COUNT% portails, réseaux et agences de quartier sont relevés toutes
+              les quinze minutes. Vos alertes Leboncoin, SeLoger ou Bien’ici s’y ajoutent : Maïoun
+              ouvre leur recherche déjà filtrée, il ne reste qu’à faire suivre les e-mails.
             </p>
           </li>
           <li class="step reveal">
@@ -322,7 +323,8 @@
             <h3 class="mt-4 text-lg font-semibold">3. On vous prévient</h3>
             <p class="mt-2 text-[0.95rem] text-muted-foreground">
               Une notification sur votre téléphone, application fermée, avec le loyer, la surface,
-              le quartier et le téléphone de l’annonceur. De quoi appeler sans même ouvrir le site.
+              le quartier et le téléphone de l’annonceur — et, si vous le souhaitez, un
+              récapitulatif par e-mail. De quoi appeler sans même ouvrir le site.
             </p>
           </li>
         </ol>
@@ -347,7 +349,7 @@
                 entre deux portes suffit à décrocher une visite.
               </p>
               <p class="mt-3 text-[0.88rem] font-medium">
-                → Alertes en temps réel · bouton Appeler · temps de trajet depuis votre bureau
+                → Alertes en temps réel · bouton Appeler · formulaire de l’agence rempli pour vous
               </p>
             </article>
 
@@ -355,11 +357,11 @@
               <h3 class="text-lg font-semibold">Vous arrivez d’une autre ville</h3>
               <p class="mt-2 text-[0.95rem] text-muted-foreground">
                 Vous ne connaissez ni les quartiers, ni les prix, ni les agences. Chaque fiche situe
-                le bien sur la carte, le compare au loyer de référence publié par l’État, et dit
-                combien de temps il faut pour rejoindre l’adresse qui compte pour vous.
+                le bien sur la carte, en plan ou en vue satellite, le compare au loyer de référence
+                publié par l’État, et estime le temps pour rejoindre l’adresse qui compte pour vous.
               </p>
               <p class="mt-3 text-[0.88rem] font-medium">
-                → Carte · repère de loyer officiel · trajets en transports
+                → Carte et vue satellite · filtre par quartier · repère de loyer officiel
               </p>
             </article>
 
@@ -403,15 +405,16 @@
           <div class="card lift reveal p-5">
             <p class="font-semibold">Rien n’est envoyé à votre place</p>
             <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
-              Le message est préparé, jamais expédié sans votre geste. Un envoi automatique se
-              repère et se filtre — et c’est vous qu’on filtrerait.
+              Le message est préparé, parfois le formulaire de l’agence rempli pour vous — mais rien
+              ne part avant que vous ayez relu et cliqué « Envoyer ».
             </p>
           </div>
           <div class="card lift reveal p-5">
             <p class="font-semibold">Aucune protection n’est contournée</p>
             <p class="mt-1.5 text-[0.95rem] text-muted-foreground">
-              Les sites qui refusent la collecte automatique ne sont pas collectés. Pour ceux-là,
-              vos alertes e-mail font le lien.
+              Le robots.txt de chaque site est respecté, page par page, et les sites qui refusent la
+              collecte automatique ne sont pas collectés. Pour ceux-là, vos alertes e-mail font le
+              lien.
             </p>
           </div>
           <div class="card lift reveal p-5">
@@ -464,7 +467,7 @@
               <ul class="mt-6 flex flex-col gap-2.5 text-[0.95rem]">
                 <li class="flex gap-2.5">
                   <span aria-hidden="true" class="text-primary">✓</span>
-                  <span>57 sources relevées en continu</span>
+                  <span>Plus de %SOURCE_COUNT% sources relevées toutes les quinze minutes</span>
                 </li>
                 <li class="flex gap-2.5">
                   <span aria-hidden="true" class="text-primary">✓</span>
@@ -472,7 +475,11 @@
                 </li>
                 <li class="flex gap-2.5">
                   <span aria-hidden="true" class="text-primary">✓</span>
-                  <span>Alertes sur votre téléphone, application fermée</span>
+                  <span>Alertes sur votre téléphone et par e-mail</span>
+                </li>
+                <li class="flex gap-2.5">
+                  <span aria-hidden="true" class="text-primary">✓</span>
+                  <span>Filtres par quartier, budget et temps de trajet</span>
                 </li>
                 <li class="flex gap-2.5">
                   <span aria-hidden="true" class="text-primary">✓</span>
@@ -537,9 +544,9 @@
             <summary>Pourquoi Leboncoin et SeLoger n’y sont-ils pas directement ?</summary>
             <p class="text-[0.95rem] text-muted-foreground">
               Parce qu’ils interdisent explicitement la collecte automatique, et que nous ne
-              contournons rien. La voie conforme existe : faites suivre leurs alertes e-mail à
-              l’adresse que le service vous donne, et leurs annonces rejoignent les autres — sans
-              qu’une seule de leurs pages soit visitée.
+              contournons rien. La voie conforme existe : créez-y une alerte depuis la recherche que
+              Maïoun ouvre déjà filtrée, faites suivre ses e-mails à l’adresse qu’on vous donne, et
+              leurs annonces rejoignent les autres — sans qu’une seule de leurs pages soit visitée.
             </p>
           </details>
 
@@ -621,33 +628,6 @@
               <li><a href="conditions.html" class="nav-link">Conditions d’utilisation</a></li>
             </ul>
           </nav>
-
-          <!-- LE CODE A SA PROPRE COLONNE : en fin de liste légale, on ne l'y
-            trouvait pas. « Consultable » et non « libre » : le dépôt est
-            public, mais tous droits réservés — voir LICENSE. -->
-          <div class="text-[0.9rem]">
-            <p class="font-semibold">Le projet</p>
-            <a
-              href="%REPO_URL%"
-              rel="noreferrer noopener"
-              class="btn btn-outline btn-sm mt-2.5 rounded-lg"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                class="size-4.5 fill-current"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"
-                />
-              </svg>
-              Code source sur GitHub
-            </a>
-            <p class="mt-2 max-w-[16rem] text-[0.8rem] text-muted-foreground">
-              Consultable par tous. Tous droits réservés.
-            </p>
-          </div>
         </div>
 
         <p class="mt-10 border-t border-border pt-6 text-[0.82rem] text-muted-foreground">

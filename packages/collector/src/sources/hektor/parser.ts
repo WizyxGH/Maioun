@@ -74,8 +74,10 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
   const $ = cheerio.load(html);
   const seen = new Map<string, ParsedHektorUrl>();
 
-  $('a[href]').each((_i, el) => {
-    const href = $(el).attr('href') ?? '';
+  // Une annonce sans titre n'a parfois aucun lien, seulement des boutons
+  // `data-url` (sudagence.fr).
+  $('a[href], [data-url]').each((_i, el) => {
+    const href = $(el).attr('href') ?? $(el).attr('data-url') ?? '';
     const parsed = parseListingUrl(href, pageUrl);
     if (parsed !== null && !seen.has(parsed.reference)) seen.set(parsed.reference, parsed);
   });
@@ -332,10 +334,11 @@ function readFigures(
     (areaFromTable !== undefined ? `${areaFromTable.replace(/[^\d.,]/g, '')} m²` : undefined) ??
     (labels.area !== undefined ? `${labels.area} m²` : undefined);
   const roomsFromTable = table.get('nbpiecees') ?? labels.rooms;
+  // Titre libre sans pièces (englimmo.com) : le h1 engendré « Studio 1 pièce(s) » les donne.
   const roomsText =
     roomsFromTable !== undefined
       ? `${roomsFromTable} pièces`
-      : pageTitle.match(/\d+\s*pièces?/i)?.[0];
+      : `${pageTitle} ${h1}`.match(/\d+\s*pièces?/i)?.[0];
 
   // Meublé : la table est explicite (OUI/NON) — un texte fidèle à sa valeur,
   // jamais un « meublé » par défaut qui inverserait le sens (§17).
@@ -423,7 +426,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // ainsi rendues. On lit donc `data-src` en premier.
   //
   // « Ces biens peuvent aussi vous intéresser » : les photos des AUTRES annonces.
-  $('[class*="property-more"]').remove();
+  $('[class*="property-more"], [class*="properties-related"]').remove();
   const imageUrls: string[] = [];
   // Le nom de fichier identifie la photo : la même image apparaît sous
   // plusieurs chemins (`/original/…` et `/1600xauto/…`), et les montrer toutes

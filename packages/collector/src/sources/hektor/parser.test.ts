@@ -48,6 +48,16 @@ describe('parseListPage', () => {
     expect(urls.map((url) => url.reference).sort()).toEqual(['31', '42', '92']);
   });
 
+  it('lit aussi les boutons `data-url` d’une annonce sans lien de titre (Sud Agence)', () => {
+    const { urls } = parseListPage(
+      readFileSync(join(FIXTURES, 'liste-data-url.html'), 'utf8'),
+      'https://www.agence-fictive.fr/location/1',
+    );
+    expect(urls.map((url) => url.reference)).toEqual(['568', '565']);
+    expect(urls[1]?.citySlug).toBe('nice');
+    expect(urls[0]?.canonicalUrl).not.toContain('#');
+  });
+
   it('signale une liste sans fiche (structure changée, §69)', () => {
     const { warnings } = parseListPage('<html><body>vide</body></html>', BASE);
     expect(warnings).toHaveLength(1);
@@ -230,5 +240,28 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(normalized?.features).toContain('Balcon');
     expect(normalized?.features).toContain(SHORT_TERM_LEASE_FEATURE);
     expect(normalized?.features).not.toContain('Parking');
+  });
+
+  it('titre libre sans pièces : le h1 engendré les donne (Englimmo)', () => {
+    const url =
+      'https://www.agence-fictive.com/location/1-nice/studio/61-etudiant-9-mois-2026-2027';
+    const { listing, warnings } = parseDetailPage(read('detail-englimmo.html'), url, 'Englimmo');
+    expect(warnings).toHaveLength(0);
+    expect(listing).toMatchObject({
+      sourceRef: '61',
+      priceText: '789 € CC',
+      chargesText: '89 € de charges',
+      areaText: '31 m²',
+      roomsText: '1 pièce',
+      cityText: 'nice',
+      postalCodeText: '06200',
+      depositText: '1 400 €',
+      feesText: '403 €',
+    });
+    expect(listing?.extra?.['reference']).toBe('51');
+    expect(listing?.description).toContain('honoraires location 13*31m2 =403€');
+    // « Consulter les autres biens » : la photo de l’autre annonce est écartée.
+    expect(listing?.imageUrls).toHaveLength(1);
+    expect(listing?.imageUrls?.[0]).toContain('24bacb08515c2715');
   });
 });

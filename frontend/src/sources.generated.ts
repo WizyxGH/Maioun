@@ -353,6 +353,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  englimmo: {
+    name: 'Englimmo',
+    domain: 'englimmo.com',
+    logo: 'https://www.englimmo.com/images/favicon.png',
+    paidContact: false,
+    address: { street: '165 avenue de la Californie', postalCode: '06200', city: 'Nice' },
+  },
   era: { name: 'ERA Immobilier', domain: null, logo: null, paidContact: false, address: null },
   'etude-lotte': {
     name: 'Étude Lotte',
@@ -807,6 +814,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     address: { street: '24 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
   },
   studapart: { name: 'Studapart', domain: null, logo: null, paidContact: false, address: null },
+  'sud-agence': {
+    name: 'Sud Agence',
+    domain: 'sudagence.fr',
+    logo: 'https://www.sudagence.fr/images/favicon.png',
+    paidContact: false,
+    address: { street: '25 rue Arson', postalCode: '06300', city: 'Nice' },
+  },
   'sud-contact': {
     name: 'Sud Contact Immobilier',
     domain: 'nice-ouest-immobilier.com',

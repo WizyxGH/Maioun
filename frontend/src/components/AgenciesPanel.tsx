@@ -22,6 +22,9 @@ import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 import { ListingCard } from './ListingCard.js';
+import { useState } from 'react';
+import { isFollowedAgency } from '../agency-coverage.js';
+import { ToggleGroup } from '@/components/ui/toggle.js';
 
 /** Coordonnées d'une agence : ce dont on se sert pour la joindre. */
 function AgencyContact({ agency }: { readonly agency: AgencySummary }): React.JSX.Element | null {
@@ -61,6 +64,9 @@ export function AgenciesPanel({
   readonly onBack: () => void;
   readonly onOpen: (name: string) => void;
 }): React.JSX.Element {
+  const [show, setShow] = useState<'all' | 'unfollowed'>('all');
+  const unfollowed = agencies.filter((agency) => !isFollowedAgency(agency.sources));
+  const shown = show === 'all' ? agencies : unfollowed;
   return (
     <div>
       <header className="mb-2">
@@ -70,17 +76,34 @@ export function AgenciesPanel({
       </header>
 
       <h1 className="mb-1 text-xl font-bold">Agences</h1>
-      <p className="text-muted-foreground mb-4 text-[0.9rem]">
+      <p className="text-muted-foreground mb-3 text-[0.9rem]">
         Celles qui publient les annonces trouvées, classées par nombre de biens en ligne.
       </p>
+      {/* LA LISTE À SURVEILLER : les agences qu'on ne voit que par les portails,
+        avec leur retard et leurs manques. Tenue à jour par chaque collecte. */}
+      <ToggleGroup
+        aria-label="Agences affichées"
+        className="mb-2"
+        value={show}
+        onValueChange={setShow}
+        items={[
+          { value: 'all', label: `Toutes (${agencies.length})` },
+          { value: 'unfollowed', label: `Non suivies (${unfollowed.length})` },
+        ]}
+      />
+      {show === 'unfollowed' && (
+        <p className="text-muted-foreground mb-3 text-[0.82rem]">
+          Vues seulement sur les portails : Maïoun ne lit pas encore leur propre site.
+        </p>
+      )}
 
-      {agencies.length === 0 ? (
+      {shown.length === 0 ? (
         <Card className="text-muted-foreground py-8 text-center text-[0.92rem]">
           Aucune agence identifiée pour l’instant.
         </Card>
       ) : (
         <ul className="flex flex-col gap-2">
-          {agencies.map((agency, rank) => (
+          {shown.map((agency, rank) => (
             <li key={agency.name}>
               <ItemButton
                 onClick={() => onOpen(agency.name)}
