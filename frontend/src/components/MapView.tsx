@@ -106,13 +106,14 @@ function priceIcon(listing: ListingView): L.DivIcon {
     className: '', // pas de styles Leaflet par défaut
     html: `<div style="
         transform: translate(-50%, -100%);
-        display: inline-block; padding: 3px 8px; border-radius: 999px;
+        display: inline-flex; align-items: center; gap: 4px; line-height: 1;
+        padding: 4px 8px; border-radius: 999px;
         background: ${hot ? '#e00034' : '#ffffff'}; color: ${hot ? '#ffffff' : '#1a1a1a'};
         border: ${favorite ? '2px' : '1px'} solid ${border};
         font: 600 12px system-ui, sans-serif; white-space: nowrap;
         box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
         ${(contacted || viewed) && !favorite ? 'opacity: .75;' : ''}
-      ">${badge === '' ? '' : `${badge}&nbsp;`}${label}</div>`,
+      ">${badge}<span>${label}</span></div>`,
     iconSize: [0, 0],
   });
 }
