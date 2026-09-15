@@ -352,12 +352,45 @@ function sameDistinctiveTitle(a: NormalizedListing, b: NormalizedListing): boole
   return shorter.cut || new Set(shorter.tokens).size === others.size;
 }
 
+/** Une page d'annonce, sans fragment ni barre finale ; `null` pour une racine ou un lien illisible. */
+function listingPage(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/+$/, '');
+    if (path === '') return null;
+    return `${parsed.host.toLowerCase()}${path}${parsed.search}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * DEUX SOURCES QUI POINTENT LA MÊME PAGE PUBLIENT LA MÊME ANNONCE.
+ *
+ * Une alerte Bien'ici renvoie vers la page que la source Bien'ici collecte :
+ * même lien, mais ni adresse, ni texte, ni photo. Prix, surface et pièces ne
+ * faisaient que quarante-six points, et l'alerte restait seule.
+ *
+ * Entre sources différentes seulement : au sein d'une source, un lien partagé
+ * est une page de liste (le bulletin BEP en porte quarante).
+ */
+function sameListingPage(a: NormalizedListing, b: NormalizedListing): boolean {
+  if (a.sourceId === b.sourceId) return false;
+  const page = listingPage(a.sourceUrl);
+  return page !== null && page === listingPage(b.sourceUrl);
+}
+
 function collectStrongSignals(
   a: NormalizedListing,
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
   relaysListings: (sourceId: string) => boolean,
 ): void {
+  // Suffit à fusionner, sous réserve des garde-fous.
+  if (sameListingPage(a, b)) {
+    push({ code: 'url', label: 'même page d’annonce', points: DUPLICATE_THRESHOLD });
+  }
+
   // Gratuit : on compare des URL déjà collectées, sans télécharger d'image.
   const photos = photoOverlap(a, b, relaysListings);
   if (photos === 'identical') {
