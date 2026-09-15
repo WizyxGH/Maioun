@@ -65,9 +65,35 @@ function siteAddresses(): Plugin {
   };
 }
 
+/**
+ * Pose le nombre de sources là où la page porte `%SOURCE_COUNT%`.
+ *
+ * LU À LA CONSTRUCTION dans la table que l'application engendre, et arrondi à
+ * la dizaine inférieure : « plus de 130 » reste vrai d'une source à l'autre.
+ * La page affichait « 57 » alors qu'on en relevait plus du double. Table
+ * absente (page construite seule) : le dernier nombre connu.
+ */
+function sourceCount(): Plugin {
+  let label = '130';
+  try {
+    const table = readFileSync(page('../frontend/src/sources.generated.ts'), 'utf8');
+    const count = (table.match(/^ {2}'?[a-z0-9-]+'?: \{/gm) ?? []).length;
+    if (count > 0) label = String(Math.floor(count / 10) * 10);
+  } catch {
+    // Page construite hors du dépôt : on garde le dernier nombre connu.
+  }
+  return {
+    name: 'maioun-sources',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) => html.replaceAll('%SOURCE_COUNT%', label),
+    },
+  };
+}
+
 export default defineConfig({
   base: process.env['BASE_PATH'] ?? '/',
-  plugins: [tailwindcss(), siteAddresses(), testimonials()],
+  plugins: [tailwindcss(), siteAddresses(), sourceCount(), testimonials()],
   build: {
     sourcemap: false,
     /**

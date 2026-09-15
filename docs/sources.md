@@ -314,6 +314,7 @@ de 4 s (5 s pour Netty).
 | -------------------------------------------------- | ---------- | ------------------------------------------------------ |
 | **Immobilière Roseland** (immobiliereroseland.fr)  | 2026-09-14 | 17 sur deux pages, Nice en majorité                    |
 | **SAG Immobilier** (sag-immobilier.com)            | 2026-09-14 | 11, toutes à Nice                                      |
+| **Sud Agence** (sudagence.fr)                      | 2026-09-15 | 9 à Nice (dont 3 stationnements)                       |
 | **AA Gestion** (aagestion.net)                     | 2026-09-14 | 6 (Nice ×5, Grasse)                                    |
 | **Murta Immobilier** (murta-immobilier.com, Drap)  | 2026-09-14 | 6 (Nice ×2, Drap, Contes, arrière-pays)                |
 | **Aurus Immobilier** (aurusimmo.com, Beaulieu)     | 2026-09-14 | 5 (Nice ×3, Beaulieu-sur-Mer, Roquebrune)              |
@@ -323,6 +324,7 @@ de 4 s (5 s pour Netty).
 | **Midem Immobilier** (midem-immobilier.fr)         | 2026-09-14 | 4 (Nice ×3, Villeneuve-Loubet)                         |
 | **Coprogestimmo** (coprogestimmo.fr)               | 2026-09-14 | 4 (Nice ×2, Menton ×2)                                 |
 | **Liberty Agency** (agence-liberty.com)            | 2026-09-14 | 3 à Nice                                               |
+| **Englimmo** (englimmo.com)                        | 2026-09-15 | 3 à Nice, étudiantes ou en colocation                  |
 | **Belgravia** (belgravia.fr)                       | 2026-09-14 | 2 (Nice, Villefranche-sur-Mer)                         |
 | **De Vita Immobilier** (devita.immo)               | 2026-09-14 | 2 à Nice                                               |
 | **L&B Immobilier** (lb-immobilier.fr)              | 2026-09-14 | 2 à Nice                                               |
