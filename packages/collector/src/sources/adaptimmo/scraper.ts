@@ -29,6 +29,8 @@ export interface AdaptImmoConfig {
   /** Nombre maximum de fiches visitées par exécution. */
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
+  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
+  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export function makeAdaptImmoDescriptor(config: AdaptImmoConfig): SourceDescriptor {
@@ -47,6 +49,7 @@ export function makeAdaptImmoDescriptor(config: AdaptImmoConfig): SourceDescript
     }),
     enabled: true,
     allowedPaths: ['/fr/liste.htm*', '/fr/detail.htm*'],
+    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
     notes:
       `Plateforme AdaptImmo/Ubiflow (adaptateur générique, §47). Pages en ` +
       `windows-1252 déclaré en <meta> seulement — le client HTTP le gère. Les ` +

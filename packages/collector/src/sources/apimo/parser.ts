@@ -22,6 +22,15 @@ import { parsePropertyType } from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 import { collectJsonLdNodes, findJsonLdNode, type JsonLdNode } from '../shared/json-ld.js';
+import {
+  apimoBedrooms,
+  apimoDpe,
+  apimoMoney,
+  apimoFloor,
+  criterion,
+  extractCriteria,
+  type ApimoCriteria,
+} from './criteria.js';
 
 /**
  * Forme d'une URL de fiche, tout domaine Apimo confondu :
@@ -89,6 +98,7 @@ interface JsonLdData {
   readonly name?: string;
   readonly description?: string;
   readonly rooms?: number;
+  readonly bedrooms?: number;
   readonly area?: number;
   readonly city?: string;
   readonly postalCode?: string;
@@ -120,6 +130,9 @@ function mapApimoJsonLd(property: JsonLdNode, agent: JsonLdNode | undefined): Js
       ? { description: str(property, 'description') }
       : {}),
     ...(typeof property['numberOfRooms'] === 'number' ? { rooms: property['numberOfRooms'] } : {}),
+    ...(typeof property['numberOfBedrooms'] === 'number'
+      ? { bedrooms: property['numberOfBedrooms'] }
+      : {}),
     ...(typeof floorSize?.['value'] === 'number' ? { area: floorSize['value'] } : {}),
     ...(str(address, 'addressLocality') !== undefined
       ? { city: str(address, 'addressLocality') }
@@ -273,48 +286,43 @@ function extractApimoContent(
   };
 }
 
-/**
- * Les listes « critères » d'une fiche Apimo, en couples intitulé → valeur.
- *
- * ON N'EN PRENAIT RIEN. La fiche porte pourtant, dans des blocs
- * `module-property-info`, tout ce que le titre et la description taisent :
- * provision sur charges, dépôt de garantie, honoraires, étage, exposition,
- * état, type de chauffage, nombre de chambres. On lisait le prix et la surface,
- * et on laissait le reste sur la page.
- *
- * Le balisage est régulier : `<li> Intitulé <span>Valeur</span></li>`. On ne
- * cherche pas un intitulé précis — les agences en ajoutent — on ramasse tout,
- * et l'appelant pioche ce qu'il sait nommer.
- */
-function extractCriteria($: cheerio.CheerioAPI): Map<string, string> {
-  const criteria = new Map<string, string>();
-  $('.module-property-info li').each((_index, element) => {
-    const item = $(element);
-    const value = cleanText(item.find('span').first().text());
-    if (value === '') return;
-    // L'intitulé est ce qui reste une fois la valeur retirée : le prendre par
-    // un sélecteur supposerait une classe que toutes les fiches n'ont pas.
-    const label = cleanText(item.clone().children('span').remove().end().text());
-    if (label !== '') criteria.set(label, value);
-  });
-  return criteria;
+/** Convention « N pièces M chambres », lue telle quelle par la normalisation. */
+function withBedrooms(
+  roomsText: string | undefined,
+  jsonLd: JsonLdData | null,
+  criteria: ApimoCriteria,
+): string | undefined {
+  const bedrooms = jsonLd?.bedrooms ?? apimoBedrooms(criteria);
+  if (bedrooms === undefined) return roomsText;
+  return `${roomsText ?? ''} ${bedrooms} chambre${bedrooms > 1 ? 's' : ''}`.trim();
 }
 
 /**
- * La valeur du premier intitulé reconnu.
+ * Attributs structurés de la fiche → `extra`.
  *
- * Comparaison souple — sans accents ni casse — parce que la même idée s'écrit
- * « Provision sur charges récupérables » chez l'un et « Charges » chez l'autre.
+ * `features` est le champ que la normalisation FOUILLE : elle y cherche
+ * l'étage, l'ascenseur, le balcon, le DPE et le caractère meublé. Y verser les
+ * critères et les prestations revient à récolter tout le bloc d'un coup.
  */
-function criterion(criteria: Map<string, string>, patterns: readonly RegExp[]): string | undefined {
-  for (const [label, value] of criteria) {
-    const plain = label
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-    if (patterns.some((pattern) => pattern.test(plain))) return value;
-  }
-  return undefined;
+function apimoExtra(
+  $: cheerio.CheerioAPI,
+  criteria: ApimoCriteria,
+  parsedUrl: ParsedListingUrl,
+): Record<string, string> {
+  const lines = criteria.pairs.map(([label, value]) => `${label} : ${value}`);
+  if (criteria.services.length > 0) lines.push(`Prestations : ${criteria.services.join(', ')}`);
+  const extra: Record<string, string> = {
+    // La référence affichée par l'agence, qui peut différer de l'identifiant d'URL.
+    reference: criterion(criteria, [/^reference$/]) ?? parsedUrl.reference,
+    citySlug: parsedUrl.citySlug,
+  };
+  if (lines.length > 0) extra['features'] = lines.join(' · ');
+  const floor = apimoFloor(criteria);
+  if (floor !== undefined) extra['etage'] = floor;
+  if (criteria.services.some((service) => /^ascenseur$/i.test(service))) extra['ascenseur'] = '1';
+  const dpe = apimoDpe($);
+  if (dpe !== undefined) extra['dpe'] = dpe;
+  return extra;
 }
 
 /** `true` si la page est une fiche retirée / introuvable (§17). */
@@ -389,11 +397,9 @@ export function parseApimoDetail(
     description: description !== undefined && description !== '' ? description : undefined,
     priceText,
     areaText,
-    roomsText,
+    roomsText: withBedrooms(roomsText, jsonLd, criteria),
     propertyTypeText: parsedUrl.typeSlug,
-    // Les charges étaient le manque le plus coûteux : 13 % de couverture sur
-    // tout l'inventaire, alors qu'Apimo les publie sous un intitulé stable.
-    chargesText: criterion(criteria, [/provision.*charge/, /^charges?$/, /charges? locative/]),
+    ...apimoMoney(criteria),
     // Meublé : le titre et la description le disent quand c'est le cas — et,
     // depuis les critères, l'agence parfois explicitement.
     furnishedText: cleanText(`${title ?? ''} ${description ?? ''}`),
@@ -408,19 +414,7 @@ export function parseApimoDetail(
     publishedAtText,
     imageUrls:
       jsonLd?.imageUrls !== undefined && jsonLd.imageUrls.length > 0 ? jsonLd.imageUrls : undefined,
-    extra: {
-      reference: parsedUrl.reference,
-      citySlug: parsedUrl.citySlug,
-      // `features` est le champ que la normalisation FOUILLE : elle y cherche
-      // l'étage, l'ascenseur, le balcon, les chambres, le DPE et le caractère
-      // meublé. Y verser les critères revient à récolter tout le bloc d'un
-      // coup, sans nommer ici ce que le pipeline sait déjà reconnaître.
-      ...(criteria.size > 0
-        ? {
-            features: [...criteria].map(([label, value]) => `${label} : ${value}`).join(' · '),
-          }
-        : {}),
-    },
+    extra: apimoExtra($, criteria, parsedUrl),
   });
 
   return { listing, warnings };

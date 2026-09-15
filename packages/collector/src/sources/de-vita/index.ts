@@ -13,6 +13,7 @@ export const deVitaScraper = makeHektorScraper({
   id: 'de-vita',
   name: 'De Vita Immobilier',
   domain: 'devita.immo',
+  agencyContact: { address: { street: '52 rue Gioffredo', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.devita.immo/images/favicon.png',
   listUrls: ['https://www.devita.immo/location/1'],
 });

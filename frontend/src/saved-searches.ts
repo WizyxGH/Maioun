@@ -19,7 +19,13 @@
  * critères : un téléphone et un ordinateur doivent voir les mêmes.
  */
 
-import { MVP_CRITERIA, type PropertyType } from '@maioun/shared';
+import {
+  MVP_CRITERIA,
+  districtLabel,
+  splitCommune,
+  toTitleCase,
+  type PropertyType,
+} from '@maioun/shared';
 import type { FilterConfig, SortMode } from './types.js';
 import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
 
@@ -110,6 +116,30 @@ export interface SearchPart {
   readonly label: string;
 }
 
+/**
+ * Ville d'un critère, telle qu'une carte l'écrit : « Saint-Laurent-du-Var ».
+ *
+ * Les critères la gardent en minuscules pour la comparer ; seul l'affichage la
+ * recapitalise. On ne passe pas par `formatCommune`, qui couperait un nom
+ * inconnu commençant par une commune connue (« nice nord » → « Nice ») : ici
+ * c'est l'utilisateur qui l'a écrit, rien ne s'y colle.
+ */
+export function formatCriteriaCity(city: string): string {
+  const { commune, district } = splitCommune(city);
+  return district === null ? commune : toTitleCase(city);
+}
+
+/** Au-delà, la ligne de critères passerait à la ligne pour des noms de quartier. */
+const MAX_DISTRICTS_SHOWN = 2;
+
+/** « Cimiez, Libération +3 » : les premiers quartiers, puis combien d'autres. */
+export function formatDistricts(slugs: readonly string[]): string {
+  if (slugs.length === 0) return '';
+  const shown = slugs.slice(0, MAX_DISTRICTS_SHOWN).map(districtLabel).join(', ');
+  const rest = slugs.length - MAX_DISTRICTS_SHOWN;
+  return rest > 0 ? `${shown} +${rest}` : shown;
+}
+
 /** Les critères d'une recherche, un par un, dans l'ordre où on les lit. */
 export function searchParts(search: SavedSearch): readonly SearchPart[] {
   const parts: SearchPart[] = [];
@@ -119,7 +149,12 @@ export function searchParts(search: SavedSearch): readonly SearchPart[] {
   const { criteria, view } = search;
 
   const cities = criteria.cities.filter((city) => city !== '');
-  if (cities.length > 0) add('place', cities.join(', '));
+  const districts = criteria.districts ?? [];
+  if (cities.length > 0 || districts.length > 0) {
+    const place = cities.map(formatCriteriaCity).join(', ');
+    const where = formatDistricts(districts);
+    add('place', [place, where].filter((part) => part !== '').join(' · '));
+  }
 
   const low = view.minPrice ?? criteria.minPrice ?? null;
   const high = view.maxPrice ?? criteria.maxPrice;
@@ -162,7 +197,7 @@ export function describeSearch(search: SavedSearch): string {
 export function suggestName(criteria: FilterConfig, quick: QuickFilterValues): string {
   const city = criteria.cities[0] ?? MVP_CRITERIA.cities[0] ?? 'Nice';
   const budget = quick.maxPrice ?? criteria.maxPrice;
-  const capitalized = city.charAt(0).toUpperCase() + city.slice(1);
+  const capitalized = formatCriteriaCity(city);
   return budget === undefined ? capitalized : `${capitalized} ≤ ${budget} €`;
 }
 

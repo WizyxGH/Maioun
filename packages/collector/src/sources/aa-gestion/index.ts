@@ -14,6 +14,9 @@ export const aaGestionScraper = makeHektorScraper({
   id: 'aa-gestion',
   name: 'AA Gestion',
   domain: 'aagestion.net',
+  agencyContact: {
+    address: { street: '3 boulevard du Parc Impérial', postalCode: '06000', city: 'Nice' },
+  },
   logo: 'https://www.aagestion.net/images/favicon.png',
   listUrls: ['https://www.aagestion.net/location/1'],
 });

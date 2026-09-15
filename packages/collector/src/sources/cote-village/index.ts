@@ -14,6 +14,9 @@ export const coteVillageScraper = makeHektorScraper({
   id: 'cote-village',
   name: 'Immobilier Côté Village',
   domain: 'immobilier-cote-village.com',
+  agencyContact: {
+    address: { street: '112 boulevard Général de Gaulle', postalCode: '06340', city: 'La Trinité' },
+  },
   logo: 'https://www.immobilier-cote-village.com/images/favicon.png',
   listUrls: ['https://www.immobilier-cote-village.com/location/1'],
 });

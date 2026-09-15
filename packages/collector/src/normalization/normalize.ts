@@ -319,15 +319,6 @@ function parseApplicationStatus(value: string | undefined): ApplicationStatus | 
 }
 
 /**
- * Les textes libres d'une annonce brute, recousus une fois pour toutes.
- *
- * Chaque champ dérivé se lit dans plusieurs cases à la fois : le type se
- * devine autant dans le titre que dans le libellé de type, le meublé autant
- * dans la description que dans la liste d'équipements. Assembler ces sources
- * ici plutôt qu'à chaque appel évite d'éparpiller vingt `?? ''` dans le corps
- * de `normalizeListing`, qui n'y gagnait que du bruit.
- */
-/**
  * Un titre qui NOMME un parking : « BOX HAUT MALAUSSENA », « Le Fenice - Garage
  * à louer ». La catégorie de la source disait « appartement » (relevé du
  * 2026-09-14, trois annonces). Seulement en tête de titre ou suivi de « à
@@ -343,6 +334,38 @@ function parkingByTitle(raw: RawListing): boolean {
   return names && (area === null || area <= 25);
 }
 
+/**
+ * Un titre qui NOMME un bien commercial : « Location local commercial Nice
+ * Joffre », « Louer commerce de 2 pièces 68 m² ». « pièces », ou la catégorie
+ * « appartement » de la source, l'emportait : huit biens commerciaux passaient
+ * pour des logements (relevé du 2026-09-14). Formes explicites seulement —
+ * « 3 pièces avec bureau » reste un logement.
+ */
+export function commercialByTitle(
+  title: string | null | undefined,
+  /** `true` : formules sans ambiguïté seulement (« Location Bureau » est exclue). */
+  strict = false,
+): boolean {
+  const text = comparable(title ?? '');
+  if (COMMERCIAL_TITLE_STRICT.test(text)) return true;
+  return !strict && COMMERCIAL_TITLE_LOOSE.test(text);
+}
+
+const COMMERCIAL_TITLE_STRICT =
+  /\b(?:locaux? commerciaux?|local commercial|local professionnel|locaux? d activite|bail commercial|bail professionnel|fonds de commerce|droit au bail|murs commerciaux|pas de porte)\b/;
+
+const COMMERCIAL_TITLE_LOOSE =
+  /^(?:a )?(?:location|louer)\s+(?:de\s+)?(?:commerce|bureaux?|local)\b|^(?:commerce|bureaux?|local)\b|\b(?:commerce|bureaux?) a louer\b/;
+
+/**
+ * Les textes libres d'une annonce brute, recousus une fois pour toutes.
+ *
+ * Chaque champ dérivé se lit dans plusieurs cases à la fois : le type se
+ * devine autant dans le titre que dans le libellé de type, le meublé autant
+ * dans la description que dans la liste d'équipements. Assembler ces sources
+ * ici plutôt qu'à chaque appel évite d'éparpiller vingt `?? ''` dans le corps
+ * de `normalizeListing`, qui n'y gagnait que du bruit.
+ */
 function textSources(raw: RawListing): {
   type: string;
   furnished: string;
@@ -419,7 +442,11 @@ export function normalizeListing(
     area: resolveArea(raw),
     rooms: parseRooms(text.rooms),
     bedrooms: parseBedrooms(text.bedrooms),
-    propertyType: parkingByTitle(raw) ? 'parking' : parsePropertyType(text.type),
+    propertyType: commercialByTitle(raw.title)
+      ? 'commercial'
+      : parkingByTitle(raw)
+        ? 'parking'
+        : parsePropertyType(text.type),
     // Le titre d'abord : « 3 PIÈCES MEUBLÉ » l'emporte sur une case « non »
     // de la source, que plusieurs agences laissent à sa valeur par défaut.
     furnished: parseFurnished(raw.title) ?? parseFurnished(text.furnished),
@@ -654,6 +681,21 @@ export function bestAddress(stored: string | null, fromText: string | null): str
   return long.charAt(court.length) === ' ' ? stored : fromText;
 }
 
+/**
+ * Le type d'une fiche déjà en base, corrigé par son titre dans les seuls cas
+ * sûrs : un « parking » que le titre dément, un « autre » que le titre dit
+ * professionnel, ou un titre qui nomme sans ambiguïté un local commercial.
+ */
+function rescuedPropertyType(occurrence: NormalizedListing): NormalizedListing['propertyType'] {
+  const current = occurrence.propertyType;
+  if (current !== 'commercial' && commercialByTitle(occurrence.title, true)) return 'commercial';
+  const rescued = parsePropertyType(occurrence.title);
+  if ((current === 'other' || current === 'unknown') && rescued === 'commercial') return rescued;
+  const fromParking =
+    current === 'parking' && rescued !== 'parking' && rescued !== 'other' && rescued !== 'unknown';
+  return fromParking ? rescued : current;
+}
+
 export function rederiveFromText(
   occurrence: NormalizedListing,
   nowMs: number = Date.now(),
@@ -673,16 +715,7 @@ export function rederiveFromText(
   // rendait alors « other » là où « appartement » était juste (§17).
   // L'autre sens, un seul cas : un « autre » que le titre dit professionnel.
   // « Autre » n'affirmait rien ; « Licence IV à louer » affirme quelque chose.
-  const rescued = parsePropertyType(occurrence.title);
-  const fromParking =
-    occurrence.propertyType === 'parking' &&
-    rescued !== 'parking' &&
-    rescued !== 'other' &&
-    rescued !== 'unknown';
-  const toCommercial =
-    (occurrence.propertyType === 'other' || occurrence.propertyType === 'unknown') &&
-    rescued === 'commercial';
-  const propertyType = fromParking || toCommercial ? rescued : occurrence.propertyType;
+  const propertyType = rescuedPropertyType(occurrence);
 
   const { features, changed: featuresChanged } = reconcileFeatures(occurrence.features, text);
 

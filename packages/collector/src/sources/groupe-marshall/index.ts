@@ -13,6 +13,7 @@ export const groupeMarshallScraper = makeHektorScraper({
   id: 'groupe-marshall',
   name: 'Groupe Marshall',
   domain: 'cabinet-marshall.com',
+  agencyContact: { address: { street: '4 rue de la Liberté', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.cabinet-marshall.com/images/favicon.png',
   listUrls: ['https://www.cabinet-marshall.com/location/1'],
 });

@@ -15,6 +15,9 @@ export const cabinetVenturaScraper = makeApimoScraper({
   id: 'cabinet-ventura',
   name: 'Cabinet Ventura',
   domain: 'cabinetventura.com',
+  agencyContact: {
+    address: { street: '61 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
+  },
   sitemapUrl: 'https://cabinetventura.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

@@ -5,11 +5,27 @@
  * l'utilisateur a signalé que le bouton « ne fait rien ».
  */
 
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SavedSearchesPanel } from './SavedSearchesPanel.js';
 import type { SavedSearch } from '../saved-searches.js';
+import { fetchReferencePoints, saveReferencePoints } from '../api/client.js';
+
+vi.mock('../api/client.js', () => ({
+  fetchReferencePoints: vi.fn(),
+  saveReferencePoints: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.mocked(fetchReferencePoints).mockReset();
+  vi.mocked(saveReferencePoints).mockReset();
+  vi.mocked(fetchReferencePoints).mockResolvedValue([
+    { label: 'Travail', address: '1 place Masséna, 06000 Nice', mode: 'transit' },
+    { label: 'Gare', address: 'Avenue Thiers, 06000 Nice', mode: 'walking' },
+  ]);
+  vi.mocked(saveReferencePoints).mockResolvedValue(undefined);
+});
 
 const SEARCH: SavedSearch = {
   id: 's1',
@@ -32,7 +48,14 @@ const SEARCH: SavedSearch = {
 function renderPanel(
   onUpdate = vi.fn(),
   onEdit = vi.fn(),
-): { onUpdate: ReturnType<typeof vi.fn>; onEdit: ReturnType<typeof vi.fn> } {
+  onUpdateCriteria = vi.fn(),
+  onSaveCurrent = vi.fn(),
+): {
+  onUpdate: ReturnType<typeof vi.fn>;
+  onEdit: ReturnType<typeof vi.fn>;
+  onUpdateCriteria: ReturnType<typeof vi.fn>;
+  onSaveCurrent: ReturnType<typeof vi.fn>;
+} {
   render(
     <SavedSearchesPanel
       searches={[SEARCH]}
@@ -45,11 +68,12 @@ function renderPanel(
       onRename={() => {}}
       onUpdate={onUpdate}
       onEdit={onEdit}
-      onSaveCurrent={() => {}}
+      onUpdateCriteria={onUpdateCriteria}
+      onSaveCurrent={onSaveCurrent}
       suggestion="Ma recherche"
     />,
   );
-  return { onUpdate, onEdit };
+  return { onUpdate, onEdit, onUpdateCriteria, onSaveCurrent };
 }
 
 describe('mettre à jour une recherche enregistrée', () => {
@@ -132,5 +156,58 @@ describe('modifier les critères sur place', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit.mock.calls[0]?.[0]).toMatchObject({ name: 'Studio Libération' });
+  });
+});
+
+describe('adresse de référence, sans quitter la page', () => {
+  it('modifie l’adresse et la durée depuis la carte', async () => {
+    const user = userEvent.setup();
+    const { onUpdateCriteria, onEdit } = renderPanel();
+    await screen.findByText(/Trajet depuis 1 place Masséna/);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Adresse de référence de « Studio Libération »' }),
+    );
+    const field = screen.getByRole('combobox', {
+      name: 'Adresse de référence de « Studio Libération »',
+    });
+    await user.clear(field);
+    await user.type(field, '5 rue de France, 06000 Nice');
+    await user.type(screen.getByLabelText(/Trajet max/), '45');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    // Le premier repère change, le second reste tel quel.
+    await waitFor(() =>
+      expect(saveReferencePoints).toHaveBeenCalledWith([
+        { label: 'Travail', address: '5 rue de France, 06000 Nice', mode: 'transit' },
+        { label: 'Gare', address: 'Avenue Thiers, 06000 Nice', mode: 'walking' },
+      ]),
+    );
+    expect(onUpdateCriteria).toHaveBeenCalledWith('s1', {
+      cities: ['nice'],
+      maxPrice: 700,
+      minArea: 20,
+      maxCommuteMinutes: 45,
+    });
+    // Et l'écran de recherche n'a pas été ouvert.
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it('pose l’adresse en créant une recherche', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchReferencePoints).mockResolvedValue(null);
+    const { onSaveCurrent } = renderPanel();
+
+    await user.click(screen.getByRole('button', { name: /Enregistrer la recherche actuelle/ }));
+    await user.type(
+      screen.getByRole('combobox', { name: 'Adresse de référence de la nouvelle recherche' }),
+      '5 rue de France, 06000 Nice',
+    );
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() => expect(onSaveCurrent).toHaveBeenCalledWith('Ma recherche'));
+    expect(saveReferencePoints).toHaveBeenCalledWith([
+      { label: 'Travail', address: '5 rue de France, 06000 Nice', mode: 'transit' },
+    ]);
   });
 });

@@ -65,3 +65,31 @@ describe('ContactPanel — sources qui facturent la mise en relation', () => {
     expect(screen.getByText(/Aucune coordonnée n’est publiée/)).toBeInTheDocument();
   });
 });
+
+describe('ContactPanel — fiche', () => {
+  it('affiche la référence de l’agence quand elle est connue', () => {
+    const listing = listingFrom('bienici');
+    renderPanel({ ...listing, contact: { ...listing.contact, reference: 'LA2987' } });
+    expect(screen.getByTestId('agency-reference')).toHaveTextContent('LA2987');
+    expect(screen.getByText('Réf. agence')).toBeInTheDocument();
+  });
+
+  it('tait la ligne quand la référence manque', () => {
+    const listing = listingFrom('bienici');
+    renderPanel({ ...listing, contact: { ...listing.contact, reference: null } });
+    expect(screen.queryByTestId('agency-reference')).not.toBeInTheDocument();
+  });
+
+  it('ne met plus de flèche vers la fiche de la source sur chaque ligne', () => {
+    render(
+      <ContactPanel
+        listing={listingFrom('bienici')}
+        profile={null}
+        onRecorded={vi.fn()}
+        onConfigureProfile={vi.fn()}
+        onOpenSource={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /voir toutes les annonces/i })).toBeNull();
+  });
+});

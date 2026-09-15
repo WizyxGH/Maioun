@@ -51,6 +51,7 @@ import {
   signupProblemMessage,
 } from './signup.js';
 import { allow, bucketFor, callerKey, LIMITS } from './rate-limit.js';
+import { contactSubmitRoute } from './contact-submit.js';
 import {
   applyWebhook,
   checkoutUrl,
@@ -1218,6 +1219,12 @@ export default {
 
     if (segments[1] === 'documents') {
       return documents(request, env, cors, userId, segments[2]);
+    }
+
+    // Le formulaire de l'agence, posté d'ici : le navigateur en est empêché
+    // par CORS. Rien ne part sans `confirm: true`.
+    if (segments[1] === 'contact' && segments[2] === 'submit') {
+      return contactSubmitRoute(db, request, cors, userId, botIdentity(env));
     }
 
     // L'API sait maintenant QUI demande : favoris, suivi et archivage sont

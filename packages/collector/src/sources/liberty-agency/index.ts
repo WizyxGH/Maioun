@@ -13,6 +13,9 @@ export const libertyAgencyScraper = makeHektorScraper({
   id: 'liberty-agency',
   name: 'Liberty Agency',
   domain: 'agence-liberty.com',
+  agencyContact: {
+    address: { street: '136 boulevard Gambetta', postalCode: '06000', city: 'Nice' },
+  },
   logo: 'https://www.agence-liberty.com/images/favicon.png',
   listUrls: ['https://www.agence-liberty.com/location/1'],
 });

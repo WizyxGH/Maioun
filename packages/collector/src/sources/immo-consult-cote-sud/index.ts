@@ -14,6 +14,9 @@ export const immoConsultCoteSudScraper = makeHektorScraper({
   id: 'immo-consult-cote-sud',
   name: 'Immo Consult Côté Sud',
   domain: 'immoconsultcotesud.com',
+  agencyContact: {
+    address: { street: '72 avenue d’Estienne d’Orves', postalCode: '06000', city: 'Nice' },
+  },
   logo: 'https://www.immoconsultcotesud.com/images/favicon.png',
   listUrls: ['https://www.immoconsultcotesud.com/location/1'],
 });

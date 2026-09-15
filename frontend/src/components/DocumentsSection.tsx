@@ -451,11 +451,7 @@ export function DocumentsSection({
       <h2 id="documents-title" className="text-lg font-bold">
         Dossier de candidature
       </h2>
-      <p className="mt-1 text-[0.85rem] text-muted-foreground">
-        Déposé une fois, accessible depuis vos appareils, <strong>lisible de vous seul</strong> et{' '}
-        <strong>jamais envoyé automatiquement</strong> : c’est vous qui joignez vos pièces. PDF et
-        images, 10 Mo par pièce.
-      </p>
+      <p className="mt-1 text-[0.85rem] text-muted-foreground">PDF et images, 10 Mo par pièce.</p>
 
       {error !== null && (
         <Alert variant="destructive" className="mt-3">

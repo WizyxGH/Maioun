@@ -30,6 +30,25 @@ export interface RangeSliderProps {
   readonly highLabel: string;
   /** Met en forme les bornes affichées au-dessus de la piste. */
   readonly format: (value: number) => string;
+  /**
+   * Répartition des valeurs, dessinée en barres au-dessus de la piste : on voit
+   * ce qu'élargir la fourchette ferait gagner avant de déplacer une poignée.
+   */
+  readonly histogram?: readonly HistogramBucket[] | undefined;
+  /** Phrase lue par les lecteurs d'écran à la place des barres. */
+  readonly describeHistogram?: ((inRange: number, total: number) => string) | undefined;
+}
+
+export interface HistogramBucket {
+  readonly from: number;
+  readonly to: number;
+  readonly count: number;
+}
+
+/** Une tranche est « retenue » quand son milieu tombe dans la fourchette. */
+export function bucketInRange(bucket: HistogramBucket, low: number, high: number): boolean {
+  const middle = (bucket.from + bucket.to) / 2;
+  return middle >= low && middle <= high;
 }
 
 export function RangeSlider({
@@ -42,11 +61,19 @@ export function RangeSlider({
   lowLabel,
   highLabel,
   format,
+  histogram,
+  describeHistogram,
 }: RangeSliderProps): React.JSX.Element {
   const id = useId();
   const span = max - min || 1;
   const leftPercent = ((lowValue - min) / span) * 100;
   const rightPercent = ((highValue - min) / span) * 100;
+  const bars = histogram ?? [];
+  const tallest = Math.max(0, ...bars.map((bucket) => bucket.count));
+  const total = bars.reduce((sum, bucket) => sum + bucket.count, 0);
+  const inRange = bars
+    .filter((bucket) => bucketInRange(bucket, lowValue, highValue))
+    .reduce((sum, bucket) => sum + bucket.count, 0);
 
   /** Classes communes aux deux `range` : piste effacée, poignée conservée. */
   const thumb =
@@ -66,6 +93,40 @@ export function RangeSlider({
         <span className="font-medium">{format(lowValue)}</span>
         <span className="font-medium">{format(highValue)}</span>
       </div>
+
+      {tallest > 0 && (
+        <>
+          {/* Placées sur la même échelle que la piste, pour qu'une barre soit
+            exactement au-dessus des loyers qu'elle compte. */}
+          <div aria-hidden="true" data-testid="range-histogram" className="relative h-12 px-2.5">
+            <div className="relative h-full">
+              {bars.map((bucket) => {
+                const left = ((Math.max(bucket.from, min) - min) / span) * 100;
+                const width =
+                  ((Math.min(bucket.to, max) - Math.max(bucket.from, min)) / span) * 100;
+                const selected = bucketInRange(bucket, lowValue, highValue);
+                return (
+                  <span
+                    key={bucket.from}
+                    data-selected={selected}
+                    className={`absolute bottom-0 rounded-t-[2px] ${selected ? 'bg-primary' : 'bg-muted-foreground/25'}`}
+                    style={{
+                      left: `calc(${left}% + 1px)`,
+                      width: `max(1px, calc(${width}% - 2px))`,
+                      // Une tranche non vide reste visible, même minuscule.
+                      height:
+                        bucket.count === 0 ? 0 : `max(2px, ${(bucket.count / tallest) * 100}%)`,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          {describeHistogram !== undefined && (
+            <p className="sr-only">{describeHistogram(inRange, total)}</p>
+          )}
+        </>
+      )}
 
       <div className="relative h-9">
         {/* La piste, et la portion retenue par-dessus. */}

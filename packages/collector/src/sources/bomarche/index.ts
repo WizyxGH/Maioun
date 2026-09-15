@@ -15,6 +15,9 @@ export const bomarcheScraper = makeApimoScraper({
   id: 'bomarche',
   name: 'BôMarché by Lambda Immobilier',
   domain: 'bomarche.fr',
+  agencyContact: {
+    address: { street: '14 avenue Borriglione', postalCode: '06000', city: 'Nice' },
+  },
   sitemapUrl: 'https://bomarche.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

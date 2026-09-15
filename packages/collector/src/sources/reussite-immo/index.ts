@@ -14,6 +14,7 @@ export const reussiteImmoScraper = makeApimoScraper({
   id: 'reussite-immo',
   name: 'Réussite Immo Nice',
   domain: 'immonice06.fr',
+  agencyContact: { address: { street: '6 rue Massenet', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://immonice06.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

@@ -14,6 +14,7 @@ export const fdsCarreDorScraper = makeApimoScraper({
   id: 'fds-carre-dor',
   name: 'FDS Immobilier Carré d’Or',
   domain: 'fdscarredor.com',
+  agencyContact: { address: { street: '53 rue de France', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://fdscarredor.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

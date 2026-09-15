@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  Extrait d'une fiche Méditerranée Immo (plateforme La Boîte Immo) relevée le
+  2026-09-15, anonymisé. Le formulaire porte un jeton reCAPTCHA v3 : Maïoun ne
+  l'envoie pas à la place de l'utilisateur.
+-->
+<html lang="fr">
+<body>
+<form  method="post" action="i/json/sendSiteMail" class="form   module-form" data-title="Formulaire de bien">
+<fieldset class="form__fieldset">
+  <label for="f_1_nom">Nom et prénom *</label>
+  <input type="text" name="data[Contact][nom]" id="f_1_nom" data-pristine-required>
+  <label for="f_1_tel">Téléphone</label>
+  <input type="tel" name="data[Contact][tel]" id="f_1_tel">
+  <label for="f_1_email">E-mail *</label>
+  <input type="email" name="data[Contact][email]" id="f_1_email" data-pristine-required>
+  <label for="f_2_message">Message *</label>
+  <textarea name="data[Contact][message]" id="f_2_message" data-pristine-required></textarea>
+  <input type="hidden" name="dataId[]" value="1">
+  <input type="hidden" name="dataModel" value="annonce">
+  <label class="checkbox__label" for="f_3_rgpd-agreement">
+    <input type="checkbox" name="rgpd-agreement" id="f_3_rgpd-agreement" value="Oui" data-pristine-required>
+    <span>J'ai pris connaissance de la Politique de confidentialité *</span>
+  </label>
+  <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response-0" value="">
+  <script>
+    grecaptcha.ready(function() {
+      grecaptcha.execute('cle-de-site-exemple', {action: 'submit_LBI_form'}).then(function(token) {});
+    });
+  </script>
+</fieldset>
+</form>
+<script src="https://www.google.com/recaptcha/api.js?render=cle-de-site-exemple"></script>
+<p>06 00 00 00 03 — contact@example.invalid</p>
+</body>
+</html>

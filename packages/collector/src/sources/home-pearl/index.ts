@@ -15,6 +15,7 @@ export const homePearlScraper = makeApimoScraper({
   id: 'home-pearl',
   name: 'Home Pearl',
   domain: 'homepearl.immo',
+  agencyContact: { address: { street: '16 rue Foncet', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://www.homepearl.immo/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

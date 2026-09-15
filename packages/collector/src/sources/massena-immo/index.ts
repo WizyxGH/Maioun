@@ -15,6 +15,9 @@ export const massenaImmoScraper = makeApimoScraper({
   id: 'massena-immo',
   name: 'Masséna Immobilier',
   domain: 'massena-immo.com',
+  agencyContact: {
+    address: { street: '12 avenue Félix Faure', postalCode: '06000', city: 'Nice' },
+  },
   sitemapUrl: 'https://massena-immo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

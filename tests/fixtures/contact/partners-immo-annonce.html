@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Extrait d'une fiche Partners Immo (plateforme Apimo) relevée le 2026-09-15,
+  anonymisé. Le formulaire est gardé par un reCAPTCHA v2 invisible : c'est la
+  raison pour laquelle Maïoun ne l'envoie pas à la place de l'utilisateur.
+-->
+<html lang="fr">
+<body>
+<form name="contact-form-000001" method="post" action="https://partners-immo.fr/fr/propriete/location+appartement+nice+studio-exemple+0000001">
+<div class="field"><input type="text" id="contact-form-000001_firstname" name="contact-form-000001[firstname]" required="required" placeholder="Prénom" /></div>
+<div class="field"><input type="text" id="contact-form-000001_lastname" name="contact-form-000001[lastname]" required="required" placeholder="Nom de famille" /></div>
+<div class="field"><input type="email" id="contact-form-000001_email" name="contact-form-000001[email]" required="required" placeholder="E-mail" /></div>
+<div class="field"><input id="contact-form-000001_phone" name="contact-form-000001[phone]" required="required" placeholder="Téléphone" type="tel" /></div>
+<div class="field"><textarea id="contact-form-000001_message" name="contact-form-000001[message]" placeholder="Message"></textarea></div>
+<div class="field recaptcha recaptcha"><script>
+  window.onloadCallback = function() {
+    $('.g-recaptcha').each(function(i, v) {
+      grecaptcha.render(this, { sitekey: 'cle-de-site-exemple', size: 'invisible' });
+    });
+  };
+</script><div class="g-recaptcha" data-sitekey="cle-de-site-exemple"></div></div>
+<div class="rgpd"><input type="checkbox" required><label>J’ai lu et j'accepte la <a href="/fr/mentions-legales">politique de confidentialité</a> de ce site</label></div>
+<div><button type="submit" id="contact-form-000001_submit" name="contact-form-000001[submit]" class="submit">Envoyer</button></div>
+</form>
+<p>06 00 00 00 02 — contact@example.invalid</p>
+</body>
+</html>

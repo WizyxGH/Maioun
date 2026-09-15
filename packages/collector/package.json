@@ -16,6 +16,10 @@
     "./notify/mailer": {
       "types": "./dist/notify/mailer.d.ts",
       "default": "./dist/notify/mailer.js"
+    },
+    "./contact/agency-form": {
+      "types": "./dist/contact/agency-form.d.ts",
+      "default": "./dist/contact/agency-form.js"
     }
   },
   "main": "./dist/index.js",

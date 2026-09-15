@@ -18,6 +18,9 @@ export const saviEsteveScraper = makeAdaptImmoScraper({
   id: 'savi-esteve',
   name: 'Agence Savi Estève',
   domain: 'saviesteve-nice.com',
+  agencyContact: {
+    address: { street: '24 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
+  },
   // `tdp=5` = location annuelle. Les autres types (étudiant, colocation,
   // saisonnier) sont sans stock chez cette agence.
   listUrl: 'https://www.saviesteve-nice.com/fr/liste.htm?tdp=5&page=1',

@@ -34,7 +34,8 @@
  * fond, et le focus part sur le premier contrôle.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { fetchPriceHistogram, type PriceHistogram } from '../api/client.js';
 import { X } from './icons.js';
 import type { PropertyType } from '@maioun/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
@@ -143,6 +144,20 @@ export function SortFilterModal({
   onCancelEdit,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
+  const [histogram, setHistogram] = useState<PriceHistogram | null>(null);
+
+  // Chargé à la première ouverture seulement : la répartition des loyers
+  // bouge à chaque collecte, pas d'une ouverture à l'autre.
+  useEffect(() => {
+    if (!open || histogram !== null) return undefined;
+    let cancelled = false;
+    void fetchPriceHistogram().then((next) => {
+      if (!cancelled) setHistogram(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, histogram]);
 
   // Les sources sont une cinquantaine : `MultiSelect` porte la recherche.
   const sourceOptions = useMemo(
@@ -253,6 +268,10 @@ export function SortFilterModal({
                 lowLabel="Loyer minimum"
                 highLabel="Loyer maximum"
                 format={(value) => `${value} €`}
+                histogram={histogram?.buckets}
+                describeHistogram={(inRange, total) =>
+                  `${inRange} annonce${inRange > 1 ? 's' : ''} en ligne dans cette fourchette, sur ${total}.`
+                }
                 onChange={(low, high) =>
                   patch({
                     // Une borne ramenée à son extrémité vaut « pas de limite »,

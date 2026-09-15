@@ -15,6 +15,9 @@ export const gestionCassiniScraper = makeApimoScraper({
   id: 'gestion-cassini',
   name: 'Gestion Cassini',
   domain: 'gestioncassini.com',
+  agencyContact: {
+    address: { street: '12 rue François Guisol', postalCode: '06300', city: 'Nice' },
+  },
   sitemapUrl: 'https://www.gestioncassini.com/sitemap.xml',
   citySlugs: [
     'nice',

@@ -15,6 +15,7 @@ export const allianceConseilScraper = makeApimoScraper({
   id: 'alliance-conseil',
   name: 'A Alliance Conseil Immobilier',
   domain: 'allianceconseilimmo.com',
+  agencyContact: { address: { street: '3 rue Auguste Gal', postalCode: '06300', city: 'Nice' } },
   sitemapUrl: 'https://allianceconseilimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

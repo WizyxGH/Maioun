@@ -243,7 +243,7 @@ function orpiRoomsText(titleText: string, eulerian: EulerianData | null): string
   const parts: string[] = [];
   const fromTitle =
     extractRoomsText(titleText) ??
-    (eulerian?.nbPieces !== undefined ? `${eulerian.nbPieces} pièces` : undefined);
+    (eulerian?.nbPieces != null ? `${eulerian.nbPieces} pièces` : undefined);
   if (fromTitle !== undefined) parts.push(fromTitle);
   if (eulerian?.nbChambres != null) parts.push(`${eulerian.nbChambres} chambres`);
   return parts.length > 0 ? parts.join(' ') : undefined;
@@ -293,11 +293,11 @@ function parseCard(
     description: description !== '' ? description : undefined,
     priceText:
       extractPriceText(cardText) ??
-      (eulerian?.prdamount !== undefined ? `${eulerian.prdamount} €` : undefined),
+      (eulerian?.prdamount != null ? `${eulerian.prdamount} €` : undefined),
     // `surfaceBien` est documentée en m² par la structure même de la carte.
     areaText:
       extractAreaText(titleText) ??
-      (eulerian?.surfaceBien !== undefined ? `${eulerian.surfaceBien} m²` : undefined),
+      (eulerian?.surfaceBien != null ? `${eulerian.surfaceBien} m²` : undefined),
     roomsText: orpiRoomsText(titleText, eulerian),
     // Le premier token du slug (« appartement », « maison », « studio »).
     propertyTypeText: url.typeAndCitySlug.split('-')[0] ?? '',

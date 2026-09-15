@@ -192,12 +192,51 @@ function cityFromPostalCode(postalCode: string | undefined): string | undefined 
   return postalCode !== undefined && /^06[0-3]00$/.test(postalCode) ? 'Nice' : undefined;
 }
 
-/** Le téléphone de l'agence, en pied de page (`coords-phone`). */
+/** Le téléphone de l'agence, en pied de page (`coords-phone`, ou `footer_element`). */
 function agencyPhone($: cheerio.CheerioAPI): string | undefined {
-  const href = $('.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"]')
+  const href = $(
+    '.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"], .footer_element__content a.phone[href^="tel:"]',
+  )
     .first()
     .attr('href');
   return href !== undefined ? href.replace(/^tel:/, '') : undefined;
+}
+
+/**
+ * Gabarit « detail_content » : la référence de l'agence (« Référence L02 »),
+ * « Nice (06000) » sous le titre, et les caractéristiques en simple liste
+ * (« quartier LE PIOL », « cave », « exposition Sud-Ouest »). Rien de tout
+ * cela n'était lu : ni quartier, ni code postal, ni référence.
+ */
+interface DetailContent {
+  readonly reference?: string;
+  readonly city?: string;
+  readonly postalCode?: string;
+  readonly district?: string;
+  readonly items: readonly string[];
+}
+
+function readDetailContent($: cheerio.CheerioAPI): DetailContent {
+  // « Référence : 19 » en paragraphe `.ref` sur l'ancien gabarit (AA Gestion).
+  const reference =
+    cleanText($('.id_ref_item').first().text()) ||
+    (/^R[ée]f[ée]rence\s*:?\s*(\S+)$/i.exec(cleanText($('p.ref').first().text()))?.[1] ?? '');
+  const location = /^(.+?)\s*\((\d{5})\)$/.exec(cleanText($('.text_location_item').first().text()));
+  const items = $('.list_items .list_item')
+    .filter((_i, el) => $(el).closest('[class*="property-more"]').length === 0)
+    .toArray()
+    .map((el) => cleanText($(el).text()))
+    .filter((text) => text !== '');
+  const district = items
+    .map((item) => /^quartier\s*:?\s+(.+)$/i.exec(item)?.[1])
+    .find((value) => value !== undefined);
+  return {
+    ...(reference !== '' ? { reference } : {}),
+    ...(location?.[1] !== undefined ? { city: location[1] } : {}),
+    ...(location?.[2] !== undefined ? { postalCode: location[2] } : {}),
+    ...(district !== undefined ? { district } : {}),
+    items,
+  };
 }
 
 /** Emplacements de la description, du gabarit courant aux plus anciens. */
@@ -312,6 +351,29 @@ function readFigures(
   return { priceText, areaText, roomsText, furnishedText };
 }
 
+/** Atouts (caractéristiques, vue, exposition), quartier et référence d'agence. */
+function hektorExtra(
+  table: Map<string, string>,
+  content: DetailContent,
+  urlReference: string,
+): Record<string, string> {
+  const vue = table.get('vue');
+  const exposition = table.get('exposition');
+  const featureList = [
+    ...[...table.entries()]
+      .filter(([key, value]) => FEATURE_KEYS[key] !== undefined && /^oui$/i.test(value))
+      .map(([key]) => FEATURE_KEYS[key] as string),
+    ...(vue !== undefined ? [`Vue ${vue}`] : []),
+    ...(exposition !== undefined ? [`Exposition ${exposition}`] : []),
+    ...content.items,
+  ];
+  // La référence que l'agence affiche, qui la retrouve sur les portails.
+  const extra: Record<string, string> = { reference: content.reference ?? urlReference };
+  if (featureList.length > 0) extra['features'] = featureList.join(' · ');
+  if (content.district !== undefined) extra['quartier'] = content.district;
+  return extra;
+}
+
 export function parseDetailPage(html: string, pageUrl: string, agencyName: string): ParsedDetail {
   const parsedUrl = parseListingUrl(pageUrl, pageUrl);
   if (parsedUrl === null) {
@@ -333,6 +395,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   const h1 = JUNK_H1.test(rawH1) ? '' : rawH1;
   const title = h1 !== '' ? h1 : pageTitle;
   const labels = readLabels($);
+  const content = readDetailContent($);
 
   const description =
     DESCRIPTION_SELECTORS.map((selector) => htmlToText($, selector))
@@ -348,12 +411,6 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   if (priceText === undefined) warnings.push(`Fiche sans prix : ${pageUrl}`);
 
   const { propertyTypeText, cityText } = parseTypeAndCity(pageTitle, parsedUrl, labels.city);
-
-  const features = [...table.entries()]
-    .filter(([key, value]) => FEATURE_KEYS[key] !== undefined && /^oui$/i.test(value))
-    .map(([key]) => FEATURE_KEYS[key] as string);
-  const vue = table.get('vue');
-  const exposition = table.get('exposition');
 
   // Photos : CDN staticlbi de la plateforme, en pleine taille de préférence.
   // On ne garde QUE les vraies photos du bien, sous `/images/biens/` — le reste
@@ -387,16 +444,6 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     table.get('ChargesAnnonceLocation_forfaitaires_mensuelles') ??
     (labels.charges !== undefined ? `${labels.charges} €` : undefined);
 
-  // Atouts consolidés (caractéristiques + vue + exposition), pour la liste
-  // d'atouts en normalisation.
-  const featureList = [
-    ...features,
-    ...(vue !== undefined ? [`Vue ${vue}`] : []),
-    ...(exposition !== undefined ? [`Exposition ${exposition}`] : []),
-  ];
-  const extra: Record<string, string> = { reference: parsedUrl.reference };
-  if (featureList.length > 0) extra['features'] = featureList.join(' · ');
-
   const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
@@ -411,12 +458,12 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     depositText: labels.deposit !== undefined ? `${labels.deposit} €` : undefined,
     feesText: labels.fees !== undefined ? `${labels.fees} €` : undefined,
     phoneText: agencyPhone($),
-    cityText: cityText ?? cityFromPostalCode(table.get('cp') ?? labels.postalCode),
-    postalCodeText: table.get('cp') ?? labels.postalCode,
+    cityText: cityText ?? content.city ?? cityFromPostalCode(table.get('cp') ?? labels.postalCode),
+    postalCodeText: table.get('cp') ?? labels.postalCode ?? content.postalCode,
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-    extra,
+    extra: hektorExtra(table, content, parsedUrl.reference),
   });
 
   return { listing, warnings };

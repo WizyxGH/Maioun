@@ -60,7 +60,11 @@ export const DINAMY_DESCRIPTOR: SourceDescriptor = {
   // Contact PUBLIC, publié par l'agence sur son propre site (relevé le
   // 2026-09-02). Le scanner le signale comme donnée personnelle : c'est une
   // coordonnée professionnelle, déjà publique, et c'est ici la fonctionnalité.
-  agencyContact: { phone: '04.89.92.04.50', email: 'info@dinamyimmobilier.com' }, // secret-scan-ignore
+  agencyContact: {
+    phone: '04.89.92.04.50', // secret-scan-ignore
+    email: 'info@dinamyimmobilier.com', // secret-scan-ignore
+    address: { street: '13 rue François Guisol', postalCode: '06300', city: 'Nice' },
+  },
   enabled: true,
   allowedPaths: ['/index.php*', '/Controleurs/MiseAJour.php'],
   notes:

@@ -17,6 +17,9 @@ export const aurusScraper = makeHektorScraper({
   id: 'aurus',
   name: 'Aurus Immobilier',
   domain: 'aurusimmo.com',
+  agencyContact: {
+    address: { street: '14 rue du Maréchal Joffre', postalCode: '06310', city: 'Beaulieu-sur-Mer' },
+  },
   logo: 'https://www.aurusimmo.com/images/favicon.png',
   listUrls: ['https://www.aurusimmo.com/location/1'],
 });

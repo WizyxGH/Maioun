@@ -14,6 +14,9 @@ export const sambroniScraper = makeApimoScraper({
   id: 'sambroni',
   name: 'Sambroni Immobilier',
   domain: 'agencesambroni.com',
+  agencyContact: {
+    address: { street: '186 avenue de Pessicart', postalCode: '06100', city: 'Nice' },
+  },
   sitemapUrl: 'https://agencesambroni.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

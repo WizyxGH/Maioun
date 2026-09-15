@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Extrait d'une fiche Orpi relevée le 2026-09-15, anonymisé : identifiant de
+  l'annonce et agence remplacés, attributs de suivi (data-*) retirés. Les trois
+  formulaires de contact et leur structure sont ceux de la page.
+-->
+<html lang="fr">
+<head><title>Location appartement T1 Nice</title></head>
+<body>
+<aside>
+<form name="request_or_send_contact_form_aside" method="post" action="/annonce-appartement-t1-nice-06000-00000000-0000-4000-8000-000000000101/contact/rent?formId=request_or_send_contact_form_aside&amp;isAside=1">
+  <input type="text" id="request_or_send_contact_form_aside_firstName" name="request_or_send_contact_form_aside[firstName]" required="required" />
+  <input type="hidden" id="request_or_send_contact_form_aside_agency" name="request_or_send_contact_form_aside[agency]" value="agence-exemple" />
+</form>
+</aside>
+<main>
+<form name="request_or_send_contact_form" method="post" action="/annonce-appartement-t1-nice-06000-00000000-0000-4000-8000-000000000101/contact/rent?formId=request_or_send_contact_form&amp;isAside=0" data-component="js-form-submit">
+<div class="o-grid o-grid--custom o-grid--sm mt-sm">
+    <div class="o-grid__col o-grid__col--6 o-grid__col--12@sm">
+        <div data-js-input-container class="c-form-group ">
+            <label class="c-label required" for="request_or_send_contact_form_firstName">Prénom</label><input type="text" id="request_or_send_contact_form_firstName" name="request_or_send_contact_form[firstName]" required="required" placeholder="Votre Prénom" class="c-field c-form-group__field" />        </div>
+    </div>
+    <div class="o-grid__col o-grid__col--6 o-grid__col--12@sm">
+        <div data-js-input-container class="c-form-group ">
+            <label class="c-label required" for="request_or_send_contact_form_lastName">Nom</label><input type="text" id="request_or_send_contact_form_lastName" name="request_or_send_contact_form[lastName]" required="required" placeholder="Votre Nom" class="c-field c-form-group__field" />        </div>
+    </div>
+    <div class="o-grid__col o-grid__col--12">
+        <div data-js-input-container class="c-form-group ">
+            <label class="c-label required" for="request_or_send_contact_form_email">E-mail</label><input type="email" id="request_or_send_contact_form_email" name="request_or_send_contact_form[email]" required="required" placeholder="Votre e-mail" class="c-field c-form-group__field" />        </div>
+        <div data-js-input-container class="c-form-group ">
+            <label class="hidden c-label" for="request_or_send_contact_form_email2">Email2</label><input type="text" id="request_or_send_contact_form_email2" name="request_or_send_contact_form[email2]" autocomplete="off" class="hidden c-field c-form-group__field" />        </div>
+    </div>
+    <div class="o-grid__col o-grid__col--12">
+        <span class="c-form-group ">
+            <label class="c-label" for="request_or_send_contact_form_phone">Numéro de téléphone</label>
+            <input type="tel" id="request_or_send_contact_form_phone" name="request_or_send_contact_form[phone]" placeholder="06 00 00 00 00" class="c-field c-form-group__field" />
+        </span>
+    </div>
+</div>
+    <div class="mt-sm">
+        <div data-js-input-container class="c-form-group ">
+            <label class="c-label" for="request_or_send_contact_form_message">Message</label><textarea id="request_or_send_contact_form_message" name="request_or_send_contact_form[message]" placeholder="Bonjour, je suis très intéressé par ce bien. Quand est-il possible de le visiter ?" class="c-field--textarea c-field"></textarea>        </div>
+    </div>
+<fieldset class="mt-sm mb-md">
+    <legend class="sr-only">Informations</legend>
+    <p class="text-sm">J’accepte de recevoir de la prospection commerciale de la part du réseau (Orpi France, agences du réseau et GIE)&nbsp;:</p>
+    <ul  class="mt-n list-unstyled">
+        <li>
+            <input type="checkbox" id="request_or_send_contact_form_allowAgencyCall" name="request_or_send_contact_form[allowAgencyCall]" class="sr-only" value="1" />        <label class="c-label--custom c-label--checkbox c-label" for="request_or_send_contact_form_allowAgencyCall">Par téléphone</label></li>
+    </ul>
+    <ul  class="mt-n list-unstyled">
+        <li>
+            <input type="checkbox" id="request_or_send_contact_form_allowOrpiMailing" name="request_or_send_contact_form[allowOrpiMailing]" class="sr-only" value="1" />        <label class="c-label--custom c-label--checkbox c-label" for="request_or_send_contact_form_allowOrpiMailing">Par e-mail et SMS</label></li>
+    </ul>
+</fieldset>
+<p class="text-center mt-sm">
+    <button type="submit" class="c-btn">Envoyer</button>
+</p>
+    <div class="mt-sm js-personal-data-panel hidden text-xs">
+        <span>Il est précisé que chacun de ces consentements donnés dans le cadre de ce formulaire pourra être retiré à tout moment.</span>
+    </div>
+<input type="hidden" id="request_or_send_contact_form_agency" name="request_or_send_contact_form[agency]" class="c-field c-form-group__field" value="agence-exemple" />
+</form>
+</main>
+<div id="dialog-contact">
+<form name="dialog_request_or_send_contact_form" method="post" action="/annonce-appartement-t1-nice-06000-00000000-0000-4000-8000-000000000101/contact/rent?formId=dialog_request_or_send_contact_form&amp;isAside=0">
+  <input type="text" id="dialog_request_or_send_contact_form_firstName" name="dialog_request_or_send_contact_form[firstName]" required="required" />
+</form>
+</div>
+<p>Contact agence : 06 00 00 00 01 — contact@example.invalid</p>
+</body>
+</html>

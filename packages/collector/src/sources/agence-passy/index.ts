@@ -14,6 +14,7 @@ export const agencePassyScraper = makeHektorScraper({
   id: 'agence-passy',
   name: 'Agence Passy',
   domain: 'agencepassy.com',
+  agencyContact: { address: { street: '4 place Franklin', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.agencepassy.com/favicon.png',
   listUrls: ['https://www.agencepassy.com/a-louer/1'],
 });

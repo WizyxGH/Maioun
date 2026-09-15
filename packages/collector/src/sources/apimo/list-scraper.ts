@@ -26,6 +26,8 @@ export interface ApimoListConfig {
   readonly notes?: string;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
+  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
+  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export function makeApimoListDescriptor(config: ApimoListConfig): SourceDescriptor {
@@ -44,6 +46,7 @@ export function makeApimoListDescriptor(config: ApimoListConfig): SourceDescript
     }),
     enabled: true,
     allowedPaths: ['/fr/locations*', '/fr/propri*'],
+    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
     notes:
       config.notes ??
       'Apimo ANCIEN schéma (/fr/propriété/{id}, sitemap non filtrable). robots.txt ' +

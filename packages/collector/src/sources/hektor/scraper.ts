@@ -30,6 +30,8 @@ export interface HektorConfig {
   readonly priority?: number;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
+  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
+  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
@@ -39,6 +41,7 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
     name: config.name,
     domain: config.domain,
     ...(config.logo !== undefined ? { logo: config.logo } : {}),
+    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
     kind: 'localAgency',
     method: 'html',
     priority: config.priority ?? 2,

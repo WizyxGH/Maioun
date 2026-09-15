@@ -1,7 +1,7 @@
 /**
  * Le résumé d'une recherche enregistrée : chaque critère avec son icône.
  *
- * En une seule ligne de texte (« nice · 250–700 € · ≥ 20 m² · trajet ≤ 60 min »),
+ * En une seule ligne de texte (« Nice · 250–700 € · ≥ 20 m² · trajet ≤ 60 min »),
  * les critères se confondaient ; l'icône dit d'un coup d'œil lequel est lequel.
  */
 

@@ -12,7 +12,7 @@
  */
 
 import type { AggregatedListing, ExplainedScore, ScoreReason } from '@maioun/shared';
-import { clampScore } from '@maioun/shared';
+import { clampScore, formatElapsed } from '@maioun/shared';
 
 /** Paliers de fraîcheur, en minutes, et points associés. */
 const FRESHNESS_TIERS: readonly { maxMinutes: number; points: number; label: string }[] = [
@@ -85,7 +85,7 @@ export function scoreOpportunity(
       label:
         age.basis === 'published'
           ? (tier?.label ?? 'Publiée il y a plus d’une semaine')
-          : `Découverte il y a ${Math.round(age.minutes)} min (date de publication non fournie)`,
+          : `Découverte ${formatElapsed(age.minutes)} (date de publication non fournie)`,
       delta: adjusted,
     });
     if (age.basis === 'firstSeen') unknownSignals.push('date de publication exacte');

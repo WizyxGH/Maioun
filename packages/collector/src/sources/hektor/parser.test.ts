@@ -117,6 +117,8 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(warnings).toHaveLength(0);
     expect(listing?.priceText).toBe('1 400 € CC');
     expect(listing?.chargesText).toBe('50 € de charges');
+    // La référence de l'agence, pas l'identifiant d'URL (396).
+    expect(listing?.extra?.['reference']).toBe('1');
     expect(listing?.postalCodeText).toBe('06300');
     expect(listing?.cityText).toBe('Nice');
     expect(listing?.description).toMatch(/^Nous vous proposons/);
@@ -143,6 +145,31 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(normalized?.city).toBe('la trinite');
     // « 3 chambre(s) » compte les chambres : c'est un duplex.
     expect(normalized?.propertyType).toBe('apartment');
+    expect(normalized?.contact.reference).toBe('MSLDU470001216');
+    expect(normalized?.postalCode).toBe('06340');
+  });
+
+  it('quartier, référence, code postal et téléphone du gabarit « detail_content » (Méditerranée Immo)', () => {
+    const url =
+      'https://www.mediterranee-immo.fr/location/3-nice/studio/9-nice-location-studio-neuf-dans-jolie-maison-au-calme-vue-collines-et-verdure';
+    const { listing } = parseDetailPage(
+      read('detail-mediterranee-immo.html'),
+      url,
+      'Méditerranée Immo',
+    );
+    expect(listing?.extra?.['quartier']).toBe('LE PIOL');
+    expect(listing?.phoneText).toBe('06 00 00 00 01');
+    const normalized = normalize(listing as NonNullable<typeof listing>);
+    expect(normalized).toMatchObject({
+      price: 660,
+      area: 30,
+      district: 'LE PIOL',
+      postalCode: '06000',
+      city: 'nice',
+    });
+    expect(normalized?.contact.reference).toBe('L02');
+    expect(normalized?.contact.phone).toBe('+33600000001');
+    expect(normalized?.features).toContain('Cave');
   });
 
   it('ancien gabarit, sans commune dans l’URL ni h1 utile (Agence Passy)', () => {
