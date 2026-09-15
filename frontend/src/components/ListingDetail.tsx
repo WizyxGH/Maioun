@@ -29,6 +29,7 @@ import { ContactPanel } from './ContactPanel.js';
 import { RequirementsPanel } from './RequirementsPanel.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
+import { readableDescription } from '../description-text.js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
@@ -619,7 +620,9 @@ export function ListingDetail({
       {listing.description?.value != null && (
         <section className="mt-4">
           <h2 className="font-semibold">Description</h2>
-          <p className="whitespace-pre-wrap">{listing.description?.value}</p>
+          <p className="whitespace-pre-line break-words">
+            {readableDescription(listing.description.value)}
+          </p>
         </section>
       )}
 

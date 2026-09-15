@@ -102,6 +102,24 @@ describe('dépôt de garantie, honoraires et charges comprises', () => {
   });
 });
 
+describe('description', () => {
+  it('ne compte pas des retours à la ligne comme un désaccord', () => {
+    const merged = mergeGroup([
+      { ...occurrence('agence:1'), description: 'Studio au calme.\n\nLibre de suite.' },
+      { ...occurrence('portail:1'), description: 'Studio au calme. Libre de suite.' },
+    ]);
+    expect(merged.description.conflicts).toEqual([]);
+  });
+
+  it('garde le désaccord quand le texte diffère vraiment', () => {
+    const merged = mergeGroup([
+      { ...occurrence('agence:1'), description: 'Studio au calme.' },
+      { ...occurrence('portail:1'), description: 'Studio sur rue.' },
+    ]);
+    expect(merged.description.conflicts).toHaveLength(1);
+  });
+});
+
 describe('occurrenceHash et état de candidature', () => {
   it('change quand l’état change, dans les deux sens', () => {
     const full = occurrenceHash(occurrence('foncia:1', 'full'));
