@@ -95,12 +95,14 @@ const TRANSIT_MAX_LISTINGS = 120;
  * adresse de rue (numéro/voie), jamais sur la seule ville (§17, §20).
  */
 function geocodeQuery(listing: AggregatedListing): string | null {
-  const address = listing.address.value;
+  // « 35 Bis Rue de France / » : la ponctuation finale gêne la BAN.
+  const address = listing.address.value?.replace(/[\s/,;-]+$/, '') ?? null;
   if (address === null || address.trim().length < 4) return null;
-  const parts = [address, listing.postalCode.value, listing.city.value].filter(
-    (part): part is string => part !== null && part.trim() !== '',
-  );
-  return parts.join(' ');
+  // SANS LE CODE POSTAL : les sources posent souvent 06000 par défaut, et la BAN
+  // lui donne la priorité sur la rue. La commune suffit à lever les homonymes.
+  return [address, listing.city.value]
+    .filter((part) => part !== null && part.trim() !== '')
+    .join(' ');
 }
 
 export interface PipelineOptions {
@@ -330,7 +332,7 @@ async function geocodeMissingAddresses(
       if (networkBudget <= 0) continue; // budget réseau épuisé
       networkBudget -= 1;
     }
-    geocoded.set(listing.id, await geocoder.geocode(query));
+    geocoded.set(listing.id, await geocoder.geocode(query, listing.city.value));
   }
   return geocoded;
 }

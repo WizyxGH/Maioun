@@ -14,7 +14,9 @@ const NOW = Date.parse('2026-08-15T12:00:00.000Z');
 function banResponse(lon: number, lat: number, score = 0.9): Response {
   return new Response(
     JSON.stringify({
-      features: [{ geometry: { coordinates: [lon, lat] }, properties: { score } }],
+      features: [
+        { geometry: { coordinates: [lon, lat] }, properties: { score, type: 'housenumber' } },
+      ],
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   );
@@ -79,5 +81,44 @@ describe('createGeocoder', () => {
       fetchImpl: (async () => banResponse(7.2, 43.7, 0.2)) as unknown as typeof fetch,
     });
     expect(await geocoder.geocode('quelque part vague')).toBeNull();
+  });
+});
+
+describe('ce qui place vraiment un logement', () => {
+  const features = (...list: Array<{ type: string; score: number; city: string; lon: number }>) =>
+    new Response(
+      JSON.stringify({
+        features: list.map((f) => ({
+          geometry: { coordinates: [f.lon, 43.7] },
+          properties: { type: f.type, score: f.score, city: f.city },
+        })),
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  const geocoderFor = (response: () => Response) =>
+    createGeocoder({
+      cache: createMemoryGeocodeCache(),
+      nowMs: NOW,
+      userAgent: 'test',
+      fetchImpl: (async () => response()) as unknown as typeof fetch,
+    });
+
+  it('écarte le centre d’une commune ou d’un code postal au profit de la rue', async () => {
+    const geocoder = geocoderFor(() =>
+      features(
+        { type: 'municipality', score: 0.8, city: 'Nice', lon: 7.278 },
+        { type: 'street', score: 0.7, city: 'Nice', lon: 7.2106 },
+      ),
+    );
+    expect((await geocoder.geocode('avenue Sainte-Marguerite nice', 'nice'))?.longitude).toBe(
+      7.2106,
+    );
+  });
+
+  it('écarte une rue homonyme d’une autre commune', async () => {
+    const geocoder = geocoderFor(() =>
+      features({ type: 'street', score: 0.9, city: 'Drancy', lon: 2.44 }),
+    );
+    expect(await geocoder.geocode('rue de Nice', 'nice')).toBeNull();
   });
 });

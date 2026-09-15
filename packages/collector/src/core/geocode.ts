@@ -36,8 +36,11 @@ export interface GeocoderOptions {
 }
 
 export interface Geocoder {
-  /** Géocode une adresse, ou `null` si introuvable/vide. Cache d'abord. */
-  geocode(query: string): Promise<Coordinates | null>;
+  /**
+   * Géocode une adresse, ou `null` si introuvable/vide. Cache d'abord.
+   * `city` écarte une rue homonyme d'une autre commune.
+   */
+  geocode(query: string, city?: string | null): Promise<Coordinates | null>;
 }
 
 /** Cache en mémoire, pour les tests. */
@@ -53,17 +56,64 @@ export function createMemoryGeocodeCache(): GeocodeCacheStore {
   };
 }
 
-/** Normalise une requête pour la clé de cache (espaces, casse). */
+/**
+ * Normalise une requête pour la clé de cache (espaces, casse).
+ *
+ * « v2 » : les résultats mémorisés avant le 2026-09-15 acceptaient le centre d'un
+ * code postal pour une adresse — ils sont ignorés, et chaque adresse est replacée.
+ */
 export function geocodeCacheKey(query: string): string {
-  return query.trim().replace(/\s+/g, ' ').toLowerCase();
+  return `v2 ${query.trim().replace(/\s+/g, ' ').toLowerCase()}`;
+}
+
+/**
+ * Ce que la BAN a situé : un numéro ou une rue. Une commune, un lieu-dit ou un
+ * code postal ne placent pas un logement — relevé du 2026-09-15 : cinq annonces
+ * de l'avenue Sainte-Marguerite (06200), publiées avec « 06000 », posées au
+ * centre du 06000, près du port.
+ */
+const PLACED_TYPES = new Set(['housenumber', 'street']);
+
+interface BanFeature {
+  readonly geometry?: { readonly coordinates?: readonly [number, number] };
+  readonly properties?: { readonly score?: number; readonly type?: string; readonly city?: string };
+}
+
+/** « Saint-Laurent-du-Var » et « saint laurent du var » désignent la même commune. */
+const cityKey = (city: string): string =>
+  city
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[-\s]+/g, ' ')
+    .trim()
+    .toLowerCase();
+const sameCity = (a: string, b: string): boolean => cityKey(a) === cityKey(b);
+
+/** Le premier résultat qui situe vraiment l'adresse, dans la commune attendue. */
+function placedFeature(
+  features: readonly BanFeature[],
+  minScore: number,
+  city: string | null,
+): BanFeature | null {
+  return (
+    features.find((feature) => {
+      const props = feature.properties ?? {};
+      return (
+        (props.score ?? 0) >= minScore &&
+        PLACED_TYPES.has(props.type ?? '') &&
+        (city === null || props.city === undefined || sameCity(props.city, city)) &&
+        feature.geometry?.coordinates !== undefined
+      );
+    }) ?? null
+  );
 }
 
 export function createGeocoder(options: GeocoderOptions): Geocoder {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const minScore = options.minScore ?? 0.4;
+  const minScore = options.minScore ?? 0.5;
 
   return {
-    async geocode(rawQuery: string): Promise<Coordinates | null> {
+    async geocode(rawQuery: string, city: string | null = null): Promise<Coordinates | null> {
       const query = rawQuery.trim();
       if (query.length < 4) return null;
 
@@ -78,24 +128,17 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
 
       let coords: Coordinates | null = null;
       try {
-        const url = `${BAN_ENDPOINT}?q=${encodeURIComponent(query)}&limit=1`;
+        // Plusieurs réponses : la première peut être une commune, la suivante la rue.
+        const url = `${BAN_ENDPOINT}?q=${encodeURIComponent(query)}&limit=5`;
         const response = await fetchImpl(url, {
           headers: { 'User-Agent': options.userAgent, Accept: 'application/json' },
         });
         if (response.ok) {
-          const data = (await response.json()) as {
-            features?: Array<{
-              geometry?: { coordinates?: [number, number] };
-              properties?: { score?: number };
-            }>;
-          };
-          const feature = data.features?.[0];
-          const score = feature?.properties?.score ?? 0;
-          const position = feature?.geometry?.coordinates;
+          const data = (await response.json()) as { features?: readonly BanFeature[] };
+          const position = placedFeature(data.features ?? [], minScore, city)?.geometry
+            ?.coordinates;
           // BAN renvoie [longitude, latitude] (ordre GeoJSON).
-          if (position !== undefined && score >= minScore) {
-            coords = { latitude: position[1], longitude: position[0] };
-          }
+          if (position !== undefined) coords = { latitude: position[1], longitude: position[0] };
         }
       } catch {
         // Panne réseau : on ne met PAS en cache un échec transitoire, pour
