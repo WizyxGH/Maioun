@@ -548,5 +548,5 @@ export const X: IconComponent = (props) => <Icon {...props} paths={X_PATHS} />;
 const MARKUP_PATHS = { heart: Heart_PATHS, mail: Mail_PATHS, eye: Eye_PATHS } as const;
 
 export function iconMarkup(name: keyof typeof MARKUP_PATHS, color: string, size = 12): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="${size}" height="${size}" fill="${color}" aria-hidden="true" style="vertical-align:-1px">${MARKUP_PATHS[name].fill}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="${size}" height="${size}" fill="${color}" aria-hidden="true" style="display:block;flex:none">${MARKUP_PATHS[name].fill}</svg>`;
 }
