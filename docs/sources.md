@@ -567,6 +567,8 @@ Immobilier dont robots.txt interdit la recherche) — aucun contournement.
 | **Solissimmo** (solissimmo.fr)                                     | 2026-09-15 | 1 (Nice), Apimo ancien schéma                                        |
 | **John Taylor** (john-taylor.fr)                                   | 2026-09-15 | 4 (Cagnes-sur-Mer, Vence, Tourrettes-sur-Loup), loyers au mois seuls |
 | **BARNES** (barnes-international.com)                              | 2026-09-15 | 0 aujourd'hui (suivie en attente), longue durée seule                |
+| **Guy Hoquet** (guy-hoquet.com)                                    | 2026-09-15 | 1 (Nice), pages communes rendues serveur, parseur dédié              |
+| **Keller Williams** (kwfrance.com)                                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), Netty                             |
 | **Altarea Gestion Immobilière - Nice** (altarea.flatbay.fr)        | 2026-09-15 | 8 (Nice ×4 dont 1 box, Mougins, Fréjus, Saint-Raphaël), Flatbay      |
 
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)

@@ -680,6 +680,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '12 avenue Malausséna', postalCode: '06000', city: 'Nice' },
   },
+  'guy-hoquet': { name: 'Guy Hoquet', domain: null, logo: null, paidContact: false, address: null },
   'home-on-riviera': {
     name: 'Home on Riviera',
     domain: 'homeonriviera.com',
@@ -817,6 +818,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   kapera: {
     name: 'Kapera Immobilier',
     domain: 'kapera-immobilier.com',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
+  'keller-williams': {
+    name: 'Keller Williams',
+    domain: 'kwfrance.com',
     logo: null,
     paidContact: false,
     address: null,
