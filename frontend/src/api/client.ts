@@ -274,6 +274,8 @@ export interface FetchListingsOptions {
   readonly includeOutOfCriteria?: boolean;
   readonly includeArchived?: boolean;
   readonly favoritesOnly?: boolean;
+  /** Absente : tout l'inventaire pertinent (le plafond de l'API). */
+  readonly limit?: number;
 }
 
 export async function fetchListings(options: FetchListingsOptions = {}): Promise<ListingsResponse> {
@@ -293,9 +295,10 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
     return { listings, total: listings.length, limit: listings.length, offset: 0 };
   }
 
-  // On charge tout l'inventaire pertinent d'un coup : la liste défile, sans
-  // pagination. 500 couvre largement le stock niçois (le plafond de l'API).
-  const params = new URLSearchParams({ sort, limit: '500' });
+  // Par défaut, tout l'inventaire pertinent : la liste défile, sans pagination.
+  // 500 couvre largement le stock niçois (le plafond de l'API). La première
+  // page d'un chargement en deux temps en demande moins (`progressive-load`).
+  const params = new URLSearchParams({ sort, limit: String(options.limit ?? 500) });
   if (includeAll) params.set('all', 'true');
   if (includeArchived) params.set('archived', 'true');
   if (favoritesOnly) params.set('favorite', 'true');

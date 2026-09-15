@@ -5,7 +5,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildListQuery, buildPriceHistogram, route, rowToListing } from './routes.js';
+import { listColumns, reasonlessScores } from '../core/list-payload.js';
+import {
+  buildListQuery,
+  buildPriceHistogram,
+  etagMatches,
+  listItemJson,
+  route,
+  rowToListing,
+} from './routes.js';
 
 const vueMoi = (row: Record<string, unknown>): Record<string, unknown> => rowToListing(row);
 
@@ -237,6 +245,185 @@ describe('fiche allégée', () => {
       row({ payload: '{"title":{"value":"Studio"},"description":{"value":"Texte"}}' }),
     );
     expect(full['description']).toEqual({ value: 'Texte' });
+  });
+});
+
+/**
+ * LA FICHE DE LISTE ASSEMBLÉE, et non analysée puis réémise.
+ *
+ * Relue, elle doit valoir `rowToListing` sur la ligne d'avant, clé pour clé :
+ * c'est tout ce que l'écran connaît. Les lignes ci-dessous ont la forme des
+ * charges utiles réelles — champs fusionnés, occurrences, photos.
+ */
+describe('listItemJson', () => {
+  const champ = (value: unknown) => ({
+    value,
+    sourceId: 'orpi',
+    observedAt: '2026-09-14T08:00:00.000Z',
+    conflicts: [{ value: 'autre', sourceId: 'pap', observedAt: '2026-09-13T08:00:00.000Z' }],
+  });
+  const score = (value: number) => ({
+    value,
+    reasons: [{ code: 'price.ok', label: '950 € ≤ 1 000 € de budget', delta: 10 }],
+    unknownSignals: ['views'],
+    confidence: 0.75,
+  });
+  const fiche = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+    title: champ('Studio « lumineux »\n\\ vue mer'),
+    description: champ('Texte long'),
+    price: champ(950),
+    imageUrls: ['https://photos.example.invalid/1.jpg'],
+    occurrences: [
+      { id: 'orpi:1', sourceId: 'orpi', sourceUrl: 'https://orpi.example.invalid/1', price: 950 },
+    ],
+    applicationStatus: null,
+    scores: {
+      match: score(80),
+      opportunity: score(40),
+      visitProbability: score(55),
+      risk: score(5),
+    },
+    distances: [{ label: 'Travail', distanceKm: 14.4, durationMinutes: 62, mode: 'transit' }],
+    ...extra,
+  });
+  const colonnes = {
+    id: 'orpi:1',
+    lifecycle: 'active',
+    tracking: 'new',
+    first_seen_at: '2026-09-01T10:00:00.000Z',
+    last_seen_at: '2026-09-05T10:00:00.000Z',
+    matches_criteria: 1,
+    action_priority: 72,
+    viewed: 1,
+    archived: 0,
+    favorite: 0,
+    rented: 0,
+    notified_at: '2026-09-02T10:00:00.000Z',
+    user_notified_at: null,
+    gone_notified_at: null,
+    reminded_at: '2026-09-06T10:00:00.000Z',
+  };
+
+  /** Ce que retirait `json_remove` dans l'ancienne requête. */
+  function allegee(payload: Record<string, unknown>): string {
+    const copy = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+    delete copy['description'];
+    const scores = copy['scores'] as Record<string, Record<string, unknown>> | undefined;
+    for (const name of ['match', 'opportunity', 'visitProbability', 'risk']) {
+      if (scores?.[name] !== undefined) delete scores[name]['reasons'];
+    }
+    return JSON.stringify(copy);
+  }
+
+  /** La ligne d'avant et celle d'aujourd'hui, pour la même fiche et le même lecteur. */
+  function lignes(
+    payload: Record<string, unknown>,
+    lecteur: { scores?: unknown; distances?: string } = {},
+    extra: Record<string, unknown> = {},
+  ) {
+    const userScores = lecteur.scores === undefined ? null : JSON.stringify(lecteur.scores);
+    const list = listColumns(payload);
+    return {
+      avant: {
+        ...colonnes,
+        ...extra,
+        payload_light: allegee(payload),
+        user_scores: userScores,
+        user_distances: lecteur.distances ?? null,
+      },
+      apres: {
+        ...colonnes,
+        ...extra,
+        list_payload: list.payload,
+        list_scores: list.scores,
+        application_full: payload['applicationStatus'] === 'full' ? 1 : 0,
+        own_list_scores: lecteur.scores === undefined ? null : reasonlessScores(lecteur.scores),
+        user_scores: null,
+        user_distances: lecteur.distances ?? null,
+        score_ready: 1,
+      },
+    };
+  }
+
+  const pareil = ({ avant, apres }: ReturnType<typeof lignes>): void => {
+    expect(JSON.parse(listItemJson(apres))).toEqual(rowToListing(avant));
+  };
+
+  it('vaut la ligne d’avant pour un lecteur sans score', () => {
+    pareil(lignes(fiche()));
+  });
+
+  it('vaut la ligne d’avant avec les scores et trajets du lecteur', () => {
+    pareil(
+      lignes(fiche(), {
+        scores: {
+          match: score(60),
+          opportunity: score(10),
+          visitProbability: score(1),
+          risk: score(0),
+        },
+        distances: JSON.stringify([{ label: 'Fac', distanceKm: 2, durationMinutes: 12 }]),
+      }),
+    );
+  });
+
+  it('vaut la ligne d’avant pour une fiche sans score ni champ', () => {
+    pareil(lignes({}));
+    const { scores: _scores, ...sansScore } = fiche();
+    pareil(lignes(sansScore));
+  });
+
+  it('laisse la fiche l’emporter sur les colonnes, et le lecteur sur la fiche', () => {
+    // Clés en double dans le texte : c'est la dernière qui compte à la lecture.
+    const doublons = fiche({ id: 'autre', viewed: 'écrasé', partial: false, notifiedAt: 'x' });
+    const { avant, apres } = lignes(doublons, { scores: { match: score(1) }, distances: '[]' });
+    pareil({ avant, apres });
+    const relu = JSON.parse(listItemJson(apres)) as Record<string, unknown>;
+    expect(relu['id']).toBe('autre');
+    expect(relu['partial']).toBe(false);
+    expect(relu['scores']).toEqual({ match: { ...score(1), reasons: [] } });
+  });
+
+  it('archive d’office une fiche fermée aux candidatures', () => {
+    const { avant, apres } = lignes(fiche({ applicationStatus: 'full' }));
+    pareil({ avant, apres });
+    expect((JSON.parse(listItemJson(apres)) as { archived: boolean }).archived).toBe(true);
+  });
+
+  it('rend `notifiedAt` du compte d’abord, celui de la fiche à défaut', () => {
+    pareil(lignes(fiche(), {}, { user_notified_at: '2026-09-10T10:00:00.000Z' }));
+    pareil(lignes(fiche(), {}, { notified_at: null, user_notified_at: null }));
+  });
+
+  it('refait le calcul d’avant quand les colonnes préparées manquent', () => {
+    const { avant } = lignes(fiche(), { scores: { match: score(3) } });
+    const perimee = { ...avant, list_payload: null, score_ready: 0 };
+    expect(JSON.parse(listItemJson(perimee))).toEqual(rowToListing(avant));
+  });
+
+  it('refait le calcul d’avant pour un score du lecteur écrit sans sa version préparée', () => {
+    const { avant, apres } = lignes(fiche(), {
+      scores: { match: score(3) },
+      distances: '{pas du json',
+    });
+    const brut = {
+      ...apres,
+      own_list_scores: null,
+      user_scores: avant.user_scores,
+      score_ready: 0,
+    };
+    expect(JSON.parse(listItemJson(brut))).toEqual(rowToListing(avant));
+  });
+});
+
+describe('etagMatches', () => {
+  it('compare faiblement, comme l’exige If-None-Match', () => {
+    expect(etagMatches('W/"abc"', 'W/"abc"')).toBe(true);
+    expect(etagMatches('"abc"', 'W/"abc"')).toBe(true);
+    expect(etagMatches('W/"zzz", W/"abc"', 'W/"abc"')).toBe(true);
+    expect(etagMatches('*', 'W/"abc"')).toBe(true);
+    expect(etagMatches('W/"abd"', 'W/"abc"')).toBe(false);
+    expect(etagMatches(null, 'W/"abc"')).toBe(false);
   });
 });
 

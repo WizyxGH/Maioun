@@ -91,6 +91,7 @@ import {
   type QuickFilterValues,
 } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';
+import { loadInStages } from './progressive-load.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { useAlertsSeen } from './use-alerts-seen.js';
 import { readViewState, writeViewState } from './view-state.js';
@@ -1042,41 +1043,70 @@ function AppView(): React.JSX.Element {
     [ranked, grouped],
   );
 
-  const load = useCallback(async (): Promise<void> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetchListings({
-        sort,
-        includeArchived: showArchived,
-        favoritesOnly,
-      });
-      // Une archivée ne s'affiche pas avec un badge : elle sort de la liste,
-      // de l'accueil et de la carte. Y compris celle que sa source ferme aux
-      // candidatures, même si l'API ne l'a pas encore écartée.
-      setListings(
-        showArchived
-          ? response.listings
-          : response.listings.filter(
-              (listing) => listing.archived !== true && listing.applicationStatus !== 'full',
-            ),
-      );
-      setNowMs(Date.now());
-    } catch (caught) {
-      // UNE SESSION EXPIRÉE N'EST PAS UNE PANNE : on renvoie à la connexion au
-      // lieu d'afficher un message rouge devant une liste vide, que rien ne
-      // permettrait de faire disparaître.
-      if (caught instanceof ApiError && caught.status === 401) {
-        setCurrentUser(null);
-        return;
+  /**
+   * LE DERNIER CHARGEMENT LANCÉ FAIT FOI. Changer de tri pendant qu'une réponse
+   * est en vol, ou revenir sur l'application au milieu du chargement en deux
+   * temps : une réponse plus ancienne arrivée après écraserait la plus récente.
+   */
+  const loadGeneration = useRef(0);
+  // Les paramètres de la liste affichée ; `null` tant que rien ne l'est.
+  const shownParams = useRef<string | null>(null);
+
+  /** @param restart Repartir d'un écran vide : les critères viennent de changer. */
+  const load = useCallback(
+    async (restart = false): Promise<void> => {
+      const generation = ++loadGeneration.current;
+      const current = (): boolean => generation === loadGeneration.current;
+      const params = JSON.stringify([sort, showArchived, favoritesOnly]);
+      const quick = restart || shownParams.current !== params;
+      if (quick) setLoading(true);
+      setError(null);
+      try {
+        await loadInStages(
+          (limit) =>
+            fetchListings({
+              sort,
+              includeArchived: showArchived,
+              favoritesOnly,
+              ...(limit === undefined ? {} : { limit }),
+            }),
+          (response) => {
+            if (!current()) return false;
+            // Une archivée ne s'affiche pas avec un badge : elle sort de la liste,
+            // de l'accueil et de la carte. Y compris celle que sa source ferme aux
+            // candidatures, même si l'API ne l'a pas encore écartée.
+            setListings(
+              showArchived
+                ? response.listings
+                : response.listings.filter(
+                    (listing) => listing.archived !== true && listing.applicationStatus !== 'full',
+                  ),
+            );
+            setNowMs(Date.now());
+            setLoading(false);
+            shownParams.current = params;
+            return true;
+          },
+          quick,
+        );
+      } catch (caught) {
+        if (!current()) return;
+        // UNE SESSION EXPIRÉE N'EST PAS UNE PANNE : on renvoie à la connexion au
+        // lieu d'afficher un message rouge devant une liste vide, que rien ne
+        // permettrait de faire disparaître.
+        if (caught instanceof ApiError && caught.status === 401) {
+          setCurrentUser(null);
+          return;
+        }
+        setError(caught instanceof Error ? caught.message : 'Erreur inconnue');
+      } finally {
+        if (current()) setLoading(false);
       }
-      setError(caught instanceof Error ? caught.message : 'Erreur inconnue');
-    } finally {
-      setLoading(false);
-    }
-  }, [sort, showArchived, favoritesOnly]);
-  // Au retour sur l'application, la liste se recharge : vues et alertes lues
-  // ailleurs y apparaissent.
+    },
+    [sort, showArchived, favoritesOnly],
+  );
+  // Au retour sur l'application, la liste se recharge — sans squelette ni
+  // retour à cinquante lignes : vues et alertes lues ailleurs y apparaissent.
   reloadRef.current = () => void load();
 
   /**
@@ -1487,7 +1517,7 @@ function AppView(): React.JSX.Element {
       // Les critères repartent en base : ils décident de ce que la PROCHAINE
       // collecte ramènera, pas seulement de ce qu'on regarde aujourd'hui.
       await saveFilters(saved.criteria);
-      await load();
+      await load(true);
     } catch {
       setError('Les critères de cette recherche n’ont pas pu être appliqués');
     }
@@ -2360,7 +2390,7 @@ function AppView(): React.JSX.Element {
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
-            onCriteriaSaved={() => void load()}
+            onCriteriaSaved={() => void load(true)}
           />
 
           {/* Rangée des filtres rapides. */}
