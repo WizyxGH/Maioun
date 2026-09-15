@@ -105,3 +105,14 @@ describe('alerte lue en ouvrant l’annonce', () => {
     expect(readReadAlerts().has('a')).toBe(true);
   });
 });
+
+describe('alertes lues sur un autre appareil', () => {
+  it('une annonce consultée — état du compte — ne compte plus comme non lue', async () => {
+    const { isUnreadAlert } = await import('./notifications.js');
+    const { MOCK_LISTINGS } = await import('./api/mock-data.js');
+    const signalée = { ...MOCK_LISTINGS[0]!, notifiedAt: '2026-09-15T12:00:00.000Z' };
+    const avant = Date.parse('2026-09-15T11:00:00.000Z');
+    expect(isUnreadAlert({ ...signalée, viewed: false }, avant)).toBe(true);
+    expect(isUnreadAlert({ ...signalée, viewed: true }, avant)).toBe(false);
+  });
+});

@@ -174,7 +174,9 @@ export function isUnreadAlert(
   seenAtMs: number,
   read: ReadonlySet<string> = new Set(),
 ): boolean {
-  if (read.has(listing.id)) return false;
+  // CONSULTÉE vaut lue, et c'est un état du COMPTE : ouverte depuis la
+  // notification du téléphone, l'alerte ne reste pas « non lue » sur l'ordinateur.
+  if (read.has(listing.id) || listing.viewed === true) return false;
   const at = listing.notifiedAt;
   if (at === null || at === undefined) return false;
   const timestamp = Date.parse(at);

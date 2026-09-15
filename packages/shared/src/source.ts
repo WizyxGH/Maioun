@@ -521,6 +521,13 @@ export const TENANT_PROFILE_SETTING = 'tenantProfile';
 export const CHANGELOG_SETTING = 'changelogSeen';
 
 /**
+ * Dernière visite de la page Notifications, par COMPTE : gardée dans le seul
+ * navigateur, la pastille de la cloche restait pleine sur le téléphone après
+ * lecture sur l'ordinateur.
+ */
+export const ALERTS_SEEN_SETTING = 'alertsSeenAt';
+
+/**
  * Portails immobiliers reconnus à leur domaine.
  *
  * Les annonces importées par ALERTE E-MAIL portent une URL du portail, parfois
