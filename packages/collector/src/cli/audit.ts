@@ -14,6 +14,7 @@ import { openDatabaseFromEnv, databaseTarget, type Database } from '../db/client
 import { migrate } from '../db/migrate.js';
 import { createLogger } from '../core/logger.js';
 import { loadDotEnv } from '../config.js';
+import { ALL_SCRAPERS } from '../sources/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -135,6 +136,96 @@ async function reportFlatShare(db: Database, total: number): Promise<void> {
 }
 
 /**
+ * Ce que chaque source remplit, champ par champ.
+ *
+ * Les chiffres globaux mélangent les portails, qui donnent tout, et les
+ * petites agences, qui omettent la moitié : ils ne disent pas quel parseur
+ * reprendre. Les logements seulement — un parking n'a ni pièces ni DPE.
+ */
+const FIELDS: readonly { readonly label: string; readonly sql: string }[] = [
+  { label: 'loyer', sql: 'price IS NOT NULL' },
+  { label: 'surf', sql: 'area IS NOT NULL' },
+  { label: 'pièc', sql: 'rooms IS NOT NULL' },
+  { label: 'desc', sql: "length(json_extract(payload, '$.description')) >= 200" },
+  { label: 'phot', sql: "json_array_length(json_extract(payload, '$.imageUrls')) > 0" },
+  { label: 'rue', sql: "address IS NOT NULL AND address != ''" },
+  { label: 'quar', sql: "json_extract(payload, '$.district') IS NOT NULL" },
+  { label: 'tél', sql: 'contact_phone IS NOT NULL' },
+  { label: 'mail', sql: 'contact_email IS NOT NULL' },
+  // La référence de l'agence, pas l'identifiant d'annonce recopié à défaut.
+  { label: 'réf', sql: 'contact_reference IS NOT NULL AND contact_reference != source_ref' },
+  { label: 'meub', sql: 'furnished IS NOT NULL' },
+  {
+    label: 'chrg',
+    sql: "charges IS NOT NULL OR json_extract(payload, '$.chargesIncluded') IS NOT NULL",
+  },
+  { label: 'dépô', sql: "json_extract(payload, '$.deposit') IS NOT NULL" },
+  { label: 'dpe', sql: "json_extract(payload, '$.dpe') IS NOT NULL" },
+  { label: 'disp', sql: 'available_at IS NOT NULL' },
+  { label: 'colo', sql: 'flat_share IS NOT NULL' },
+];
+
+/** En dessous, la case est signalée : le champ manque plus souvent qu'il n'est là. */
+const WEAK_SHARE = 50;
+
+async function reportSourceCoverage(db: Database): Promise<void> {
+  const columns = FIELDS.map(
+    (field, i) => `SUM(CASE WHEN ${field.sql} THEN 1 ELSE 0 END) AS f${i}`,
+  ).join(',\n       ');
+  const result = await db.execute(
+    `SELECT source_id AS src, COUNT(*) AS n,
+       ${columns}
+     FROM occurrences
+     WHERE ${ACTIVE} AND property_type NOT IN ('parking', 'commercial')
+     GROUP BY source_id ORDER BY n DESC`,
+  );
+
+  console.log('\n── Couverture par source (logements actifs, % remplis) ───────');
+  console.log(
+    `   ${'source'.padEnd(26)} ${'n'.padStart(5)} ${FIELDS.map((f) => f.label.padStart(5)).join('')}`,
+  );
+  const totals = FIELDS.map(() => 0);
+  let all = 0;
+  for (const source of result.rows) {
+    const n = Number(source['n']);
+    all += n;
+    const cells = FIELDS.map((_, i) => {
+      const filled = Number(source[`f${i}`] ?? 0);
+      totals[i]! += filled;
+      const share = Math.round((filled / n) * 100);
+      return `${share < WEAK_SHARE ? '·' : ' '}${String(share).padStart(3)} `;
+    });
+    console.log(
+      `   ${String(source['src']).slice(0, 26).padEnd(26)} ${String(n).padStart(5)} ${cells.join('')}`,
+    );
+  }
+  const overall = totals.map(
+    (t) => `${String(all === 0 ? 0 : Math.round((t / all) * 100)).padStart(4)} `,
+  );
+  console.log(`   ${'TOUTES SOURCES'.padEnd(26)} ${String(all).padStart(5)} ${overall.join('')}`);
+  console.log(`   · = moins de ${WEAK_SHARE} % des annonces de la source portent le champ.`);
+
+  // Les sources inscrites qui ne rapportent aucun logement : panne muette, agence
+  // vide, ou parseur qui ne reconnaît plus rien. Le registre fait foi, pas
+  // `source_state`, qui ignore une source jamais lancée.
+  const seen = new Set(result.rows.map((r) => String(r['src'])));
+  const states = await db.execute('SELECT source_id, health, last_success_at FROM source_state');
+  const stateOf = new Map(states.rows.map((r) => [String(r['source_id']), r]));
+  const empty = ALL_SCRAPERS.map((s) => s.descriptor).filter((d) => d.enabled && !seen.has(d.id));
+  if (empty.length === 0) return;
+  console.log(`
+   Sources actives sans aucun logement en base (${empty.length}) :`);
+  for (const d of empty) {
+    const state = stateOf.get(d.id);
+    const last = state?.['last_success_at'];
+    const since = last == null ? 'jamais réussie' : `succès ${String(last).slice(0, 10)}`;
+    console.log(
+      `     ${d.id.padEnd(28)} ${String(state?.['health'] ?? 'jamais lancée').padEnd(14)} ${since}`,
+    );
+  }
+}
+
+/**
  * Les réglages posés par compte.
  *
  * Plusieurs écrans ne s'affichent QUE si leur marque est absente — l'accueil
@@ -174,6 +265,7 @@ async function main(): Promise<void> {
     await reportLocation(db, total);
     await reportFields(db, total);
     await reportFlatShare(db, total);
+    await reportSourceCoverage(db);
     await reportSettings(db);
     console.log('');
   } finally {

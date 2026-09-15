@@ -30,6 +30,27 @@ const HEALTH_BORDER: Record<SourceStateView['health'], string> = {
   blocked: 'border-l-bad',
 };
 
+/** Singulier, pluriel. */
+const SUMMARY_LABELS: Record<SourceStateView['health'], readonly [string, string]> = {
+  healthy: ['OK', 'OK'],
+  degraded: ['dégradée', 'dégradées'],
+  cooldown: ['en repos', 'en repos'],
+  disabled: ['désactivée', 'désactivées'],
+  blocked: ['bloquée', 'bloquées'],
+};
+
+/** « 133 sources · 128 OK · 5 dégradées » : le compte, puis ce qui demande un œil. */
+function healthSummary(sources: readonly SourceStateView[]): string {
+  const counts = new Map<SourceStateView['health'], number>();
+  for (const source of sources) counts.set(source.health, (counts.get(source.health) ?? 0) + 1);
+  const parts = (Object.keys(SUMMARY_LABELS) as SourceStateView['health'][]).flatMap((health) => {
+    const n = counts.get(health) ?? 0;
+    return n === 0 ? [] : [`${n} ${SUMMARY_LABELS[health][n > 1 ? 1 : 0]}`];
+  });
+  const total = `${sources.length} source${sources.length > 1 ? 's' : ''}`;
+  return [total, ...parts].join(' · ');
+}
+
 interface SourcesPanelProps {
   readonly sources: readonly SourceStateView[];
   readonly nowMs: number;
@@ -52,7 +73,12 @@ export function SourcesPanel({
         </Button>
       </header>
 
-      <h1 className="mb-3 text-xl font-bold">État des sources</h1>
+      <h1 className="text-xl font-bold">État des sources</h1>
+      {sources.length > 0 && (
+        <p className="text-muted-foreground mb-3 text-sm" data-testid="sources-count">
+          {healthSummary(sources)}
+        </p>
+      )}
 
       {sources.length === 0 ? (
         <p>Aucune source n’a encore été exécutée.</p>
