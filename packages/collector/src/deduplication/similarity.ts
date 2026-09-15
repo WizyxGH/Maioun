@@ -268,9 +268,12 @@ function houseNumber(address: string): string | null {
  * Riquier » caractère pour caractère. Même numéro et même voie désignent le
  * même immeuble ; la même voie seule, un voisinage.
  */
-function streetAgreement(a: string | null, b: string | null): 'numbered' | 'street' | 'none' {
+function streetAgreement(
+  a: string | null,
+  b: string | null,
+): 'numbered' | 'bare' | 'street' | 'none' {
   if (a === null || b === null) return 'none';
-  if (comparable(a) === comparable(b)) return 'numbered';
+  if (comparable(a) === comparable(b)) return houseNumber(a) !== null ? 'numbered' : 'bare';
   if (!sameStreet(a, b)) return 'none';
   const numberA = houseNumber(a);
   const numberB = houseNumber(b);
@@ -429,9 +432,12 @@ function collectStrongSignals(
   }
 
   const street = streetAgreement(a.address, b.address);
-  if (street === 'numbered') {
+  // UNE VOIE SANS NUMÉRO, écrite pareil : entre deux sources, c'est la même
+  // annonce recopiée ; dans une même agence, deux biens de la même rue — les
+  // deux parkings « Rue Massenet » à 150 € fusionnaient.
+  if (street === 'numbered' || (street === 'bare' && a.sourceId !== b.sourceId)) {
     push({ code: 'address', label: 'même adresse', points: 30 });
-  } else if (street === 'street') {
+  } else if (street !== 'none') {
     push({ code: 'street', label: 'même rue', points: 10 });
   }
 
