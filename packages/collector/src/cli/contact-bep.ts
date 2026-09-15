@@ -40,6 +40,7 @@ import { randomUUID } from 'node:crypto';
 import { CURRENT_USER } from '@maioun/shared';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
+import { createRepository } from '../db/repository.js';
 import { createLogger } from '../core/logger.js';
 import { collectorUserAgent, loadBepCredentials, loadDotEnv } from '../config.js';
 import { bulletinRefFrom, sendBepRequest } from '../contact/bep-request.js';
@@ -72,6 +73,7 @@ async function main(): Promise<void> {
   const db = openDatabaseFromEnv();
   try {
     await migrate(db, MIGRATIONS_DIR, logger);
+    const repository = createRepository(db);
 
     /**
      * LES FAVORIS ENCORE VIVANTS, jamais contactés, dont le bulletin porte
@@ -142,10 +144,8 @@ async function main(): Promise<void> {
               VALUES (?,?,?,?,'form','auto',?,'',0,'pending','[]',?)`,
         args: [randomUUID(), one.id, CURRENT_USER, 'bep-abonnes', now, now],
       });
-      await db.execute({
-        sql: 'UPDATE listings SET tracking = ?, updated_at = ? WHERE id = ?',
-        args: ['contacted', now, one.id],
-      });
+      // Le suivi appartient au compte, pas à la fiche.
+      await repository.markContacted(CURRENT_USER, [one.id]);
       sent += 1;
       console.log(`   ✓ ${one.title.slice(0, 60)}`);
     }

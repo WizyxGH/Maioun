@@ -25,29 +25,39 @@ import {
   type Database,
 } from '@maioun/collector';
 import { route, rowToListing } from '../../packages/collector/src/server/routes.js';
-import { MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
+import { ANONYMOUS_USER, MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
 import { makeAggregated, makeContact, makeOccurrence } from '../helpers/factories.js';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');
 const BASE = 'https://exemple.invalid';
 
-/** La requête de liste d'avant, recopiée telle quelle : la référence. */
-const AVANT = `SELECT listings.*,
-  COALESCE(sc.matches_criteria, 0) AS matches_criteria,
-  COALESCE(sc.action_priority, 0) AS action_priority,
-  sc.match_score AS match_score,
-  sc.commute_minutes AS commute_minutes,
+/**
+ * La requête de liste d'avant l'assemblage, recopiée : la référence. Ses champs
+ * personnels ne viennent que des tables du lecteur — `listings.*` en tête les
+ * lisait sur la fiche commune, et servait à tous l'état du compte principal.
+ */
+const avant = (anonymous: boolean): string => `SELECT listings.id AS id,
+  listings.lifecycle AS lifecycle,
+  listings.first_seen_at AS first_seen_at,
+  listings.last_seen_at AS last_seen_at,
+  listings.rented AS rented,
+  ${
+    anonymous
+      ? `(listings.lifecycle != 'inactive'
+          AND listings.property_type NOT IN ('parking', 'commercial')
+          AND listings.city IN ('nice'))`
+      : 'COALESCE(sc.matches_criteria, 0)'
+  } AS user_matches_criteria,
+  COALESCE(sc.action_priority, 0) AS user_action_priority,
   sc.scores AS user_scores,
   sc.distances AS user_distances,
-  COALESCE(us.viewed, 0) AS viewed,
-  COALESCE(us.archived, 0) AS archived,
-  COALESCE(us.favorite, 0) AS favorite,
-  COALESCE(us.tracking, 'new') AS tracking,
-  COALESCE(us.notified, 0) AS user_notified,
+  COALESCE(us.viewed, 0) AS user_viewed,
+  COALESCE(us.archived, 0) AS user_archived,
+  COALESCE(us.favorite, 0) AS user_favorite,
+  COALESCE(us.tracking, 'new') AS user_tracking,
   us.notified_at AS user_notified_at,
   us.gone_notified_at AS gone_notified_at,
   us.reminded_at AS reminded_at,
-  COALESCE(us.drafted, 0) AS drafted,
   json_remove(listings.payload,
     '$.description',
     '$.scores.match.reasons',
@@ -117,7 +127,10 @@ async function nouvelle(db: Database, userId: string): Promise<Map<string, unkno
 
 /** Ce que rendait l'ancienne requête, par identifiant. */
 async function ancienne(db: Database, userId: string): Promise<Map<string, unknown>> {
-  const result = await db.execute({ sql: AVANT, args: [userId, userId] });
+  const result = await db.execute({
+    sql: avant(userId === ANONYMOUS_USER),
+    args: [userId, userId],
+  });
   return new Map(
     result.rows.map((row) => {
       const listing = rowToListing(row as Record<string, unknown>);
@@ -219,6 +232,15 @@ describe('la liste assemblée à partir des colonnes préparées', () => {
     await expectSameAsBefore(db, 'alice');
     const apres = await nouvelle(db, 'alice');
     expect((apres.get('orpi:3') as { archived: boolean }).archived).toBe(true);
+    // L'état d'Alice gagne ; les colonnes homonymes de la fiche ne comptent pas.
+    expect(apres.get('orpi:1')).toMatchObject({
+      viewed: true,
+      archived: true,
+      favorite: true,
+      tracking: 'contacted',
+      notifiedAt: '2026-09-01T10:00:00.000Z',
+    });
+    expect(apres.get('orpi:2')).toMatchObject({ viewed: false, notifiedAt: null });
   });
 
   it('retombe sur le calcul d’avant pour une fiche réécrite sans ses colonnes', async () => {

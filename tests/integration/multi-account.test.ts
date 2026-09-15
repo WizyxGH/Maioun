@@ -13,6 +13,7 @@
  * rien ne pouvait le révéler.
  */
 
+import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -22,13 +23,14 @@ import {
   openDatabase,
   scoreListing,
   silentLogger,
+  splitStatements,
   type Database,
 } from '@maioun/collector';
 // Chemin direct vers la source : le paquet expose bien `./server/routes`, mais
 // vers `dist`. Les tests d'intégration travaillent sur les sources.
 import { route } from '../../packages/collector/src/server/routes.js';
 import { MVP_CRITERIA, type ScoredListing } from '@maioun/shared';
-import { makeAggregated, makeOccurrence } from '../helpers/factories.js';
+import { makeAggregated, makeContact, makeOccurrence } from '../helpers/factories.js';
 
 const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../database/migrations');
 const BASE = 'https://exemple.invalid';
@@ -40,10 +42,10 @@ function scored(id: string): ScoredListing {
   );
 }
 
-/** Appelle l'API comme le ferait le Worker, pour le compte indiqué. */
+/** Appelle l'API comme le ferait le Worker, pour le compte indiqué (`null` : visiteur). */
 async function call(
   db: Database,
-  userId: string,
+  userId: string | null,
   method: string,
   path: string,
   body?: unknown,
@@ -386,5 +388,251 @@ describe('cloisonnement entre comptes (§26)', () => {
       'SELECT COUNT(*) n FROM users WHERE alert_last_received_at IS NOT NULL',
     );
     expect(Number(row.rows[0]?.['n'])).toBe(0);
+  });
+});
+
+/**
+ * LES MARQUES D'UN COMPTE NE SE LISENT PAS CHEZ LES AUTRES.
+ *
+ * Les requêtes plaçaient `listings.*` avant les colonnes du lecteur, et libsql
+ * rend la première de deux colonnes homonymes. Vu, favori, archivage, suivi et
+ * pertinence se lisaient donc sur la fiche commune — que chaque PATCH écrivait
+ * aussi : ce qu'Alice marquait, Bob et les visiteurs le voyaient.
+ */
+describe('état personnel : chacun le sien, sur chaque écran', () => {
+  let db: Database;
+  const ID = 'orpi:1';
+  const AGENCY = 'Agence Fictive';
+
+  /** Ce que la liste, la fiche, l'agence et les alertes montrent de l'annonce. */
+  async function vues(userId: string | null): Promise<Record<string, Record<string, unknown>>> {
+    const find = (list: unknown): Record<string, unknown> =>
+      ((list as Record<string, unknown>[] | undefined) ?? []).find((one) => one['id'] === ID) ?? {};
+    const out: Record<string, Record<string, unknown>> = {
+      liste: find(
+        (await call(db, userId, 'GET', '/api/listings?all=true&archived=true'))['listings'],
+      ),
+      fiche: await call(db, userId, 'GET', `/api/listings/${encodeURIComponent(ID)}`),
+      agence: find(
+        (await call(db, userId, 'GET', `/api/agencies/${encodeURIComponent(AGENCY)}`))['listings'],
+      ),
+    };
+    if (userId !== null) {
+      out['alertes'] = find((await call(db, userId, 'GET', '/api/alerts'))['listings']);
+    }
+    return out;
+  }
+
+  const personnel = (vue: Record<string, unknown>): Record<string, unknown> => ({
+    viewed: vue['viewed'],
+    favorite: vue['favorite'],
+    archived: vue['archived'],
+    tracking: vue['tracking'],
+  });
+  const NEUF = { viewed: false, favorite: false, archived: false, tracking: 'new' };
+
+  beforeEach(async () => {
+    db = openDatabase({ url: ':memory:' });
+    await migrate(db, MIGRATIONS, silentLogger);
+    const repository = createRepository(db);
+    const occurrence = makeOccurrence({ id: ID, sourceId: 'orpi', contact: makeContact() });
+    await repository.upsertOccurrences([occurrence]);
+    await repository.saveListings([
+      scoreListing(makeAggregated({ id: ID, occurrences: [occurrence] }), {
+        criteria: MVP_CRITERIA,
+        nowMs: Date.now(),
+        referencePricePerSqm: 20,
+        referencePoints: [],
+      }),
+    ]);
+    await db.batch(
+      [
+        { sql: "INSERT INTO users (id, created_at) VALUES ('alice', datetime('now'))", args: [] },
+        { sql: "INSERT INTO users (id, created_at) VALUES ('bob', datetime('now'))", args: [] },
+      ],
+      'write',
+    );
+    for (const userId of ['alice', 'bob', 'moi']) {
+      await repository.saveUserScores(userId, [scored(ID)]);
+      // Signalée à tous : chacun la retrouve dans son historique d'alertes.
+      await repository.markNotified(userId, [ID]);
+    }
+  });
+
+  it('ne montre ni à Bob ni à un visiteur ce qu’Alice a marqué', async () => {
+    await call(db, 'alice', 'PATCH', `/api/listings/${ID}`, {
+      viewed: true,
+      favorite: true,
+      archived: true,
+      tracking: 'visitScheduled',
+    });
+
+    for (const [ecran, vue] of Object.entries(await vues('alice'))) {
+      expect(personnel(vue), `alice ${ecran}`).toEqual({
+        viewed: true,
+        favorite: true,
+        archived: true,
+        tracking: 'visitScheduled',
+      });
+    }
+    for (const reader of ['bob', null]) {
+      const ecrans = await vues(reader);
+      expect(Object.keys(ecrans).length).toBeGreaterThanOrEqual(3);
+      for (const [ecran, vue] of Object.entries(ecrans)) {
+        expect(personnel(vue), `${reader ?? 'visiteur'} ${ecran}`).toEqual(NEUF);
+      }
+    }
+  });
+
+  it('ne montre pas à l’autre le suivi posé par une prise de contact', async () => {
+    await call(db, 'alice', 'POST', `/api/listings/${ID}/contact`, { channel: 'email' });
+    expect((await vues('alice'))['fiche']?.['tracking']).toBe('contacted');
+    for (const vue of Object.values(await vues('bob'))) expect(vue['tracking']).toBe('new');
+  });
+
+  it('n’écrit plus rien de personnel sur la fiche commune', async () => {
+    const avant = await db.execute({
+      sql: 'SELECT viewed, favorite, archived, tracking, updated_at FROM listings WHERE id = ?',
+      args: [ID],
+    });
+    await call(db, 'alice', 'PATCH', `/api/listings/${ID}`, {
+      favorite: true,
+      tracking: 'toContact',
+    });
+    await call(db, 'alice', 'POST', `/api/listings/${ID}/contact`, { channel: 'email' });
+    const apres = await db.execute({
+      sql: 'SELECT viewed, favorite, archived, tracking, updated_at FROM listings WHERE id = ?',
+      args: [ID],
+    });
+    expect(apres.rows[0]).toEqual(avant.rows[0]);
+  });
+
+  it('répond 404 à un PATCH sur une annonce inconnue, sans rien écrire', async () => {
+    const url = new URL(`${BASE}/api/listings/orpi:inconnue`);
+    const response = await route(
+      db,
+      new Request(url, { method: 'PATCH', body: JSON.stringify({ favorite: true }) }),
+      url,
+      url.pathname.split('/').filter((part) => part !== ''),
+      {},
+      'alice',
+    );
+    expect(response.status).toBe(404);
+    const rows = await db.execute(
+      "SELECT COUNT(*) AS n FROM listing_user_state WHERE listing_id = 'orpi:inconnue'",
+    );
+    expect(Number(rows.rows[0]?.['n'])).toBe(0);
+  });
+
+  it('dit au visiteur « dans le catalogue », pas « dans les critères » d’un autre', async () => {
+    // Hors des critères du compte principal, l'annonce reste au catalogue.
+    await db.execute('UPDATE listings SET matches_criteria = 0, action_priority = 90');
+    await db.execute("UPDATE listing_user_score SET matches_criteria = 0 WHERE user_id = 'bob'");
+    for (const vue of Object.values(await vues(null))) {
+      expect(vue['matchesCriteria']).toBe(true);
+      expect(vue['actionPriority']).toBe(0);
+    }
+    for (const vue of Object.values(await vues('bob'))) expect(vue['matchesCriteria']).toBe(false);
+    for (const vue of Object.values(await vues('alice'))) expect(vue['matchesCriteria']).toBe(true);
+  });
+
+  it('garde au compte principal ce que marquent ses outils (contact BEP, favori)', async () => {
+    const repository = createRepository(db);
+    await repository.markContacted('moi', [ID]);
+    await repository.setListingFavorite(ID, true);
+
+    for (const vue of Object.values(await vues('moi'))) {
+      expect(personnel(vue)).toEqual({ ...NEUF, favorite: true, tracking: 'contacted' });
+    }
+    for (const vue of Object.values(await vues('bob'))) expect(personnel(vue)).toEqual(NEUF);
+  });
+
+  it('garde à chaque compte sa décision quand deux fiches fusionnent', async () => {
+    const repository = createRepository(db);
+    const autre = makeOccurrence({ id: 'orpi:2', sourceId: 'orpi', contact: makeContact() });
+    const premiere = makeOccurrence({ id: ID, sourceId: 'orpi', contact: makeContact() });
+    await repository.upsertOccurrences([autre]);
+    await repository.saveListings([
+      scoreListing(makeAggregated({ id: 'orpi:2', occurrences: [autre] }), {
+        criteria: MVP_CRITERIA,
+        nowMs: Date.now(),
+        referencePricePerSqm: 20,
+        referencePoints: [],
+      }),
+    ]);
+    // Le compte principal met en favori la fiche qui va être absorbée.
+    await repository.setListingFavorite('orpi:2', true);
+    await call(db, 'bob', 'PATCH', '/api/listings/orpi:2', { tracking: 'visited' });
+
+    await repository.saveListings([
+      scoreListing(makeAggregated({ id: ID, occurrences: [premiere, autre] }), {
+        criteria: MVP_CRITERIA,
+        nowMs: Date.now(),
+        referencePricePerSqm: 20,
+        referencePoints: [],
+      }),
+    ]);
+
+    const restantes = await db.execute('SELECT id FROM listings');
+    expect(restantes.rows.map((row) => row['id'])).toEqual([ID]);
+    for (const vue of Object.values(await vues('moi'))) {
+      expect(personnel(vue)).toEqual({ ...NEUF, favorite: true });
+    }
+    for (const vue of Object.values(await vues('bob'))) {
+      expect(personnel(vue)).toEqual({ ...NEUF, tracking: 'visited' });
+    }
+    for (const vue of Object.values(await vues('alice'))) expect(personnel(vue)).toEqual(NEUF);
+  });
+
+  it('rend au compte principal l’état resté sur la fiche, sans rien faire reculer', async () => {
+    // L'état d'avant : écrit sur `listings`, en partie seulement dans `moi`.
+    await db.execute({
+      sql: `UPDATE listings SET viewed = 1, favorite = 1, tracking = 'contacted',
+              notified_at = '2026-09-01T08:00:00.000Z' WHERE id = ?`,
+      args: [ID],
+    });
+    await db.execute({
+      sql: `UPDATE listing_user_state SET tracking = 'visited', notified_at = NULL
+             WHERE user_id = 'moi' AND listing_id = ?`,
+      args: [ID],
+    });
+    const sql = await readFile(
+      resolve(MIGRATIONS, '0041_personal_state_from_listings.sql'),
+      'utf8',
+    );
+    for (const statement of splitStatements(sql)) await db.execute(statement);
+
+    const fiche = (await vues('moi'))['fiche'] ?? {};
+    expect(personnel(fiche)).toEqual({
+      ...NEUF,
+      viewed: true,
+      favorite: true,
+      tracking: 'visited',
+    });
+    expect(fiche['notifiedAt']).toBe('2026-09-01T08:00:00.000Z');
+    for (const vue of Object.values(await vues('bob'))) expect(personnel(vue)).toEqual(NEUF);
+  });
+
+  it('change l’empreinte de la liste quand le lecteur change son propre état', async () => {
+    const path = '/api/listings?all=true&archived=true';
+    const empreinte = async (userId: string): Promise<string> => {
+      const url = new URL(`${BASE}${path}`);
+      const response = await route(
+        db,
+        new Request(url),
+        url,
+        url.pathname.split('/').filter((part) => part !== ''),
+        {},
+        userId,
+      );
+      return response.headers.get('ETag') ?? '';
+    };
+    const alice = await empreinte('alice');
+    const bob = await empreinte('bob');
+    await new Promise((done) => setTimeout(done, 5));
+    await call(db, 'alice', 'PATCH', `/api/listings/${ID}`, { viewed: true });
+    expect(await empreinte('alice')).not.toBe(alice);
+    // L'état d'Alice n'entre pas dans l'empreinte de Bob.
+    expect(await empreinte('bob')).toBe(bob);
   });
 });
