@@ -591,7 +591,7 @@ export function ListingDetail({
         le rendu ne doit pas tomber entre les deux. */}
       {listing.description?.value != null && (
         <section className="mt-4">
-          <h3 className="font-semibold">Description</h3>
+          <h2 className="font-semibold">Description</h2>
           <p className="whitespace-pre-wrap">{listing.description?.value}</p>
         </section>
       )}

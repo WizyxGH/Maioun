@@ -439,6 +439,26 @@ describe('faux positifs relevés le 2026-09-14', () => {
       normalize({ title: '3 Pièces Garage', propertyTypeText: 'Appartement', areaText: '70 m²' })
         ?.propertyType,
     ).toBe('apartment');
+    // Relevé du 2026-09-15 : trois logements écartés comme parkings, une cave gardée.
+    expect(
+      normalize({ title: 'STUDIO MEUBLÉ AVEC TERRASSE ET PARKING À LOUER', areaText: '19 m²' })
+        ?.propertyType,
+    ).toBe('studio');
+    expect(
+      normalize({ title: '3P ETAGE ELEVE GARAGE', propertyTypeText: 'Parking', areaText: '73 m²' })
+        ?.propertyType,
+    ).toBe('apartment');
+    expect(normalize({ title: 'Cave 5 m²', areaText: '5 m²' })?.propertyType).toBe('parking');
+  });
+
+  it('le rejeu range en parking un titre qui en nomme un', () => {
+    const corrected = rederiveFromText({
+      ...normalize({ title: 'x' })!,
+      propertyType: 'apartment',
+      title: 'BOX HAUT MALAUSSENA LIBERATION',
+      area: 10,
+    });
+    expect(corrected?.propertyType).toBe('parking');
   });
 
   it('« 3 PIÈCES MEUBLÉ » en titre l’emporte sur une case « non » de la source', () => {

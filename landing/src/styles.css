@@ -23,14 +23,14 @@
   --color-card: light-dark(#ffffff, #1f1f2e);
   --color-card-foreground: light-dark(#1a1a2e, #f1f2f6);
   --color-primary: light-dark(#e00034, #ff4d6d);
-  --color-primary-foreground: #ffffff;
+  --color-primary-foreground: light-dark(#ffffff, #14141f);
   --color-muted: light-dark(#eceef3, #2a2a3d);
   --color-muted-foreground: light-dark(#63637a, #9c9cb0);
   --color-border: light-dark(#e6e6ee, #34344a);
   --color-input: light-dark(#dcdce6, #34344a);
   --color-ring: light-dark(#e00034, #ff4d6d);
-  --color-good: light-dark(#15803d, #4ade80);
-  --color-medium: light-dark(#b45309, #fbbf24);
+  --color-good: light-dark(#166534, #4ade80);
+  --color-medium: light-dark(#92400e, #fbbf24);
 }
 
 @layer base {

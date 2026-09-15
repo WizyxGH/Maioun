@@ -313,27 +313,14 @@ export function ListingCard({
 
   return (
     <Card
-      // TOUTE LA CARTE ouvre la fiche : c'est la seule action qu'elle porte,
-      // les boutons ayant été retirés. Les commandes qui restent (cœur, flèches
-      // du carrousel) arrêtent la propagation du clic, sinon les manipuler
+      // TOUTE LA CARTE ouvre la fiche au clic. Les commandes qui restent (cœur,
+      // flèches du carrousel) arrêtent la propagation, sinon les manipuler
       // ferait aussi changer de page.
-      //
-      // `role`/`tabIndex`/`onKeyDown` plutôt qu'un `<button>` englobant : un
-      // bouton ne peut pas en contenir d'autres, et le cœur en est un.
-      role="button"
-      tabIndex={0}
-      aria-label={label}
       onClick={() => onOpen(listing.id)}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        // La barre d'espace fait défiler la page par défaut.
-        event.preventDefault();
-        onOpen(listing.id);
-      }}
       // Le survol soulève d'un pixel et l'appui l'enfonce : sur téléphone,
       // où il n'y a pas de survol, `active:` est le seul retour qui dise que
       // le doigt a été reçu — la fiche met un instant à s'ouvrir.
-      className={`${rank === undefined ? '' : 'rf-rise '}cursor-pointer overflow-hidden transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-md active:translate-y-0 active:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+      className={`${rank === undefined ? '' : 'rf-rise '}relative cursor-pointer overflow-hidden transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-md active:translate-y-0 active:shadow-sm has-[>button:focus-visible]:ring-2 has-[>button:focus-visible]:ring-ring ${
         isHot && !rented ? 'border-2 border-hot' : ''
       } ${archived || rented ? 'opacity-60' : uncertain ? 'opacity-70' : ''} ${
         rented ? 'grayscale' : ''
@@ -347,6 +334,14 @@ export function ListingCard({
             style: { '--rf-delay': `${Math.min(rank, 10) * 30}ms` } as React.CSSProperties,
           })}
     >
+      {/* Au clavier, un vrai bouton plutôt qu'une carte `role="button"` : un
+          bouton ne peut pas en contenir d'autres, et le cœur en est un. Il
+          laisse passer la souris, dont le clic remonte à la carte. */}
+      <button
+        type="button"
+        aria-label={label}
+        className="pointer-events-none absolute inset-0 z-10 rounded-[inherit] focus-visible:outline-none"
+      />
       {/* La photo ne porte plus de pastille de score : la barre de priorité,
           sous le titre, joue ce rôle et laisse l'image entière. */}
       {photos.length > 0 && (

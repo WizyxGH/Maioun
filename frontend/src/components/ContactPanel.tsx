@@ -122,7 +122,7 @@ function SourceRow({
         href={occurrence.sourceUrl}
         target="_blank"
         rel="noreferrer noopener"
-        className="text-primary underline"
+        className="inline-flex min-h-6 items-center text-primary underline"
       >
         {formatSourceName(occurrence.sourceId)}
       </a>
@@ -337,9 +337,9 @@ function useDossierChecklist(profile: TenantProfile | null): {
       aria-labelledby="dossier-checklist"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h4 id="dossier-checklist" className="text-[0.85rem] font-medium">
+        <h3 id="dossier-checklist" className="text-[0.85rem] font-medium">
           Pièces pour candidater
-        </h4>
+        </h3>
         <span
           className={cn(
             'text-[0.8rem]',
@@ -455,9 +455,9 @@ export function ContactPanel({
 
   return (
     <Card className="my-4" aria-labelledby="contact-title" role="region">
-      <h3 id="contact-title" className="mb-2.5 text-base font-semibold">
+      <h2 id="contact-title" className="mb-2.5 text-base font-semibold">
         Contact
-      </h3>
+      </h2>
 
       <ContactDetails listing={listing} hasAnyContact={hasAnyContact} onOpenSource={onOpenSource} />
 

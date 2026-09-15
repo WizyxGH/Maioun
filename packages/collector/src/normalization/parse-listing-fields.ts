@@ -221,12 +221,18 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   if (/\b(chambre|room)\b/.test(uncounted) && !/\b(appartement|apartment)\b/.test(lower)) {
     return 'room';
   }
-  if (/\b(appartement|appart|apartment|flat|duplex|t\d|f\d)\b/.test(lower)) return 'apartment';
+  // « 3P », « 2 P » : l'abréviation courante des pièces.
+  if (/\b(appartement|appart|apartment|flat|duplex|t\d|f\d|\d ?p)\b/.test(lower))
+    return 'apartment';
   if (/\b(maison|villa|pavillon|house|townhouse)\b/.test(lower)) return 'house';
   if (/\b(pieces?|bedrooms?)\b/.test(lower)) return 'apartment';
 
-  // Aucun logement nommé : « Location Stationnement », box, garage…
-  if (/\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b/.test(lower)) {
+  // Aucun logement nommé : « Location Stationnement », box, garage, cave…
+  if (
+    /\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b|\bcaves?\b|\bcellier\b/.test(
+      lower,
+    )
+  ) {
     return 'parking';
   }
   // … ou un bien professionnel. « Licence IV 4 - Grande Licence à louer »

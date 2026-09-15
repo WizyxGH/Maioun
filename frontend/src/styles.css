@@ -30,7 +30,7 @@
   --color-card: light-dark(#ffffff, #1f1f2e);
   --color-card-foreground: light-dark(#1a1a2e, #f1f2f6);
   --color-primary: light-dark(#e00034, #ff4d6d);
-  --color-primary-foreground: #ffffff;
+  --color-primary-foreground: light-dark(#ffffff, #14141f);
 
   /* LA SURFACE DISCRÈTE — et elle n'existait pas. `bg-muted` était écrit dans
      douze fichiers : le fond des squelettes de chargement, la vignette d'une
@@ -50,8 +50,8 @@
   --color-ring: light-dark(#e00034, #ff4d6d);
 
   /* Couleurs métier des scores et priorités. */
-  --color-good: light-dark(#15803d, #4ade80);
-  --color-medium: light-dark(#b45309, #fbbf24);
+  --color-good: light-dark(#166534, #4ade80);
+  --color-medium: light-dark(#92400e, #fbbf24);
   --color-bad: light-dark(#b91c1c, #f87171);
   --color-hot: light-dark(#ea580c, #fb923c);
 

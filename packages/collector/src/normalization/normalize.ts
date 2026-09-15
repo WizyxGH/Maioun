@@ -320,19 +320,23 @@ function parseApplicationStatus(value: string | undefined): ApplicationStatus | 
 
 /**
  * Un titre qui NOMME un parking : « BOX HAUT MALAUSSENA », « Le Fenice - Garage
- * à louer ». La catégorie de la source disait « appartement » (relevé du
- * 2026-09-14, trois annonces). Seulement en tête de titre ou suivi de « à
- * louer », et sur une petite surface : « 3 pièces, garage » reste un logement.
+ * à louer », « Cave 5 m² ». La catégorie de la source disait « appartement »
+ * (relevé du 2026-09-14). En tête de titre ou suivi de « à louer », sans
+ * logement nommé et sur une petite surface : « Studio avec parking à louer » et
+ * « 3P garage » restent des logements.
  */
-function parkingByTitle(raw: RawListing): boolean {
-  const title = comparable(raw.title ?? '');
-  const names =
-    /^(?:location\s+)?(?:box|garage|parking|stationnement|place de (?:parking|stationnement))\b|\b(?:box|garage|parking) a louer\b/.test(
-      title,
-    );
-  const area = resolveArea(raw);
-  return names && (area === null || area <= 25);
+function parkingByTitle(
+  title: string | null | undefined,
+  area: number | null,
+  rooms: number | null,
+): boolean {
+  const text = comparable(title ?? '');
+  if (!PARKING_TITLE.test(text) || parsePropertyType(text) !== 'parking') return false;
+  return (area === null || area <= 25) && (rooms === null || rooms <= 1);
 }
+
+const PARKING_TITLE =
+  /^(?:location\s+)?(?:box|garage|parking|stationnement|caves?|cellier|place de (?:parking|stationnement))\b|\b(?:box|garage|parking) a louer\b/;
 
 /**
  * Un titre qui NOMME un bien commercial : « Location local commercial Nice
@@ -444,7 +448,7 @@ export function normalizeListing(
     bedrooms: parseBedrooms(text.bedrooms),
     propertyType: commercialByTitle(raw.title)
       ? 'commercial'
-      : parkingByTitle(raw)
+      : parkingByTitle(raw.title, resolveArea(raw), parseRooms(text.rooms))
         ? 'parking'
         : parsePropertyType(text.type),
     // Le titre d'abord : « 3 PIÈCES MEUBLÉ » l'emporte sur une case « non »
@@ -683,8 +687,8 @@ export function bestAddress(stored: string | null, fromText: string | null): str
 
 /**
  * Le type d'une fiche déjà en base, corrigé par son titre dans les seuls cas
- * sûrs : un « parking » que le titre dément, un « autre » que le titre dit
- * professionnel, ou un titre qui nomme sans ambiguïté un local commercial.
+ * sûrs : un « parking » que le titre dément, un titre qui nomme un parking, un
+ * « autre » que le titre dit professionnel, ou un local commercial explicite.
  */
 function rescuedPropertyType(occurrence: NormalizedListing): NormalizedListing['propertyType'] {
   const current = occurrence.propertyType;
@@ -693,7 +697,12 @@ function rescuedPropertyType(occurrence: NormalizedListing): NormalizedListing['
   if ((current === 'other' || current === 'unknown') && rescued === 'commercial') return rescued;
   const fromParking =
     current === 'parking' && rescued !== 'parking' && rescued !== 'other' && rescued !== 'unknown';
-  return fromParking ? rescued : current;
+  if (fromParking) return rescued;
+  const toParking =
+    current !== 'parking' &&
+    current !== 'commercial' &&
+    parkingByTitle(occurrence.title, occurrence.area, occurrence.rooms);
+  return toParking ? 'parking' : current;
 }
 
 export function rederiveFromText(
