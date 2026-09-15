@@ -135,6 +135,14 @@ async function reportFlatShare(db: Database, total: number): Promise<void> {
   }
 }
 
+/** Les sources dont le descripteur porte ce contact d'agence, en liste SQL. */
+function withAgency(field: 'phone' | 'email'): string {
+  const ids = ALL_SCRAPERS.filter((s) => s.descriptor.agencyContact?.[field] != null).map(
+    (s) => `'${s.descriptor.id}'`,
+  );
+  return ids.length === 0 ? "''" : ids.join(',');
+}
+
 /**
  * Ce que chaque source remplit, champ par champ.
  *
@@ -150,8 +158,9 @@ const FIELDS: readonly { readonly label: string; readonly sql: string }[] = [
   { label: 'phot', sql: "json_array_length(json_extract(payload, '$.imageUrls')) > 0" },
   { label: 'rue', sql: "address IS NOT NULL AND address != ''" },
   { label: 'quar', sql: "json_extract(payload, '$.district') IS NOT NULL" },
-  { label: 'tél', sql: 'contact_phone IS NOT NULL' },
-  { label: 'mail', sql: 'contact_email IS NOT NULL' },
+  // Le standard de l'agence, repris de son descripteur au regroupement, compte.
+  { label: 'tél', sql: `contact_phone IS NOT NULL OR source_id IN (${withAgency('phone')})` },
+  { label: 'mail', sql: `contact_email IS NOT NULL OR source_id IN (${withAgency('email')})` },
   // La référence de l'agence, pas l'identifiant d'annonce recopié à défaut.
   { label: 'réf', sql: 'contact_reference IS NOT NULL AND contact_reference != source_ref' },
   { label: 'meub', sql: 'furnished IS NOT NULL' },

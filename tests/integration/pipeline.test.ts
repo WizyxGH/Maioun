@@ -487,3 +487,32 @@ describe('liste vide affichée ≠ gabarit cassé', () => {
     expect(doubtful).toBe(0);
   });
 });
+
+describe('coordonnées d’agence ajoutées après coup', () => {
+  it('parviennent aux annonces déjà en base, même quand la liste répond 304', async () => {
+    const { db, repository } = await setupDatabase();
+    await runPipeline(pipelineOptions(repository, serveNominal));
+
+    // Le descripteur apprend le standard de l'agence ; la source ne renvoie rien de neuf.
+    const withContact: Scraper = {
+      descriptor: {
+        ...laforetScraper.descriptor,
+        agencyContact: { phone: '+33600000099' }, // secret-scan-ignore
+      },
+      run: laforetScraper.run.bind(laforetScraper),
+    };
+    const unchanged = fakeFetch(() => ({ status: 304, body: '' }));
+    await runPipeline({
+      ...pipelineOptions(repository, unchanged, [withContact], NOW + 3 * 3_600_000),
+      force: true,
+    });
+
+    const listings = await db.execute('SELECT payload FROM listings');
+    const phones = listings.rows.map(
+      (row) =>
+        (JSON.parse(String(row['payload'])) as { contact: { phone: string | null } }).contact.phone,
+    );
+    expect(phones.length).toBeGreaterThan(0);
+    expect(phones.filter((phone) => phone === null)).toEqual([]);
+  });
+});

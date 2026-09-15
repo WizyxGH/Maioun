@@ -578,14 +578,33 @@ function withAgencyContact(
   scrapers: readonly Scraper[],
 ): NormalizedListing[] {
   const fallback = scrapers.find((s) => s.descriptor.id === sourceId)?.descriptor.agencyContact;
-  if (fallback === undefined) return [...listings];
+  return fallback === undefined ? [...listings] : listings.map((l) => fillContact(l, fallback));
+}
 
-  return listings.map((listing) => {
-    const phone = listing.contact.phone ?? fallback.phone ?? null;
-    const email = listing.contact.email ?? fallback.email ?? null;
-    if (phone === listing.contact.phone && email === listing.contact.email) return listing;
-    return { ...listing, contact: { ...listing.contact, phone, email } };
+/**
+ * LE MÊME REPLI SUR TOUT LE STOCK, au regroupement. Posé à la seule collecte, il
+ * manquait aux annonces lues AVANT que le descripteur ne porte les coordonnées
+ * de l'agence : une liste inchangée (304) ne les réécrit jamais. Relevé du
+ * 2026-09-15 : aucune annonce Méditerranée Immo n'avait son téléphone.
+ */
+function withAgencyContacts(
+  corpus: readonly NormalizedListing[],
+  registry: PipelineOptions['registry'],
+): NormalizedListing[] {
+  return corpus.map((listing) => {
+    const fallback = registry.get(listing.sourceId)?.descriptor.agencyContact;
+    return fallback === undefined ? listing : fillContact(listing, fallback);
   });
+}
+
+function fillContact(
+  listing: NormalizedListing,
+  fallback: NonNullable<Scraper['descriptor']['agencyContact']>,
+): NormalizedListing {
+  const phone = listing.contact.phone ?? fallback.phone ?? null;
+  const email = listing.contact.email ?? fallback.email ?? null;
+  if (phone === listing.contact.phone && email === listing.contact.email) return listing;
+  return { ...listing, contact: { ...listing.contact, phone, email } };
 }
 
 /** Ce que produit un passage de regroupement + scoring sur le corpus stocké. */
@@ -689,7 +708,7 @@ export async function regroupAndScore(
 ): Promise<RegroupReport> {
   const { repository, logger, config } = options;
 
-  const corpus = await repository.allActiveOccurrences();
+  const corpus = withAgencyContacts(await repository.allActiveOccurrences(), options.registry);
   // Le registre sait quelles sources RELAIENT des annonces publiées ailleurs :
   // chez elles, une photo partagée désigne le même bien (§14).
   const { groups, comparisonCount } = dedupe(corpus, {
