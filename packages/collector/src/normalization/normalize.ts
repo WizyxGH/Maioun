@@ -16,10 +16,9 @@ import type {
   SourceId,
 } from '@maioun/shared';
 import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
-import { cleanText, comparable } from './text.js';
+import { cleanMultiline, cleanText, comparable } from './text.js';
 import {
   addressGrade,
-  sameStreet,
   isShortPeriodPrice,
   isShortTermStudentLease,
   isStudentOnlyHousing,
@@ -104,6 +103,12 @@ function isForSale(raw: RawListing): boolean {
 
 function toNull(value: string | undefined): string | null {
   const cleaned = cleanText(value);
+  return cleaned === '' ? null : cleaned;
+}
+
+/** `toNull` pour un texte long : les retours à la ligne de la source restent. */
+function toNullMultiline(value: string | undefined): string | null {
+  const cleaned = cleanMultiline(value);
   return cleaned === '' ? null : cleaned;
 }
 
@@ -265,8 +270,18 @@ function resolveLocation(raw: RawListing): {
       // porte « 31, avenue Sainte Colette », ou « Californie, Nice » — un
       // quartier — sur une vraie voie. `bestAddress` compare leur précision.
       bestAddress(
-        toNull(raw.addressText),
-        extractStreetAddress(raw.description) ?? extractStreetAddress(raw.title),
+        ...cleanAddresses(
+          toNull(raw.addressText),
+          extractStreetAddress(raw.description) ?? extractStreetAddress(raw.title),
+          {
+            city: raw.cityText ?? null,
+            postalCode:
+              parsePostalCode(raw.postalCodeText) ??
+              parsePostalCode(raw.addressText) ??
+              parsePostalCode(raw.cityText),
+            text: `${raw.title ?? ''} ${raw.description ?? ''}`,
+          },
+        ),
       ),
     ),
     // Quartier/secteur si la source le publie (ex. Orpi `extra.quartier`).
@@ -440,7 +455,9 @@ export function normalizeListing(
     sourceUrl,
 
     title: toNull(raw.title),
-    description: toNull(raw.description),
+    // Les sources gardent les paragraphes ; les aplatir ici rendait toute
+    // description d'un seul bloc sur la fiche.
+    description: toNullMultiline(raw.description),
 
     price: price.amount,
     charges,
@@ -664,7 +681,7 @@ function fillGaps(
  *
  * Quand le texte rend « 132 corniche fleurie », qui CONTIENT la stockée en
  * préfixe, il n'y a pas deux adresses possibles : il y en a une, et l'autre
- * s'arrête au milieu d'un mot. Hors de ce cas précis, la stockée continue de
+ * s'arrête au milieu d'un mot. Hors de ces cas, la stockée continue de
  * primer — elle vient souvent d'un champ structuré que le texte n'égale pas.
  */
 export function bestAddress(stored: string | null, fromText: string | null): string | null {
@@ -681,13 +698,24 @@ export function bestAddress(stored: string | null, fromText: string | null): str
    * — un quartier rangé dans le champ « adresse » — ne doit pas l'emporter sur
    * une vraie voie lue dans le texte.
    *
-   * On n'échange que sur la MÊME voie : un numéro croisé ailleurs dans la
-   * description recollé à une autre rue donnerait une adresse fausse et
-   * plausible, ce qui est le pire des deux.
+   * Une voie NUMÉROTÉE l'emporte aussi sur une AUTRE voie nue : Orpi range
+   * « Promenade des Anglais » — son secteur — quand le titre écrit « 17 AV DE
+   * LA CALIFORNIE ». Le texte n'est lu qu'en tête : un numéro y situe le bien.
    */
   const rangStocke = addressGrade(stored);
   const rangTexte = addressGrade(fromText);
-  if (rangTexte > rangStocke && (rangStocke === 0 || sameStreet(stored, fromText))) return fromText;
+  if (rangTexte > rangStocke) return fromText;
+
+  // Même précision, mais la stockée traîne l'accroche qui suivait un tiret
+  // (« 39 BD X - NICE RIQUIER Votre conseiller ») : le texte rend la voie seule.
+  const plain = (address: string): string => address.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (
+    rangTexte === rangStocke &&
+    plain(stored).startsWith(plain(fromText)) &&
+    /^ ?[-–—]( |$)/.test(plain(stored).slice(plain(fromText).length))
+  ) {
+    return fromText;
+  }
 
   /**
    * L'ADRESSE AMPUTÉE, ET ELLE SEULE.
@@ -704,6 +732,85 @@ export function bestAddress(stored: string | null, fromText: string | null): str
   const long = comparable(fromText);
   if (!long.startsWith(court) || long.length <= court.length) return stored;
   return long.charAt(court.length) === ' ' ? stored : fromText;
+}
+
+/** Ce qu'il faut connaître de l'annonce pour nettoyer son adresse. */
+export interface AddressContext {
+  readonly city: string | null;
+  readonly postalCode: string | null;
+  /** Titre et description. */
+  readonly text: string;
+}
+
+function cleanAddresses(
+  stored: string | null,
+  fromText: string | null,
+  context: AddressContext,
+): [string | null, string | null] {
+  return [cleanAddress(stored, context), cleanAddress(fromText, context)];
+}
+
+/** Séparateurs et ponctuation qui ne terminent pas une adresse. */
+const TRAILING_SEPARATORS = /[\s,;:\-–—(]+$/;
+
+/** Mots après lesquels la ville fait partie du nom : « avenue de Nice ». */
+const PARTICLES = new Set(['de', 'du', 'des', 'd', 'la', 'le', 'l', 'sur', 'a', 'en', 'au', 'aux']);
+
+/** Repère de « n'importe quel code postal » parmi les localités à retirer. */
+const POSTAL = '#code-postal';
+
+const MONTHS =
+  'janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre';
+
+/**
+ * Nettoie une adresse, stockée comme extraite, des restes qui ne la situent pas.
+ *
+ * - LA VILLE OU LE CODE POSTAL DE L'ANNONCE en queue : « 130 Boulevard
+ *   Gambetta Nice » ne se distinguait pas de la même voie écrite sans ville.
+ *   Jamais après une particule : « avenue de Nice » est un nom de voie.
+ * - UNE ANNÉE PRISE POUR UN NUMÉRO : « 2027 Boulevard de la Madeleine », lu
+ *   dans « au 31 mai 2027 Boulevard de la Madeleine ». Retirée seulement si le
+ *   texte montre cette année derrière un mois : une « 2000 route de … » existe.
+ */
+export function cleanAddress(address: string | null, context: AddressContext): string | null {
+  if (address === null) return null;
+  let clean = address.replace(/\s+/g, ' ').trim().replace(TRAILING_SEPARATORS, '');
+
+  const localities = [
+    comparable(context.city).replace(/\d+/g, '').trim(),
+    context.postalCode ?? '',
+    POSTAL,
+  ].filter((one) => one !== '');
+  for (let stripped = true; stripped;) {
+    stripped = false;
+    const tokens = [...clean.matchAll(/[^\s,;:\-–—()]+/g)];
+    for (const locality of localities) {
+      const size = locality.split(' ').length;
+      const first = tokens[tokens.length - size];
+      if (tokens.length <= size || first?.index === undefined) continue;
+      const tail = tokens
+        .slice(-size)
+        .map((token) => token[0])
+        .join(' ');
+      // Un code postal, même d'un autre secteur, n'appartient jamais au nom de voie.
+      if (comparable(tail) !== locality && !(locality === POSTAL && /^\d{5}$/.test(tail))) continue;
+      const before = comparable(tokens[tokens.length - size - 1]?.[0]);
+      const rest = clean.slice(0, first.index).replace(TRAILING_SEPARATORS, '');
+      // Ce qui reste doit encore nommer quelque chose : « 06000 Nice » reste entier.
+      if (PARTICLES.has(before) || !/\p{L}{2}/u.test(rest)) continue;
+      clean = rest;
+      stripped = true;
+      break;
+    }
+  }
+
+  const year = /^((?:19|20)\d{2}|2100)\s+(\S+)/.exec(clean);
+  if (year?.[1] !== undefined && year[2] !== undefined) {
+    const dated = new RegExp(`\\b(?:${MONTHS}) ${year[1]} ${comparable(year[2])}\\b`);
+    if (dated.test(comparable(context.text))) clean = clean.slice(year[1].length).trim();
+  }
+
+  return clean === '' ? null : clean;
 }
 
 /**
@@ -737,7 +844,13 @@ export function rederiveFromText(
   const fromText = dedupeStreetAddress(
     extractStreetAddress(occurrence.description) ?? extractStreetAddress(occurrence.title),
   );
-  const address = bestAddress(occurrence.address, fromText);
+  const address = bestAddress(
+    ...cleanAddresses(occurrence.address, fromText, {
+      city: occurrence.city,
+      postalCode: occurrence.postalCode,
+      text,
+    }),
+  );
 
   // Le type ne se corrige que DANS UN SENS : un « parking » que le titre
   // dément. Le recalculer librement le dégraderait — le scraper le tenait

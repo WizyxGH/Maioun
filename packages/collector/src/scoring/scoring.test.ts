@@ -146,6 +146,11 @@ describe('scoreMatch (§16)', () => {
     ).toBe(false);
   });
 
+  it('reconnaît la mention coupée d’un aperçu, titre et description répétés', () => {
+    const teaser = '4 BD FRANCOIS GROSSO 06000 NICE STUDIO ETUDIANT uniquemen...';
+    expect(isStudentHousing(makeAggregated({ title: teaser, description: teaser }))).toBe(true);
+  });
+
   it('reconnaît la location étudiante annoncée par l’URL de la source', () => {
     const listing = makeAggregated({
       occurrences: [

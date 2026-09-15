@@ -3,6 +3,7 @@ import type { RawListing } from '@maioun/shared';
 import { SHORT_TERM_LEASE_FEATURE } from '@maioun/shared';
 import {
   bestAddress,
+  cleanAddress,
   dedupeStreetAddress,
   normalizeListing,
   rederiveFromText,
@@ -42,9 +43,24 @@ describe('bestAddress — la plus précise gagne', () => {
     );
   });
 
-  it('n’attribue pas à une voie le numéro d’une AUTRE', () => {
-    // Le pire des deux : une adresse fausse et plausible.
-    expect(bestAddress('avenue Sainte Colette', '31 rue Barla')).toBe('avenue Sainte Colette');
+  it('préfère une voie numérotée du texte à une AUTRE voie nue', () => {
+    // Orpi range son secteur, « Promenade des Anglais », dans le champ adresse.
+    expect(bestAddress('Promenade des Anglais', '17 AV DE LA FICTIVE')).toBe('17 AV DE LA FICTIVE');
+  });
+
+  it('ne recolle jamais le numéro d’une voie à une autre', () => {
+    expect(bestAddress('avenue Sainte Colette', '31 rue Barla')).not.toMatch(/31.*colette/i);
+  });
+
+  it('retire l’accroche qu’une ancienne extraction avait gardée après un tiret', () => {
+    expect(bestAddress('39 BD FICTIF - NICE RIQUIER Votre conseiller', '39 BD FICTIF')).toBe(
+      '39 BD FICTIF',
+    );
+    expect(bestAddress('4 RUE FICTIVE -', '4 RUE FICTIVE')).toBe('4 RUE FICTIVE');
+    // Sans tiret, la suite peut appartenir au nom : on garde la stockée.
+    expect(bestAddress('4 Avenue des Rives Soleil Levant', '4 AVENUE DES RIVES')).toBe(
+      '4 Avenue des Rives Soleil Levant',
+    );
   });
 
   it('garde le champ dédié quand il est aussi précis', () => {
@@ -63,6 +79,42 @@ describe('bestAddress — la plus précise gagne', () => {
     expect(bestAddress('avenue Malaussena', 'avenue Malaussena très bien placé')).toBe(
       'avenue Malaussena',
     );
+  });
+});
+
+describe('cleanAddress — restes qui ne situent pas le bien', () => {
+  const nice = { city: 'nice', postalCode: '06000', text: '' };
+
+  it('retire la ville et le code postal de l’annonce en queue', () => {
+    expect(cleanAddress('130 Boulevard Fictif Nice', nice)).toBe('130 Boulevard Fictif');
+    expect(cleanAddress('61 RUE FICTIVE 06000 NICE', nice)).toBe('61 RUE FICTIVE');
+    expect(cleanAddress('4 RUE FICTIVE, Nice -', nice)).toBe('4 RUE FICTIVE');
+    expect(
+      cleanAddress('89 chemin fictif saint andré de la roche', {
+        ...nice,
+        city: 'saint andre de la roche',
+      }),
+    ).toBe('89 chemin fictif');
+  });
+
+  it('retire aussi un code postal d’un autre secteur', () => {
+    expect(cleanAddress('2 avenue Fictive 06100 NICE', nice)).toBe('2 avenue Fictive');
+  });
+
+  it('garde la ville quand elle fait partie du nom de voie', () => {
+    expect(cleanAddress('12 avenue de Nice', nice)).toBe('12 avenue de Nice');
+    expect(cleanAddress('Promenade de Nice', nice)).toBe('Promenade de Nice');
+    expect(cleanAddress('06000 Nice', nice)).toBe('06000 Nice');
+  });
+
+  it('retire une année prise pour un numéro, si le texte la date', () => {
+    const text = 'BAIL du 1er septembre au 31 mai 2027 Boulevard Fictif - 3 pièces';
+    expect(cleanAddress('2027 Boulevard Fictif -', { ...nice, text })).toBe('Boulevard Fictif');
+  });
+
+  it('garde un grand numéro que le texte ne date pas', () => {
+    const text = 'Maison au 2000 route Fictive, calme';
+    expect(cleanAddress('2000 route Fictive', { ...nice, text })).toBe('2000 route Fictive');
   });
 });
 
@@ -124,6 +176,31 @@ function raw(over: Partial<RawListing>): RawListing {
     ...over,
   } as RawListing;
 }
+
+describe('normalizeListing — adresse de la source nettoyée', () => {
+  it('retire la ville que le champ adresse répète', () => {
+    const n = normalizeListing(
+      raw({ addressText: '7 Rue Fictive NICE', cityText: 'Nice', postalCodeText: '06000' }),
+      OPTIONS,
+    );
+    expect(n?.address).toBe('7 Rue Fictive');
+  });
+});
+
+describe('normalizeListing — description', () => {
+  it('garde les paragraphes publiés par la source', () => {
+    // Aplatie en une ligne, la description s'affichait d'un seul bloc.
+    const n = normalizeListing(
+      raw({ description: 'Rue Exemple, proche du tram.  \n\n\n\nSéjour.\r\n- Cave\n- Balcon  ' }),
+      OPTIONS,
+    );
+    expect(n?.description).toBe('Rue Exemple, proche du tram.\n\nSéjour.\n- Cave\n- Balcon');
+  });
+
+  it('rend null une description faite de blancs', () => {
+    expect(normalizeListing(raw({ description: ' \n \n' }), OPTIONS)?.description).toBeNull();
+  });
+});
 
 describe('normalizeListing — exclusion des ventes (§3)', () => {
   it('garde une location normale', () => {
@@ -228,6 +305,23 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
       features: ['Ascenseur', '2e étage'],
       ...over,
     }) as never;
+
+  it('nettoie l’adresse STOCKÉE : ville en queue, année prise pour un numéro', () => {
+    expect(
+      rederiveFromText(
+        stored({ address: '130 Boulevard Fictif Nice', city: 'nice', postalCode: '06000' }),
+      )?.address,
+    ).toBe('130 Boulevard Fictif');
+    expect(
+      rederiveFromText(
+        stored({
+          address: '2027 Boulevard Fictif -',
+          title: 'COLOCATION',
+          description: 'BAIL du 1er septembre au 31 mai 2027 Boulevard Fictif - 3 pièces',
+        }),
+      )?.address,
+    ).toBe('Boulevard Fictif');
+  });
 
   it('retrouve la rue restée dans la description', () => {
     // Le cas qui laissait 86 fiches sur 93 sans adresse : l'extraction ne

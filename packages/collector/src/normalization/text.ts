@@ -74,6 +74,8 @@ export function cleanMultiline(input: string | null | undefined): string {
   if (input == null) return '';
   return (
     decodeEntities(input)
+      // `<br>` resté en toutes lettres dans le texte d'une source.
+      .replace(/<br\s*\/?>/gi, '\n')
       .replace(EXOTIC_SPACES, ' ')
       .replace(/\r\n?/g, '\n')
       // Espaces multiples À L'INTÉRIEUR d'une ligne uniquement.
@@ -152,6 +154,32 @@ const STOP_WORDS = new Set([
   'tres',
   'chez',
 ]);
+
+/** Un mot suivi d'une ellipse : « uniquemen... », « étud… ». */
+const WORD_BEFORE_ELLIPSIS = /(\p{L}+)(?:\.{2,}|…)/gu;
+
+/**
+ * Complète les mots coupés par une ellipse, en forme `comparable`.
+ *
+ * Les aperçus de liste tronquent au caractère : « STUDIO ETUDIANT uniquemen... ».
+ * Un motif qui attend « uniquement » n'y voit plus rien. Le mot coupé est
+ * remplacé par le premier mot du vocabulaire qu'il commence — et seulement
+ * s'il en garde assez de lettres pour ne pas être ambigu (« uni » pourrait
+ * être « université »).
+ */
+export function completeTruncatedWords(
+  input: string | null | undefined,
+  vocabulary: readonly string[],
+  minPrefix = 4,
+): string {
+  const completed = cleanText(input).replace(WORD_BEFORE_ELLIPSIS, (whole, word: string) => {
+    const stem = comparable(word);
+    if (stem.length < minPrefix) return whole;
+    const full = vocabulary.find((one) => one.length > stem.length && one.startsWith(stem));
+    return full === undefined ? whole : `${full} `;
+  });
+  return comparable(completed);
+}
 
 export function tokenize(input: string | null | undefined): string[] {
   return comparable(input)
