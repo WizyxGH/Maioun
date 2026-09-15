@@ -1,4 +1,4 @@
-/** Le passage Foncia : pagination et état des candidatures. Aucun accès réseau. */
+/** Le passage Foncia : pagination, retraits et état des candidatures. Aucun accès réseau. */
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,42 +11,44 @@ const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/foncia
 const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
 
 const PAGE_2 = 'https://fr.foncia.com/location/nice-06/appartement/page-2';
-const OVERVIEW = 'fnc-api.prod.fonciatech.net/parcours-locataire/api/v1/properties/overview';
+const fiche = (reference: string): string =>
+  `https://fr.foncia.com/location/nice-06/appartement/${reference}.htm`;
 
-type Answer = string | Error;
+/** Un corps de page, une réponse d'un autre statut, ou une erreur levée. */
+type Answer = string | { status: number; body: string } | Error;
 
 interface Call {
   readonly url: string;
   readonly conditional: boolean | undefined;
 }
 
+interface Options {
+  readonly knownRefs?: readonly string[];
+}
+
 /**
  * Contexte dont chaque URL répond ce qu'on lui dit. Les pages non prévues
  * rendent une page vide ; une `Error` est levée comme le ferait le client HTTP.
  */
-function contexte(answers: (url: string) => Answer | undefined) {
+function contexte(answers: (url: string) => Answer | undefined, options: Options = {}) {
   const calls: Call[] = [];
-  const ok = (body: string): FetchResult => ({
-    status: 200,
-    body,
-    headers: {},
-    notModified: false,
-  });
+  const known = new Set(options.knownRefs ?? []);
+  const reply = (answer: Answer): Promise<FetchResult> => {
+    if (answer instanceof Error) return Promise.reject(answer);
+    const { status, body } = typeof answer === 'string' ? { status: 200, body: answer } : answer;
+    return Promise.resolve({ status, body, headers: {}, notModified: false });
+  };
   const ctx: ScrapeContext = {
     criteria: MVP_CRITERIA,
     mode: 'live',
     fetch: (url, init) => {
       calls.push({ url, conditional: init?.conditional });
-      const answer = answers(url) ?? '<html><body></body></html>';
-      return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(ok(answer));
+      return reply(answers(url) ?? '<html><body></body></html>');
     },
-    isKnown: () => true,
-    knownRefs: new Set(),
+    isKnown: (reference) => known.has(reference),
+    knownRefs: known,
     lastFullPassAt: null,
-    detailMemory: {
-      get: () => ({ draft: {}, fetchedAt: new Date().toISOString() }),
-      save: () => Promise.resolve(),
-    },
+    detailMemory: { get: () => null, save: () => Promise.resolve() },
     pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
     log: () => undefined,
     credentials: null,
@@ -55,23 +57,25 @@ function contexte(answers: (url: string) => Answer | undefined) {
   return { ctx, calls };
 }
 
-/** Liste de deux pages, et une réponse d'API par référence. */
-function site(overview: Record<string, Answer>) {
+/** Liste de deux pages, et une réponse par fiche. */
+function site(fiches: Record<string, Answer>) {
   return (url: string): Answer | undefined => {
     if (url === 'https://fr.foncia.com/location/nice-06000/appartement') {
       return read('liste-page1.html');
     }
     if (url === PAGE_2) return read('liste-page2.html');
-    if (url.includes(OVERVIEW)) {
-      const reference = new URL(url).searchParams.get('propertyId') ?? '';
-      return overview[reference];
-    }
-    return undefined;
+    const reference = /\/(\d+)\.htm$/.exec(url)?.[1];
+    return reference === undefined ? undefined : fiches[reference];
   };
 }
 
-const overviewCalls = (calls: readonly Call[]): Call[] =>
-  calls.filter((call) => call.url.includes(OVERVIEW));
+const ficheCalls = (calls: readonly Call[]): Call[] =>
+  calls.filter((call) => call.url.endsWith('.htm'));
+
+const statusOf = (listings: readonly { sourceRef: string; extra?: object }[], ref: string) =>
+  (listings.find((l) => l.sourceRef === ref)?.extra as Record<string, unknown> | undefined)?.[
+    'applicationStatus'
+  ];
 
 describe('fonciaScraper — pagination', () => {
   it('lit toutes les pages de la liste', async () => {
@@ -89,71 +93,100 @@ describe('fonciaScraper — pagination', () => {
 });
 
 describe('fonciaScraper — candidatures', () => {
+  const troisFiches = {
+    '900200001': read('fiche-candidature-complet.html'),
+    '900200002': read('fiche-candidature-ouverte.html'),
+    '900200003': read('fiche-candidature-loue.html'),
+  };
+
   it('pose l’état de chaque annonce et rend les louées', async () => {
-    const { ctx, calls } = contexte(
-      site({
-        '900200001': read('overview-full.json'),
-        '900200002': read('overview-open.json'),
-        '900200003': read('overview-rented.json'),
-      }),
-    );
+    const { ctx, calls } = contexte(site(troisFiches));
     const result = await fonciaScraper.run(ctx);
 
-    const status = (ref: string) =>
-      result.listings.find((l) => l.sourceRef === ref)?.extra?.['applicationStatus'];
-    expect(status('900200001')).toBe('full');
-    expect(status('900200002')).toBe('open');
-    expect(status('900200003')).toBeUndefined();
+    expect(statusOf(result.listings, '900200001')).toBe('full');
+    expect(statusOf(result.listings, '900200002')).toBe('open');
+    expect(statusOf(result.listings, '900200003')).toBeUndefined();
     expect(result.rentedRefs).toEqual(['900200003']);
 
-    const checks = overviewCalls(calls);
-    // Le numéro d'agence de CHAQUE annonce, lu dans l'état de sa page.
-    expect(checks[1]?.url).toContain('propertyId=900200002&agencyId=1864');
-    // Un 304 ne dirait rien du compteur : jamais de requête conditionnelle.
-    expect(checks.every((call) => call.conditional === false)).toBe(true);
+    // Un 304 laisserait l'état inconnu : jamais de requête conditionnelle.
+    expect(ficheCalls(calls).every((call) => call.conditional === false)).toBe(true);
+    // Rien ne part plus vers l'API de candidature.
+    expect(calls.some((call) => call.url.includes('fonciatech'))).toBe(false);
+  });
+
+  it('une annonce nouvelle ne coûte qu’UNE lecture de fiche, description comprise', async () => {
+    const { ctx, calls } = contexte(site(troisFiches));
+    const result = await fonciaScraper.run(ctx);
+
+    for (const reference of ['900200001', '900200002', '900200003']) {
+      expect(ficheCalls(calls).filter((call) => call.url === fiche(reference))).toHaveLength(1);
+    }
+    const ouverte = result.listings.find((l) => l.sourceRef === '900200002');
+    expect(ouverte?.description).toBe(
+      'Appartement fictif candidature ouverte\ndeux pièces lumineuses',
+    );
   });
 
   it('un 429 arrête la série, et le reste du passage', async () => {
     const { ctx, calls } = contexte(
       site({
         '900200001': new Error('HTTP 429 reçu sur … — arrêt de la source et cooldown'),
-        '900200002': read('overview-full.json'),
+        '900200002': read('fiche-candidature-complet.html'),
       }),
     );
     const result = await fonciaScraper.run(ctx);
 
-    expect(overviewCalls(calls)).toHaveLength(1);
+    expect(ficheCalls(calls)).toHaveLength(1);
     expect(result.stopReason).toBe('rateLimited');
     expect(result.listings.some((l) => l.extra?.['applicationStatus'] !== undefined)).toBe(false);
   });
 
-  it('une erreur serveur ne conclut rien pour cette annonce, la série continue', async () => {
+  it('un refus arrête la série sans conclure', async () => {
     const { ctx, calls } = contexte(
       site({
-        '900200001': new Error('HTTP 500 temporaire sur …'),
-        '900200002': read('overview-full.json'),
-        '900200003': 'pas du JSON',
+        '900200001': new Error('HTTP 403 sur … — accès refusé, la source est marquée bloquée'),
+        '900200002': read('fiche-candidature-complet.html'),
       }),
     );
     const result = await fonciaScraper.run(ctx);
 
-    expect(overviewCalls(calls)).toHaveLength(3);
-    const status = (ref: string) =>
-      result.listings.find((l) => l.sourceRef === ref)?.extra?.['applicationStatus'];
-    expect(status('900200001')).toBeUndefined();
-    expect(status('900200002')).toBe('full');
-    expect(status('900200003')).toBeUndefined();
-    expect(result.rentedRefs).toEqual([]);
-    expect(result.stopReason).toBe('completed');
+    expect(
+      calls.filter((call) => call.url.endsWith('.htm') && call.conditional === false),
+    ).toHaveLength(1);
+    expect(result.listings.some((l) => l.extra?.['applicationStatus'] !== undefined)).toBe(false);
   });
 
-  it('ne demande rien pour une annonce sans numéro d’agence', async () => {
-    const { ctx, calls } = contexte((url) =>
-      url.endsWith('/nice-06000/appartement') ? read('nice-page1.html') : undefined,
+  it('une erreur ou une fiche sans bouton ne conclut rien, la série continue', async () => {
+    const { ctx, calls } = contexte(
+      site({
+        '900200001': new Error('HTTP 500 temporaire sur …'),
+        '900200002': read('fiche-candidature-complet.html'),
+        '900200003': read('fiche-active.html'),
+      }),
     );
     const result = await fonciaScraper.run(ctx);
 
-    expect(result.listings).toHaveLength(3);
-    expect(overviewCalls(calls)).toHaveLength(0);
+    const checks = ficheCalls(calls).filter((call) => call.conditional === false);
+    expect(checks).toHaveLength(3);
+    expect(statusOf(result.listings, '900200001')).toBeUndefined();
+    expect(statusOf(result.listings, '900200002')).toBe('full');
+    expect(statusOf(result.listings, '900200003')).toBeUndefined();
+    expect(result.rentedRefs).toEqual([]);
+    expect(result.stopReason).toBe('completed');
+  });
+});
+
+describe('fonciaScraper — annonces disparues', () => {
+  it('une fiche en 410 est retirée ; une fiche muette ne l’est pas', async () => {
+    const { ctx } = contexte(
+      site({
+        '331707068': { status: 410, body: '<html><body>Erreur 404</body></html>' },
+        '331707069': '<html><body></body></html>',
+      }),
+      { knownRefs: ['331707068', '331707069'] },
+    );
+    const result = await fonciaScraper.run(ctx);
+
+    expect(result.rentedRefs).toEqual(['331707068']);
   });
 });

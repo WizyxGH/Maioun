@@ -194,6 +194,26 @@ describe('enrichNewListings', () => {
     expect(visited).toHaveLength(2);
   });
 
+  it('une fiche déjà lue pendant le passage ne coûte ni requête ni budget', async () => {
+    const { ctx, visited, saved } = context();
+    const result = await enrichNewListings(ctx, [listing('a'), listing('b'), listing('c')], {
+      max: 1,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+      prefetched: new Map([
+        ['a', { description: 'lue pour autre chose' }],
+        ['b', null],
+      ]),
+    });
+    // `c` seule est demandée, et le budget d'une fiche lui suffit.
+    expect(visited).toEqual(['https://exemple.invalid/fiche/c']);
+    expect(result.requestCount).toBe(1);
+    expect(result.listings[0]?.description).toBe('lue pour autre chose');
+    expect(result.listings[1]?.description).toBe('demi-phrase tronquée par la…');
+    // Mémorisée comme une visite : la fiche vide aussi, pour ne pas la relire.
+    expect(saved.map((one) => one.sourceRef)).toEqual(['a', 'b', 'c']);
+  });
+
   it('garde l’annonce intacte quand la fiche n’apprend rien (§17)', async () => {
     const { ctx } = context();
     const result = await enrichNewListings(ctx, [listing('a')], {

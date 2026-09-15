@@ -7,7 +7,7 @@ import {
   extractAddress,
   parseAgencies,
   parseAgencyByReference,
-  parseApplicationOverview,
+  parseApplicationButton,
   parseDetail,
   parseListingUrl,
   parseSearchPage,
@@ -169,6 +169,11 @@ describe('parseWithdrawn (Foncia)', () => {
     expect(parseWithdrawn(read('fiche-active.html'), '999999999')).toBe(false);
   });
 
+  it('ne prend pas une fiche complète pour retirée', () => {
+    // Le dictionnaire y parle d'« annonce indisponible », pas le bandeau.
+    expect(parseWithdrawn(read('fiche-candidature-complet.html'), '900200001')).toBe(false);
+  });
+
   it('ne conclut rien d’une page vide (§17)', () => {
     expect(parseWithdrawn('<html><body></body></html>', '331707068')).toBe(false);
   });
@@ -223,59 +228,40 @@ describe('parseSearchPage — pagination (Foncia)', () => {
   });
 });
 
-describe('parseApplicationOverview (Foncia)', () => {
+describe('parseApplicationButton (Foncia)', () => {
   const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
 
-  it('complet : dossiers actifs au plafond de l’agence', () => {
-    expect(parseApplicationOverview(read('overview-full.json'))).toEqual({
-      rented: false,
-      applications: 'full',
-    });
+  it('ouvert : « Je dépose mon dossier »', () => {
+    expect(parseApplicationButton(read('fiche-candidature-ouverte.html'))).toBe('open');
   });
 
-  it('ouvert : sous le plafond', () => {
-    expect(parseApplicationOverview(read('overview-open.json'))).toEqual({
-      rented: false,
-      applications: 'open',
-    });
+  it('complet : « Dépôt de candidature : complet »', () => {
+    expect(parseApplicationButton(read('fiche-candidature-complet.html'))).toBe('full');
   });
 
-  it('loué : prime sur le compteur', () => {
-    expect(parseApplicationOverview(read('overview-rented.json'))).toEqual({
-      rented: true,
-      applications: null,
-    });
+  it('déjà loué : « Dépôt de candidature : déjà loué »', () => {
+    expect(parseApplicationButton(read('fiche-candidature-loue.html'))).toBe('rented');
   });
 
-  it('agence sans candidature en ligne : rien à dire, même au plafond', () => {
-    expect(parseApplicationOverview(read('overview-disabled.json'))).toEqual({
-      rented: false,
-      applications: null,
-    });
+  it('ne lit pas le dictionnaire de traduction, présent sur toutes les fiches', () => {
+    // Sans le bouton, il reste « Dépôt de candidature : complet » et « déjà
+    // loué » dans l'état de transfert : ils ne disent rien de cette annonce.
+    const html = read('fiche-candidature-ouverte.html');
+    const sansBouton = html.replace(/<app-navbar-footer[\s\S]*<\/app-navbar-footer>/, '');
+    expect(sansBouton).toContain('Dépôt de candidature : complet');
+    expect(parseApplicationButton(sansBouton)).toBeNull();
   });
 
-  it('`rented` absent vaut non loué', () => {
-    const json =
-      '{"id":"1","activeApplicationsCount":1,"agency":{"id":"3443","enabled":true,"max":2}}';
-    expect(parseApplicationOverview(json)).toEqual({ rented: false, applications: 'open' });
+  it('`navbar-footer-button-full` est une largeur, pas un état', () => {
+    const html = read('fiche-candidature-ouverte.html');
+    expect(html).toContain('navbar-footer-button-full');
+    expect(parseApplicationButton(html)).toBe('open');
   });
 
-  it('ne conclut rien d’un JSON invalide ou d’une forme inattendue', () => {
-    expect(parseApplicationOverview('<html>erreur</html>')).toBeNull();
-    expect(parseApplicationOverview('null')).toBeNull();
-    expect(parseApplicationOverview('{"activeApplicationsCount":2,"rented":false}')).toBeNull();
+  it('ne conclut rien d’une page sans bouton reconnu', () => {
+    expect(parseApplicationButton('<html><body></body></html>')).toBeNull();
     expect(
-      parseApplicationOverview(
-        '{"activeApplicationsCount":"2","rented":false,"agency":{"enabled":true,"max":2}}',
-      ),
-    ).toBeNull();
-    expect(
-      parseApplicationOverview(
-        '{"activeApplicationsCount":2,"rented":"non","agency":{"enabled":true,"max":2}}',
-      ),
-    ).toBeNull();
-    expect(
-      parseApplicationOverview('{"activeApplicationsCount":2,"agency":{"enabled":1,"max":2}}'),
+      parseApplicationButton('<button class="navbar-footer-button">Contacter</button>'),
     ).toBeNull();
   });
 });

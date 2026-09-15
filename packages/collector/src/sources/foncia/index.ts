@@ -24,10 +24,11 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import type { RawDraft } from '../shared/raw-listing.js';
 import {
   parseAgencies,
   parseAgencyByReference,
-  parseApplicationOverview,
+  parseApplicationButton,
   parseDetail,
   parseSearchPage,
   parseWithdrawn,
@@ -59,25 +60,19 @@ const MAX_WITHDRAWN_CHECKS = 5;
 /**
  * Fiches visitées par exécution, pour les annonces NOUVELLES seulement : la
  * carte ne donne qu'une demi-phrase de description, la fiche le texte complet.
+ * Celles déjà lues pour la candidature ne comptent pas.
  */
 const MAX_DETAILS = 10;
 
 /**
- * API qu'appelle la fiche pour choisir entre « Je dépose mon dossier » et
- * « Dépôt de candidature : complet ». Anonyme, une requête par annonce.
+ * Fiches lues pour l'état de la candidature : de quoi couvrir chaque annonce
+ * que la liste peut porter.
  */
-const APPLICATIONS_API =
-  'https://fnc-api.prod.fonciatech.net/parcours-locataire/api/v1/properties/overview';
-
-/** De quoi vérifier chaque annonce que la liste peut porter. */
 const MAX_APPLICATION_CHECKS = MAX_LIST_PAGES * PAGE_SIZE;
 
 /** Les annonces collectées sont toutes des appartements niçois. */
 const listingUrl = (reference: string): string =>
   `https://fr.foncia.com/location/nice-06/appartement/${reference}.htm`;
-
-const overviewUrl = (reference: string, agency: string): string =>
-  `${APPLICATIONS_API}?propertyId=${encodeURIComponent(reference)}&agencyId=${encodeURIComponent(agency)}`;
 
 export const FONCIA_DESCRIPTOR: SourceDescriptor = {
   id: 'foncia',
@@ -88,27 +83,27 @@ export const FONCIA_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork'),
   budget: budgetFor('agencyNetwork', {
+    // Liste, agences, retraits, une fiche par annonce listée ; `MAX_DETAILS`
+    // ne sert plus qu'aux fiches dont la lecture pour la candidature a échoué.
     maxPagesPerRun:
       MAX_LIST_PAGES + 1 + MAX_WITHDRAWN_CHECKS + MAX_APPLICATION_CHECKS + MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  allowedPaths: [
-    '/location/*',
-    '/agence-immobiliere/*',
-    'fnc-api.prod.fonciatech.net/parcours-locataire/api/v1/properties/overview',
-  ],
+  allowedPaths: ['/location/*', '/agence-immobiliere/*'],
   notes:
     'robots.txt vérifié le 2026-09-14 : URLs à paramètres interdites (sauf ' +
     '?datemaj), pages /location/{ville}/{type} et leur pagination ' +
     '/page-N autorisées. SSR Angular : ancrage sur les classes foncia-card-*, ' +
     'jamais sur les attributs générés _ngcontent-*. 15 annonces par page, ' +
     'toutes les pages sont lues (22 annonces à Nice le 2026-09-14). Les ' +
-    'annonces DISPARUES de la liste voient leur fiche vérifiée (5 par run). ' +
-    'Les fiches des annonces nouvelles sont visitées (10 par exécution) pour ' +
-    'la description entière. Candidature en ligne : une requête par annonce ' +
-    'à l’API anonyme fnc-api.prod.fonciatech.net/parcours-locataire (celle ' +
-    'que la fiche appelle), qui dit loué, complet ou ouvert.',
+    'annonces DISPARUES de la liste voient leur fiche vérifiée (5 par run) : ' +
+    'bandeau « plus disponible » ou HTTP 410. Candidature en ligne : la fiche ' +
+    'de chaque annonce listée est lue et son bouton dit ouvert, complet ou ' +
+    'déjà loué ; cette même lecture donne la description entière des ' +
+    'nouvelles. L’API fnc-api.prod.fonciatech.net que la fiche appelle est ' +
+    'abandonnée : son robots.txt répond 500, ce qui vaut interdiction totale ' +
+    '(vérifié le 2026-09-15, aucun état relevé sur 24 annonces).',
 };
 
 /** Ce qu'une vérification a coûté, et si la source a demandé d'arrêter. */
@@ -136,7 +131,8 @@ async function checkWithdrawn(
       requestCount += 1;
       if (page.notModified) continue;
       pagesFetched += 1;
-      if (parseWithdrawn(page.body, reference)) rentedRefs.push(reference);
+      // Au bout de quelques jours, la fiche retirée cède la place à un 410.
+      if (page.status === 410 || parseWithdrawn(page.body, reference)) rentedRefs.push(reference);
     } catch (error) {
       // Une fiche injoignable ne prouve rien : l'annonce garde son doute (§17).
       const message = error instanceof Error ? error.message : String(error);
@@ -152,56 +148,58 @@ async function checkWithdrawn(
 }
 
 /**
- * Demande à l'API de candidature où en est chaque annonce.
+ * Lit sur la fiche de chaque annonce où en est la candidature en ligne.
  *
- * Pose `extra.applicationStatus` (`open` / `full`) sur les annonces dont la
- * réponse le dit, et rend les références louées. Une annonce sans numéro
- * d'agence n'est pas demandée : un mauvais numéro répond « pas de candidature
- * en ligne ». Un échec ne conclut rien ; un 429 arrête la série.
+ * Pose `extra.applicationStatus` (`open` / `full`) quand le bouton le dit, et
+ * rend les références déjà louées. Sans bouton reconnu, rien n'est conclu. Un
+ * échec ne conclut rien non plus ; un 429 arrête la série.
+ *
+ * La fiche lue sert aussi à la description entière : `details` rend ce que
+ * `parseDetail` en tire, pour que l'enrichissement ne la redemande pas.
  */
 export async function checkApplications(
   context: ScrapeContext,
   listings: readonly RawListing[],
-  agencyOf: ReadonlyMap<string, string>,
-): Promise<CheckCost & { listings: RawListing[]; rentedRefs: string[] }> {
+): Promise<
+  CheckCost & {
+    listings: RawListing[];
+    rentedRefs: string[];
+    details: Map<string, RawDraft | null>;
+  }
+> {
   const rentedRefs: string[] = [];
   const statusOf = new Map<string, string>();
+  const details = new Map<string, RawDraft | null>();
   let requestCount = 0;
   let pagesFetched = 0;
   let rateLimited = false;
-  let checks = 0;
 
-  for (const listing of listings) {
-    const agency = agencyOf.get(listing.sourceRef);
-    if (agency === undefined) continue;
-    if (checks >= MAX_APPLICATION_CHECKS || context.shouldStop()) break;
-    checks += 1;
+  for (const listing of listings.slice(0, MAX_APPLICATION_CHECKS)) {
+    if (context.shouldStop()) break;
+    const reference = listing.sourceRef;
     try {
-      // Non conditionnelle : un 304 ne dirait pas où en est le compteur.
-      const response = await context.fetch(overviewUrl(listing.sourceRef, agency), {
-        headers: { accept: 'application/json' },
-        conditional: false,
-      });
+      // Non conditionnelle : un 304 laisserait l'état inconnu, donc effacé.
+      const page = await context.fetch(listingUrl(reference), { conditional: false });
       requestCount += 1;
-      if (response.notModified) continue;
+      if (page.notModified) continue;
       pagesFetched += 1;
-      const overview = parseApplicationOverview(response.body);
-      if (overview === null) {
-        context.log('applications.unreadable', { reference: listing.sourceRef });
-        continue;
-      }
-      if (overview.rented) rentedRefs.push(listing.sourceRef);
-      if (overview.applications !== null) {
-        statusOf.set(listing.sourceRef, overview.applications);
+      details.set(reference, parseDetail(page.body, reference));
+      const button = parseApplicationButton(page.body);
+      if (button === null) {
+        context.log('applications.no_button', { reference });
+      } else if (button === 'rented') {
+        rentedRefs.push(reference);
+      } else {
+        statusOf.set(reference, button);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      context.log('applications.check_failed', { reference: listing.sourceRef, error: message });
+      context.log('applications.check_failed', { reference, error: message });
       if (message.includes('429')) {
         rateLimited = true;
         break;
       }
-      // 403 : l'API ferme la porte, inutile d'insister annonce par annonce.
+      // 403 : le site ferme la porte, inutile d'insister annonce par annonce.
       if (message.includes('refusé')) break;
     }
   }
@@ -213,7 +211,7 @@ export async function checkApplications(
       : { ...listing, extra: { ...(listing.extra ?? {}), applicationStatus: status } };
   });
 
-  return { listings: withStatus, rentedRefs, requestCount, pagesFetched, rateLimited };
+  return { listings: withStatus, rentedRefs, details, requestCount, pagesFetched, rateLimited };
 }
 
 /** Coordonnées des agences, par numéro. L'échec n'est pas bloquant (§69). */
@@ -269,8 +267,8 @@ async function fetchListPages(context: ScrapeContext): Promise<{
       break;
     }
     try {
-      // Non conditionnelle : chaque annonce doit repasser pour que son état de
-      // candidature soit relu, et le numéro d'agence n'est que dans la page.
+      // Non conditionnelle : chaque annonce doit repasser pour que sa fiche soit
+      // relue, et le numéro d'agence n'est que dans la page.
       const response = await context.fetch(url, { conditional: false });
       requestCount += 1;
       if (response.notModified) {
@@ -367,14 +365,16 @@ export const fonciaScraper: Scraper = {
     rentedRefs.push(...withdrawn.rentedRefs);
 
     let checked = listings;
+    let details = new Map<string, RawDraft | null>();
     let full = 0;
     let rateLimited = withdrawn.rateLimited;
     if (!rateLimited) {
-      const applications = await checkApplications(context, listings, list.agencyOf);
+      const applications = await checkApplications(context, listings);
       requestCount += applications.requestCount;
       pagesFetched += applications.pagesFetched;
       rentedRefs.push(...applications.rentedRefs);
       checked = applications.listings;
+      details = applications.details;
       full = checked.filter((l) => l.extra?.['applicationStatus'] === 'full').length;
       rateLimited = applications.rateLimited;
     }
@@ -388,6 +388,8 @@ export const fonciaScraper: Scraper = {
         max: MAX_DETAILS,
         detailUrl: (listing) => listing.sourceUrl,
         parse: (html, listing) => parseDetail(html, listing.sourceRef),
+        // Fiches déjà lues pour la candidature : pas de seconde requête.
+        prefetched: details,
       });
       result = enriched.listings;
       requestCount += enriched.requestCount;
