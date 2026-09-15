@@ -260,7 +260,7 @@ function FilterChip({
     // budget et la surface d'ouverture, elle est là dès l'arrivée — et un
     // bouton de 20 px se rate au doigt (§36). Le rond coloré du survol garde sa
     // taille : c'est la ZONE SENSIBLE qui grandit, pas le dessin.
-    <span className="inline-flex min-h-9 items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 pr-0.5 pl-2.5 text-sm font-medium text-primary">
+    <span className="inline-flex min-h-9 items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 pr-0.5 pl-2.5 text-sm font-medium text-foreground">
       {label}
       <button
         type="button"

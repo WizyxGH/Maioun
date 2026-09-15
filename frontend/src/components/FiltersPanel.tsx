@@ -230,7 +230,7 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
 
   return (
     <section>
-      <dl className="divide-y divide-border">
+      <div className="divide-y divide-border">
         {/* BUDGET ET SURFACE NE SONT PAS ICI : les filtres d'affichage, quelques
           centimètres plus haut, portent déjà les mêmes deux réglages. Les
           montrer deux fois posait la question « lequel des deux compte ? », à
@@ -421,7 +421,7 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
             onChange={(furnishedFilter) => set({ furnishedFilter })}
           />
         </div>
-      </dl>
+      </div>
 
       {/* ON NE DIT PLUS « Enregistré », on ne dit que ce qui va mal. Un réglage
         qui s'applique sous le doigt n'a pas besoin d'être confirmé : la liste

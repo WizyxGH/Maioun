@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { siteInfo } from '../landing/src/site.js';
 
 /** GitHub Pages sert depuis `/<repo>/` ; `BASE_PATH` vient du workflow. */
 const base = process.env['BASE_PATH'] ?? '/';
@@ -31,10 +32,31 @@ function pagesDeepLinkFallback(): Plugin {
   };
 }
 
+/**
+ * L'adresse publique du site dans les métadonnées de partage (`%SITE_URL%`).
+ *
+ * DÉDUITE DU DÉPÔT, comme pour la page de présentation dont on reprend la
+ * fonction : un nom écrit en dur a déjà cassé tous les liens à un renommage.
+ * Dépôt introuvable (construction hors dépôt) : adresses relatives plutôt
+ * qu'une construction qui échoue pour un aperçu.
+ */
+function shareMetadata(): Plugin {
+  let siteUrl = '/';
+  try {
+    siteUrl = siteInfo().siteUrl;
+  } catch {
+    // Pas de dépôt connu : l'aperçu perd son image, l'application reste.
+  }
+  return {
+    name: 'rf-share-metadata',
+    transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('%SITE_URL%', siteUrl) },
+  };
+}
+
 export default defineConfig(() => {
   return {
     base,
-    plugins: [react(), tailwindcss(), pagesDeepLinkFallback()],
+    plugins: [react(), tailwindcss(), pagesDeepLinkFallback(), shareMetadata()],
     resolve: {
       // Alias shadcn/ui standard — permet `npx shadcn add <composant>`.
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
