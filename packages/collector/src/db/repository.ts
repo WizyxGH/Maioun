@@ -544,6 +544,8 @@ export interface Repository {
    * l'API, elle, passe par `listing_user_state` avec l'identifiant de session.
    */
   setListingFavorite(listingId: string, favorite: boolean): Promise<void>;
+  /** Passe des annonces au suivi « contactée » pour ce compte. */
+  markContacted(userId: string, ids: readonly string[]): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
   /** Cache des diagnostics energetiques cherches chez l'ADEME. */
@@ -1346,14 +1348,13 @@ export function createRepository(db: Database): Repository {
       // continuait d'être comptée et affichée, donc de ressortir en doublon.
       //
       // La suppression ne perd rien : le contenu vit dans la fiche survivante.
-      // On épargne toutefois celles qui portent une décision de l'utilisateur
+      // On épargne toutefois celles qui portent une décision d'un compte
       // (favori, archivage, suivi) — mieux vaut une ligne morte qu'un choix
       // effacé (§14).
       const orphans = await db.execute(`
         DELETE FROM listings
         WHERE ${ORPHAN_PREDICATE}
-          AND favorite = 0 AND archived = 0
-          AND (tracking IS NULL OR tracking IN ('none', 'new'))
+          AND id NOT IN (${DECIDED_LISTINGS})
       `);
       const removed = orphans.rowsAffected ?? 0;
 
@@ -2063,21 +2064,26 @@ export function createRepository(db: Database): Repository {
      * compte, et cette commande s'exécute à la main, depuis la machine de son
      * propriétaire. `listings.matches_criteria` — la colonne mono-compte que
      * `listing_user_score` remplace partout ailleurs — est exactement la bonne
-     * source ici : c'est celle de la collecte, donc la sienne.
+     * source ici : c'est celle de la collecte, donc la sienne. Ses DÉCISIONS
+     * (favori, archivage, brouillon) se lisent en revanche dans son état : la
+     * fiche ne les porte plus.
      */
     async pendingDrafts() {
-      const result = await db.execute(
+      const result = await db.execute({
         // LES FAVORIS COMPTENT AUTANT QUE LES CRITÈRES, et même davantage : le
         // critère est une règle écrite une fois, le favori est un choix fait
         // devant l'annonce. On ne préparait pourtant de brouillon que pour les
         // premiers — un logement mis de côté à la main n'en obtenait aucun, ce
         // qui est l'inverse de ce qu'on attend d'un raccourci.
-        `SELECT id, payload FROM listings
-         WHERE (matches_criteria = 1 OR favorite = 1)
-           AND rented = 0 AND lifecycle != 'inactive'
-           AND archived = 0 AND drafted = 0
-         ORDER BY favorite DESC, action_priority DESC`,
-      );
+        sql: `SELECT listings.id, listings.payload FROM listings
+              LEFT JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              WHERE (listings.matches_criteria = 1 OR COALESCE(us.favorite, 0) = 1)
+                AND listings.rented = 0 AND listings.lifecycle != 'inactive'
+                AND COALESCE(us.archived, 0) = 0 AND COALESCE(us.drafted, 0) = 0
+              ORDER BY COALESCE(us.favorite, 0) DESC, listings.action_priority DESC`,
+        args: [CURRENT_USER],
+      });
       const out: DraftableListing[] = [];
       for (const row of result.rows) {
         let payload: {
@@ -2136,20 +2142,14 @@ export function createRepository(db: Database): Repository {
     },
 
     async markDrafted(userId, ids) {
-      if (ids.length === 0) return;
-      const placeholders = ids.map(() => '?').join(',');
-      await db.execute({
-        sql: `UPDATE listings SET drafted = 1 WHERE id IN (${placeholders})`,
-        args: [...ids],
-      });
       await recordUserState(db, userId, ids, { drafted: 1 });
     },
 
+    async markContacted(userId, ids) {
+      await recordUserState(db, userId, ids, { tracking: 'contacted' });
+    },
+
     async setListingFavorite(listingId, favorite) {
-      await db.execute({
-        sql: 'UPDATE listings SET favorite = ?, updated_at = ? WHERE id = ?',
-        args: [favorite ? 1 : 0, new Date().toISOString(), listingId],
-      });
       // LA DATE DE MISE EN FAVORI, pour le rappel de candidature. `updated_at`
       // ne pouvait pas servir : il bouge à chaque consultation, si bien qu'un
       // favori déposé il y a une semaine mais rouvert ce matin paraissait tout
@@ -2489,6 +2489,10 @@ const EVENT_DAYS = 90;
 
 const ORPHAN_PREDICATE = 'id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)';
 
+/** Les fiches sur lesquelles un compte, quel qu'il soit, a décidé quelque chose. */
+const DECIDED_LISTINGS = `SELECT listing_id FROM listing_user_state
+  WHERE favorite = 1 OR archived = 1 OR tracking NOT IN ('none', 'new')`;
+
 /** Identifiants d'occurrence énumérés par la charge utile d'une fiche. */
 function occurrenceIdsOf(payload: unknown): string[] {
   try {
@@ -2553,69 +2557,64 @@ async function previousGroups(
  * Les drapeaux se cumulent (un favori reste un favori) ; le SUIVI n'est repris
  * que si la fiche survivante n'en porte pas déjà un — on ne fait jamais reculer
  * un statut plus avancé.
+ *
+ * COMPTE PAR COMPTE, dans `listing_user_state`. La fusion se faisait sur les
+ * colonnes de `listings` : les décisions des comptes, rangées ailleurs,
+ * disparaissaient avec la ligne absorbée.
  */
 async function inheritUserState(
   db: Database,
   predecessors: ReadonlyMap<string, string[]>,
 ): Promise<number> {
   let absorbedCount = 0;
+  const now = new Date().toISOString();
 
   for (const [survivor, absorbed] of predecessors) {
     const placeholders = absorbed.map(() => '?').join(',');
 
-    // Une SEULE lecture des lignes absorbées. La version précédente rejouait la
-    // même sous-requête six fois dans un `UPDATE` — six balayages, et six
-    // `...absorbed` alignés à la main dans `args`, qu'un spread en trop
-    // décalait sans la moindre erreur de compilation.
-    const state = await db.execute({
-      sql: `SELECT MAX(favorite)   AS favorite,
-                   MAX(archived)   AS archived,
-                   MAX(viewed)     AS viewed,
-                   MAX(notified)   AS notified,
-                   MIN(notified_at) AS notified_at,
-                   MAX(CASE WHEN tracking NOT IN ('new', 'none') THEN tracking END) AS tracking
-              FROM listings WHERE id IN (${placeholders})`,
-      args: absorbed,
-    });
-    const row = state.rows[0];
-    if (row === undefined) continue;
-    const flag = (key: string): number => (Number(row[key] ?? 0) === 1 ? 1 : 0);
-    const inheritedTracking = row['tracking'] === null ? null : String(row['tracking']);
-
-    // Les drapeaux se cumulent ; le suivi n'est repris que si la survivante
-    // n'en porte pas déjà un — on ne fait jamais reculer un statut plus avancé.
+    // Une ligne par compte, agrégée sur les fiches absorbées. Le `WHERE`
+    // précède l'`ON CONFLICT` : SQLite l'exige d'un upsert alimenté par `SELECT`.
     await db.execute({
-      sql: `UPDATE listings
-               SET favorite = MAX(favorite, ?),
-                   archived = MAX(archived, ?),
-                   viewed   = MAX(viewed, ?),
-                   notified = MAX(notified, ?),
-                   notified_at = COALESCE(notified_at, ?),
-                   tracking = CASE
-                     WHEN (tracking IS NULL OR tracking IN ('new', 'none')) AND ? IS NOT NULL
-                       THEN ?
-                     ELSE tracking
-                   END
-             WHERE id = ?`,
-      args: [
-        flag('favorite'),
-        flag('archived'),
-        flag('viewed'),
-        flag('notified'),
-        row['notified_at'] === null ? null : String(row['notified_at']),
-        inheritedTracking,
-        inheritedTracking,
-        survivor,
-      ],
+      sql: `INSERT INTO listing_user_state
+              (user_id, listing_id, viewed, archived, favorite, tracking,
+               notified, notified_at, drafted, favorited_at, updated_at)
+            SELECT user_id, ?, MAX(viewed), MAX(archived), MAX(favorite),
+                   COALESCE(MAX(CASE WHEN tracking NOT IN ('new', 'none') THEN tracking END), 'new'),
+                   MAX(notified), MIN(notified_at), MAX(drafted), MIN(favorited_at), ?
+              FROM listing_user_state
+             WHERE listing_id IN (${placeholders})
+               AND EXISTS (SELECT 1 FROM listings WHERE id = ?)
+             GROUP BY user_id
+            ON CONFLICT(user_id, listing_id) DO UPDATE SET
+              viewed = MAX(listing_user_state.viewed, excluded.viewed),
+              archived = MAX(listing_user_state.archived, excluded.archived),
+              favorite = MAX(listing_user_state.favorite, excluded.favorite),
+              tracking = CASE WHEN listing_user_state.tracking IN ('new', 'none')
+                              THEN excluded.tracking ELSE listing_user_state.tracking END,
+              notified = MAX(listing_user_state.notified, excluded.notified),
+              notified_at = COALESCE(listing_user_state.notified_at, excluded.notified_at),
+              drafted = MAX(listing_user_state.drafted, excluded.drafted),
+              favorited_at = COALESCE(listing_user_state.favorited_at, excluded.favorited_at),
+              updated_at = excluded.updated_at`,
+      args: [survivor, now, ...absorbed, survivor],
     });
 
     // La décision est en sûreté : la ligne absorbée peut disparaître, à
     // condition qu'elle ne porte plus aucune occurrence (une fusion partielle
-    // la laisse vivante, avec ce qui lui reste).
+    // la laisse vivante, avec ce qui lui reste). Son état part avec elle, sans
+    // compter sur les clés étrangères.
     const removed = await db.execute({
       sql: `DELETE FROM listings WHERE id IN (${placeholders}) AND ${ORPHAN_PREDICATE}`,
       args: absorbed,
     });
+    if (removed.rowsAffected > 0) {
+      await db.execute({
+        sql: `DELETE FROM listing_user_state
+               WHERE listing_id IN (${placeholders})
+                 AND listing_id NOT IN (SELECT id FROM listings)`,
+        args: absorbed,
+      });
+    }
     absorbedCount += removed.rowsAffected;
   }
 

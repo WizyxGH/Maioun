@@ -115,12 +115,23 @@ describe('fusion de deux fiches : la décision de l’utilisateur remonte (§14,
     repository = createRepository(db);
   });
 
-  /** Le suivi se règle par l'API, pas par le dépôt : on écrit directement. */
-  async function setTracking(id: string, tracking: string): Promise<void> {
+  /** Le suivi se règle par l'API, pas par le dépôt : on écrit l'état directement. */
+  async function setTracking(id: string, tracking: string, userId = 'moi'): Promise<void> {
     await db.execute({
-      sql: 'UPDATE listings SET tracking = ? WHERE id = ?',
-      args: [tracking, id],
+      sql: `INSERT INTO listing_user_state (user_id, listing_id, tracking, updated_at)
+            VALUES (?, ?, ?, datetime('now'))
+            ON CONFLICT(user_id, listing_id) DO UPDATE SET tracking = excluded.tracking`,
+      args: [userId, id, tracking],
     });
+  }
+
+  /** L'état d'un compte, fiche par fiche. */
+  async function stateOf(userId = 'moi'): Promise<Record<string, unknown>[]> {
+    const rows = await db.execute({
+      sql: 'SELECT listing_id, tracking, favorite FROM listing_user_state WHERE user_id = ? ORDER BY listing_id',
+      args: [userId],
+    });
+    return rows.rows as unknown as Record<string, unknown>[];
   }
 
   /** Écrit deux fiches distinctes, chacune sur son occurrence. */
@@ -149,10 +160,36 @@ describe('fusion de deux fiches : la décision de l’utilisateur remonte (§14,
       }),
     ]);
 
-    const rows = await db.execute('SELECT id, tracking FROM listings');
+    const rows = await db.execute('SELECT id FROM listings');
     expect(rows.rows).toHaveLength(1);
     expect(rows.rows[0]?.['id']).toBe('email-alerts:recent');
-    expect(rows.rows[0]?.['tracking']).toBe('contacted');
+    // L'état de la fiche absorbée est parti avec elle, pas la décision.
+    expect(await stateOf()).toEqual([
+      { listing_id: 'email-alerts:recent', tracking: 'contacted', favorite: 0 },
+    ]);
+  });
+
+  it('fusionne compte par compte, sans mêler leurs décisions', async () => {
+    await db.execute("INSERT INTO users (id, created_at) VALUES ('bob', datetime('now'))");
+    await twoSeparateListings();
+    await setTracking('email-alerts:ancien', 'contacted');
+    await setTracking('email-alerts:ancien', 'visited', 'bob');
+    await setTracking('email-alerts:recent', 'rejected', 'bob');
+
+    await repository.saveListings([
+      makeScoredListing({
+        id: 'email-alerts:recent',
+        occurrenceIds: ['email-alerts:recent', 'email-alerts:ancien'],
+      }),
+    ]);
+
+    expect(await stateOf('moi')).toEqual([
+      { listing_id: 'email-alerts:recent', tracking: 'contacted', favorite: 0 },
+    ]);
+    // Bob avait déjà un suivi sur la survivante : il ne recule pas.
+    expect(await stateOf('bob')).toEqual([
+      { listing_id: 'email-alerts:recent', tracking: 'rejected', favorite: 0 },
+    ]);
   });
 
   it('cumule les drapeaux : un favori absorbé reste un favori', async () => {
@@ -166,9 +203,11 @@ describe('fusion de deux fiches : la décision de l’utilisateur remonte (§14,
       }),
     ]);
 
-    const rows = await db.execute('SELECT id, favorite FROM listings');
+    const rows = await db.execute('SELECT id FROM listings');
     expect(rows.rows).toHaveLength(1);
-    expect(Number(rows.rows[0]?.['favorite'])).toBe(1);
+    expect(await stateOf()).toEqual([
+      { listing_id: 'email-alerts:recent', tracking: 'new', favorite: 1 },
+    ]);
   });
 
   it('ne fait jamais RECULER un suivi déjà plus avancé', async () => {
@@ -183,8 +222,9 @@ describe('fusion de deux fiches : la décision de l’utilisateur remonte (§14,
       }),
     ]);
 
-    const rows = await db.execute('SELECT tracking FROM listings');
-    expect(rows.rows[0]?.['tracking']).toBe('visited');
+    expect(await stateOf()).toEqual([
+      { listing_id: 'email-alerts:recent', tracking: 'visited', favorite: 0 },
+    ]);
   });
 });
 
@@ -210,8 +250,9 @@ describe('absorbOrphanListings — rattrapage d’une fusion passée (§14)', ()
       makeScoredListing({ id: 'email-alerts:b', occurrenceIds: ['email-alerts:b'] }),
     ]);
     await db.execute({
-      sql: 'UPDATE listings SET tracking = ? WHERE id = ?',
-      args: ['contacted', 'email-alerts:a'],
+      sql: `INSERT INTO listing_user_state (user_id, listing_id, tracking, updated_at)
+            VALUES ('moi', ?, ?, datetime('now'))`,
+      args: ['email-alerts:a', 'contacted'],
     });
     // La fusion a eu lieu : les deux occurrences pointent vers `b`, mais la
     // ligne `a` a survécu parce qu'elle portait une décision.
@@ -221,10 +262,15 @@ describe('absorbOrphanListings — rattrapage d’une fusion passée (§14)', ()
 
     expect(await repository.absorbOrphanListings()).toBe(1);
 
-    const rows = await db.execute('SELECT id, tracking FROM listings');
+    const rows = await db.execute('SELECT id FROM listings');
     expect(rows.rows).toHaveLength(1);
     expect(rows.rows[0]?.['id']).toBe('email-alerts:b');
-    expect(rows.rows[0]?.['tracking']).toBe('contacted');
+    const state = await db.execute(
+      "SELECT listing_id, tracking FROM listing_user_state WHERE user_id = 'moi'",
+    );
+    expect(state.rows.map((row) => [row['listing_id'], row['tracking']])).toEqual([
+      ['email-alerts:b', 'contacted'],
+    ]);
   });
 
   it('ne touche à rien quand aucune fiche n’est orpheline', async () => {

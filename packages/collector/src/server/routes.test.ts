@@ -34,11 +34,10 @@ describe('la liste d’un visiteur sans compte', () => {
   });
 
   it('lui montre le catalogue : des logements en ligne, dans la commune', () => {
-    const { filter, filterArgs } = anonyme();
+    const { filter } = anonyme();
     expect(filter).toContain("lifecycle != 'inactive'");
     expect(filter).toContain("property_type NOT IN ('parking', 'commercial')");
-    expect(filter).toContain('city IN (?)');
-    expect(filterArgs).toContain('nice');
+    expect(filter).toContain("city IN ('nice')");
   });
 
   it('classe par nouveauté : sans score, la priorité est la même partout', () => {
@@ -158,17 +157,17 @@ describe('rowToListing', () => {
   const row = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
     id: 'src:1',
     lifecycle: 'active',
-    tracking: 'new',
+    user_tracking: 'new',
     first_seen_at: '2026-09-01T10:00:00.000Z',
     last_seen_at: '2026-09-05T10:00:00.000Z',
-    matches_criteria: 1,
-    action_priority: 80,
+    user_matches_criteria: 1,
+    user_action_priority: 80,
     payload: '{"title":{"value":"Studio"}}',
     ...extra,
   });
 
   it('rend la DATE DE L’ALERTE, sans quoi l’historique est vide', () => {
-    const listing = vueMoi(row({ notified_at: '2026-09-05T12:03:47.320Z' }));
+    const listing = vueMoi(row({ user_notified_at: '2026-09-05T12:03:47.320Z' }));
     expect(listing['notifiedAt']).toBe('2026-09-05T12:03:47.320Z');
   });
 
@@ -182,12 +181,42 @@ describe('rowToListing', () => {
 
   it('rend les états qui appartiennent à QUELQU’UN, pas à l’annonce', () => {
     const listing = vueMoi(
-      row({ viewed: 1, archived: 0, favorite: 1, rented: 0, tracking: 'contacted' }),
+      row({
+        user_viewed: 1,
+        user_archived: 0,
+        user_favorite: 1,
+        rented: 0,
+        user_tracking: 'contacted',
+      }),
     );
     expect(listing['viewed']).toBe(true);
     expect(listing['archived']).toBe(false);
     expect(listing['favorite']).toBe(true);
     expect(listing['tracking']).toBe('contacted');
+  });
+
+  it('ignore les colonnes homonymes de la fiche commune', () => {
+    // Celles du compte principal : les lire les servait à tout le monde.
+    const listing = vueMoi({
+      id: 'src:1',
+      payload: '{}',
+      viewed: 1,
+      archived: 1,
+      favorite: 1,
+      tracking: 'visited',
+      matches_criteria: 1,
+      action_priority: 90,
+      notified_at: '2026-09-01T08:00:00.000Z',
+    });
+    expect(listing).toMatchObject({
+      viewed: false,
+      archived: false,
+      favorite: false,
+      tracking: 'new',
+      matchesCriteria: false,
+      actionPriority: 0,
+      notifiedAt: null,
+    });
   });
 
   it('tient pour archivée une annonce que sa source ferme aux candidatures', () => {
@@ -216,11 +245,11 @@ describe('fiche allégée', () => {
   const row = (extra: Record<string, unknown>): Record<string, unknown> => ({
     id: 'src:1',
     lifecycle: 'active',
-    tracking: 'new',
+    user_tracking: 'new',
     first_seen_at: '2026-09-01T10:00:00.000Z',
     last_seen_at: '2026-09-05T10:00:00.000Z',
-    matches_criteria: 1,
-    action_priority: 80,
+    user_matches_criteria: 1,
+    user_action_priority: 80,
     ...extra,
   });
 
@@ -289,16 +318,15 @@ describe('listItemJson', () => {
   const colonnes = {
     id: 'orpi:1',
     lifecycle: 'active',
-    tracking: 'new',
+    user_tracking: 'new',
     first_seen_at: '2026-09-01T10:00:00.000Z',
     last_seen_at: '2026-09-05T10:00:00.000Z',
-    matches_criteria: 1,
-    action_priority: 72,
-    viewed: 1,
-    archived: 0,
-    favorite: 0,
+    user_matches_criteria: 1,
+    user_action_priority: 72,
+    user_viewed: 1,
+    user_archived: 0,
+    user_favorite: 0,
     rented: 0,
-    notified_at: '2026-09-02T10:00:00.000Z',
     user_notified_at: null,
     gone_notified_at: null,
     reminded_at: '2026-09-06T10:00:00.000Z',
@@ -390,9 +418,10 @@ describe('listItemJson', () => {
     expect((JSON.parse(listItemJson(apres)) as { archived: boolean }).archived).toBe(true);
   });
 
-  it('rend `notifiedAt` du compte d’abord, celui de la fiche à défaut', () => {
+  it('rend `notifiedAt` du compte, jamais celui de la fiche', () => {
     pareil(lignes(fiche(), {}, { user_notified_at: '2026-09-10T10:00:00.000Z' }));
-    pareil(lignes(fiche(), {}, { notified_at: null, user_notified_at: null }));
+    const { apres } = lignes(fiche(), {}, { notified_at: '2026-09-02T10:00:00.000Z' });
+    expect((JSON.parse(listItemJson(apres)) as { notifiedAt: unknown }).notifiedAt).toBeNull();
   });
 
   it('refait le calcul d’avant quand les colonnes préparées manquent', () => {
@@ -561,15 +590,14 @@ describe('date de notification — celle du compte, pas celle d’avant', () => 
     expect(listing['notifiedAt']).toBe('2026-09-08T12:02:05.135Z');
   });
 
-  it('retombe sur l’héritée pour les fiches d’avant la bascule', () => {
-    // Leur état personnel n'a pas été recopié : sans ce repli, leur historique
-    // disparaîtrait de l'écran.
+  it('ne retombe plus sur l’héritée : c’était celle du compte principal', () => {
+    // La migration 0041 l'a recopiée dans son état ; les autres n'ont pas à la lire.
     const listing = vueMoi({
       id: 'fnaim:3',
       payload: '{}',
       notified_at: '2026-09-01T08:00:00.000Z',
     });
-    expect(listing['notifiedAt']).toBe('2026-09-01T08:00:00.000Z');
+    expect(listing['notifiedAt']).toBeNull();
   });
 
   it('rend null quand aucune des deux n’existe', () => {

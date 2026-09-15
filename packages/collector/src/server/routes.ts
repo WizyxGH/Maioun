@@ -168,15 +168,17 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
   return {
     id: String(row['id']),
     lifecycle: row['lifecycle'],
-    tracking: row['tracking'],
+    // Les champs personnels ne se lisent QUE sous leurs alias `user_*` : voir
+    // `readerColumns`.
+    tracking: row['user_tracking'] ?? 'new',
     firstSeenAt: row['first_seen_at'],
     lastSeenAt: row['last_seen_at'],
-    matchesCriteria: Number(row['matches_criteria']) === 1,
-    actionPriority: Number(row['action_priority'] ?? 0),
-    viewed: Number(row['viewed'] ?? 0) === 1,
+    matchesCriteria: Number(row['user_matches_criteria'] ?? 0) === 1,
+    actionPriority: Number(row['user_action_priority'] ?? 0),
+    viewed: Number(row['user_viewed'] ?? 0) === 1,
     // Fermée aux candidatures par sa source : archivée d'office, sans écriture.
-    archived: Number(row['archived'] ?? 0) === 1 || payload['applicationStatus'] === 'full',
-    favorite: Number(row['favorite'] ?? 0) === 1,
+    archived: Number(row['user_archived'] ?? 0) === 1 || payload['applicationStatus'] === 'full',
+    favorite: Number(row['user_favorite'] ?? 0) === 1,
     rented: Number(row['rented'] ?? 0) === 1,
     ...(partial ? { partial: true } : {}),
     /**
@@ -196,14 +198,11 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
      * les scénarios end-to-end passaient donc, sur un historique bien rempli.
      */
     /**
-     * LA DATE DU COMPTE D'ABORD, celle de la fiche à défaut.
-     *
-     * `user_notified_at` vient de `listing_user_state` ; `notified_at` est la
-     * colonne d'avant le multi-compte, que la migration a laissée en place et
-     * qui ne bouge plus. Elle sert encore de repli pour les fiches signalées
-     * avant la bascule, dont l'état personnel n'a pas été recopié.
+     * LA DATE DU COMPTE, et elle seule. La colonne `notified_at` de `listings`
+     * servait de repli : c'était celle du compte principal, montrée à tous.
+     * La migration 0041 l'a recopiée dans son état.
      */
-    notifiedAt: row['user_notified_at'] ?? row['notified_at'] ?? null,
+    notifiedAt: row['user_notified_at'] ?? null,
     goneNotifiedAt: row['gone_notified_at'] ?? null,
     remindedAt: row['reminded_at'] ?? null,
     ...payload,
@@ -269,16 +268,12 @@ function personalScoring(
  * jamais touchée n'a pas de ligne, et vaut donc « ni vue, ni archivée, ni
  * favorite, statut nouveau ».
  *
- * ATTENTION AUX HOMONYMES. Ce commentaire affirmait que les colonnes de même
- * nom sur `listings` étaient « masquées par celles-ci ». C'était faux, et
- * exactement l'inverse : deux colonnes du même nom dans un même résultat, et
- * c'est la PREMIÈRE qui l'emporte à la lecture — donc celle de `listings`,
- * figée au jour de la migration multi-compte.
- *
- * Toute annonce signalée depuis revenait avec `notified_at` à `null` : l'écran
- * des notifications ne garde que les fiches qui portent cette date, il
- * affichait donc un historique arrêté net, sans la moindre erreur pour le
- * signaler. Les alias personnels portent depuis un préfixe qui leur est propre.
+ * ATTENTION AUX HOMONYMES. `listings` a gardé ses colonnes d'avant le
+ * multi-compte (`viewed`, `favorite`, `tracking`, `matches_criteria`…). Deux
+ * colonnes du même nom dans un résultat : libsql rend la PREMIÈRE. Placé en
+ * tête, `listings.*` imposait donc l'état du compte principal à tous les
+ * lecteurs, visiteurs compris. D'où des colonnes explicites et un préfixe
+ * `user_` que `listings` ne porte pas.
  */
 /**
  * L'état PERSONNEL et le SCORE personnel, joints ensemble.
@@ -301,22 +296,58 @@ const USER_STATE_JOIN = `LEFT JOIN listing_user_state AS us
  LEFT JOIN listing_user_score AS sc
    ON sc.listing_id = listings.id AND sc.user_id = ?`;
 
-const USER_STATE_COLUMNS = `listings.*,
-  COALESCE(sc.matches_criteria, 0) AS matches_criteria,
-  COALESCE(sc.action_priority, 0) AS action_priority,
-  sc.match_score AS match_score,
-  sc.commute_minutes AS commute_minutes,
-  sc.scores AS user_scores,
-  sc.distances AS user_distances,
-  COALESCE(us.viewed, 0) AS viewed,
-  COALESCE(us.archived, 0) AS archived,
-  COALESCE(us.favorite, 0) AS favorite,
-  COALESCE(us.tracking, 'new') AS tracking,
-  COALESCE(us.notified, 0) AS user_notified,
+/** Une constante du code en littéral SQL. Jamais une saisie : celles-ci sont liées. */
+function sqlText(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/**
+ * Le catalogue d'un visiteur : des logements, en ligne, dans la commune par
+ * défaut. En littéraux plutôt qu'en paramètres, pour servir aussi en colonne
+ * sans décaler les arguments de la requête.
+ */
+const CATALOGUE_SQL = `listings.lifecycle != 'inactive'
+  AND listings.property_type NOT IN ('parking', 'commercial')
+  AND listings.city IN (${MVP_CRITERIA.cities.map(sqlText).join(', ')})`;
+
+/**
+ * Les champs personnels du lecteur, sous des noms que `listings` ne porte pas.
+ *
+ * Un visiteur n'a pas de score : « dans les critères » vaut pour lui
+ * « dans le catalogue », ce que sa liste montre par défaut. Sans quoi chaque
+ * fiche lui afficherait « hors critères ».
+ */
+function readerColumns(userId: string): string {
+  const matches =
+    userId === ANONYMOUS_USER ? `(${CATALOGUE_SQL})` : 'COALESCE(sc.matches_criteria, 0)';
+  return `${matches} AS user_matches_criteria,
+  COALESCE(sc.action_priority, 0) AS user_action_priority,
+  COALESCE(us.viewed, 0) AS user_viewed,
+  COALESCE(us.archived, 0) AS user_archived,
+  COALESCE(us.favorite, 0) AS user_favorite,
+  COALESCE(us.tracking, 'new') AS user_tracking,
   us.notified_at AS user_notified_at,
   us.gone_notified_at AS gone_notified_at,
   us.reminded_at AS reminded_at,
-  COALESCE(us.drafted, 0) AS drafted`;
+  sc.distances AS user_distances`;
+}
+
+/**
+ * Les colonnes d'une fiche : la fiche commune, puis le lecteur.
+ *
+ * @param payload la fiche entière par défaut ; les alertes passent la version
+ *   allégée (`LIST_PAYLOAD`).
+ */
+function listingColumns(userId: string, payload = 'listings.payload AS payload'): string {
+  return `listings.id AS id,
+  listings.lifecycle AS lifecycle,
+  listings.first_seen_at AS first_seen_at,
+  listings.last_seen_at AS last_seen_at,
+  listings.rented AS rented,
+  ${payload},
+  sc.scores AS user_scores,
+  ${readerColumns(userId)}`;
+}
 
 /**
  * Ce que la LISTE n'a pas besoin de transporter.
@@ -339,7 +370,7 @@ const USER_STATE_COLUMNS = `listings.*,
  * La FICHE, elle, recharge tout : `getListing` ne passe pas par ici.
  *
  * La liste principale lit désormais une version préparée à l'écriture
- * (`LIST_COLUMNS`) ; ce calcul reste celui des alertes, et son repli.
+ * (`listColumnsSql`) ; ce calcul reste celui des alertes, et son repli.
  */
 const LIST_PAYLOAD_EXPRESSION = `json_remove(listings.payload,
   '$.description',
@@ -353,32 +384,20 @@ const LIST_PAYLOAD = `${LIST_PAYLOAD_EXPRESSION} AS payload_light`;
  * Les colonnes de la LISTE : de quoi recopier la fiche préparée à l'écriture
  * (`core/list-payload.ts`) sans analyser ni réémettre son JSON.
  *
- * Mêmes valeurs que `rowToListing` lit sur `USER_STATE_COLUMNS`, où
- * `listings.*` passe en tête : à nom égal, la PREMIÈRE colonne l'emporte, si
- * bien que suivi, vue, archivage, favori, pertinence et priorité s'y lisent
- * sur `listings` et non sur les alias personnels. La liste lit les mêmes, sans
- * quoi elle contredirait la fiche qui la remplace à l'ouverture.
+ * Les champs personnels sont ceux de la fiche complète (`readerColumns`) : la
+ * liste ne doit pas contredire la fiche qui la remplace à l'ouverture.
  *
  * `list_hash` différent de `content_hash` : la fiche a été réécrite par un code
  * qui ignore les colonnes préparées. On rend alors de quoi refaire le calcul
  * d'avant — `payload_light` et le score brut —, et seulement dans ce cas.
  */
-const LIST_COLUMNS = `listings.id AS id,
+function listColumnsSql(userId: string): string {
+  return `listings.id AS id,
   listings.lifecycle AS lifecycle,
-  listings.tracking AS tracking,
   listings.first_seen_at AS first_seen_at,
   listings.last_seen_at AS last_seen_at,
-  listings.matches_criteria AS matches_criteria,
-  listings.action_priority AS action_priority,
-  listings.viewed AS viewed,
-  listings.archived AS archived,
-  listings.favorite AS favorite,
   listings.rented AS rented,
-  listings.notified_at AS notified_at,
-  us.notified_at AS user_notified_at,
-  us.gone_notified_at AS gone_notified_at,
-  us.reminded_at AS reminded_at,
-  sc.distances AS user_distances,
+  ${readerColumns(userId)},
   sc.list_hash IS sc.content_hash AS score_ready,
   CASE WHEN listings.list_hash IS listings.content_hash THEN listings.list_payload END AS list_payload,
   CASE WHEN listings.list_hash IS listings.content_hash THEN listings.list_scores END AS list_scores,
@@ -388,6 +407,7 @@ const LIST_COLUMNS = `listings.id AS id,
   CASE WHEN sc.list_hash IS sc.content_hash THEN sc.list_scores END AS own_list_scores,
   CASE WHEN sc.list_hash IS NOT sc.content_hash OR listings.list_hash IS NOT listings.content_hash
     THEN sc.scores END AS user_scores`;
+}
 
 /** Encode une valeur de colonne ; `null` pour une colonne absente. */
 function jsonValue(value: unknown): string {
@@ -408,22 +428,22 @@ export function listItemJson(row: Record<string, unknown>): string {
     return JSON.stringify(rowToListing(row));
   }
   const body = stored.slice(1, -1);
-  const archived = Number(row['archived'] ?? 0) === 1 || Number(row['application_full']) === 1;
+  const archived = Number(row['user_archived'] ?? 0) === 1 || Number(row['application_full']) === 1;
   const scores = listScoresJson(row);
   return (
     `{"id":${JSON.stringify(String(row['id']))}` +
     `,"lifecycle":${jsonValue(row['lifecycle'])}` +
-    `,"tracking":${jsonValue(row['tracking'])}` +
+    `,"tracking":${jsonValue(row['user_tracking'] ?? 'new')}` +
     `,"firstSeenAt":${jsonValue(row['first_seen_at'])}` +
     `,"lastSeenAt":${jsonValue(row['last_seen_at'])}` +
-    `,"matchesCriteria":${Number(row['matches_criteria']) === 1}` +
-    `,"actionPriority":${jsonValue(Number(row['action_priority'] ?? 0))}` +
-    `,"viewed":${Number(row['viewed'] ?? 0) === 1}` +
+    `,"matchesCriteria":${Number(row['user_matches_criteria'] ?? 0) === 1}` +
+    `,"actionPriority":${jsonValue(Number(row['user_action_priority'] ?? 0))}` +
+    `,"viewed":${Number(row['user_viewed'] ?? 0) === 1}` +
     `,"archived":${archived}` +
-    `,"favorite":${Number(row['favorite'] ?? 0) === 1}` +
+    `,"favorite":${Number(row['user_favorite'] ?? 0) === 1}` +
     `,"rented":${Number(row['rented'] ?? 0) === 1}` +
     `,"partial":true` +
-    `,"notifiedAt":${jsonValue(row['user_notified_at'] ?? row['notified_at'])}` +
+    `,"notifiedAt":${jsonValue(row['user_notified_at'])}` +
     `,"goneNotifiedAt":${jsonValue(row['gone_notified_at'])}` +
     `,"remindedAt":${jsonValue(row['reminded_at'])}` +
     (body === '' ? '' : `,${body}`) +
@@ -549,13 +569,8 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
   const filterArgs: Array<string | number> = [];
 
   if (!includeAll && anonymous) {
-    // Le catalogue : des logements, en ligne, dans la commune par défaut.
-    conditions.push(
-      "lifecycle != 'inactive'",
-      "property_type NOT IN ('parking', 'commercial')",
-      `city IN (${MVP_CRITERIA.cities.map(() => '?').join(',')})`,
-    );
-    filterArgs.push(...MVP_CRITERIA.cities);
+    // Même prédicat que son « dans les critères » : la liste et la fiche concordent.
+    conditions.push(`(${CATALOGUE_SQL})`);
   } else if (!includeAll) {
     conditions.push('COALESCE(sc.matches_criteria, 0) = 1', "lifecycle != 'inactive'");
 
@@ -683,7 +698,7 @@ async function listListingsJson(
   total: number,
 ): Promise<string> {
   const result = await db.execute({
-    sql: `SELECT ${LIST_COLUMNS} FROM listings ${USER_STATE_JOIN} ${query.filter}
+    sql: `SELECT ${listColumnsSql(userId)} FROM listings ${USER_STATE_JOIN} ${query.filter}
           ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`,
     args: [userId, userId, ...query.filterArgs, query.limit, query.offset],
   });
@@ -693,7 +708,7 @@ async function listListingsJson(
 
 async function getListing(db: Client, id: string, userId: string): Promise<unknown | null> {
   const result = await db.execute({
-    sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN} WHERE listings.id = ?`,
+    sql: `SELECT ${listingColumns(userId)} FROM listings ${USER_STATE_JOIN} WHERE listings.id = ?`,
     args: [userId, userId, id],
   });
   const row = result.rows[0];
@@ -787,7 +802,7 @@ async function listAgencies(db: Client): Promise<unknown> {
 /** Une agence et ce qu'elle propose en ce moment. */
 async function getAgency(db: Client, name: string, userId: string): Promise<unknown> {
   const listings = await db.execute({
-    sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN}
+    sql: `SELECT ${listingColumns(userId)} FROM listings ${USER_STATE_JOIN}
           WHERE listings.id IN (
             SELECT group_id FROM occurrences WHERE contact_agency = ?
           )
@@ -837,7 +852,7 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
  */
 async function listAlerts(db: Client, userId: string): Promise<unknown> {
   const result = await db.execute({
-    sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN}
+    sql: `SELECT ${listingColumns(userId, LIST_PAYLOAD)} FROM listings ${USER_STATE_JOIN}
           WHERE us.notified_at IS NOT NULL
              OR us.gone_notified_at IS NOT NULL
              OR us.reminded_at IS NOT NULL
@@ -1101,39 +1116,14 @@ async function updateListing(
   } | null;
   if (body === null) return jsonError(400, 'Corps de requête invalide');
 
-  const sets: string[] = [];
-  const args: Array<string | number> = [];
-
-  if (body.tracking !== undefined) {
-    if (!TRACKING_STATUSES.has(body.tracking)) return jsonError(400, 'Statut de suivi invalide');
-    sets.push('tracking = ?');
-    args.push(body.tracking);
+  if (body.tracking !== undefined && !TRACKING_STATUSES.has(body.tracking)) {
+    return jsonError(400, 'Statut de suivi invalide');
   }
-  if (typeof body.viewed === 'boolean') {
-    sets.push('viewed = ?');
-    args.push(body.viewed ? 1 : 0);
-  }
-  if (typeof body.archived === 'boolean') {
-    sets.push('archived = ?');
-    args.push(body.archived ? 1 : 0);
-  }
-  if (typeof body.favorite === 'boolean') {
-    sets.push('favorite = ?');
-    args.push(body.favorite ? 1 : 0);
-  }
+  const patch = userStatePatch(body);
+  if (Object.keys(patch).length === 0) return jsonError(400, 'Aucun champ à mettre à jour');
 
-  if (sets.length === 0) return jsonError(400, 'Aucun champ à mettre à jour');
-
-  sets.push('updated_at = ?');
-  args.push(new Date().toISOString(), id);
-
-  const result = await db.execute({
-    sql: `UPDATE listings SET ${sets.join(', ')} WHERE id = ?`,
-    args,
-  });
-
-  if (result.rowsAffected === 0) return jsonError(404, 'Annonce introuvable');
-  await writeUserState(db, id, userId, userStatePatch(body));
+  const written = await writeUserState(db, id, userId, patch);
+  if (written === 0) return jsonError(404, 'Annonce introuvable');
   return { id, ...body };
 }
 
@@ -1155,34 +1145,36 @@ function userStatePatch(body: {
 /**
  * Consigne une décision PERSONNELLE : favori, archivage, statut, consultation.
  *
- * C'est ici que vit désormais la vérité, `listing_user_state` étant lu par les
- * requêtes de liste et de fiche. Les colonnes de même nom sur `listings` sont
- * encore écrites juste au-dessus — elles servent à la COLLECTE, qui ne connaît
- * qu'un utilisateur (notifications déjà envoyées, brouillons écrits) — mais
- * elles ne sont plus ce que l'API renvoie.
+ * `listing_user_state` seulement. Les colonnes homonymes de `listings` étaient
+ * écrites aussi, par n'importe quel compte : elles devenaient l'état de tous.
+ *
+ * @returns 0 quand l'annonce n'existe pas — rien n'est alors écrit.
  */
 async function writeUserState(
   db: Client,
   listingId: string,
   userId: string,
   patch: Readonly<Record<string, string | number>>,
-): Promise<void> {
+): Promise<number> {
   const columns = Object.keys(patch);
-  if (columns.length === 0) return;
-  await db.execute({
+  if (columns.length === 0) return 0;
+  // `INSERT … SELECT` sur la fiche : une annonce inconnue n'insère rien, sans
+  // dépendre de l'application des clés étrangères.
+  const result = await db.execute({
     sql: `INSERT INTO listing_user_state (user_id, listing_id, ${columns.join(', ')}, updated_at)
-          VALUES (?, ?, ${columns.map(() => '?').join(', ')}, ?)
+          SELECT ?, id, ${columns.map(() => '?').join(', ')}, ? FROM listings WHERE id = ?
           ON CONFLICT(user_id, listing_id) DO UPDATE SET ${columns
             .map((column) => `${column} = excluded.${column}`)
             .concat('updated_at = excluded.updated_at')
             .join(', ')}`,
     args: [
       userId,
-      listingId,
       ...columns.map((column) => patch[column] ?? null),
       new Date().toISOString(),
+      listingId,
     ],
   });
+  return result.rowsAffected;
 }
 
 /**
@@ -1243,10 +1235,6 @@ async function recordContact(
     ],
   });
 
-  await db.execute({
-    sql: 'UPDATE listings SET tracking = ?, updated_at = ? WHERE id = ?',
-    args: ['contacted', now, id],
-  });
   await writeUserState(db, id, userId, { tracking: 'contacted' });
 
   return { id, followUpIndex, sentAt: now, documents };
