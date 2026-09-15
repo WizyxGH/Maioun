@@ -156,7 +156,7 @@ describe('les autres familles d’alertes', () => {
   it('dit qu’un favori a disparu, et mène à sa fiche', () => {
     const content = goneContentFor(suivi, 'https://exemple.invalid/');
 
-    expect(content.title).toMatch(/plus disponible/i);
+    expect(content.title).toMatch(/^💔 .*plus disponible/i);
     expect(content.body).toContain('Studio Libération');
     expect(content.url).toContain('/listing/l9');
     // Une étiquette DISTINCTE de l'alerte « nouvelle annonce » : sinon la

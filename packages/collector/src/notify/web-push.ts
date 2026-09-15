@@ -139,10 +139,13 @@ export function pushContentsFor(
  * Le ton l'annonce comme un fait, pas comme une alerte : il n'y a rien à faire
  * dans la minute, seulement une case à rayer.
  */
+/** Titre partagé par la notification et l'e-mail : le cœur brisé se voit d'un coup d'œil. */
+export const FAVORITE_GONE_TITLE = '💔 Un favori n’est plus disponible';
+
 export function goneContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
   const location = locationLabel(listing);
   return {
-    title: 'Un favori n’est plus disponible',
+    title: FAVORITE_GONE_TITLE,
     body: [listing.title ?? 'Une annonce suivie', location !== '' ? `📍 ${location}` : null]
       .filter((line): line is string => line !== null)
       .join('\n'),
