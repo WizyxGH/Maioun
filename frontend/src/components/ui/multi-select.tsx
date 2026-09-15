@@ -43,8 +43,16 @@ export interface MultiSelectProps {
   readonly options: readonly MultiSelectOption[];
   readonly selected: ReadonlySet<string>;
   readonly onToggle: (value: string) => void;
-  /** Remet la sélection à zéro. Absent : pas de bouton « tout ». */
+  /**
+   * Remet la sélection à zéro — une sélection vide vaut « tout ». Présent, une
+   * ligne « tout » (`emptyLabel`) s'affiche en tête de liste.
+   */
   readonly onClear?: () => void;
+  /**
+   * Coche (`true`) ou décoche plusieurs valeurs d'un geste. Présent, une recherche
+   * propose d'agir sur tous les résultats affichés.
+   */
+  readonly onSelectMany?: (values: readonly string[], select: boolean) => void;
   /** Ajoute un champ de recherche. À réserver aux longues listes. */
   readonly searchable?: boolean;
   /** Ce qu'affiche le déclencheur quand rien n'est sélectionné. */
@@ -64,6 +72,7 @@ export function MultiSelect({
   selected,
   onToggle,
   onClear,
+  onSelectMany,
   searchable = false,
   emptyLabel,
   summarize,
@@ -149,6 +158,42 @@ export function MultiSelect({
             />
           )}
 
+          {/* « TOUT », EN TÊTE ET NON EN BAS : une sélection vide vaut tout, et
+            rien ne le disait — on cochait un quartier en croyant en retirer un.
+            À moitié cochée dès qu'une sélection restreint la liste. */}
+          {onClear !== undefined && needle === '' && (
+            <label className="border-border mb-1 flex cursor-pointer items-center gap-2 rounded-md border-b px-2 py-1.5 text-sm font-medium hover:bg-muted">
+              <input
+                ref={(input) => {
+                  if (input !== null) input.indeterminate = count > 0;
+                }}
+                type="checkbox"
+                checked={count === 0}
+                onChange={onClear}
+                className="size-4 shrink-0"
+              />
+              <span className="min-w-0 flex-1 truncate">{emptyLabel}</span>
+            </label>
+          )}
+
+          {/* UNE RECHERCHE SE COCHE EN BLOC : « nice nord » donne quatre
+            quartiers, un geste les prend tous — ou les retire tous. */}
+          {onSelectMany !== undefined && needle !== '' && shown.length > 1 && (
+            <button
+              type="button"
+              onClick={() =>
+                onSelectMany(
+                  shown.map((option) => option.value),
+                  !shown.every((option) => selected.has(option.value)),
+                )
+              }
+              className="text-primary hover:bg-muted mb-1 w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-sm font-medium"
+            >
+              {shown.every((option) => selected.has(option.value)) ? 'Décocher' : 'Cocher'} les{' '}
+              {shown.length} résultats
+            </button>
+          )}
+
           <ul className="flex max-h-60 flex-col overflow-y-auto">
             {shown.length === 0 && (
               <li className="text-muted-foreground px-2 py-2 text-sm">Aucun résultat.</li>
@@ -173,16 +218,6 @@ export function MultiSelect({
               );
             })}
           </ul>
-
-          {onClear !== undefined && count > 0 && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-muted-foreground hover:text-foreground border-border mt-1 w-full cursor-pointer border-t px-2 py-1.5 text-left text-sm"
-            >
-              Tout désélectionner
-            </button>
-          )}
         </div>
       )}
     </div>

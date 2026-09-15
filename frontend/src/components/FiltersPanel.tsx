@@ -334,6 +334,14 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
                 });
               }}
               onClear={() => set({ districts: [] })}
+              onSelectMany={(slugs, select) => {
+                const current = new Set(filters.districts ?? []);
+                for (const slug of slugs) {
+                  if (select) current.add(slug);
+                  else current.delete(slug);
+                }
+                set({ districts: [...current] });
+              }}
             />
             {/* L'INTERRUPTEUR N'APPARAÎT QU'AVEC DES QUARTIERS COCHÉS : sans
               eux, il n'y a rien à inclure ni à exclure. Coché par défaut — les
