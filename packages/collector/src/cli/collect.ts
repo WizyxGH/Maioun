@@ -51,6 +51,7 @@ import type { Scraper } from '@maioun/shared';
 import type { NearMatch, NotifiableListing, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
+  FAVORITE_GONE_TITLE,
   goneContentFor,
   loadVapidConfig,
   nearMatchContentFor,
@@ -335,7 +336,7 @@ async function notifyOne(deps: {
   if (preferences.favoriteGone) {
     const gone = await repository.goneFavorites(userId);
     const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
-    const mailed = await alsoByEmail(gone, 'Un favori n’est plus disponible');
+    const mailed = await alsoByEmail(gone, FAVORITE_GONE_TITLE);
     await repository.markGoneNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
