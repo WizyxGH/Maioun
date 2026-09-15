@@ -281,9 +281,11 @@ export function HomePanel({
       <section>
         <h2 className="mb-2 text-lg font-bold">Votre recherche</h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, « à vérifier »
+            compris : 60 ici pour 74 résultats là-bas ne se retrouvait pas. */}
           <StatTile
             label="dans vos critères"
-            value={active.length}
+            value={listings.length}
             Icon={Search}
             onClick={onOpenSearch}
           />
