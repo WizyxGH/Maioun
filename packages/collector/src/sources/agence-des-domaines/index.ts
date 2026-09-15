@@ -14,6 +14,9 @@ export const agenceDesDomainesScraper = makeHektorScraper({
   id: 'agence-des-domaines',
   name: 'Agence des Domaines',
   domain: 'agencedesdomaines.com',
+  agencyContact: {
+    address: { street: '57 avenue de la Gare', postalCode: '06800', city: 'Cagnes-sur-Mer' },
+  },
   logo: 'https://www.agencedesdomaines.com/images/favicon.png',
   listUrls: ['https://www.agencedesdomaines.com/a-louer/1'],
 });

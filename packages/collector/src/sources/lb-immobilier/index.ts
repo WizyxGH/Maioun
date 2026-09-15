@@ -13,6 +13,7 @@ export const lbImmobilierScraper = makeHektorScraper({
   id: 'lb-immobilier',
   name: 'L&B Immobilier',
   domain: 'lb-immobilier.fr',
+  agencyContact: { address: { street: '4 avenue de Verdun', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.lb-immobilier.fr/images/favicon.png',
   listUrls: ['https://www.lb-immobilier.fr/location/1'],
 });

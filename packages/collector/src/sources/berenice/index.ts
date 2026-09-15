@@ -14,6 +14,7 @@ export const bereniceScraper = makeHektorScraper({
   id: 'berenice',
   name: 'Bérénice Immobilier',
   domain: 'berenice-immobilier.com',
+  agencyContact: { address: { street: '4 boulevard Gambetta', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.berenice-immobilier.com/images/favicon.png',
   listUrls: ['https://www.berenice-immobilier.com/a-louer/1'],
 });

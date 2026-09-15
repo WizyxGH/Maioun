@@ -22,6 +22,7 @@ export const ashleyParkerScraper = makeApimoScraper({
   id: 'ashley-parker',
   name: 'Ashley & Parker',
   domain: 'ashley-parker.fr',
+  agencyContact: { address: { street: '39 rue de France', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://ashley-parker.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

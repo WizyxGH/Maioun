@@ -27,28 +27,109 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ALERT_SENDER_LABELS } from '@maioun/shared';
-import { fetchAlertAddress, rotateAlertAddress, type AlertForwarding } from '../api/client.js';
-import { Button } from '@/components/ui/button.js';
+import {
+  fetchAlertAddress,
+  fetchFilters,
+  rotateAlertAddress,
+  type AlertForwarding,
+} from '../api/client.js';
+import type { FilterConfig } from '../types.js';
+import { formatAge } from '../format.js';
+import { portalMissesCity, portalSearchUrl, type PortalId } from '../portal-search.js';
+import { Button, ButtonLink } from '@/components/ui/button.js';
+import { Card } from '@/components/ui/card.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible.js';
-import { Check, Copy, Mail } from './icons.js';
+import { Check, Copy, ExternalLink, Mail } from './icons.js';
+
+interface Portal {
+  readonly id: PortalId;
+  readonly label: string;
+  /** Le libellé du bouton chez eux, pour qu'on le reconnaisse du premier coup. */
+  readonly action: string;
+}
+
+const PORTALS: readonly Portal[] = [
+  { id: 'leboncoin', label: 'Leboncoin', action: 'Sauvegarder la recherche' },
+  { id: 'seloger', label: 'SeLoger', action: 'Créer une alerte' },
+  { id: 'bienici', label: 'Bien’ici', action: 'Créer une alerte' },
+];
 
 /**
- * Deux gestes, et rien autour.
- *
- * L'écran expliquait POURQUOI les portails imposent l'e-mail, POURQUOI on ne
- * demande pas de mot de passe, et ce qu'il faut faire — trois discours pour une
- * marche à suivre qui tient en deux lignes. Le reste a été coupé : qui ouvre
- * cet écran veut brancher ses alertes, pas lire un exposé.
+ * Un portail, trois gestes : ouvrir sa recherche déjà filtrée, y créer
+ * l'alerte, lui donner l'adresse. Refaire ses critères chez chacun était la
+ * vraie longueur de la mise en place.
  */
-function Steps(): React.JSX.Element {
+function PortalCard({
+  portal,
+  criteria,
+  copied,
+  onCopy,
+}: {
+  readonly portal: Portal;
+  readonly criteria: FilterConfig | null;
+  readonly copied: boolean;
+  readonly onCopy: () => void;
+}): React.JSX.Element {
+  const url = portalSearchUrl(portal.id, criteria ?? { cities: [], maxPrice: 0, minArea: 0 });
+  const missesCity = criteria !== null && portalMissesCity(portal.id, criteria);
+  return (
+    <Card className="flex flex-col gap-2">
+      <h3 className="font-semibold">{portal.label}</h3>
+      <ol className="flex list-decimal flex-col gap-1 pl-5 text-[0.88rem]">
+        <li>
+          Ouvrez la recherche : vos critères y sont déjà
+          {missesCity ? ' — vérifiez la ville, elle n’a pas pu être posée' : ''}.
+        </li>
+        <li>Cliquez « {portal.action} ».</li>
+        <li>Donnez l’adresse copiée comme e-mail de réception.</li>
+      </ol>
+      <div className="flex flex-wrap gap-2">
+        <ButtonLink href={url} target="_blank" rel="noopener noreferrer" size="sm">
+          <ExternalLink aria-hidden="true" className="size-4" />
+          Ouvrir {portal.label}
+        </ButtonLink>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-label={`Copier l’adresse pour ${portal.label}`}
+          onClick={onCopy}
+        >
+          {copied ? (
+            <Check aria-hidden="true" className="size-4" />
+          ) : (
+            <Copy aria-hidden="true" className="size-4" />
+          )}
+          {copied ? 'Copiée' : 'Copier l’adresse'}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function Steps({
+  criteria,
+  copied,
+  onCopy,
+}: {
+  readonly criteria: FilterConfig | null;
+  readonly copied: string | null;
+  readonly onCopy: (from: string) => void;
+}): React.JSX.Element {
   return (
     <>
-      <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-[0.9rem]">
-        <li>Créez une alerte sur {ALERT_SENDER_LABELS.join(', ')}.</li>
-        <li>Donnez-lui l’adresse ci-dessus comme adresse de réception.</li>
-      </ol>
+      <div className="mt-4 flex flex-col gap-3">
+        {PORTALS.map((portal) => (
+          <PortalCard
+            key={portal.id}
+            portal={portal}
+            criteria={criteria}
+            copied={copied === portal.id}
+            onCopy={() => onCopy(portal.id)}
+          />
+        ))}
+      </div>
 
       <Collapsible className="text-muted-foreground mt-3 text-[0.85rem]">
         <CollapsibleTrigger>Vos alertes existent déjà ?</CollapsibleTrigger>
@@ -92,11 +173,11 @@ function Reception({ state }: { state: AlertForwarding }): React.JSX.Element | n
       </p>
     );
   }
-  const when = new Date(state.lastReceivedAt);
   return (
     <p className="mt-2 text-[0.82rem]">
       <Check aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px]" />
-      Dernière alerte reçue le {when.toLocaleDateString('fr-FR')} — {state.receivedCount} annonce
+      Dernière alerte reçue {formatAge(state.lastReceivedAt, Date.now())} — {state.receivedCount}{' '}
+      annonce
       {state.receivedCount > 1 ? 's' : ''} apportée{state.receivedCount > 1 ? 's' : ''} en tout.
     </p>
   );
@@ -104,15 +185,22 @@ function Reception({ state }: { state: AlertForwarding }): React.JSX.Element | n
 
 export function ForwardingSection(): React.JSX.Element {
   const [state, setState] = useState<AlertForwarding | null | undefined>(undefined);
-  const [copied, setCopied] = useState(false);
+  /** D'où vient la dernière copie : l'accusé s'affiche sur le bouton cliqué. */
+  const [copied, setCopied] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [rotating, setRotating] = useState(false);
+  const [criteria, setCriteria] = useState<FilterConfig | null>(null);
   const address = state?.address ?? null;
 
   useEffect(() => {
     void fetchAlertAddress()
       .then(setState)
       .catch(() => setState(null));
+    // Sans critères, les liens ouvrent une recherche vierge : moins utile,
+    // jamais cassé. Rien à signaler.
+    void fetchFilters()
+      .then(setCriteria)
+      .catch(() => undefined);
   }, []);
 
   const rotate = (): void => {
@@ -128,13 +216,13 @@ export function ForwardingSection(): React.JSX.Element {
       });
   };
 
-  const copy = (): void => {
+  const copy = (from: string): void => {
     if (address === null) return;
     void navigator.clipboard
       ?.writeText(address)
       .then(() => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
+        setCopied(from);
+        window.setTimeout(() => setCopied(null), 2000);
       })
       .catch(() => {
         /* Presse-papiers refusé : l'adresse reste sélectionnable à la main. */
@@ -169,13 +257,13 @@ export function ForwardingSection(): React.JSX.Element {
             <code className="min-w-0 flex-1 select-all font-mono text-[0.85rem] break-all">
               {address}
             </code>
-            <Button type="button" variant="outline" size="sm" onClick={copy}>
-              {copied ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => copy('address')}>
+              {copied === 'address' ? (
                 <Check aria-hidden="true" className="size-4" />
               ) : (
                 <Copy aria-hidden="true" className="size-4" />
               )}
-              {copied ? 'Copiée' : 'Copier'}
+              {copied === 'address' ? 'Copiée' : 'Copier'}
             </Button>
           </div>
           <Reception state={state} />
@@ -194,7 +282,7 @@ export function ForwardingSection(): React.JSX.Element {
             Changer d’adresse
           </Button>
 
-          {!state.ownMailbox && <Steps />}
+          {!state.ownMailbox && <Steps criteria={criteria} copied={copied} onCopy={copy} />}
 
           <ConfirmDialog
             open={confirming}

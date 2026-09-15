@@ -1,7 +1,7 @@
 /**
  * Vue carte des annonces (§36, §39).
  *
- * Leaflet + tuiles OpenStreetMap (gratuit, attribution obligatoire). Chaque
+ * Leaflet + tuiles OpenStreetMap, ou vue satellite Esri (attribution obligatoire). Chaque
  * annonce géolocalisée est une pastille de prix ; un clic ouvre un aperçu avec
  * accès à la fiche. Les annonces sans coordonnées (source muette et adresse
  * non géocodée) sont comptées honnêtement plutôt que placées au hasard (§17).
@@ -10,7 +10,7 @@
  * que si la vue carte est ouverte (§65).
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { PRIORITY_HOT } from '@maioun/shared';
@@ -19,6 +19,46 @@ import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../f
 
 /** Centre par défaut : Nice. Utilisé quand aucune annonce n'est géolocalisée. */
 const NICE_CENTER: [number, number] = [43.7009, 7.2683];
+
+export type MapStyle = 'plan' | 'satellite';
+
+/** Choix de fond mémorisé sur cet appareil : il suit la personne, pas le compte. */
+const MAP_STYLE_KEY = 'maioun.mapStyle';
+
+export function readMapStyle(): MapStyle {
+  try {
+    return localStorage.getItem(MAP_STYLE_KEY) === 'satellite' ? 'satellite' : 'plan';
+  } catch {
+    // Stockage bloqué (navigation privée) : le plan par défaut.
+    return 'plan';
+  }
+}
+
+function writeMapStyle(style: MapStyle): void {
+  try {
+    localStorage.setItem(MAP_STYLE_KEY, style);
+  } catch {
+    // Sans stockage, le choix vaut pour la visite en cours seulement.
+  }
+}
+
+/** Crée le fond de carte demandé. La vue satellite montre la rue, la verdure, la mer. */
+function tileLayer(style: MapStyle): L.TileLayer {
+  if (style === 'satellite') {
+    return L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        attribution:
+          'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+      },
+    );
+  }
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  });
+}
 
 interface MapViewProps {
   readonly listings: readonly ListingView[];
@@ -98,23 +138,28 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const tilesRef = useRef<L.TileLayer | null>(null);
+  const [mapStyle, setMapStyle] = useState<MapStyle>(readMapStyle);
   // `onOpen` change à chaque rendu : une ref évite de reconstruire les marqueurs.
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
 
-  const located = listings.filter(
-    (listing) =>
-      typeof listing.latitude?.value === 'number' && typeof listing.longitude?.value === 'number',
+  // Mémorisé : changer de fond re-rend le composant, et des marqueurs
+  // reconstruits recadreraient la carte là où l'on venait de zoomer.
+  const located = useMemo(
+    () =>
+      listings.filter(
+        (listing) =>
+          typeof listing.latitude?.value === 'number' &&
+          typeof listing.longitude?.value === 'number',
+      ),
+    [listings],
   );
 
   // Initialisation de la carte, une seule fois.
   useEffect(() => {
     if (containerRef.current === null || mapRef.current !== null) return;
     const map = L.map(containerRef.current, { scrollWheelZoom: true }).setView(NICE_CENTER, 13);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
     mapRef.current = map;
     layerRef.current = L.layerGroup().addTo(map);
 
@@ -137,8 +182,20 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      tilesRef.current = null;
     };
   }, []);
+
+  // Le fond se remplace sous les marqueurs, sans toucher ni à eux ni au cadrage.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null) return;
+    tilesRef.current?.remove();
+    const tiles = tileLayer(mapStyle).addTo(map);
+    tiles.bringToBack();
+    tilesRef.current = tiles;
+    writeMapStyle(mapStyle);
+  }, [mapStyle]);
 
   // Marqueurs, reconstruits quand la liste change.
   useEffect(() => {
@@ -211,7 +268,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   }, [located]);
 
   return (
-    <div>
+    <div className="relative">
       {/* LA HAUTEUR SE CALCULE, elle n'est plus devinée.
         `65vh` obligeait à faire défiler la page pour voir le bas de la carte
         sur un téléphone : l'en-tête, la barre de filtres et la barre de
@@ -238,6 +295,34 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
         data-testid="map-view"
         className="border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-[calc(100dvh-7rem)]"
       />
+      {/* En haut à droite : le coin libre, les boutons de zoom sont à gauche.
+        Au-dessus des panneaux de Leaflet, qui montent jusqu'à z-index 1000. */}
+      <div
+        role="group"
+        aria-label="Fond de carte"
+        className="absolute top-2.5 right-2.5 z-[1000] flex overflow-hidden rounded-lg border border-border bg-card text-[0.8rem] font-medium shadow-md"
+      >
+        {(
+          [
+            ['plan', 'Plan'],
+            ['satellite', 'Satellite'],
+          ] as const
+        ).map(([style, label]) => (
+          <button
+            key={style}
+            type="button"
+            aria-pressed={mapStyle === style}
+            onClick={() => setMapStyle(style)}
+            className={`px-3 py-1.5 ${
+              mapStyle === style
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {/* §17 : les annonces non localisables sont dites, pas placées au hasard. */}
       {located.length < listings.length && <LocatedNote located={located} listings={listings} />}
     </div>

@@ -15,6 +15,9 @@ export const immobilier2niceScraper = makeApimoScraper({
   id: 'immobilier2nice',
   name: 'Immobilier 2 Nice',
   domain: 'immobilier2nice.com',
+  agencyContact: {
+    address: { street: '1 boulevard Auguste Raynaud', postalCode: '06100', city: 'Nice' },
+  },
   sitemapUrl: 'https://immobilier2nice.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

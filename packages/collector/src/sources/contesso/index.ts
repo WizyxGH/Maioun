@@ -13,6 +13,9 @@ export const contessoScraper = makeHektorScraper({
   id: 'contesso',
   name: 'Orpi Agence Contesso',
   domain: 'agence-contesso.com',
+  agencyContact: {
+    address: { street: '5 avenue des Cigales', postalCode: '06510', city: 'Carros' },
+  },
   logo: 'https://www.agence-contesso.com/images/favicon.png',
   listUrls: ['https://www.agence-contesso.com/location/1'],
 });

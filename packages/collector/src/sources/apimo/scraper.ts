@@ -42,6 +42,8 @@ export interface ApimoConfig {
    * operator`). BEP Logement double son site public d'un bulletin abonnés.
    */
   readonly operator?: string;
+  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
+  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
@@ -60,6 +62,7 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     }),
     enabled: true,
     ...(config.operator !== undefined ? { operator: config.operator } : {}),
+    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
     allowedPaths: ['/sitemap*.xml', '/fr/propriete/location*'],
     notes:
       `Plateforme Apimo/Cello (adaptateur générique, §47). robots.txt permissif ` +

@@ -743,6 +743,52 @@ export interface DistrictOption {
   readonly count: number;
 }
 
+export interface PriceHistogram {
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+  readonly buckets: readonly {
+    readonly from: number;
+    readonly to: number;
+    readonly count: number;
+  }[];
+}
+
+/**
+ * Répartition des loyers de l'offre en ligne, pour dessiner des barres au-dessus
+ * du curseur de budget. Un échec rend `null` : le curseur reste utilisable
+ * sans elles.
+ */
+export async function fetchPriceHistogram(): Promise<PriceHistogram | null> {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
+    const [min, max, step] = [200, 2500, 50];
+    const counts = new Array<number>(Math.ceil((max - min) / step)).fill(0);
+    for (const listing of MOCK_LISTINGS) {
+      const price = listing.price.value;
+      if (price === null || listing.lifecycle === 'inactive' || listing.rented === true) continue;
+      const index = Math.min(counts.length - 1, Math.max(0, Math.floor((price - min) / step)));
+      counts[index] = (counts[index] ?? 0) + 1;
+    }
+    return {
+      min,
+      max,
+      step,
+      buckets: counts.map((count, index) => ({
+        from: min + index * step,
+        to: min + (index + 1) * step,
+        count,
+      })),
+    };
+  }
+  if (API_URL === '') return null;
+  try {
+    return await request<PriceHistogram>('/api/price-histogram');
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();
@@ -1176,4 +1222,87 @@ export async function saveSourceAccess(
 export async function clearSourceAccess(sourceId: string): Promise<void> {
   if (DEMO || API_URL === '') return;
   await request(`/api/credentials/${encodeURIComponent(sourceId)}`, { method: 'DELETE' });
+}
+
+/**
+ * Sources dont Maïoun sait envoyer le formulaire de contact, depuis le Worker.
+ *
+ * Partners Immo et Méditerranée Immo n'y sont pas : leurs formulaires sont
+ * gardés par un reCAPTCHA. Le Worker tient sa propre liste et refuse le reste.
+ */
+export const AGENCY_FORM_SOURCES: readonly string[] = ['orpi'];
+
+/** `true` si l'envoi direct est possible pour cette source sur cet accès. */
+export function agencyFormAvailable(sourceId: string | undefined): boolean {
+  return (
+    !DEMO && API_URL !== '' && sourceId !== undefined && AGENCY_FORM_SOURCES.includes(sourceId)
+  );
+}
+
+export interface AgencyFormConsent {
+  readonly name: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly ticked: boolean;
+}
+
+export type AgencyFormResult =
+  | {
+      readonly status: 'preview';
+      readonly preview: {
+        readonly sourceName: string;
+        readonly host: string;
+        readonly consents: readonly AgencyFormConsent[];
+      };
+    }
+  | { readonly status: 'sent' | 'uncertain' | 'unavailable'; readonly message: string }
+  | { readonly status: 'rejected'; readonly message: string; readonly errors: readonly string[] }
+  /** Refus du Worker lui-même : session, quota, champs. */
+  | { readonly status: 'error'; readonly message: string };
+
+/**
+ * Lit (sans `confirm`) ou envoie (avec) le formulaire de l'agence.
+ *
+ * Ne lève pas : chaque issue revient avec un message à afficher tel quel.
+ */
+export async function submitAgencyForm(payload: {
+  readonly listingId: string;
+  readonly sourceUrl: string;
+  readonly fields: {
+    readonly firstName: string;
+    readonly lastName: string;
+    readonly email: string;
+    readonly phone: string;
+    readonly message: string;
+  };
+  readonly confirm: boolean;
+  readonly acceptedConsents: readonly string[];
+}): Promise<AgencyFormResult> {
+  if (DEMO || API_URL === '') {
+    return { status: 'error', message: 'Envoi direct indisponible sur cette installation.' };
+  }
+  const response = await apiFetch(`${API_URL}/api/contact/submit`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).catch(() => null);
+  if (response === null) {
+    return {
+      status: 'error',
+      message: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+    };
+  }
+  const body = (await response.json().catch(() => null)) as
+    (AgencyFormResult & { error?: unknown }) | { error?: unknown } | null;
+  if (!response.ok || body === null || !('status' in body)) {
+    const error = body !== null && typeof body.error === 'string' ? body.error : null;
+    return {
+      status: 'error',
+      message:
+        response.status === 401
+          ? 'Votre session a expiré. Reconnectez-vous.'
+          : (error ?? `L’envoi n’a pas abouti (${response.status}).`),
+    };
+  }
+  return body;
 }

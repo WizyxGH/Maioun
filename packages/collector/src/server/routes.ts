@@ -98,6 +98,8 @@ const ANONYMOUS_READS: ReadonlySet<string> = new Set([
   'districts',
   'sources',
   'agencies',
+  // La répartition des loyers décrit le marché, comme les quartiers.
+  'price-histogram',
 ]);
 
 /** Statuts de suivi acceptés par l'API (§35). */
@@ -1429,6 +1431,86 @@ interface DistrictCount {
   readonly count: number;
 }
 
+/** Bornes de l'histogramme : celles du curseur de budget de l'interface. */
+export const PRICE_HISTOGRAM_BOUNDS = { min: 200, max: 2500, step: 50 } as const;
+
+export interface PriceHistogram {
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+  readonly buckets: readonly {
+    readonly from: number;
+    readonly to: number;
+    readonly count: number;
+  }[];
+}
+
+/**
+ * Range des loyers en tranches régulières.
+ *
+ * Les extrêmes sont repliés dans la première et la dernière tranche : au curseur,
+ * une borne atteinte vaut « pas de limite », ces annonces y sont donc bien.
+ */
+export function buildPriceHistogram(
+  rows: readonly { readonly price: number; readonly count: number }[],
+  bounds: {
+    readonly min: number;
+    readonly max: number;
+    readonly step: number;
+  } = PRICE_HISTOGRAM_BOUNDS,
+): PriceHistogram {
+  const { min, max, step } = bounds;
+  const size = Math.max(1, Math.ceil((max - min) / step));
+  const counts = new Array<number>(size).fill(0);
+  for (const { price, count } of rows) {
+    if (!Number.isFinite(price) || !(count > 0)) continue;
+    const index = Math.min(size - 1, Math.max(0, Math.floor((price - min) / step)));
+    counts[index] = (counts[index] ?? 0) + count;
+  }
+  return {
+    min,
+    max,
+    step,
+    buckets: counts.map((count, index) => ({
+      from: min + index * step,
+      to: Math.min(max, min + (index + 1) * step),
+      count,
+    })),
+  };
+}
+
+/**
+ * Loyers de l'offre en ligne, INDÉPENDAMMENT DU BUDGET choisi : l'histogramme
+ * sert justement à voir ce qu'élargir la fourchette ferait gagner. Même
+ * périmètre que le catalogue — logements, dans la commune.
+ */
+async function getPriceHistogram(db: Client): Promise<PriceHistogram> {
+  const result = await db.execute({
+    sql: `
+      SELECT price, COUNT(*) AS n FROM listings
+      WHERE price IS NOT NULL AND price > 0
+        AND lifecycle != 'inactive' AND rented = 0
+        AND property_type NOT IN ('parking', 'commercial')
+        AND city IN (${MVP_CRITERIA.cities.map(() => '?').join(',')})
+      GROUP BY price
+    `,
+    args: [...MVP_CRITERIA.cities],
+  });
+  return buildPriceHistogram(
+    result.rows.map((row) => ({ price: Number(row['price']), count: Number(row['n'] ?? 0) })),
+  );
+}
+
+/** Lectures du marché, sans paramètre ni lecteur : une table suffit à les router. */
+const MARKET_READS: ReadonlyMap<string, (db: Client) => Promise<unknown>> = new Map<
+  string,
+  (db: Client) => Promise<unknown>
+>([
+  ['districts', listDistricts],
+  ['price-histogram', getPriceHistogram],
+  ['sources', listSources],
+]);
+
 export async function route(
   db: Client,
   request: Request,
@@ -1497,8 +1579,8 @@ export async function route(
   if (resource === 'alerts' && method === 'GET') {
     return json(await listAlerts(db, identity), cors);
   }
-  if (resource === 'districts' && method === 'GET') return json(await listDistricts(db), cors);
-  if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
+  const marketRead = method === 'GET' ? MARKET_READS.get(resource ?? '') : undefined;
+  if (marketRead !== undefined) return json(await marketRead(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db, identity), cors);
   if (resource === 'listings') {
     return handleListingsRoute(db, method, id, segments[3], url, request, cors, identity);

@@ -14,6 +14,7 @@ export const roselandScraper = makeHektorScraper({
   id: 'roseland',
   name: 'Immobilière Roseland',
   domain: 'immobiliereroseland.fr',
+  agencyContact: { address: { street: '38 rue Auguste Gal', postalCode: '06300', city: 'Nice' } },
   logo: 'https://www.immobiliereroseland.fr/images/favicon.png',
   listUrls: [
     'https://www.immobiliereroseland.fr/location/1',

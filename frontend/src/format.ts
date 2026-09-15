@@ -8,7 +8,7 @@
 
 import { SOURCES } from './sources.generated.js';
 import type { PropertyType, TrackingStatus } from '@maioun/shared';
-import { formatCommune, formatLocation } from '@maioun/shared';
+import { formatCommune, formatElapsed, formatLocation } from '@maioun/shared';
 
 /**
  * Valeur non fournie par la source.
@@ -26,7 +26,10 @@ export function formatPrice(price: number | null): string {
 }
 
 export function formatArea(area: number | null): string {
-  return area === null ? UNKNOWN : `${Number.isInteger(area) ? area : area.toFixed(1)} m²`;
+  if (area === null) return UNKNOWN;
+  // Virgule décimale et deux chiffres au plus : « 23,6 m² », « 13,25 m² ».
+  // `toFixed(1)` écrivait « 23.6 » et arrondissait « 13,25 » en « 13.3 ».
+  return `${area.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} m²`;
 }
 
 export function formatRooms(rooms: number | null): string {
@@ -233,27 +236,15 @@ export function formatAvailability(iso: string | null, nowMs: number): string | 
 }
 
 /**
- * Ancienneté lisible : « il y a 4 min », « il y a 2 h », « il y a 3 j ».
+ * Ancienneté lisible : « il y a 4 min », « il y a 2 h », « il y a 3 jours ».
  * `nowMs` est un paramètre pour garder les tests déterministes (§59).
  */
 export function formatAge(iso: string | null, nowMs: number): string {
   if (iso === null) return UNKNOWN;
   const timestamp = Date.parse(iso);
   if (!Number.isFinite(timestamp)) return UNKNOWN;
-
-  // ARRONDI VERS LE BAS partout : une annonce vue il y a 90 minutes n'a pas
-  // « 2 h », et 20 heures ne sont pas « hier ». Sur une recherche où quelques
-  // heures décident d'une visite, surestimer l'âge fait renoncer à tort.
-  const minutes = Math.max(0, Math.floor((nowMs - timestamp) / 60_000));
-  if (minutes < 1) return 'à l’instant';
-  if (minutes < 60) return `il y a ${minutes} min`;
-
-  // Les heures vont jusqu'à DEUX jours : « il y a 30 h » dit encore quelque
-  // chose d'actionnable, « hier » ne dit plus rien entre 24 et 48 heures.
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `il y a ${hours} h`;
-
-  return `il y a ${Math.floor(hours / 24)} j`;
+  // Même libellé que les motifs du score, calculés côté collecteur.
+  return formatElapsed((nowMs - timestamp) / 60_000);
 }
 
 /** Durée de trajet : « 17 min ». */

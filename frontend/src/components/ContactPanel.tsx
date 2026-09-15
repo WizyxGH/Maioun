@@ -27,11 +27,12 @@ import { SOURCES } from '../sources.generated.js';
 import { canStoreDocuments, fetchDocuments, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink, buttonVariants } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Check, ChevronRight, PhoneCall, X } from './icons.js';
+import { Check, PhoneCall, X } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { dossierSlots, slotOf } from '../dossier.js';
 import { hrefOf } from '../router.js';
 import { cn } from '@/lib/utils.js';
+import { AgencyFormSend } from './AgencyFormSend.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -109,12 +110,10 @@ function SourceRow({
   occurrence,
   price,
   area,
-  onOpenSource,
 }: {
   readonly occurrence: OccurrenceView;
   readonly price: number | null;
   readonly area: number | null;
-  readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
   const differs = occurrence.price !== price || occurrence.area !== area;
   return (
@@ -127,20 +126,6 @@ function SourceRow({
       >
         {formatSourceName(occurrence.sourceId)}
       </a>
-      {/* Le nom ouvre l'annonce chez la source ; la flèche ouvre la fiche de
-        la source ICI — ses coordonnées, sa santé, et tout ce qu'elle propose
-        d'autre en ce moment. Deux destinations, deux cibles distinctes. */}
-      {onOpenSource !== undefined && (
-        <button
-          type="button"
-          onClick={() => onOpenSource(occurrence.sourceId)}
-          aria-label={`Voir toutes les annonces de ${formatSourceName(occurrence.sourceId)}`}
-          title={`Voir toutes les annonces de ${formatSourceName(occurrence.sourceId)}`}
-          className="text-muted-foreground hover:text-primary ml-1 cursor-pointer align-middle transition-colors"
-        >
-          <ChevronRight aria-hidden="true" className="inline size-4" />
-        </button>
-      )}
       {differs && (
         <span className="text-muted-foreground">
           {' '}
@@ -160,7 +145,7 @@ function ContactDetails({
   readonly hasAnyContact: boolean;
   readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
-  const { name, agencyName, phone, email, formUrl, providedBy } = listing.contact;
+  const { name, agencyName, phone, email, formUrl, reference, providedBy } = listing.contact;
   // La source qui a fourni ces coordonnées, à défaut la première occurrence.
   const contactSource = providedBy[0] ?? listing.occurrences[0]?.sourceId ?? null;
   const openSource =
@@ -210,6 +195,14 @@ function ContactDetails({
             </dd>
           </>
         )}
+        {/* La référence de l'agence : c'est elle qu'on cite au téléphone pour
+          désigner le bien. */}
+        {reference !== null && reference.trim() !== '' && (
+          <>
+            <dt className="text-muted-foreground">Réf. agence</dt>
+            <dd data-testid="agency-reference">{reference}</dd>
+          </>
+        )}
         {email !== null && (
           <>
             <dt className="text-muted-foreground">E-mail</dt>
@@ -250,7 +243,6 @@ function ContactDetails({
                     occurrence={occurrence}
                     price={listing.price.value}
                     area={listing.area.value}
-                    onOpenSource={onOpenSource}
                   />
                 </span>
               ))}
@@ -517,6 +509,14 @@ export function ContactPanel({
             onToggleEdit={() => setEditing((value) => !value)}
             onCopy={() => void handleCopy()}
             onSent={() => onRecorded(channel, message, attached)}
+          />
+
+          {/* Envoi direct, après confirmation, pour les sources qui le permettent. */}
+          <AgencyFormSend
+            listing={listing}
+            profile={profile}
+            message={message}
+            onSent={() => onRecorded('form', message, attached)}
           />
 
           {channel === 'form' && <FormHint copied={copied} />}

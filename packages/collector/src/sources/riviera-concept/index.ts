@@ -13,6 +13,7 @@ export const rivieraConceptScraper = makeHektorScraper({
   id: 'riviera-concept',
   name: 'Riviera Concept',
   domain: 'rivieraconcept.com',
+  agencyContact: { address: { street: '67 rue Rossini', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.rivieraconcept.com/images/favicon.png',
   listUrls: ['https://www.rivieraconcept.com/location/1'],
 });

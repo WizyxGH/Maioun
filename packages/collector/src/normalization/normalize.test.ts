@@ -451,6 +451,26 @@ describe('faux positifs relevés le 2026-09-14', () => {
     ).toBe(false);
   });
 
+  it('un titre qui nomme un local commercial l’emporte sur « pièces » et la catégorie', () => {
+    expect(
+      normalize({
+        title: 'Louer commerce de 2 pièces 68 m² 1 200 € à Nice (06300)',
+        roomsText: '2 pièces',
+      })?.propertyType,
+    ).toBe('commercial');
+    expect(
+      normalize({
+        title: 'Location local commercial Nice Joffre / Longchamp',
+        propertyTypeText: 'Appartement',
+      })?.propertyType,
+    ).toBe('commercial');
+    // Un bureau DANS un logement n'en fait pas un local.
+    expect(
+      normalize({ title: 'Appartement 3 pièces avec bureau', propertyTypeText: 'Appartement' })
+        ?.propertyType,
+    ).toBe('apartment');
+  });
+
   it('« possibilité colocation » décrit un logement entier', () => {
     expect(
       normalize({

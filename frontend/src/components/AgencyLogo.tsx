@@ -82,6 +82,21 @@ export function agencyLogoUrl(sources: readonly string[], name: string): string 
   return null;
 }
 
+/**
+ * L'adresse de vitrine d'une agence, sous la même règle que le logo : la source
+ * doit être le site propre de l'agence ET porter le même nom. Sinon rien —
+ * l'adresse d'une autre maison enverrait frapper à la mauvaise porte.
+ */
+export function agencyAddress(sources: readonly string[], name: string): string | null {
+  for (const sourceId of sources) {
+    const source = SOURCES[sourceId];
+    if (source?.address == null || !sameAgency(source.name, name)) continue;
+    const { street, postalCode, city } = source.address;
+    return `${street}, ${postalCode} ${city}`;
+  }
+  return null;
+}
+
 export function AgencyLogo({
   sources,
   name,

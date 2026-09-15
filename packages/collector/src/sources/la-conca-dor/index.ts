@@ -14,6 +14,9 @@ export const laConcaDorScraper = makeApimoScraper({
   id: 'la-conca-dor',
   name: 'La Conca d’Or',
   domain: 'laconcador.com',
+  agencyContact: {
+    address: { street: '466 boulevard Léon Sauvan', postalCode: '06690', city: 'Tourrette-Levens' },
+  },
   sitemapUrl: 'https://laconcador.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

@@ -14,6 +14,9 @@ export const cabinetReynierScraper = makeApimoListScraper({
   id: 'cabinet-reynier',
   name: 'Cabinet Reynier',
   domain: 'cabinet-reynier.com',
+  agencyContact: {
+    address: { street: '78 boulevard Napoléon III', postalCode: '06200', city: 'Nice' },
+  },
   listUrls: [
     'https://www.cabinet-reynier.com/fr/locations',
     'https://www.cabinet-reynier.com/fr/locations?page=2',

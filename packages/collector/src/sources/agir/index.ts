@@ -14,6 +14,9 @@ export const agirScraper = makeHektorScraper({
   id: 'agir',
   name: 'Cabinet A.G.I.R.',
   domain: 'agir.immo',
+  agencyContact: {
+    address: { street: '2 rue Maréchal Joffre', postalCode: '06000', city: 'Nice' },
+  },
   logo: 'https://www.agir.immo/images/favicon.png',
   listUrls: ['https://www.agir.immo/location/1'],
 });

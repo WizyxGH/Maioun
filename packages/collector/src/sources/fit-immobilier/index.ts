@@ -14,6 +14,9 @@ export const fitImmobilierScraper = makeApimoScraper({
   id: 'fit-immobilier',
   name: 'FIT Immobilier',
   domain: 'fit-immobilier.com',
+  agencyContact: {
+    address: { street: '1 avenue de la Lanterne', postalCode: '06200', city: 'Nice' },
+  },
   sitemapUrl: 'https://fit-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

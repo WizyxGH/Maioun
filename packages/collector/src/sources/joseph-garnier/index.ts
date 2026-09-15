@@ -14,6 +14,9 @@ export const josephGarnierScraper = makeApimoScraper({
   id: 'joseph-garnier',
   name: 'Joseph Garnier Real Estate',
   domain: 'josephgarnier.fr',
+  agencyContact: {
+    address: { street: '6 boulevard Joseph Garnier', postalCode: '06000', city: 'Nice' },
+  },
   sitemapUrl: 'https://www.josephgarnier.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

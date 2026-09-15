@@ -97,6 +97,21 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
 /** §9 : au-delà de ce ratio de déjà-vu sur une page, on cesse de paginer. */
 const KNOWN_RATIO_STOP = 0.8;
 
+/**
+ * Intervalle des passages complets, qui seuls peuvent retirer une annonce.
+ *
+ * Un passage courant ne lit que deux pages sur quatre : rendu « completed », il
+ * faisait vieillir tout le reste. Relevé du 2026-09-15 : quatorze annonces des
+ * pages 3 et 4, toujours en ligne, étaient passées « inactive ».
+ */
+const FULL_PASS_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+function isFullPassDue(context: ScrapeContext): boolean {
+  if (context.mode === 'backfill') return true;
+  const last = context.lastFullPassAt === null ? Number.NaN : Date.parse(context.lastFullPassAt);
+  return !Number.isFinite(last) || Date.now() - last >= FULL_PASS_INTERVAL_MS;
+}
+
 export const orpiScraper: Scraper = {
   descriptor: ORPI_DESCRIPTOR,
 
@@ -109,9 +124,12 @@ export const orpiScraper: Scraper = {
     let pagesFetched = 0;
     let requestCount = 0;
     let stopReason: StopReason = 'completed';
+    /** La pagination est allée jusqu'à la dernière page. */
+    let reachedEnd = false;
 
-    // Mode live : 2 pages maximum ; backfill : toutes les pages de liste (§8).
-    const maxPages = context.mode === 'backfill' ? MAX_LIST_PAGES : 2;
+    // Passage courant : 2 pages ; passage complet : toutes les pages de liste (§8).
+    const fullPassDue = isFullPassDue(context);
+    const maxPages = fullPassDue ? MAX_LIST_PAGES : 2;
 
     for (let page = 1; page <= maxPages; page += 1) {
       if (context.shouldStop()) {
@@ -172,15 +190,27 @@ export const orpiScraper: Scraper = {
         break;
       }
 
-      // §9 : arrêt anticipé en terrain connu.
-      const ratio = parsed.listings.length === 0 ? 1 : knownOnPage / parsed.listings.length;
-      if (ratio >= KNOWN_RATIO_STOP) {
+      if (!parsed.hasNextPage || parsed.listings.length === 0) {
+        reachedEnd = true;
+        break;
+      }
+
+      // §9 : arrêt anticipé en terrain connu — sauf en passage complet.
+      const ratio = knownOnPage / parsed.listings.length;
+      if (!fullPassDue && ratio >= KNOWN_RATIO_STOP) {
         context.log('page.known_territory', { url, ratio: Math.round(ratio * 100) });
         stopReason = 'knownTerritory';
         break;
       }
+    }
 
-      if (!parsed.hasNextPage) break;
+    // Liste lue en partie : ce qui n'a pas été vu n'est pas pour autant retiré.
+    const fullPass = reachedEnd && stopReason === 'completed';
+    if (
+      !reachedEnd &&
+      ['completed', 'knownTerritory', 'maxPages', 'maxListings'].includes(stopReason)
+    ) {
+      stopReason = 'incomplete';
     }
 
     // LA CARTE COUPE À CENT CINQUANTE-DEUX CARACTÈRES ; la fiche des annonces
@@ -204,6 +234,7 @@ export const orpiScraper: Scraper = {
       pagesFetched,
       stopReason,
       warnings,
+      fullPass,
     };
   },
 };

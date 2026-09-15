@@ -13,6 +13,7 @@ export const cabinetNardiScraper = makeHektorScraper({
   id: 'cabinet-nardi',
   name: 'Cabinet Nardi',
   domain: 'cabinetnardi.com',
+  agencyContact: { address: { street: '11 rue Gubernatis', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.cabinetnardi.com/images/favicon.png',
   listUrls: ['https://www.cabinetnardi.com/location/1'],
 });

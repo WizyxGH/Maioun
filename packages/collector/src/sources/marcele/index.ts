@@ -16,6 +16,9 @@ export const marceleScraper = makeApimoScraper({
   id: 'marcele',
   name: 'Marcele Immobilier',
   domain: 'ballestri-immobilier.com',
+  agencyContact: {
+    address: { street: '2 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
+  },
   sitemapUrl: 'https://ballestri-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

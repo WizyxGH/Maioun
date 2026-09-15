@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildListQuery, route, rowToListing } from './routes.js';
+import { buildListQuery, buildPriceHistogram, route, rowToListing } from './routes.js';
 
 /** Une fiche vue par le compte principal — celui dont la collecte calcule les distances. */
 const vueMoi = (row: Record<string, unknown>): Record<string, unknown> => rowToListing(row, 'moi');
@@ -302,7 +302,13 @@ describe('consultation sans compte', () => {
   });
 
   it('laisse passer le catalogue en lecture', async () => {
-    for (const path of ['/api/listings', '/api/districts', '/api/sources', '/api/agencies']) {
+    for (const path of [
+      '/api/listings',
+      '/api/districts',
+      '/api/sources',
+      '/api/agencies',
+      '/api/price-histogram',
+    ]) {
       executed.length = 0;
       const response = await call('GET', path);
       expect(response.status, path).not.toBe(401);
@@ -368,5 +374,79 @@ describe('date de notification — celle du compte, pas celle d’avant', () => 
 
   it('rend null quand aucune des deux n’existe', () => {
     expect(vueMoi({ id: 'fnaim:4', payload: '{}' })['notifiedAt']).toBeNull();
+  });
+});
+
+describe('histogramme des loyers', () => {
+  const bounds = { min: 200, max: 400, step: 50 };
+
+  it('découpe en tranches régulières, bornes comprises', () => {
+    const histogram = buildPriceHistogram([], bounds);
+    expect(histogram.buckets.map(({ from, to }) => [from, to])).toEqual([
+      [200, 250],
+      [250, 300],
+      [300, 350],
+      [350, 400],
+    ]);
+    expect(histogram.buckets.every(({ count }) => count === 0)).toBe(true);
+  });
+
+  it('range chaque loyer dans sa tranche, la borne basse incluse', () => {
+    const histogram = buildPriceHistogram(
+      [
+        { price: 250, count: 2 },
+        { price: 299, count: 1 },
+        { price: 300, count: 4 },
+      ],
+      bounds,
+    );
+    expect(histogram.buckets.map(({ count }) => count)).toEqual([0, 3, 4, 0]);
+  });
+
+  it('replie les extrêmes dans la première et la dernière tranche', () => {
+    const histogram = buildPriceHistogram(
+      [
+        { price: 90, count: 1 },
+        { price: 400, count: 2 },
+        { price: 3200, count: 5 },
+      ],
+      bounds,
+    );
+    expect(histogram.buckets.map(({ count }) => count)).toEqual([1, 0, 0, 7]);
+  });
+
+  it('ignore les lignes illisibles', () => {
+    const histogram = buildPriceHistogram(
+      [
+        { price: Number.NaN, count: 3 },
+        { price: 260, count: 0 },
+      ],
+      bounds,
+    );
+    expect(histogram.buckets.map(({ count }) => count)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('suit par défaut les bornes du curseur de budget', () => {
+    const histogram = buildPriceHistogram([]);
+    expect(histogram.buckets).toHaveLength(46);
+    expect(histogram.buckets.at(-1)).toEqual({ from: 2450, to: 2500, count: 0 });
+  });
+
+  it('ne compte que l’offre en ligne, sans tenir compte du budget', async () => {
+    const statements: unknown[] = [];
+    const db = {
+      execute: (statement: unknown) => {
+        statements.push(statement);
+        return Promise.resolve({ rows: [{ price: 610, n: 3 }] });
+      },
+    } as unknown as Parameters<typeof route>[0];
+    const url = new URL('https://exemple.invalid/api/price-histogram');
+    const response = await route(db, new Request(url), url, ['api', 'price-histogram'], {}, null);
+    const body = (await response.json()) as { buckets: { from: number; count: number }[] };
+    expect(body.buckets.find((bucket) => bucket.from === 600)?.count).toBe(3);
+    const sql = JSON.stringify(statements);
+    expect(sql).toContain("lifecycle != 'inactive'");
+    expect(sql).toContain('rented = 0');
+    expect(sql).not.toContain('price <=');
   });
 });

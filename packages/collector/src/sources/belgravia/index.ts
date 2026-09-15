@@ -13,6 +13,7 @@ export const belgraviaScraper = makeHektorScraper({
   id: 'belgravia',
   name: 'Belgravia',
   domain: 'belgravia.fr',
+  agencyContact: { address: { street: '54 rue Gioffredo', postalCode: '06000', city: 'Nice' } },
   logo: 'https://www.belgravia.fr/images/favicon.png',
   listUrls: ['https://www.belgravia.fr/location/1'],
 });

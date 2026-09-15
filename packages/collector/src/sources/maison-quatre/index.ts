@@ -13,6 +13,7 @@ export const maisonQuatreScraper = makeHektorScraper({
   id: 'maison-quatre',
   name: 'Maison Quatre',
   domain: 'maisonquatre.la-boite-immo.com',
+  agencyContact: { address: { street: '4 rue Dalpozzo', postalCode: '06000', city: 'Nice' } },
   logo: 'https://maisonquatre.la-boite-immo.com/images/favicon.png',
   listUrls: ['https://maisonquatre.la-boite-immo.com/location/1'],
 });

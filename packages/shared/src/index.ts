@@ -24,3 +24,4 @@ export * from './alert-senders.js';
 export * from './subscription.js';
 export * from './rent-reference.js';
 export * from './requirements.js';
+export * from './elapsed.js';

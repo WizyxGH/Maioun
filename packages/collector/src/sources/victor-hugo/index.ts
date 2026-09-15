@@ -15,6 +15,9 @@ export const victorHugoScraper = makeApimoScraper({
   id: 'victor-hugo',
   name: 'Immobilière Victor Hugo',
   domain: 'immobilierevictorhugo.fr',
+  agencyContact: {
+    address: { street: '15 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
+  },
   sitemapUrl: 'https://immobilierevictorhugo.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

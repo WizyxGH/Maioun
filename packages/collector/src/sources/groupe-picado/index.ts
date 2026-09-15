@@ -12,5 +12,6 @@ export const groupePicadoScraper = makeApimoListScraper({
   id: 'groupe-picado',
   name: 'Groupe Picado',
   domain: 'groupepicado.com',
+  agencyContact: { address: { street: '12 avenue Malausséna', postalCode: '06000', city: 'Nice' } },
   listUrls: ['https://groupepicado.com/fr/locations'],
 });

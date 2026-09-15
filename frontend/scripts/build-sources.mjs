@@ -45,9 +45,12 @@ const entries = [...ALL_SCRAPERS]
     // Une source qui FAIT PAYER la mise en relation doit le dire à l'écran,
     // avant le clic. C'est un fait sur la source, il vient donc d'elle.
     const paidContact = descriptor.paidContact === true;
+    // L'adresse de vitrine n'a de sens que pour une agence qui a son site : celle
+    // d'un portail ne dirait rien des agences qu'il relaie.
+    const address = ownSite ? (descriptor.agencyContact?.address ?? null) : null;
     return `  '${descriptor.id}': { name: ${JSON.stringify(descriptor.name)}, domain: ${JSON.stringify(
       ownSite ? domain : null,
-    )}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)} },`;
+    )}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)} },`;
   });
 
 const file = `/**
@@ -66,6 +69,8 @@ const file = `/**
  *
  * \`paidContact\` marque les sources qui FONT PAYER la mise en relation :
  * l'écran le dit avant le clic, plutôt que de laisser découvrir le péage.
+ *
+ * \`address\` est l'adresse de vitrine que l'agence publie, quand on la connaît.
  */
 
 export interface SourceInfo {
@@ -74,6 +79,12 @@ export interface SourceInfo {
   readonly logo: string | null;
   /** La source vend la mise en relation : ses coordonnées ne sont pas libres. */
   readonly paidContact: boolean;
+  /** Adresse de la vitrine de l'agence, telle qu'elle la publie. */
+  readonly address: {
+    readonly street: string;
+    readonly postalCode: string;
+    readonly city: string;
+  } | null;
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {

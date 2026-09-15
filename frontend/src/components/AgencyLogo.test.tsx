@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AgencyLogo, agencyLogoUrl, sameAgency } from './AgencyLogo.js';
+import { AgencyLogo, agencyAddress, agencyLogoUrl, sameAgency } from './AgencyLogo.js';
 
 describe('agencyLogoUrl', () => {
   it('rend le favicon d’une agence qu’on collecte directement', () => {
@@ -82,5 +82,18 @@ describe('AgencyLogo', () => {
     const { container } = render(<AgencyLogo sources={['fnaim']} name="Une agence" />);
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('svg')).not.toBeNull();
+  });
+});
+
+describe('agencyAddress', () => {
+  it('rend l’adresse de vitrine de l’agence qu’on collecte directement', () => {
+    expect(agencyAddress(['aurus'], 'Aurus Immobilier')).toBe(
+      '14 rue du Maréchal Joffre, 06310 Beaulieu-sur-Mer',
+    );
+  });
+
+  it('ne la prête pas à une autre agence publiée sur ce site, ni à un portail', () => {
+    expect(agencyAddress(['aurus'], 'Orpi Riviera')).toBeNull();
+    expect(agencyAddress(['orpi'], 'Orpi')).toBeNull();
   });
 });

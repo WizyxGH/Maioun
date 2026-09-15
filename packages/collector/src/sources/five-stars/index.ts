@@ -16,6 +16,7 @@ export const fiveStarsScraper = makeApimoScraper({
   id: 'five-stars',
   name: '5 Stars Holiday House',
   domain: 'fivestarsholidayhouserealestate.com',
+  agencyContact: { address: { street: '40 rue de la Buffa', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://fivestarsholidayhouserealestate.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

@@ -133,9 +133,7 @@ export function ProfileForm({
       <h2 className="mb-2 text-lg font-bold">Profil locataire</h2>
 
       <p className="border-l-3 border-primary pl-2.5 text-[0.85rem] text-muted-foreground">
-        Ces informations servent uniquement à composer vos messages de contact. Elles sont
-        enregistrées <strong>dans ce navigateur uniquement</strong> : elles ne sont envoyées ni à
-        l’API, ni à la base de données, ni à GitHub.
+        Ces informations servent uniquement à composer vos messages de contact.
       </p>
 
       <div className="my-4 grid gap-2.5 sm:grid-cols-2">

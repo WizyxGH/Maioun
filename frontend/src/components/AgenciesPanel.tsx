@@ -13,8 +13,8 @@
  * préférable à un regroupement inventé qui mélangerait deux enseignes (§17).
  */
 
-import { ArrowLeft, Mail, Phone } from './icons.js';
-import { AgencyLogo } from './AgencyLogo.js';
+import { ArrowLeft, Mail, MapPin, Phone } from './icons.js';
+import { AgencyLogo, agencyAddress } from './AgencyLogo.js';
 import type { AgencySummary } from '../api/client.js';
 import type { ListingView } from '../types.js';
 import { formatSourceName } from '../format.js';
@@ -25,9 +25,15 @@ import { ListingCard } from './ListingCard.js';
 
 /** Coordonnées d'une agence : ce dont on se sert pour la joindre. */
 function AgencyContact({ agency }: { readonly agency: AgencySummary }): React.JSX.Element | null {
-  if (agency.phone === null && agency.email === null) return null;
+  const address = agencyAddress(agency.sources, agency.name);
+  if (agency.phone === null && agency.email === null && address === null) return null;
   return (
     <div className="mt-2 flex flex-wrap items-center gap-3 text-[0.9rem]">
+      {address !== null && (
+        <span className="text-muted-foreground inline-flex basis-full items-center gap-1.5 text-[0.82rem]">
+          <MapPin aria-hidden="true" className="size-4 shrink-0" /> {address}
+        </span>
+      )}
       {agency.phone !== null && (
         <a href={`tel:${agency.phone}`} className="text-primary inline-flex items-center gap-1.5">
           <Phone aria-hidden="true" className="size-4" /> {agency.phone}

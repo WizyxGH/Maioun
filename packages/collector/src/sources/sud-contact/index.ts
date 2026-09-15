@@ -14,6 +14,9 @@ export const sudContactScraper = makeHektorScraper({
   id: 'sud-contact',
   name: 'Sud Contact Immobilier',
   domain: 'nice-ouest-immobilier.com',
+  agencyContact: {
+    address: { street: '46 avenue Saint-Augustin', postalCode: '06200', city: 'Nice' },
+  },
   logo: 'https://www.nice-ouest-immobilier.com/images/favicon.png',
   listUrls: ['https://www.nice-ouest-immobilier.com/location/1'],
 });

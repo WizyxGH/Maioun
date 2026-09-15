@@ -23,6 +23,9 @@ export const immobiliereNicoiseScraper = makeHektorScraper({
   id: 'immobiliere-nicoise',
   name: "L'Immobilière Niçoise",
   domain: 'immobiliere-nicoise.com',
+  agencyContact: {
+    address: { street: '33 avenue du Maréchal Foch', postalCode: '06000', city: 'Nice' },
+  },
   // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
   logo: 'https://www.immobiliere-nicoise.com/images/favicon.png',
   listUrls: ['https://www.immobiliere-nicoise.com/location/1'],

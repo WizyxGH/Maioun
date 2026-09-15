@@ -13,6 +13,9 @@ export const midemScraper = makeHektorScraper({
   id: 'midem',
   name: 'Midem Immobilier',
   domain: 'midem-immobilier.fr',
+  agencyContact: {
+    address: { street: '8 avenue Saint-Augustin', postalCode: '06200', city: 'Nice' },
+  },
   logo: 'https://www.midem-immobilier.fr/images/favicon.png',
   listUrls: ['https://www.midem-immobilier.fr/location/1'],
 });

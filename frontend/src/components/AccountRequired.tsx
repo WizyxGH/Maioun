@@ -1,18 +1,17 @@
 /**
  * L'écran qu'on rencontre en voulant AGIR sans compte.
  *
- * CONSULTER EST LIBRE — c'est le principe : personne ne s'inscrit pour savoir
- * ce qu'il y a à louer. Mais un favori, une candidature, un dossier
- * appartiennent à quelqu'un, et il faut donc savoir à qui.
+ * Consulter est libre : personne ne s'inscrit pour savoir ce qu'il y a à
+ * louer. Mais un favori, une candidature, un dossier appartiennent à quelqu'un.
  *
- * ON DIT CE QUE LE COMPTE APPORTE, pas qu'il est obligatoire. « Connexion
- * requise » est un mur ; la même phrase tournée vers ce qu'on y gagne est une
- * proposition. Et on nomme le geste qui a mené ici, sinon l'écran paraît
- * surgir de nulle part.
+ * Le gabarit est celui qu'on connaît ailleurs : un titre qui nomme le geste
+ * tenté, une ligne de bénéfice, « Se connecter » en principal, la création de
+ * compte en second, et une sortie discrète.
  */
 
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { UserCircle } from './icons.js';
 
 export function AccountRequired({
   action,
@@ -21,9 +20,8 @@ export function AccountRequired({
   onBack,
 }: {
   /**
-   * Ce qu'on essayait de faire, à la première personne et sans majuscule —
-   * « garder cette annonce en favori ». Absent quand on arrive simplement sur
-   * un écran personnel.
+   * Ce qu'on essayait de faire, sans majuscule — « garder une annonce en
+   * favori ». Absent quand on arrive simplement sur un écran personnel.
    */
   readonly action?: string;
   readonly onLogin: () => void;
@@ -31,29 +29,37 @@ export function AccountRequired({
   readonly onBack?: () => void;
 }): React.JSX.Element {
   return (
-    <Card className="mx-auto mt-6 max-w-[480px] p-5" data-testid="account-required">
-      <h2 className="mb-2 text-lg font-semibold">
-        {action === undefined ? 'Cet écran est le vôtre' : 'Un compte est nécessaire'}
+    <Card
+      role="region"
+      aria-labelledby="account-required-title"
+      className="mx-auto mt-6 w-full max-w-[400px] p-6 text-center"
+      data-testid="account-required"
+    >
+      <UserCircle aria-hidden="true" className="mx-auto mb-3 size-10 text-primary" />
+      <h2 id="account-required-title" className="mb-2 text-xl font-semibold text-balance">
+        {action === undefined ? 'Connectez-vous pour continuer' : `Connectez-vous pour ${action}`}
       </h2>
-      <p className="text-muted-foreground mb-4 text-[0.92rem]">
-        {action === undefined
-          ? 'Vos favoris, votre dossier et vos alertes vous suivent d’un appareil à l’autre. Il faut un compte pour qu’ils soient les vôtres.'
-          : `Pour ${action}, il faut un compte — c’est ce qui permet de le retrouver ensuite, ici ou ailleurs.`}
+      <p className="mb-5 text-[0.92rem] text-muted-foreground">
+        Retrouvez vos favoris, votre dossier et vos alertes sur tous vos appareils.
       </p>
-      <p className="text-muted-foreground mb-5 text-[0.82rem]">
-        Consulter les annonces reste libre : vous pouvez fermer cette page et continuer à chercher.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onSignup}>Créer un compte</Button>
-        <Button variant="outline" onClick={onLogin}>
-          J’ai déjà un compte
+      <div className="flex flex-col gap-2">
+        <Button className="w-full" onClick={onLogin}>
+          Se connecter
         </Button>
-        {onBack !== undefined && (
-          <Button variant="ghost" onClick={onBack}>
-            Continuer sans compte
-          </Button>
-        )}
+        <Button variant="outline" className="w-full" onClick={onSignup}>
+          Créer un compte
+        </Button>
       </div>
+      {onBack !== undefined && (
+        <Button
+          variant="link"
+          size="inline"
+          className="mt-4 text-sm text-muted-foreground hover:text-foreground"
+          onClick={onBack}
+        >
+          Continuer sans compte
+        </Button>
+      )}
     </Card>
   );
 }

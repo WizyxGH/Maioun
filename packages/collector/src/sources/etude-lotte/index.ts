@@ -15,6 +15,7 @@ export const etudeLotteScraper = makeApimoScraper({
   id: 'etude-lotte',
   name: 'Étude Lotte',
   domain: 'etudelotte.com',
+  agencyContact: { address: { street: '36 avenue Paul Arène', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://etudelotte.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

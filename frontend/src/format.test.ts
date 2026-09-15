@@ -116,9 +116,10 @@ describe('formatAge', () => {
     expect(formatAge(ago(47 * 60), NOW)).toBe('il y a 47 h');
   });
 
-  it('passe aux jours au-delà', () => {
-    expect(formatAge(ago(48 * 60), NOW)).toBe('il y a 2 j');
-    expect(formatAge(ago(5 * 24 * 60), NOW)).toBe('il y a 5 j');
+  it('passe aux jours, puis aux semaines', () => {
+    expect(formatAge(ago(48 * 60), NOW)).toBe('il y a 2 jours');
+    expect(formatAge(ago(5 * 24 * 60), NOW)).toBe('il y a 5 jours');
+    expect(formatAge(ago(21 * 24 * 60), NOW)).toBe('il y a 3 semaines');
   });
 
   it('signale l’instant et l’absence de date', () => {
@@ -243,5 +244,13 @@ describe('valeur absente', () => {
     expect(UNKNOWN).toBe('N/A');
     expect(formatPrice(null)).toBe('N/A');
     expect(formatArea(null)).toBe('N/A');
+  });
+});
+
+describe('formatArea', () => {
+  it('garde les décimales publiées, à la française', () => {
+    expect(formatArea(23.6)).toBe('23,6 m²');
+    expect(formatArea(13.25)).toBe('13,25 m²');
+    expect(formatArea(45)).toBe('45 m²');
   });
 });

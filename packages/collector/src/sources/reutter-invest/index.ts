@@ -14,6 +14,7 @@ export const reutterInvestScraper = makeApimoScraper({
   id: 'reutter-invest',
   name: 'Reutter Invest',
   domain: 'reutterinvest.fr',
+  agencyContact: { address: { street: '45 rue Rossini', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://reutterinvest.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

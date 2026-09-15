@@ -15,6 +15,9 @@ export const murtaScraper = makeHektorScraper({
   id: 'murta',
   name: 'Murta Immobilier',
   domain: 'murta-immobilier.com',
+  agencyContact: {
+    address: { street: '23 bis avenue Général de Gaulle', postalCode: '06340', city: 'Drap' },
+  },
   logo: 'https://www.murta-immobilier.com/images/favicon.png',
   listUrls: ['https://www.murta-immobilier.com/location/1'],
 });

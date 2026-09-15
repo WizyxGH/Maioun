@@ -1,10 +1,7 @@
 /**
- * L'écran qu'on rencontre en voulant agir sans compte.
- *
- * Deux exigences, et elles se contredisent si on n'y prend pas garde : dire
- * qu'un compte est nécessaire, et ne pas donner l'impression que tout l'est.
- * Consulter reste libre, et l'écran doit le rappeler — sinon la demande passe
- * pour un mur à l'entrée.
+ * L'écran qu'on rencontre en voulant agir sans compte : le geste tenté dans
+ * le titre, la connexion en principal, la création en second, et une sortie
+ * discrète quand il y en a une.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -13,9 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { AccountRequired } from './AccountRequired.js';
 
 describe('AccountRequired', () => {
-  it('rappelle le geste qui a mené ici', () => {
-    // Une demande de compte qui ne dit pas son motif paraît surgir de nulle
-    // part, juste après un clic dont on ne voit plus l'effet.
+  it('nomme le geste qui a mené ici dans le titre', () => {
     render(
       <AccountRequired
         action="garder une annonce en favori"
@@ -23,26 +18,35 @@ describe('AccountRequired', () => {
         onSignup={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('account-required')).toHaveTextContent(
-      'garder une annonce en favori',
-    );
+    expect(
+      screen.getByRole('heading', { name: 'Connectez-vous pour garder une annonce en favori' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /connectez-vous/i })).toBeInTheDocument();
   });
 
-  it('dit que consulter reste libre', () => {
+  it('garde un titre générique sans geste nommé', () => {
     render(<AccountRequired onLogin={vi.fn()} onSignup={vi.fn()} />);
-    expect(screen.getByTestId('account-required')).toHaveTextContent(/consulter les annonces/i);
+    expect(
+      screen.getByRole('heading', { name: 'Connectez-vous pour continuer' }),
+    ).toBeInTheDocument();
   });
 
-  it('propose les deux chemins, création et connexion', async () => {
+  it('propose la connexion en principal et la création en second', async () => {
     const onLogin = vi.fn();
     const onSignup = vi.fn();
     render(<AccountRequired onLogin={onLogin} onSignup={onSignup} />);
 
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      'Se connecter',
+      'Créer un compte',
+    ]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
+    expect(onLogin).toHaveBeenCalledOnce();
+
     await userEvent.click(screen.getByRole('button', { name: 'Créer un compte' }));
     expect(onSignup).toHaveBeenCalledOnce();
-
-    await userEvent.click(screen.getByRole('button', { name: /déjà un compte/i }));
-    expect(onLogin).toHaveBeenCalledOnce();
   });
 
   it('laisse repartir sans compte quand un retour est proposé', async () => {

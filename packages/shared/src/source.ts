@@ -68,6 +68,13 @@ export interface SourceSchedule {
   readonly maxIntervalMinutes: number;
 }
 
+/** Adresse de la vitrine d'une agence, telle qu'elle la publie. */
+export interface AgencyAddress {
+  readonly street: string;
+  readonly postalCode: string;
+  readonly city: string;
+}
+
 /**
  * Déclaration statique d'une source — la fiche du registre (§5).
  * Ces données sont publiques et versionnées.
@@ -187,6 +194,8 @@ export interface SourceDescriptor {
   readonly agencyContact?: {
     readonly phone?: string;
     readonly email?: string;
+    /** Adresse postale PUBLIQUE de l'agence (vitrine), jamais celle d'un bien. */
+    readonly address?: AgencyAddress;
   };
 
   /**
