@@ -23,6 +23,9 @@ export default defineConfig({
       // restait intestable.
       '@maioun/collector/server/routes': fromRoot('./packages/collector/src/server/routes.ts'),
       '@maioun/collector/notify/mailer': fromRoot('./packages/collector/src/notify/mailer.ts'),
+      '@maioun/collector/notify/email-theme': fromRoot(
+        './packages/collector/src/notify/email-theme.ts',
+      ),
       '@maioun/collector/contact/agency-form': fromRoot(
         './packages/collector/src/contact/agency-form.ts',
       ),

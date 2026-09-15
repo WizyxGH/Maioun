@@ -42,7 +42,7 @@ import {
   changeEmail,
   changeEmailProblemMessage,
   confirmEmail,
-  confirmEmailBody,
+  confirmEmailMessage,
   confirmEmailCode,
   verificationRows,
   confirmLink,
@@ -559,8 +559,7 @@ async function signup(
   if (mailerConfigured(env) && siteUrl !== '') {
     confirmationSent = await sendEmail(env, {
       to: created.account.email,
-      subject: 'Confirmez votre adresse Maïoun',
-      text: confirmEmailBody(confirmLink(siteUrl, created.account.token), created.account.code),
+      ...confirmEmailMessage(confirmLink(siteUrl, created.account.token), created.account.code),
     });
   }
 
@@ -760,8 +759,7 @@ async function sendConfirmation(
   if (siteUrl === '') return 'unconfigured';
   return await sendEmailResult(env, {
     to: email,
-    subject: `${code.slice(0, 3)} ${code.slice(3)} — votre code Maïoun`,
-    text: confirmEmailBody(confirmLink(siteUrl, token), code),
+    ...confirmEmailMessage(confirmLink(siteUrl, token), code),
   });
 }
 

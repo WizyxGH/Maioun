@@ -38,7 +38,9 @@ export function EmailCodeForm({
   };
 
   const change = (value: string): void => {
-    // « 123 456 », « 123-456 » ou le code collé avec son texte : on garde les chiffres.
+    // « 123 456 », « 123-456 » ou le code collé avec son texte : on garde les
+    // chiffres. Pas de maxLength : le navigateur couperait « Votre code : 042517 »
+    // avant qu’on en extraie le code.
     const digits = value.replace(/\D/g, '').slice(0, LENGTH);
     setCode(digits);
     if (digits.length === LENGTH && !busy) void submit(digits);
@@ -56,7 +58,6 @@ export function EmailCodeForm({
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9]*"
-        maxLength={LENGTH + 2}
         placeholder="123456"
         disabled={busy}
         aria-invalid={error !== null}

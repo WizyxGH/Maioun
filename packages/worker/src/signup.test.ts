@@ -6,6 +6,7 @@ import {
   changeEmail,
   confirmEmail,
   confirmEmailBody,
+  confirmEmailMessage,
   confirmEmailCode,
   confirmLink,
   createAccount,
@@ -238,10 +239,23 @@ describe('confirmEmailCode', () => {
     expect(await confirmEmailCode(db, userId, faux, NOW)).toBe('invalid');
   });
 
-  it('le message donne le code, lisible par groupes de trois, et le lien', () => {
+  it('le message met le code d’un seul tenant en tête, et donne le lien', () => {
+    // Coupé par une espace, le code n'était reconnu ni par la notification du
+    // téléphone (« Copier le code ») ni par le remplissage automatique du site.
     const body = confirmEmailBody('https://exemple.invalid/confirm/x', '042517');
-    expect(body).toContain('042 517');
+    expect(body.split('\n')[0]).toMatch(/^042517 /);
+    expect(body).not.toContain('042 517');
     expect(body).toContain('https://exemple.invalid/confirm/x');
+  });
+
+  it('l’objet et l’aperçu portent le code, la version HTML aussi', () => {
+    const message = confirmEmailMessage('https://exemple.invalid/confirm/a&b', '042517');
+    expect(message.subject).toBe('042517 est votre code Maïoun');
+    expect(message.html).toContain('>042517<');
+    expect(message.html).toContain('042517 — saisissez ce code');
+    // Le lien est échappé dans l'attribut.
+    expect(message.html).toContain('https://exemple.invalid/confirm/a&amp;b');
+    expect(message.text).toContain('042517');
   });
 });
 

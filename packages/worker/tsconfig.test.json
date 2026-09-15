@@ -15,6 +15,7 @@
       "@maioun/collector": ["./packages/collector/src/index.ts"],
       "@maioun/collector/server/routes": ["./packages/collector/src/server/routes.ts"],
       "@maioun/collector/notify/mailer": ["./packages/collector/src/notify/mailer.ts"],
+      "@maioun/collector/notify/email-theme": ["./packages/collector/src/notify/email-theme.ts"],
       "@maioun/collector/contact/agency-form": ["./packages/collector/src/contact/agency-form.ts"]
     },
     "rootDir": "../.."
