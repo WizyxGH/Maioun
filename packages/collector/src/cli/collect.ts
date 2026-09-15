@@ -374,6 +374,9 @@ function sourcesVisees(
   args: ReadonlySet<string>,
   logger: Logger,
 ): { readonly scrapers: readonly Scraper[]; readonly force: boolean } | null {
+  // --all : rafraîchir TOUTES les sources d'un coup, après un ajout massif ou un
+  // correctif d'extraction, sans attendre l'intervalle de chacune.
+  if (args.has('--all')) return { scrapers: ALL_SCRAPERS, force: true };
   const cible = [...args].find((a) => a.startsWith('--source='))?.slice('--source='.length);
   if (cible === undefined) return { scrapers: ALL_SCRAPERS, force: false };
 
@@ -506,6 +509,8 @@ async function main(): Promise<void> {
       userAgent: collectorUserAgent(),
       mode,
       ...(vise.force ? { force: true } : {}),
+      // Toutes les sources ne démarrent pas en huit minutes ; le job en a vingt.
+      ...(args.has('--all') ? { sourcePhaseBudgetMs: 14 * 60_000 } : {}),
       clock: systemClock,
       logger,
       ...(transitConfig !== null ? { transitConfig } : {}),

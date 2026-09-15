@@ -25,6 +25,10 @@ on:
         description: 'Mode backfill (récupération d’annonces plus anciennes)'
         type: boolean
         default: false
+      all:
+        description: 'Toutes les sources, sans attendre leur tour'
+        type: boolean
+        default: false
       verbose:
         description: 'Journalisation détaillée'
         type: boolean
@@ -68,6 +72,7 @@ jobs:
         run: |
           ARGS=""
           if [ "${{ inputs.backfill }}" = "true" ]; then ARGS="$ARGS --backfill"; fi
+          if [ "${{ inputs.all }}" = "true" ]; then ARGS="$ARGS --all"; fi
           if [ "${{ inputs.verbose }}" = "true" ]; then ARGS="$ARGS --verbose"; fi
           pnpm run collect -- $ARGS
         env:
