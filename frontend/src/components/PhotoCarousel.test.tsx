@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PhotoCarousel } from './PhotoCarousel.js';
@@ -44,6 +44,83 @@ describe('PhotoCarousel', () => {
     render(<PhotoCarousel urls={URLS} />);
     await user.click(screen.getByLabelText('Aller à la photo 3'));
     expect(screen.getByLabelText('Aller à la photo 3')).toHaveAttribute('aria-current', 'true');
+  });
+});
+
+describe('PhotoCarousel — chargement', () => {
+  const SERIES = Array.from({ length: 6 }, (_, at) => `https://x/${at + 1}.jpg`);
+  const sources = (container: HTMLElement): string[] =>
+    [...container.querySelectorAll('img')].map((img) => img.getAttribute('src') ?? '');
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'connection');
+  });
+
+  it('ne monte que la photo visible et sa voisine', () => {
+    const { container } = render(<PhotoCarousel urls={SERIES} />);
+    expect(sources(container)).toEqual(['https://x/1.jpg', 'https://x/2.jpg']);
+    // Les emplacements restent : la piste garde sa longueur et ses points.
+    expect((container.firstElementChild!.firstElementChild as HTMLElement).children).toHaveLength(
+      6,
+    );
+  });
+
+  it('suit la navigation et garde les photos déjà montées', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PhotoCarousel urls={SERIES} />);
+    await user.click(screen.getByLabelText('Aller à la photo 5'));
+    expect(sources(container)).toEqual([
+      'https://x/1.jpg',
+      'https://x/2.jpg',
+      'https://x/4.jpg',
+      'https://x/5.jpg',
+      'https://x/6.jpg',
+    ]);
+  });
+
+  it('ne précharge aucune voisine sur une connexion lente', async () => {
+    Object.defineProperty(navigator, 'connection', {
+      value: { effectiveType: '3g' },
+      configurable: true,
+    });
+    const user = userEvent.setup();
+    const { container } = render(<PhotoCarousel urls={SERIES} />);
+    expect(sources(container)).toEqual(['https://x/1.jpg']);
+    await user.click(screen.getByLabelText('Photo suivante'));
+    expect(sources(container)).toEqual(['https://x/1.jpg', 'https://x/2.jpg']);
+  });
+
+  it('demande une taille réduite, plus petite encore sur réseau lent', () => {
+    const photo = 'https://agence.staticlbi.com/1600xauto/images/biens/1/a/p.jpg';
+    const { container, unmount } = render(<PhotoCarousel urls={[photo]} />);
+    expect(sources(container)).toEqual([
+      'https://agence.staticlbi.com/800xauto/images/biens/1/a/p.jpg',
+    ]);
+    unmount();
+    Object.defineProperty(navigator, 'connection', {
+      value: { saveData: true },
+      configurable: true,
+    });
+    const slow = render(<PhotoCarousel urls={[photo]} tall />);
+    expect(sources(slow.container)).toEqual([
+      'https://agence.staticlbi.com/800xauto/images/biens/1/a/p.jpg',
+    ]);
+  });
+
+  it('retente l’originale quand la déclinaison échoue, puis retire la photo', () => {
+    const photo = 'https://agence.staticlbi.com/1600xauto/images/biens/1/a/p.jpg';
+    const { container } = render(<PhotoCarousel urls={[photo, 'https://x/2.jpg']} />);
+    fireEvent.error(container.querySelector('img')!);
+    expect(sources(container)[0]).toBe(photo);
+    fireEvent.error(container.querySelector('img')!);
+    expect(sources(container)).toEqual(['https://x/2.jpg']);
+  });
+
+  it('retire aussitôt une photo sans déclinaison qui échoue', () => {
+    const { container } = render(<PhotoCarousel urls={SERIES} />);
+    fireEvent.error(container.querySelector('img')!);
+    // La suivante prend la place, et sa voisine est montée à son tour.
+    expect(sources(container)).toEqual(['https://x/2.jpg', 'https://x/3.jpg']);
   });
 });
 

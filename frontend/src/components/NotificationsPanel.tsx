@@ -13,6 +13,7 @@
 
 import { useRef, useState } from 'react';
 import { Check } from './icons.js';
+import { ListingThumbnail } from './ListingThumbnail.js';
 import { Button } from '@/components/ui/button.js';
 import type { ListingView } from '../types.js';
 import { ALERT_LABELS, alertEventOf, type AlertEvent } from '../alert-kind.js';
@@ -115,15 +116,9 @@ function HistoryRow({
       }`}
     >
       {photo !== undefined ? (
-        <img
-          src={photo}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
+        <ListingThumbnail
+          url={photo}
           className="size-14 shrink-0 rounded-lg bg-muted object-cover"
-          onError={(event) => {
-            event.currentTarget.style.visibility = 'hidden';
-          }}
         />
       ) : (
         <span aria-hidden="true" className="size-14 shrink-0 rounded-lg bg-muted" />

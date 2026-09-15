@@ -27,6 +27,7 @@ import {
 } from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
 import { SearchSummary } from './SearchSummary.js';
+import { ListingThumbnail } from './ListingThumbnail.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
@@ -105,11 +106,8 @@ function MiniRow({
       {photo === undefined ? (
         <span aria-hidden="true" className="bg-muted size-12 shrink-0 rounded-lg" />
       ) : (
-        <img
-          src={photo}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
+        <ListingThumbnail
+          url={photo}
           className="bg-muted size-12 shrink-0 rounded-lg object-cover"
         />
       )}

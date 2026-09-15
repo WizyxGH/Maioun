@@ -17,13 +17,30 @@
  * Les images sont affichées directement depuis le site d'origine (§11 : jamais
  * téléchargées ni stockées). Une image cassée (retirée côté source) est retirée
  * du carrousel plutôt que d'afficher un cadre vide.
+ *
+ * SEULES LES PHOTOS PROCHES SONT CHARGÉES. La piste montait toutes les images
+ * côte à côte, et `loading="lazy"` ne retient pas celles qui débordent sur le
+ * côté : chaque carte téléchargeait sa série entière (vingt photos parfois).
+ * On ne monte plus que la photo visible et ses voisines — la seule visible
+ * sur une connexion lente —, dans une taille ajustée à l'affichage.
  */
 
 import { useRef, useState } from 'react';
+import { useConstrainedNetwork } from '../network-quality.js';
+import { photoVariant } from '../photo-variant.js';
 import { ChevronLeft, ChevronRight } from './icons.js';
 
 /** En deçà, c'est une hésitation du doigt, pas une intention de changer de photo. */
 const SWIPE_MIN_PX = 40;
+
+/**
+ * Largeur demandée à l'hébergeur, en pixels réels : ~450 px de carte sur un
+ * écran à densité 2, ~600 px de fiche. Réduite quand le réseau est maigre.
+ */
+const WIDTH = {
+  card: { normal: 800, constrained: 500 },
+  detail: { normal: 1200, constrained: 800 },
+} as const;
 
 /**
  * Flèches : masquées sur téléphone, éteintes au bout de la série.
@@ -51,17 +68,43 @@ export function PhotoCarousel({
   // Les URLs dont le chargement échoue sont retirées : le carrousel ne montre
   // que des photos réellement disponibles.
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
+  // Photos dont la déclinaison réduite a échoué : on les montre en taille
+  // d'origine avant de les déclarer cassées.
+  const [original, setOriginal] = useState<ReadonlySet<string>>(new Set());
+  // Photos déjà montées : les garder évite de revoir un cadre vide en revenant.
+  const [mounted, setMounted] = useState<ReadonlySet<string>>(new Set());
   // Abscisse du doigt au début du geste. Une `ref` et non un état : elle change
   // à chaque touche et ne doit déclencher aucun rendu.
   const swipeFrom = useRef<number | null>(null);
+  const constrained = useConstrainedNetwork();
   const photos = urls.filter((url) => !broken.has(url));
 
   if (photos.length === 0) return <></>;
 
   const last = photos.length - 1;
   const clamped = Math.min(index, last);
+  const reach = constrained ? 0 : 1;
+  const inWindow = (at: number): boolean => Math.abs(at - clamped) <= reach;
+  const width = WIDTH[tall ? 'detail' : 'card'][constrained ? 'constrained' : 'normal'];
+
+  const show = (next: number): void => {
+    const kept = photos.filter((_, at) => inWindow(at));
+    if (kept.some((url) => !mounted.has(url))) {
+      setMounted((current) => new Set([...current, ...kept]));
+    }
+    setIndex(next);
+  };
   // Bornée, et non circulaire : `go(-1)` sur la première ne fait rien.
-  const go = (next: number): void => setIndex(Math.max(0, Math.min(next, last)));
+  const go = (next: number): void => show(Math.max(0, Math.min(next, last)));
+
+  const fail = (url: string, src: string): void => {
+    if (src !== url && !original.has(url)) {
+      setOriginal((current) => new Set(current).add(url));
+    } else {
+      setBroken((current) => new Set(current).add(url));
+    }
+  };
+  const height = tall ? 'h-64 sm:h-80' : 'h-44';
 
   return (
     <div
@@ -90,22 +133,30 @@ export function PhotoCarousel({
         go(delta < 0 ? clamped + 1 : clamped - 1);
       }}
     >
-      {/* Piste : toutes les photos côte à côte, décalée par transformation. */}
+      {/* Piste : les emplacements côte à côte, décalée par transformation. Les
+          photos éloignées n'y sont qu'une case vide, sur le fond neutre. */}
       <div
         className="flex h-full transition-transform duration-300 ease-out"
         style={{ transform: `translateX(-${clamped * 100}%)` }}
       >
-        {photos.map((url) => (
-          <img
-            key={url}
-            src={url}
-            alt=""
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            className={`w-full shrink-0 object-cover ${tall ? 'h-64 sm:h-80' : 'h-44'}`}
-            onError={() => setBroken((current) => new Set(current).add(url))}
-          />
-        ))}
+        {photos.map((url, at) => {
+          if (!inWindow(at) && !mounted.has(url)) {
+            return <div key={url} aria-hidden="true" className={`w-full shrink-0 ${height}`} />;
+          }
+          const src = original.has(url) ? url : photoVariant(url, width);
+          return (
+            <img
+              key={url}
+              src={src}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              className={`w-full shrink-0 object-cover ${height}`}
+              onError={() => fail(url, src)}
+            />
+          );
+        })}
       </div>
 
       {photos.length > 1 && (
@@ -147,7 +198,7 @@ export function PhotoCarousel({
                 aria-current={dot === clamped}
                 onClick={(event) => {
                   event.stopPropagation();
-                  setIndex(dot);
+                  show(dot);
                 }}
                 className={`size-1.5 cursor-pointer rounded-full transition-colors ${
                   dot === clamped ? 'bg-white' : 'bg-white/50'

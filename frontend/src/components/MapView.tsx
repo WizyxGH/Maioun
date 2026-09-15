@@ -16,7 +16,11 @@ import 'leaflet/dist/leaflet.css';
 import { PRIORITY_HOT } from '@maioun/shared';
 import type { ListingView } from '../types.js';
 import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../format.js';
+import { photoVariant } from '../photo-variant.js';
 import { iconMarkup } from './icons.js';
+
+/** Aperçu de 220 px de large, sur un écran à densité 2. */
+const POPUP_PHOTO_WIDTH = 500;
 
 /** Centre par défaut : Nice. Utilisé quand aucune annonce n'est géolocalisée. */
 const NICE_CENTER: [number, number] = [43.7009, 7.2683];
@@ -232,16 +236,25 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       popup.style.cssText = 'font:13px system-ui, sans-serif;max-width:220px';
 
       // Photo de couverture (depuis le site d'origine, §11 : jamais stockée).
+      // Adresse posée à l'ouverture seulement : une image créée avec son `src`
+      // se télécharge aussitôt, même hors page — une photo par marqueur.
       const photoUrl = listing.imageUrls?.[0];
       if (photoUrl !== undefined) {
         const img = document.createElement('img');
-        img.src = photoUrl;
+        const variant = photoVariant(photoUrl, POPUP_PHOTO_WIDTH);
         img.alt = '';
         img.referrerPolicy = 'no-referrer';
-        img.loading = 'lazy';
+        img.decoding = 'async';
         img.style.cssText =
           'display:block;width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:6px';
-        img.addEventListener('error', () => img.remove());
+        img.addEventListener('error', () => {
+          // Déclinaison réduite refusée : on retente l'originale, une fois.
+          if (img.getAttribute('src') === variant && variant !== photoUrl) img.src = photoUrl;
+          else img.remove();
+        });
+        marker.on('popupopen', () => {
+          if (!img.hasAttribute('src')) img.src = variant;
+        });
         popup.append(img);
       }
 
