@@ -15,7 +15,7 @@
  *   - Partners Immo (Apimo) : reCAPTCHA v2 invisible. Écarté.
  *   - Méditerranée Immo (La Boîte Immo) : reCAPTCHA v3. Écarté.
  *   - Elitimo (Twimmo) : reCAPTCHA Enterprise et champs pièges. Écarté ;
- *     l'agence publie contact@elitimo.com, le message part par e-mail.
+ *     l'agence publie son adresse e-mail, le message part par ce canal.
  * Un CAPTCHA dit que le site ne veut pas d'envoi automatisé : on s'en tient
  * alors à « copier le message et ouvrir le formulaire ».
  */
@@ -88,6 +88,7 @@ interface Adapter {
 export const AGENCY_FORM_REFUSALS: Readonly<Record<string, string>> = {
   'partners-immo': 'Le formulaire de Partners Immo est protégé par un reCAPTCHA.',
   'mediterranee-immo': 'Le formulaire de Méditerranée Immo est protégé par un reCAPTCHA.',
+  elitimo: 'Le formulaire d’Elitimo est protégé par un reCAPTCHA.',
 };
 
 const CAPTCHA_MARKERS: readonly [RegExp, string][] = [
