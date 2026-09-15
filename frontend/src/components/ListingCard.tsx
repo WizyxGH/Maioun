@@ -21,7 +21,6 @@ import {
   formatSourceName,
   formatTracking,
 } from '../format.js';
-import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { checkEligibility, type TenantProfile } from '@maioun/shared';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
@@ -48,8 +47,6 @@ interface ListingCardProps {
   readonly onOpen: (id: string) => void;
   /** Met (`true`) ou retire (`false`) l'annonce des favoris. */
   readonly onFavorite?: (favorite: boolean) => void;
-  /** Score d'affinité [0,1] avec vos préférences, si assez de signal (§33). */
-  readonly affinity?: number;
   /**
    * Le profil locataire, pour confronter le dossier aux conditions de l'annonce.
    *
@@ -139,13 +136,11 @@ function StatusBadges({
   listing,
   rented,
   archived,
-  affinity,
   profile,
 }: {
   readonly listing: ListingView;
   readonly rented: boolean;
   readonly archived: boolean;
-  readonly affinity: number | undefined;
   readonly profile: TenantProfile | null | undefined;
 }): React.JSX.Element {
   /**
@@ -158,8 +153,6 @@ function StatusBadges({
     listing.requirements !== undefined && profile != null
       ? checkEligibility(listing.requirements, profile).verdict
       : 'unknown';
-  const showAffinity =
-    affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && !rented;
   return (
     <>
       {rented && <Badge variant="bad">Loué</Badge>}
@@ -168,7 +161,6 @@ function StatusBadges({
         <Badge variant="warning">Peut-être retirée</Badge>
       )}
       {archived && !rented && <Badge variant="warning">Archivée</Badge>}
-      {showAffinity && <Badge variant="good">Vos préférences</Badge>}
       {listing.tracking !== 'new' ? (
         <Badge>{formatTracking(listing.tracking)}</Badge>
       ) : (
@@ -265,7 +257,6 @@ export function ListingCard({
   rank,
   onOpen,
   onFavorite,
-  affinity,
   profile,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
@@ -380,13 +371,7 @@ export function ListingCard({
               />
             </button>
           )}
-          <StatusBadges
-            listing={listing}
-            rented={rented}
-            archived={archived}
-            affinity={affinity}
-            profile={profile}
-          />
+          <StatusBadges listing={listing} rented={rented} archived={archived} profile={profile} />
         </span>
       </header>
 

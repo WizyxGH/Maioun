@@ -523,7 +523,6 @@ function SearchResults({
   emptyBecauseFiltered,
   onResetFilters,
   nowMs,
-  affinity,
   profile,
   onOpen,
   onFavorite,
@@ -541,7 +540,6 @@ function SearchResults({
   /** Remet tri, filtres, sources et recherche à zéro. */
   readonly onResetFilters?: () => void;
   readonly nowMs: number;
-  readonly affinity: { active: boolean; scores: ReadonlyMap<string, number> };
   /** Le dossier, pour marquer les annonces dont il ne remplit pas les conditions. */
   readonly profile: TenantProfile | null;
   readonly onOpen: (id: string) => void;
@@ -595,7 +593,6 @@ function SearchResults({
               rank={rank}
               onOpen={onOpen}
               onFavorite={(favorite) => onFavorite(listing.id, favorite)}
-              affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
               profile={profile}
             />
           ))}
@@ -623,7 +620,6 @@ function SearchResults({
                 rank={rank}
                 onOpen={onOpen}
                 onFavorite={(favorite) => onFavorite(listing.id, favorite)}
-                affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
                 profile={profile}
               />
             ))}
@@ -2427,7 +2423,6 @@ function AppView(): React.JSX.Element {
         })}
         onResetFilters={resetSortAndFilters}
         nowMs={nowMs}
-        affinity={affinity}
         profile={profile}
         onOpen={openListing}
         onFavorite={(id, favorite) => void handleFavorite(id, favorite)}

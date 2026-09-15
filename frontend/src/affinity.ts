@@ -96,6 +96,3 @@ export function computeAffinity(listings: readonly ListingView[]): AffinityResul
 
 /** Poids du boost d'affinité dans le classement (points de priorité). */
 export const AFFINITY_BOOST = 15;
-
-/** Seuil d'affichage du badge « correspond à vos préférences ». */
-export const AFFINITY_BADGE_THRESHOLD = 0.6;
