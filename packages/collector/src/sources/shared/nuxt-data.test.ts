@@ -3,7 +3,7 @@ import { readNuxtData, unflattenNuxtPayload } from './nuxt-data.js';
 
 describe('unflattenNuxtPayload', () => {
   it('suit les indices, enveloppes réactives comprises', () => {
-    const flat = [
+    const flat: unknown[] = [
       ['ShallowReactive', 1],
       { data: 2, count: 4 },
       ['Reactive', 3],
@@ -17,7 +17,7 @@ describe('unflattenNuxtPayload', () => {
   });
 
   it('rend les valeurs spéciales et les types étiquetés', () => {
-    const flat = [
+    const flat: unknown[] = [
       { nul: -2, absent: -1, date: 1, set: 2, map: 4 },
       ['Date', '2026-09-15T00:00:00.000Z'],
       ['Set', 3],
