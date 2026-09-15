@@ -1425,14 +1425,22 @@ export function createRepository(db: Database): Repository {
         // MÊME EMPREINTE QUE LA FICHE, plus le compte : ce qui n'a pas bougé
         // n'est pas réécrit. Sans cela, chaque collecte réécrirait toutes les
         // lignes de tous les comptes (§30).
-        const hash = listingHash(listing);
+        // Les raisons dépendent des critères du compte, les trajets de ses
+        // points : ni les unes ni les autres ne figurent dans l'empreinte de la fiche.
+        const scores = JSON.stringify(listing.scores);
+        const distances = JSON.stringify(listing.distances);
+        const personal = createHash('sha256')
+          .update(scores + distances)
+          .digest('hex')
+          .slice(0, 16);
+        const hash = `${listingHash(listing)}:${personal}`;
         if (known.get(listing.id) === hash) continue;
         statements.push({
           sql: `INSERT INTO listing_user_score (
                   user_id, listing_id, matches_criteria, action_priority,
                   match_score, opportunity_score, visit_score, risk_score,
-                  commute_minutes, content_hash, updated_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                  commute_minutes, scores, distances, content_hash, updated_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(user_id, listing_id) DO UPDATE SET
                   matches_criteria = excluded.matches_criteria,
                   action_priority = excluded.action_priority,
@@ -1441,6 +1449,8 @@ export function createRepository(db: Database): Repository {
                   visit_score = excluded.visit_score,
                   risk_score = excluded.risk_score,
                   commute_minutes = excluded.commute_minutes,
+                  scores = excluded.scores,
+                  distances = excluded.distances,
                   content_hash = excluded.content_hash,
                   updated_at = excluded.updated_at`,
           args: [
@@ -1453,6 +1463,8 @@ export function createRepository(db: Database): Repository {
             listing.scores.visitProbability.value,
             listing.scores.risk.value,
             shortestCommuteMinutes(listing),
+            scores,
+            distances,
             hash,
             now,
           ],

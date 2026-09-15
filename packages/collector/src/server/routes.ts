@@ -137,26 +137,15 @@ function json(data: unknown, cors: Record<string, string>, status = 200): Respon
 }
 
 /**
- * Reconstitue une fiche à partir de sa ligne et de son payload JSON, POUR UN
- * LECTEUR DONNÉ.
+ * Reconstitue une fiche à partir de sa ligne et de son payload JSON.
  *
- * `viewer` EST OBLIGATOIRE, et c'est voulu : il décide de ce qui est
- * personnel dans une fiche partagée — les DISTANCES. La collecte les calcule
- * depuis les adresses de référence du compte principal (son domicile, son
- * travail) et les range dans la fiche commune ; l'API les recopiait à TOUT LE
- * MONDE. Relevé le 2026-09-11 : un visiteur anonyme lisait « Travail : 62 min,
- * 14,4 km à vol d'oiseau » — et, croisées avec les coordonnées de quelques
- * annonces, ces distances situent le lieu. Le projet s'interdit précisément
- * de les publier.
- *
- * Elles ne partent donc qu'à leur propriétaire. Pour tout autre lecteur : aucune
- * — l'inconnu plutôt que le trajet de quelqu'un d'autre. Obligatoire pour que
- * le compilateur le rappelle à chaque nouvel appel.
+ * La ligne vient de la jointure avec l'état et le score DU LECTEUR : c'est elle
+ * qui porte ce qui est personnel — raisons du score, trajets (voir
+ * `personalScoring`). Le payload commun ne les fournit jamais : le 2026-09-11,
+ * un visiteur anonyme y lisait « Travail : 62 min, 14,4 km à vol d'oiseau »,
+ * de quoi situer le domicile du compte principal.
  */
-export function rowToListing(
-  row: Record<string, unknown>,
-  viewer: string,
-): Record<string, unknown> {
+export function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
   // `payload_light` n'existe que pour la LISTE, où description et raisons de
   // score ont été retirées en SQL. La fiche, elle, n'a que `payload`.
   const source = row['payload_light'] ?? row['payload'];
@@ -217,7 +206,53 @@ export function rowToListing(
     goneNotifiedAt: row['gone_notified_at'] ?? null,
     remindedAt: row['reminded_at'] ?? null,
     ...payload,
-    ...(viewer === CURRENT_USER ? {} : { distances: [] }),
+    ...personalScoring(row, payload, partial),
+  };
+}
+
+/** Un score tel que la fiche le range : une valeur, des raisons. */
+type StoredScores = Record<string, { value?: unknown; reasons?: unknown }>;
+
+function parseJson<T>(raw: unknown): T | null {
+  if (typeof raw !== 'string' || raw === '') return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * LE DÉTAIL DU SCORE ET LES TRAJETS SONT CEUX DU LECTEUR.
+ *
+ * La fiche commune porte ceux du compte principal : ses raisons citent son
+ * budget (« 950 € ≤ 1 000 € de budget »), ses trajets situent son domicile.
+ * Chaque compte reçoit les siens, lus dans `listing_user_score`. Sans ligne —
+ * visiteur anonyme, fiche pas encore scorée —, aucun trajet et des scores
+ * sans raisons : l'inconnu plutôt que les critères de quelqu'un d'autre.
+ */
+function personalScoring(
+  row: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  partial: boolean,
+): { scores?: StoredScores; distances: unknown[] } {
+  const own = parseJson<StoredScores>(row['user_scores']);
+  const shared = payload['scores'] as StoredScores | undefined;
+  const base = own ?? shared;
+  // La liste allégée ne transporte pas les raisons ; sans score propre, on les tait.
+  const withoutReasons = partial || own === null;
+  const scores =
+    base === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(base).map(([name, score]) => [
+            name,
+            withoutReasons ? { ...score, reasons: [] } : score,
+          ]),
+        );
+  return {
+    ...(scores !== undefined ? { scores } : {}),
+    distances: parseJson<unknown[]>(row['user_distances']) ?? [],
   };
 }
 
@@ -270,6 +305,8 @@ const USER_STATE_COLUMNS = `listings.*,
   COALESCE(sc.action_priority, 0) AS action_priority,
   sc.match_score AS match_score,
   sc.commute_minutes AS commute_minutes,
+  sc.scores AS user_scores,
+  sc.distances AS user_distances,
   COALESCE(us.viewed, 0) AS viewed,
   COALESCE(us.archived, 0) AS archived,
   COALESCE(us.favorite, 0) AS favorite,
@@ -510,7 +547,7 @@ async function listListings(
   });
 
   return {
-    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>, userId)),
+    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)),
     total,
     limit: query.limit,
     offset: query.offset,
@@ -546,7 +583,7 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
   }
 
   return {
-    ...rowToListing(row as Record<string, unknown>, userId),
+    ...rowToListing(row as Record<string, unknown>),
     contactAttempts: attempts.rows.map((attempt) => ({
       id: attempt['id'],
       channel: attempt['channel'],
@@ -641,7 +678,7 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
         .split(',')
         .filter((one) => one !== ''),
     },
-    listings: listings.rows.map((one) => rowToListing(one as Record<string, unknown>, userId)),
+    listings: listings.rows.map((one) => rowToListing(one as Record<string, unknown>)),
   };
 }
 
@@ -675,7 +712,7 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
     args: [userId, userId],
   });
   return {
-    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>, userId)),
+    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)),
   };
 }
 

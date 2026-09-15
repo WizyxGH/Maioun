@@ -7,8 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildListQuery, buildPriceHistogram, route, rowToListing } from './routes.js';
 
-/** Une fiche vue par le compte principal — celui dont la collecte calcule les distances. */
-const vueMoi = (row: Record<string, unknown>): Record<string, unknown> => rowToListing(row, 'moi');
+const vueMoi = (row: Record<string, unknown>): Record<string, unknown> => rowToListing(row);
 
 const query = (search: string) =>
   buildListQuery(new URL(`https://exemple.invalid/api/listings${search}`));
@@ -103,33 +102,47 @@ describe('ordre de la liste', () => {
  * l'écarte en silence. C'est ce qui est arrivé à la date d'alerte — l'historique
  * annonçait « aucune alerte » alors que la base en comptait cent dix-huit.
  */
-describe('rowToListing — les distances ne partent qu’à leur propriétaire', () => {
+describe('rowToListing — scores détaillés et trajets du lecteur', () => {
   /**
-   * La collecte calcule les distances depuis les adresses de référence du
-   * compte principal — son domicile, son travail — et les range dans la fiche
-   * commune. L'API les recopiait à TOUT LE MONDE : le 2026-09-11, un visiteur
-   * anonyme lisait « Travail : 62 min, 14,4 km à vol d'oiseau ». Croisées avec
-   * les coordonnées de quelques annonces, elles situent le lieu.
+   * La fiche commune porte les raisons et les trajets du compte principal : ses
+   * raisons citent son budget, ses trajets situent son domicile. Le 2026-09-11,
+   * un visiteur anonyme lisait « Travail : 62 min, 14,4 km à vol d'oiseau ».
+   * Chaque lecteur reçoit désormais les siens, joints depuis son score.
    */
-  const fiche = {
+  const commun = {
     id: 'century21:1',
     payload: JSON.stringify({
       title: { value: 'Studio' },
       distances: [{ label: 'Travail', distanceKm: 14.4, durationMinutes: 62, mode: 'transit' }],
+      scores: {
+        match: { value: 80, reasons: [{ code: 'price.ok', label: '950 € ≤ 1 000 € de budget' }] },
+      },
     }),
   };
 
-  it('les rend au compte dont elles viennent', () => {
-    expect(rowToListing(fiche, 'moi')['distances']).toHaveLength(1);
+  it('ne rend jamais les trajets ni les raisons de la fiche commune', () => {
+    const vue = rowToListing(commun);
+    expect(vue['distances']).toEqual([]);
+    expect((vue['scores'] as { match: { reasons: unknown[] } }).match.reasons).toEqual([]);
+    expect(vue['title']).toEqual({ value: 'Studio' });
   });
 
-  it('ne les rend NI à un visiteur anonyme, NI à un autre compte', () => {
-    expect(rowToListing(fiche, 'anonyme')['distances']).toEqual([]);
-    expect(rowToListing(fiche, 'un-autre-compte')['distances']).toEqual([]);
-  });
-
-  it('garde tout le reste de la fiche pour eux', () => {
-    expect(rowToListing(fiche, 'anonyme')['title']).toEqual({ value: 'Studio' });
+  it('rend au lecteur SES trajets et SES raisons', () => {
+    const vue = rowToListing({
+      ...commun,
+      user_distances: JSON.stringify([
+        { label: 'Fac', distanceKm: 2, durationMinutes: 12, mode: 'transit' },
+      ]),
+      user_scores: JSON.stringify({
+        match: { value: 60, reasons: [{ code: 'price.ok', label: '950 € ≤ 1 200 € de budget' }] },
+      }),
+    });
+    expect(vue['distances']).toEqual([
+      { label: 'Fac', distanceKm: 2, durationMinutes: 12, mode: 'transit' },
+    ]);
+    expect(vue['scores']).toEqual({
+      match: { value: 60, reasons: [{ code: 'price.ok', label: '950 € ≤ 1 200 € de budget' }] },
+    });
   });
 });
 

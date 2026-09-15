@@ -83,6 +83,53 @@ describe('cloisonnement entre comptes (§26)', () => {
     }
   });
 
+  it('donne à chacun SES trajets et le détail du score selon SES critères', async () => {
+    const repository = createRepository(db);
+    const pour = (maxPrice: number, label: string): ScoredListing =>
+      scoreListing(
+        makeAggregated({
+          id: 'orpi:1',
+          occurrences: [makeOccurrence({ id: 'orpi:1', sourceId: 'orpi' })],
+        }),
+        {
+          criteria: { ...MVP_CRITERIA, maxPrice },
+          nowMs: Date.now(),
+          referencePricePerSqm: 20,
+          referencePoints: [{ label, latitude: 43.7, longitude: 7.26, mode: 'walking' }],
+          resolvedCoordinates: { latitude: 43.705, longitude: 7.265 },
+        },
+      );
+    await repository.saveUserScores('alice', [pour(1000, 'Travail')]);
+    await repository.saveUserScores('bob', [pour(700, 'Fac')]);
+
+    type Vue = {
+      distances: { label: string }[];
+      scores: { match: { reasons: { label: string }[] } };
+    };
+    const chez = async (userId: string): Promise<Vue> =>
+      (await call(db, userId, 'GET', '/api/listings/orpi:1')) as unknown as Vue;
+    const budget = (vue: Vue): string =>
+      vue.scores.match.reasons.map((reason) => reason.label).join(' | ');
+
+    const alice = await chez('alice');
+    const bob = await chez('bob');
+    expect(alice.distances.map((d) => d.label)).toEqual(['Travail']);
+    expect(bob.distances.map((d) => d.label)).toEqual(['Fac']);
+    expect(budget(alice)).toContain('1000 €');
+    expect(budget(bob)).toContain('700 €');
+    expect(budget(bob)).not.toContain('1000 €');
+
+    // Un visiteur sans compte : ni trajet, ni critères de quiconque.
+    const anonyme = (await call(
+      db,
+      'anonyme-sans-score',
+      'GET',
+      '/api/listings/orpi:1',
+    )) as unknown as Vue;
+    expect(anonyme.distances).toEqual([]);
+    expect(anonyme.scores.match.reasons).toEqual([]);
+  });
+
   it('ne montre pas à l’un les DÉMARCHES de l’autre', async () => {
     await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
       channel: 'email',
