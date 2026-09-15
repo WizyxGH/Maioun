@@ -10,7 +10,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const subscribePush = vi.fn(() => Promise.resolve());
-vi.mock('./api/client.js', () => ({ subscribePush, unsubscribePush: vi.fn() }));
+const unsubscribePush = vi.fn(() => Promise.resolve());
+vi.mock('./api/client.js', () => ({ subscribePush, unsubscribePush }));
 
 /** Un abonnement tel que le rend le navigateur. */
 const abonnement = {
@@ -95,5 +96,21 @@ describe('restorePush', () => {
     expect(await restorePush(true)).toBe(true);
     expect(subscribe).not.toHaveBeenCalled();
     expect(subscribePush).toHaveBeenCalledOnce();
+  });
+});
+
+describe('disablePush', () => {
+  it('désabonne le navigateur même quand le serveur échoue', async () => {
+    // Resté abonné ici, l'appareil était redéposé à la réouverture : les
+    // alertes coupées se rallumaient d'elles-mêmes.
+    const unsubscribe = vi.fn(() => Promise.resolve(true));
+    navigateur({ ...abonnement, unsubscribe } as unknown as typeof abonnement, 'granted');
+    unsubscribePush.mockRejectedValueOnce(new Error('Votre session a expiré.'));
+    const { disablePush } = await chargerPush();
+
+    await disablePush();
+
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(unsubscribePush).toHaveBeenCalledWith(abonnement.endpoint);
   });
 });

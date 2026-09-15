@@ -208,8 +208,12 @@ export async function disablePush(): Promise<void> {
       await navigator.serviceWorker.getRegistration()
     )?.pushManager.getSubscription();
     if (subscription == null) return;
-    await unsubscribePush(subscription.endpoint);
+    // Le navigateur d'abord : si le serveur échoue, un abonnement resté ici
+    // serait redéposé à la réouverture et l'interrupteur se rallumerait. Une
+    // ligne orpheline en base, elle, tombe au premier envoi (410).
+    const { endpoint } = subscription;
     await subscription.unsubscribe();
+    await unsubscribePush(endpoint).catch(() => undefined);
   } catch {
     // Déjà parti, ou stockage indisponible : rien de plus à faire.
   }

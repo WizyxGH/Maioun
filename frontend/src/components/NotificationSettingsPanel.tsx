@@ -24,7 +24,7 @@
 
 import { NEAR_MATCH_MARGIN } from '@maioun/shared';
 import type { NotificationFrequency } from '@maioun/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
 import {
@@ -124,6 +124,17 @@ export function NotificationSettingsPanel({
   const [preferences, setPreferences] = useState<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFERENCES,
   );
+  // Tant que la base n'a pas répondu, les défauts affichés ne sont pas les
+  // réglages du compte : les enregistrer effacerait ceux qui sont stockés.
+  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // Dernière valeur voulue, lue au moment d'écrire : deux gestes rapprochés ne
+  // repartent pas chacun d'un état périmé.
+  const latest = useRef<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  // Les écritures partent l'une après l'autre : en parallèle, la plus ancienne
+  // pouvait arriver en dernier et l'emporter.
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  // Un geste sur l'interrupteur principal prime sur l'état relu au chargement.
+  const masterTouched = useRef(false);
 
   // L'abonnement push fait foi au chargement : il survit à un vidage du
   // stockage local, là où la préférence de bandeau, non.
@@ -149,17 +160,36 @@ export function NotificationSettingsPanel({
         // si le navigateur PERMET le push et qu'aucun abonnement n'existe.
         const bandeauSeul =
           optedIn && typeof Notification !== 'undefined' && Notification.permission !== 'granted';
-        setOn(subscribed || bandeauSeul);
+        if (!masterTouched.current) setOn(subscribed || bandeauSeul);
       });
     } else {
       void pushEnabled().then((subscribed) => {
-        if (subscribed) setOn(true);
+        if (subscribed && !masterTouched.current) setOn(true);
       });
     }
-    void fetchNotificationPreferences().then(setPreferences);
+    void fetchNotificationPreferences().then(
+      (stored) => {
+        latest.current = stored;
+        setPreferences(stored);
+        setStatus('ready');
+      },
+      () => {
+        setStatus('failed');
+        setError('Vos réglages n’ont pas pu être lus. Revenez sur cet écran pour réessayer.');
+      },
+    );
   }, []);
 
+  const persist = (next: NotificationPreferences, failure: string): void => {
+    latest.current = next;
+    setPreferences(next);
+    saving.current = saving.current
+      .then(() => saveNotificationPreferences(latest.current))
+      .catch(() => setError(failure));
+  };
+
   const toggleMaster = async (): Promise<void> => {
+    masterTouched.current = true;
     setError(null);
     if (on) {
       writeOptIn(false);
@@ -197,11 +227,8 @@ export function NotificationSettingsPanel({
    * décide d'envoyer, et elle ne voit que la base.
    */
   const setFrequency = (frequency: NotificationFrequency): void => {
-    const next = { ...preferences, frequency };
-    setPreferences(next);
-    void saveNotificationPreferences(next).catch(() =>
-      setError('Le rythme n’a pas pu être enregistré.'),
-    );
+    if (status !== 'ready') return;
+    persist({ ...latest.current, frequency }, 'Le rythme n’a pas pu être enregistré.');
   };
 
   /**
@@ -211,18 +238,15 @@ export function NotificationSettingsPanel({
    * y recevoir — mais il fallait deux gestes, dont l'un ressemblait à l'autre.
    */
   const toggleNewListings = async (value: boolean): Promise<void> => {
-    if (!preferences.newListings && value) toggleKind('newListings', true);
+    if (!latest.current.newListings && value) toggleKind('newListings', true);
     await toggleMaster();
   };
 
   const toggleKind = (key: NotificationKind, value: boolean): void => {
-    const next = { ...preferences, [key]: value };
-    setPreferences(next);
+    if (status !== 'ready') return;
     // Écriture immédiate, sans bouton : un interrupteur qui demanderait ensuite
     // de valider ne serait plus un interrupteur.
-    void saveNotificationPreferences(next).catch(() =>
-      setError('Le réglage n’a pas pu être enregistré.'),
-    );
+    persist({ ...latest.current, [key]: value }, 'Le réglage n’a pas pu être enregistré.');
   };
 
   return (
@@ -256,17 +280,21 @@ export function NotificationSettingsPanel({
       <SettingsGroup title="Ce dont vous voulez être prévenu, sur tous vos appareils">
         {KINDS.map(({ key, label, hint, Icon }) => {
           const master = key === 'newListings';
+          // Le réglage du compte s'affiche tel qu'il est stocké, même quand cet
+          // appareil n'est pas abonné : il vaut pour les autres et pour
+          // l'e-mail. Tout éteint ici faisait croire qu'il s'était perdu.
+          const stored = status === 'ready' && preferences[key];
           return (
             <SettingsRow
               key={key}
               Icon={Icon}
-              tone={(master ? on : preferences[key] && on) ? 'done' : 'muted'}
+              tone={(master ? on : stored && on) ? 'done' : 'muted'}
               label={label}
               hint={master && !on ? 'Active les alertes sur cet appareil.' : hint}
               trailing={
                 <Switch
-                  checked={master ? on : preferences[key] && on}
-                  disabled={master ? busy : !on}
+                  checked={master ? on : stored}
+                  disabled={master ? busy || status === 'loading' : !on || status !== 'ready'}
                   onCheckedChange={(value) => {
                     if (master) void toggleNewListings(value);
                     else toggleKind(key, value);
@@ -293,7 +321,8 @@ export function NotificationSettingsPanel({
               >
                 <Radio
                   name="notification-frequency"
-                  checked={preferences.frequency === option.value}
+                  disabled={status !== 'ready'}
+                  checked={status === 'ready' && preferences.frequency === option.value}
                   onChange={() => setFrequency(option.value)}
                 />
                 <span className="min-w-0 flex-1 font-medium">{option.label}</span>
