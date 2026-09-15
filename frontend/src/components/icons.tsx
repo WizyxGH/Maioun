@@ -539,3 +539,14 @@ const X_PATHS = {
 } as const;
 
 export const X: IconComponent = (props) => <Icon {...props} paths={X_PATHS} />;
+
+/**
+ * Les mêmes icônes, en balisage : pour ce qui ne rend pas de composant React,
+ * comme les pastilles de la carte (Leaflet prend du HTML). Mêmes tracés que les
+ * cartes et la fiche, pour qu'un repère se lise pareil partout.
+ */
+const MARKUP_PATHS = { heart: Heart_PATHS, mail: Mail_PATHS, eye: Eye_PATHS } as const;
+
+export function iconMarkup(name: keyof typeof MARKUP_PATHS, color: string, size = 12): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="${size}" height="${size}" fill="${color}" aria-hidden="true" style="vertical-align:-1px">${MARKUP_PATHS[name].fill}</svg>`;
+}
