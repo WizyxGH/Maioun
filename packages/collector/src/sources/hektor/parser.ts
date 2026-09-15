@@ -261,6 +261,18 @@ function cityFromPostalCode(postalCode: string | undefined): string | undefined 
   return postalCode !== undefined && /^06[0-3]00$/.test(postalCode) ? 'Nice' : undefined;
 }
 
+/**
+ * La photo en taille d'affichage : seul le segment de taille, juste avant
+ * `/images/biens/`, change. Un `/original/` plus loin dans le chemin est un
+ * dossier du CDN, pas une taille : le remplacer donnait une adresse en 404.
+ */
+function displaySize(url: string): string {
+  return url.replace(
+    /^(https:\/\/[^/]+)\/(?:original|\d+x(?:\d+|auto))(?=\/images\/biens\/)/,
+    '$1/1600xauto',
+  );
+}
+
 /** Dossier CDN d'une photo : `/images/biens/1/{dossier}/photo_….jpg`, un par bien. */
 const PHOTO_FOLDER = /\/images\/biens\/\d+\/([^/]+)\//;
 
@@ -572,7 +584,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     const raw = $(el).attr('data-src') ?? $(el).attr('src') ?? '';
     // URLs sans schéma (`//cdn…`) : le CDN les sert en HTTPS.
     const src = raw.replace(/^\/\//, 'https://');
-    const normalized = src.replace('/original/', '/1600xauto/');
+    const normalized = displaySize(src);
     const fileName = normalized.split('/').pop() ?? normalized;
     if (!normalized.startsWith('https://') || seenPhotos.has(fileName)) return;
     seenPhotos.add(fileName);

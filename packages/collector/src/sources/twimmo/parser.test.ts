@@ -114,6 +114,32 @@ describe('parseTwimmoDetail', () => {
     expect(normalized?.dpe).toBe('D');
   });
 
+  it('prend la ligne directe du négociateur, pas le standard', () => {
+    const elitimo = parseTwimmoDetail(read('elitimo/fiche-1062L29A.html'));
+    expect(elitimo?.contactName).toBe('Camille EXEMPLE');
+    expect(elitimo?.phoneText).toBe('06 00 00 00 03');
+    // « Portable : » chez MK Immo.
+    expect(parseTwimmoDetail(read('mk-immo/fiche-795L1111A.html'))?.phoneText).toBe(
+      '06 00 00 00 18',
+    );
+  });
+
+  it('se rabat sur le bureau sans mobile, et ne devine rien sans encadré', () => {
+    const page = (box: string): string =>
+      '<html><body>Loyer mensuel 700 € charges comprises' +
+      `<div class="widget-testimonial-content"><h4>A. Exemple</h4>${box}</div></body></html>`;
+    const office = parseTwimmoDetail(
+      page('<div class="contact-box">Bureau <a href="tel:+33600000009">06 00 00 00 09</a></div>'),
+    );
+    expect(office?.phoneText).toBe('06 00 00 00 09');
+    expect(office?.contactName).toBe('A. Exemple');
+    const bare = parseTwimmoDetail(
+      '<html><body>Loyer mensuel 700 € charges comprises</body></html>',
+    );
+    expect(bare?.phoneText).toBeUndefined();
+    expect(bare?.contactName).toBeUndefined();
+  });
+
   it('refuse une fiche sans loyer mensuel', () => {
     expect(parseTwimmoDetail('<html><body>Vente appartement 250 000 €</body></html>')).toBeNull();
   });

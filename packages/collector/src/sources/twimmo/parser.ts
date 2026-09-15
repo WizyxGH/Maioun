@@ -52,6 +52,26 @@ export function parseTwimmoList(html: string, listUrl: string, agencyName: strin
 const pick = (text: string, pattern: string): string | undefined =>
   new RegExp(pattern, 'i').exec(text)?.[1]?.trim();
 
+const PHONE = String.raw`(\+?\d[\d .]{7,}\d)`;
+
+/**
+ * Le négociateur du bien, encadré à côté du formulaire : « Mobile 06… -
+ * Bureau 04… ». Sa ligne directe passe avant le standard, qui reste le repli ;
+ * le standard seul vaut mieux que rien quand le mobile manque.
+ */
+function negotiator($: cheerio.CheerioAPI): { name?: string; phone?: string } {
+  const card = $('.widget-testimonial-content').first();
+  if (card.length === 0) return {};
+  const lines = cleanText(card.find('.contact-box').first().text());
+  const name = cleanText(card.find('h4').first().text());
+  return {
+    name: name === '' ? undefined : name,
+    phone:
+      pick(lines, String.raw`(?:Mobile|Portable)\s*:?\s*${PHONE}`) ??
+      pick(lines, String.raw`Bureau\s*:?\s*${PHONE}`),
+  };
+}
+
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location au mois. */
 export function parseTwimmoDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
@@ -72,6 +92,7 @@ export function parseTwimmoDetail(html: string): RawDraft | null {
     ),
   ];
   const dpe = pick(text, String.raw`Classe énergie \(dpe\) ([A-G])\b`);
+  const contact = negotiator($);
 
   return {
     title: title === '' ? undefined : title,
@@ -85,6 +106,8 @@ export function parseTwimmoDetail(html: string): RawDraft | null {
     propertyTypeText: title === '' ? header?.[1] : title,
     cityText: header?.[2],
     postalCodeText: header?.[3],
+    contactName: contact.name,
+    phoneText: contact.phone,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: dpe !== undefined ? { dpe: dpe.toUpperCase() } : undefined,
   };
