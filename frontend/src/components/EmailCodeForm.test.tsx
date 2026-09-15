@@ -26,6 +26,13 @@ describe('saisie du code de confirmation', () => {
     expect(confirm).toHaveBeenCalledWith('042517');
   });
 
+  it('ne limite pas la longueur du champ : un texte collé garde son code', () => {
+    // Avec maxLength, le navigateur coupait « Votre code Maïoun : 042517 » avant
+    // qu'on n'en extraie les chiffres.
+    render(<EmailCodeForm onVerified={vi.fn()} />);
+    expect(screen.getByLabelText('Code reçu par e-mail')).not.toHaveAttribute('maxlength');
+  });
+
   it('n’envoie rien avant le sixième chiffre', () => {
     confirm.mockClear();
     render(<EmailCodeForm onVerified={vi.fn()} />);

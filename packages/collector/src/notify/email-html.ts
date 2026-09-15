@@ -11,21 +11,20 @@
  */
 
 import type { NotifiableListing } from '../db/repository.js';
+import {
+  EMAIL_COLORS,
+  EMAIL_FONT as FONT,
+  emailDocument,
+  escapeHtml as escape,
+} from './email-theme.js';
 
-const PRIMARY = '#e00034';
-const FOREGROUND = '#1a1a2e';
-const MUTED = '#63637a';
-const BORDER = '#e6e6ee';
-const BACKGROUND = '#f4f5f8';
-const FONT = "system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-
-function escape(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const {
+  primary: PRIMARY,
+  foreground: FOREGROUND,
+  muted: MUTED,
+  border: BORDER,
+  background: BACKGROUND,
+} = EMAIL_COLORS;
 
 /** « nice » → « Nice », « beaulieu sur mer » → « Beaulieu Sur Mer ». */
 function titleCase(value: string): string {
@@ -122,18 +121,11 @@ export function alertEmailHtml(deps: {
   const count = `${total} annonce${total > 1 ? 's' : ''} correspond${total > 1 ? 'ent' : ''} à votre recherche`;
   const site = escape(siteUrl);
 
-  return `<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
-<title>${escape(heading)}</title></head>
-<body style="margin:0;padding:0;background:${BACKGROUND}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0">${escape(count)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BACKGROUND}">
-<tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;font-family:${FONT}">
-<tr><td style="padding:0 4px 16px 4px">
-<div style="font-size:15px;font-weight:700;color:${PRIMARY}">🏠 Maïoun</div>
-<div style="margin-top:8px;font-size:24px;font-weight:700;color:${FOREGROUND}">${escape(heading)}</div>
+  return emailDocument({
+    title: heading,
+    preheader: count,
+    rows: `<tr><td style="padding:0 4px 16px 4px">
+<div style="font-size:24px;font-weight:700;color:${FOREGROUND}">${escape(heading)}</div>
 <div style="margin-top:4px;font-size:14px;color:${MUTED}">${escape(count)}</div>
 </td></tr>
 ${listings.map((listing) => card(listing, siteUrl, nowMs)).join('\n')}
@@ -143,7 +135,6 @@ ${rest > 0 ? `<div style="font-size:14px;color:${MUTED};margin-bottom:10px">… 
 </td></tr>
 <tr><td align="center" style="padding:24px 4px 0 4px;font-size:12px;color:${MUTED};line-height:1.5">
 Pour ne plus recevoir ces alertes : <a href="${site}" style="color:${MUTED}">Paramètres → Notifications</a>.
-</td></tr>
-</table></td></tr></table>
-</body></html>`;
+</td></tr>`,
+  });
 }

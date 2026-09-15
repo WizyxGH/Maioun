@@ -39,6 +39,7 @@ import type { Client } from '@libsql/client/web';
 import { hashPassword, verifyPassword } from './auth.js';
 import { emailProblem, normalizeEmail, type EmailProblem } from './email-address.js';
 import { hashToken, newToken } from './password-reset.js';
+import { EMAIL_COLORS, emailDocument, escapeHtml } from '@maioun/collector/notify/email-theme';
 
 /** Durée de validité d'un lien de confirmation. */
 const VALID_HOURS = 48;
@@ -142,12 +143,60 @@ export async function verificationRows(
   };
 }
 
-/** Le corps du message de confirmation. */
+/**
+ * LE CODE D'UN SEUL TENANT, EN TÊTE : c'est à cette forme que iOS, Android et
+ * Gmail reconnaissent un code à usage unique — bouton « Copier le code » dans la
+ * notification, remplissage automatique du champ sur le site. « 042 517 », avec
+ * son espace, n'était reconnu par aucun.
+ */
+export function confirmEmailSubject(code: string): string {
+  return `${code} est votre code Maïoun`;
+}
+
+/** Le message de confirmation : objet, texte brut de secours, version mise en forme. */
+export function confirmEmailMessage(
+  link: string,
+  code: string,
+): { subject: string; text: string; html: string } {
+  return {
+    subject: confirmEmailSubject(code),
+    text: confirmEmailBody(link, code),
+    html: confirmEmailHtml(link, code),
+  };
+}
+
+/** La version mise en forme : le code en grand, sélectionnable d'un geste. */
+export function confirmEmailHtml(link: string, code: string): string {
+  const { primary, foreground, muted, border } = EMAIL_COLORS;
+  const safeLink = escapeHtml(link);
+  return emailDocument({
+    title: confirmEmailSubject(code),
+    // Ce qu'affiche la notification après l'objet : le code encore, seul.
+    preheader: `${code} — saisissez ce code sur Maïoun pour confirmer votre adresse.`,
+    rows: `<tr><td style="padding:0 0 12px 0">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid ${border};border-radius:12px">
+<tr><td align="center" style="padding:28px 20px">
+<div style="font-size:20px;font-weight:700;color:${foreground}">Confirmez votre adresse</div>
+<div style="margin-top:6px;font-size:14px;color:${muted}">Votre code de confirmation</div>
+<div style="margin:16px auto 0 auto;display:inline-block;padding:14px 22px;border:2px dashed ${primary};border-radius:12px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:36px;font-weight:700;letter-spacing:8px;color:${foreground};-webkit-user-select:all;user-select:all">${escapeHtml(code)}</div>
+<div style="margin-top:10px;font-size:13px;color:${muted}">Appuyez longuement sur le code pour le copier.</div>
+<div style="margin-top:22px"><a href="${safeLink}" style="display:inline-block;background:${primary};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:11px 20px;border-radius:8px">Confirmer mon adresse</a></div>
+<div style="margin-top:14px;font-size:12px;color:${muted}">Le code et le lien expirent dans ${VALID_HOURS} heures.</div>
+</td></tr></table>
+</td></tr>
+<tr><td style="padding:12px 8px 0 8px;font-size:12px;color:${muted};line-height:1.5">
+Tant qu’elle n’est pas confirmée, votre adresse ne permet pas de réinitialiser votre mot de passe.
+Si vous n’êtes pas à l’origine de cette inscription, ignorez ce message : le compte créé n’a accès à rien qui vous appartienne, et sera supprimé.
+</td></tr>`,
+  });
+}
+
+/** Le corps du message de confirmation, en texte brut. */
 export function confirmEmailBody(link: string, code: string): string {
   return [
-    'Bienvenue sur Maïoun.',
+    `${code} est votre code de confirmation Maïoun.`,
     '',
-    `Votre code de confirmation : ${code.slice(0, 3)} ${code.slice(3)}`,
+    'Bienvenue sur Maïoun.',
     '',
     'Saisissez-le sur Maïoun, dans Paramètres, ou suivez ce lien :',
     link,
