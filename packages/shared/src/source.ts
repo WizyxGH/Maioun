@@ -430,7 +430,11 @@ export type StopReason =
   | 'blocked'
   | 'notModified'
   // Le site annonce plus d'annonces qu'il n'en laisse lire : rien ne se retire.
-  | 'incomplete';
+  | 'incomplete'
+  // Le site DIT n'avoir aucune location (bandeau « aucun bien », sitemap sans
+  // location visée) : source saine, et le stock connu est bien parti. Une page
+  // vide sans ce signe reste un gabarit cassé, jamais `empty`.
+  | 'empty';
 
 /**
  * Le contrat que tout scraper implémente (§47).
@@ -555,4 +559,4 @@ export function portalLabel(url: string | null): string | null {
  * leurs descripteurs — l'API, dans le Worker, n'embarque pas les scrapers.
  * Un test du collecteur vérifie qu'elle suit les descripteurs.
  */
-export const ONE_SHOT_SOURCES: readonly string[] = ['bep-abonnes', 'email-alerts'];
+export const ONE_SHOT_SOURCES: readonly string[] = ['bep-abonnes', 'email-alerts', 'nestenn-nice-port'];

@@ -59,9 +59,10 @@ const CACHE_READS_AT_ONCE = 16;
 
 /**
  * Sources collectées de front. Chacune garde son propre rythme de politesse ;
- * deux sources d'un même site restent en file (voir `runGrouped`).
+ * deux sources d'un même site restent en file (voir `runGrouped`). Chaque site
+ * ayant son hôte, doubler ce nombre ne charge aucun site davantage.
  */
-const SOURCES_AT_ONCE = 6;
+const SOURCES_AT_ONCE = 12;
 
 /**
  * Au-delà, plus aucune source ne DÉMARRE : celles qui restent sont dues au
@@ -230,9 +231,13 @@ async function runSource(
     // dégradée à tort.
     const discovered = result.listings.length + (result.confirmedRefs?.length ?? 0);
     // Une page inchangée (304) ne dit rien du parseur : Centragence passait
-    // « dégradée » à chaque passage où son site n'avait pas bougé.
+    // « dégradée » à chaque passage où son site n'avait pas bougé. Une agence
+    // qui affiche n'avoir aucune location non plus.
     const degraded =
-      result.pagesFetched > 0 && discovered === 0 && result.stopReason !== 'notModified';
+      result.pagesFetched > 0 &&
+      discovered === 0 &&
+      result.stopReason !== 'notModified' &&
+      result.stopReason !== 'empty';
 
     return {
       outcome: { sourceId: descriptor.id, success: true, result, error: null },
@@ -458,6 +463,10 @@ async function missingWouldBeUnfounded(
   if (reason === 'rateLimited' || reason === 'blocked' || reason === 'tooManyErrors') {
     return `passage interrompu (${reason})`;
   }
+  // La source affiche elle-même une liste vide : tout le stock connu est parti.
+  if (reason === 'empty') return null;
+  // Rien rendu sans ce signe : gabarit changé plutôt qu'agence vidée.
+  if (seenCount === 0) return 'aucune annonce, sans liste vide affichée par la source';
 
   const known = await repository.activeOccurrenceCount(sourceId);
   if (known >= 10 && seenCount * 2 < known) {

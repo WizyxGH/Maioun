@@ -18,16 +18,28 @@ const URL = 'https://www.exemple.fr/location/appartement-t2-2-pieces-nice-06200,
  * Les classes sont volontairement absurdes (`_1o6jcyu`) : c'est ce que Netty
  * engendre, et le test échouerait si le parser s'y accrochait.
  */
-function nettyHtml(options: { mentions?: string; descriptif?: string } = {}): string {
+function nettyHtml(
+  options: {
+    mentions?: string;
+    descriptif?: string;
+    name?: string;
+    price?: number | string;
+    priceSpecification?: Record<string, string>;
+    extraCriterion?: [string, string];
+  } = {},
+): string {
   const jsonLd = {
     '@context': 'https://schema.org/',
     '@type': 'Product',
-    name: 'Location étudiante - SEPTEMBRE A JUIN 2025',
+    name: options.name ?? 'Location étudiante - SEPTEMBRE A JUIN 2025',
     image: 'https://img.netty.immo/product/c/LA1920/photo_1.jpg',
     offers: {
       url: 'www.exemple.fr/location/appartement-t2-2-pieces-nice-06200,LA1920',
-      price: 880,
+      price: options.price ?? 880,
       priceCurrency: 'EUR',
+      ...(options.priceSpecification !== undefined
+        ? { priceSpecification: options.priceSpecification }
+        : {}),
       itemOffered: {
         '@type': 'Apartment',
         numberOfRooms: 2,
@@ -60,6 +72,11 @@ function nettyHtml(options: { mentions?: string; descriptif?: string } = {}): st
       <li class="_s2u4i5"><div><div>
         <span class="_1o6jcyu _j9mn9r  textblock ">Type de bien :</span>
         <span class="_w60sek _alu17h  textblock ">Appartement</span></div></div></li>
+      ${
+        options.extraCriterion !== undefined
+          ? `<li><div><span class="textblock">${options.extraCriterion[0]}</span><span class="textblock">${options.extraCriterion[1]}</span></div></li>`
+          : ''
+      }
     </ul></div>
     <div data-author="Netty.fr"><h2 class="textblock">Informations juridiques &amp; financières</h2></div>
     <div data-author="Netty.fr"><span class="_kf37h1 textblock">${mentions}</span></div>
@@ -213,6 +230,69 @@ describe('parseDetailPage', () => {
     );
     expect(listing).toBeNull();
     expect(warnings.join(' ')).toMatch(/exploitable/i);
+  });
+
+  it('écarte une fiche à « 0 € »', () => {
+    for (const price of [0, '0', '0.00']) {
+      const { listing, warnings } = parseDetailPage(nettyHtml({ price }), URL, AGENCY);
+      expect(listing).toBeNull();
+      expect(warnings.join(' ')).toMatch(/0 €/);
+    }
+  });
+
+  describe('location saisonnière', () => {
+    const LONG_TERM_TEXT =
+      '<h1>T2 lumineux à Nice</h1>Appartement vide au calme, proche des commerces, idéal après les vacances. Bail de 3 ans.';
+    const longTerm = { name: 'Appartement T2 Nice', descriptif: LONG_TERM_TEXT };
+
+    function rejected(html: string): string | null {
+      const { listing, warnings } = parseDetailPage(html, URL, AGENCY);
+      return listing === null ? warnings.join(' ') : null;
+    }
+
+    it('écarte un prix par nuit ou par semaine du JSON-LD', () => {
+      expect(rejected(nettyHtml({ ...longTerm, priceSpecification: { unitCode: 'DAY' } }))).toMatch(
+        /saisonnière/,
+      );
+      expect(
+        rejected(nettyHtml({ ...longTerm, priceSpecification: { unitText: 'semaine' } })),
+      ).toMatch(/saisonnière/);
+    });
+
+    it('écarte un type de location saisonnier dans les critères', () => {
+      const html = nettyHtml({ ...longTerm, extraCriterion: ['Type de location', 'Saisonnière'] });
+      expect(rejected(html)).toMatch(/Saisonnière/);
+    });
+
+    it('écarte un titre « Location saisonnière » ou « location de vacances »', () => {
+      expect(
+        rejected(nettyHtml({ ...longTerm, name: 'Location saisonnière - T2 vue mer' })),
+      ).toMatch(/saisonnière/);
+      const h1 = LONG_TERM_TEXT.replace('T2 lumineux à Nice', 'Location de vacances T2 Nice');
+      expect(rejected(nettyHtml({ ...longTerm, descriptif: h1 }))).toMatch(/saisonnière/);
+    });
+
+    it('écarte un tarif à la nuit ou à la semaine', () => {
+      const perNight = `${LONG_TERM_TEXT}<br />Tarif : 95 €/nuit, ménage inclus.`;
+      expect(rejected(nettyHtml({ ...longTerm, descriptif: perNight }))).toMatch(/nuit/);
+      const mentions = 'Loyer de base 650 € la semaine. Classe énergie C, Classe climat A';
+      expect(rejected(nettyHtml({ ...longTerm, mentions }))).toMatch(/saisonnière/);
+    });
+
+    it('garde une location à l’année qui parle de vacances en passant', () => {
+      const text = `${LONG_TERM_TEXT}<br />Location saisonnière interdite par le règlement de copropriété.`;
+      const { listing } = parseDetailPage(
+        nettyHtml({ ...longTerm, descriptif: text }),
+        URL,
+        AGENCY,
+      );
+      expect(listing?.priceText).toContain('880');
+    });
+
+    it('laisse passer le bail étudiant de neuf mois, signalé plus loin', () => {
+      const text = `${LONG_TERM_TEXT}<br />Location étudiante de septembre à juin, puis saisonnier en juillet : 700 €/semaine.`;
+      expect(rejected(nettyHtml({ ...longTerm, descriptif: text }))).toBeNull();
+    });
   });
 });
 

@@ -1,6 +1,5 @@
 /**
- * Source : MK Immo (mk-immo.fr) — 165 avenue de Nice, 06800 Cagnes-sur-Mer ;
- * `mce-immo.com` y redirige. Site Twimmo, rendu serveur, sans JSON-LD.
+ * Plateforme Twimmo : sites d'agence rendus serveur, sans JSON-LD.
  *
  * `/toutes-locations.html` liste toutes les locations sur une page ; la
  * référence termine l'adresse de fiche (`…-1-795l1111a.html`). La fiche écrit
@@ -16,27 +15,33 @@ import { htmlToText } from '../shared/html-text.js';
 import { AMOUNT, NUMBER, flatText } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
-export const AGENCY_NAME = 'MK Immo';
-export const SITE = 'https://www.mk-immo.fr';
-export const LIST_URL = `${SITE}/toutes-locations.html`;
+export const LIST_PATH = '/toutes-locations.html';
 
 /** Référence Twimmo d'une location : `795l1111a` (le `l` dit location). */
 const FICHE = /^\/[^/?#]+-\d+-(\d+l\d+[a-z])\.html$/i;
 
-export function parseList(html: string): RawListing[] {
+/** Fiches de la page de liste ; l'origine du site vient de `listUrl`. */
+export function parseTwimmoList(html: string, listUrl: string, agencyName: string): RawListing[] {
+  const { origin } = new URL(listUrl);
   const $ = cheerio.load(html);
   const byRef = new Map<string, RawListing>();
   $('a[href]').each((_i, el) => {
-    const href = ($(el).attr('href') ?? '').replace(SITE, '');
-    const reference = FICHE.exec(href)?.[1]?.toUpperCase();
+    let url: URL;
+    try {
+      url = new URL($(el).attr('href') ?? '', listUrl);
+    } catch {
+      return;
+    }
+    if (url.origin !== origin) return;
+    const reference = FICHE.exec(url.pathname)?.[1]?.toUpperCase();
     if (reference === undefined || byRef.has(reference)) return;
-    const sourceUrl = `${SITE}${href}`;
+    const sourceUrl = `${origin}${url.pathname}`;
     byRef.set(
       reference,
       compactListing({
         sourceRef: reference,
         sourceUrl,
-        agencyName: AGENCY_NAME,
+        agencyName,
         contactFormUrl: sourceUrl,
       }),
     );
@@ -48,7 +53,7 @@ const pick = (text: string, pattern: string): string | undefined =>
   new RegExp(pattern, 'i').exec(text)?.[1]?.trim();
 
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location au mois. */
-export function parseDetail(html: string): RawDraft | null {
+export function parseTwimmoDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const text = flatText($);
   const rent = pick(text, String.raw`Loyer mensuel (${AMOUNT}) charges comprises`);

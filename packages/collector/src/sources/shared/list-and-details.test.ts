@@ -73,4 +73,20 @@ describe('runListAndDetails', () => {
     const refused = context({ [LIST]: new Error('HTTP 429 sur la liste') });
     expect((await runListAndDetails(refused.ctx, options)).stopReason).toBe('rateLimited');
   });
+
+  it('lit les données de la fiche à une autre adresse quand la source le demande', async () => {
+    const { ctx, seen } = context({
+      [LIST]: 'a',
+      'https://api.exemple/bien?ref=a': '750 €',
+    });
+    const result = await runListAndDetails(ctx, {
+      ...options,
+      detailUrl: (listing) => `https://api.exemple/bien?ref=${listing.sourceRef}`,
+    });
+    expect(seen).toEqual([LIST, 'https://api.exemple/bien?ref=a']);
+    expect(result.listings[0]).toMatchObject({
+      sourceUrl: 'https://agence.exemple/fiche/a',
+      priceText: '750 €',
+    });
+  });
 });

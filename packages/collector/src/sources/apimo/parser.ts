@@ -16,7 +16,7 @@
 
 import * as cheerio from 'cheerio';
 import { sitemapIndexUrls, sitemapUrls } from '../shared/sitemap.js';
-import type { RawListing } from '@maioun/shared';
+import { formatCommune, type RawListing } from '@maioun/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
 import { parsePropertyType } from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
@@ -27,17 +27,21 @@ import {
   apimoDpe,
   apimoMoney,
   apimoFloor,
+  apimoFurnished,
   criterion,
   extractCriteria,
   type ApimoCriteria,
 } from './criteria.js';
 
 /**
- * Forme d'une URL de fiche, tout domaine Apimo confondu :
- * `/fr/propriete/{transaction}+{type}+{ville}+{slug…}+{référence}`.
+ * Formes d'une URL de fiche, tout domaine Apimo confondu :
+ * `/fr/propriete/{transaction}+{type}+{ville}+{slug…}+{référence}`, ou « à
+ * barres » `/fr/propriete/{transaction}/{type}/{ville}/{slug}/{référence}`.
  */
-const LISTING_URL_PATTERN =
-  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{6,})\/?$/i;
+const LISTING_URL_PATTERNS = [
+  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{6,})\/?$/i,
+  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\/([^/+]+)\/([^/+]+)\/(?:[^/]+\/)?(\d{6,})\/?$/i,
+];
 
 export interface ParsedListingUrl {
   readonly transaction: 'location' | 'vente';
@@ -49,7 +53,12 @@ export interface ParsedListingUrl {
 
 /** Analyse une URL de fiche. `null` si ce n'en est pas une. */
 export function parseListingUrl(href: string): ParsedListingUrl | null {
-  const match = LISTING_URL_PATTERN.exec(href.trim());
+  const trimmed = href.trim();
+  let match: RegExpExecArray | null = null;
+  for (const pattern of LISTING_URL_PATTERNS) {
+    match = pattern.exec(trimmed);
+    if (match !== null) break;
+  }
   if (match === null) return null;
   const [, transaction, typeSlug, citySlug, reference] = match;
   if (
@@ -65,7 +74,7 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
     typeSlug: typeSlug.toLowerCase(),
     citySlug: citySlug.toLowerCase(),
     reference,
-    canonicalUrl: href.trim().replace(/[?#].*$/, ''),
+    canonicalUrl: trimmed.replace(/[?#].*$/, ''),
   };
 }
 
@@ -202,9 +211,14 @@ export function mostRecentDate(a?: string, b?: string): string | undefined {
 const COMMERCIAL_SLUGS =
   /commerce|bureau|local|atelier|entrepot|fonds|professionnel|industriel|terrain|hangar/;
 
+/** `true` si le type d'URL désigne un bien non résidentiel : inutile de visiter. */
+export function isCommercialSlug(typeSlug: string): boolean {
+  return COMMERCIAL_SLUGS.test(comparable(typeSlug));
+}
+
 /** `true` si la fiche décrit un bien à usage commercial/professionnel. */
 function isCommercial($: cheerio.CheerioAPI, typeSlug: string): boolean {
-  if (COMMERCIAL_SLUGS.test(comparable(typeSlug))) return true;
+  if (isCommercialSlug(typeSlug)) return true;
   // Adresse sans type (`/fr/propriété/8188166`, Groupe Picado, Cabinet Cordier) :
   // le titre de la page le dit — « Local commercial Ariane ».
   if (parsePropertyType(pageTitle($) ?? '') === 'commercial') return true;
@@ -236,21 +250,45 @@ function apimoBlockingStatus(
 
 /** Intertitres de section du gabarit, jamais le titre de l'annonce. */
 const SECTION_HEADING =
-  /^(sommaire|surfaces?|prestations|proximites?|description|details?|caracteristiques|diagnostics?|mentions legales)$/;
+  /^(sommaire|surfaces?|prestations|proximites?|description|details?|caracteristiques|diagnostics?|mentions legales|informations?(?: complementaires)?)$/;
 
-/**
- * Le titre de l'annonce : `og:title`, puis le premier `.title` qui n'est pas un
- * intertitre. Le premier `.title` seul donnait « Sommaire » à dix annonces
- * (relevé du 2026-09-14) — dont un local commercial, passé pour un logement.
- */
-function pageTitle($: cheerio.CheerioAPI): string | undefined {
-  const og = cleanText($('meta[property="og:title"]').attr('content') ?? '');
-  if (og !== '' && !SECTION_HEADING.test(comparable(og))) return og;
-  const heading = $('.module-property-info .title, .title')
+/** Premier texte de ces éléments qui n'est pas un intertitre. */
+function firstHeading($: cheerio.CheerioAPI, selector: string): string | undefined {
+  return $(selector)
     .toArray()
     .map((element) => cleanText($(element).text()))
     .find((text) => text !== '' && !SECTION_HEADING.test(comparable(text)));
-  return heading;
+}
+
+/**
+ * Le titre de l'annonce : `og:title`, puis le h1 de la fiche, puis le premier
+ * `.title` qui n'est pas un intertitre. Le premier `.title` seul donnait
+ * « Sommaire » à dix annonces (relevé du 2026-09-14). Un `og:title` à barre
+ * est celui du site (« Propriété | ERIC IMMO », fiches sans JSON-LD) : écarté.
+ */
+function pageTitle($: cheerio.CheerioAPI): string | undefined {
+  const og = cleanText($('meta[property="og:title"]').attr('content') ?? '');
+  if (og !== '' && !og.includes('|') && !SECTION_HEADING.test(comparable(og))) return og;
+  return (
+    firstHeading($, '.module-property-info h1.title, .module-property-info h1') ??
+    firstHeading($, '.module-property-info .title, .title')
+  );
+}
+
+/** « Garage parking Nice » : dernier recours, type et commune de la fiche. */
+function typeAndCityTitle(
+  parsedUrl: ParsedListingUrl,
+  city: string | undefined,
+): string | undefined {
+  const type = parsedUrl.typeSlug.replace(/-/g, ' ');
+  const town = city ?? parsedUrl.citySlug.replace(/-/g, ' ');
+  const words = [
+    type.charAt(0).toUpperCase() + type.slice(1),
+    town === '' ? '' : formatCommune(town),
+  ]
+    .filter((word) => word !== '')
+    .join(' ');
+  return words === '' ? undefined : words;
 }
 
 /** Champs métier d'une fiche Apimo : JSON-LD prioritaire, HTML en secours. */
@@ -393,16 +431,14 @@ export function parseApimoDetail(
   const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
-    title: title !== undefined && title !== '' ? title : undefined,
+    title: title !== undefined && title !== '' ? title : typeAndCityTitle(parsedUrl, jsonLd?.city),
     description: description !== undefined && description !== '' ? description : undefined,
     priceText,
     areaText,
     roomsText: withBedrooms(roomsText, jsonLd, criteria),
     propertyTypeText: parsedUrl.typeSlug,
     ...apimoMoney(criteria),
-    // Meublé : le titre et la description le disent quand c'est le cas — et,
-    // depuis les critères, l'agence parfois explicitement.
-    furnishedText: cleanText(`${title ?? ''} ${description ?? ''}`),
+    furnishedText: apimoFurnished(criteria),
     // §21 : adresse exacte + coordonnées d'agence, publiées dans le JSON-LD.
     addressText: jsonLd?.streetAddress,
     cityText: jsonLd?.city ?? parsedUrl.citySlug.replace(/-/g, ' '),

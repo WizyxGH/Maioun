@@ -28,6 +28,7 @@ import * as cheerio from 'cheerio';
 import { sitemapIndexUrls, sitemapUrls } from '../shared/sitemap.js';
 import type { RawListing } from '@maioun/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
+import { isShortTermStudentLease } from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 import {
@@ -129,6 +130,8 @@ interface JsonLdData {
   readonly city?: string;
   readonly postalCode?: string;
   readonly price?: string;
+  /** Unité du prix (`unitText`/`unitCode`), quand le JSON-LD la précise. */
+  readonly priceUnit?: string;
   readonly imageUrls?: readonly string[];
 }
 
@@ -165,7 +168,13 @@ function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
   const address = item?.['address'] as JsonLdNode | undefined;
   const floorSize = item?.['floorSize'] as JsonLdNode | undefined;
   const images = jsonLdImages(product, item);
+  const spec = offers?.['priceSpecification'] as JsonLdNode | undefined;
+  const priceUnit = [spec?.['unitText'], spec?.['unitCode'], offers?.['unitText']]
+    .map(jsonLdString)
+    .filter((part): part is string => part !== undefined)
+    .join(' ');
   return {
+    ...(priceUnit !== '' ? { priceUnit } : {}),
     ...(jsonLdString(product['name']) !== undefined ? { name: jsonLdString(product['name']) } : {}),
     ...(typeof item?.['numberOfRooms'] === 'number' ? { rooms: item['numberOfRooms'] } : {}),
     ...(typeof floorSize?.['value'] === 'number' ? { area: floorSize['value'] } : {}),
@@ -300,6 +309,58 @@ function criterion(criteria: Map<string, string>, patterns: readonly RegExp[]): 
 const COMMERCIAL_SLUGS =
   /commerce|bureau|local|atelier|entrepot|fonds|professionnel|industriel|terrain|hangar|garage|parking/;
 
+/**
+ * Prix donné à la nuit ou à la semaine. Lu sur un texte seulement désaccentué :
+ * `comparable` effacerait le « € » et la barre.
+ */
+const SHORT_PERIOD_PRICE = /\d\s*(?:€|euros?)\s*(?:\/|par|la)\s*(?:nuit|nuitee|semaine|sem\b)/i;
+
+function unaccented(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+/** Tournures qui désignent sans ambiguïté une location de vacances. */
+const SEASONAL_PHRASE =
+  /location\w*\s+(?:saisonniere|de vacances|estivale|courte duree)|(?:bail|contrat)\s+saisonnier|type de location\s*:?\s*saisonn/;
+
+/** Unités schema.org / UN/CEFACT d'une période courte. */
+const SHORT_PERIOD_UNIT = /^(?:day|wee|nuit|nuitee|jour|semaine|night|week)$/;
+
+/**
+ * Motif de rejet d'une location saisonnière, ou `undefined`.
+ *
+ * Seuls comptent les champs structurés et les tournures explicites : le mot
+ * « vacances » seul revient dans bien des descriptifs à l'année. Le bail
+ * étudiant de neuf mois, qui cite souvent son tarif d'été, n'est pas rejeté ici
+ * — la normalisation le signale.
+ */
+function seasonalReason(
+  jsonLd: JsonLdData,
+  criteria: Map<string, string>,
+  title: string | undefined,
+  description: string | undefined,
+  mentions: string | undefined,
+): string | undefined {
+  const unit = comparable(jsonLd.priceUnit ?? '');
+  if (unit.split(/\s+/).some((part) => SHORT_PERIOD_UNIT.test(part))) {
+    return `prix par ${jsonLd.priceUnit}`;
+  }
+  const leaseType = criterion(criteria, [/type de (?:location|bail|contrat|transaction)/, /duree/]);
+  if (/saisonn|vacances|courte duree|estival/.test(comparable(leaseType ?? ''))) {
+    return `type de location « ${leaseType} »`;
+  }
+  if (SHORT_PERIOD_PRICE.test(unaccented(mentions ?? ''))) return 'loyer légal à courte période';
+
+  const raw = `${title ?? ''} ${jsonLd.name ?? ''} ${description ?? ''}`;
+  if (isShortTermStudentLease(raw)) return undefined;
+  // Titre seul : un descriptif à l'année peut dire « location saisonnière interdite ».
+  if (SEASONAL_PHRASE.test(comparable(`${title ?? ''} ${jsonLd.name ?? ''}`))) {
+    return 'location saisonnière annoncée';
+  }
+  if (SHORT_PERIOD_PRICE.test(unaccented(raw))) return 'prix à la nuit ou à la semaine';
+  return undefined;
+}
+
 export interface ParsedDetail {
   readonly listing: RawListing | null;
   readonly warnings: readonly string[];
@@ -336,6 +397,18 @@ export function parseDetailPage(
   // fiche fantôme (§17).
   if (jsonLd === null || jsonLd.price === undefined) {
     return { listing: null, warnings: [`Fiche sans bien exploitable (ignorée) : ${pageUrl}`] };
+  }
+  // « 0 € » : bien sans loyer publié, rien à comparer.
+  const price = Number(jsonLd.price.replace(/\s/g, '').replace(',', '.'));
+  if (Number.isFinite(price) && price <= 0) {
+    return { listing: null, warnings: [`Fiche sans loyer (0 €, ignorée) : ${pageUrl}`] };
+  }
+  const seasonal = seasonalReason(jsonLd, criteria, title, description, mentions);
+  if (seasonal !== undefined) {
+    return {
+      listing: null,
+      warnings: [`Location saisonnière (ignorée, ${seasonal}) : ${pageUrl}`],
+    };
   }
 
   const warnings: string[] = [];

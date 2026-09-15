@@ -20,6 +20,11 @@ export interface ListAndDetailsOptions {
   readonly listUrls: readonly string[];
   /** Annonces esquissées depuis une page de liste. */
   readonly parseList: (body: string, url: string) => readonly RawListing[];
+  /**
+   * Adresse des données de la fiche, quand ce n'est pas la page de l'annonce
+   * (API d'une fiche rendue en JavaScript). Défaut : `sourceUrl`.
+   */
+  readonly detailUrl?: (listing: RawListing) => string | null;
   /** Ce que la fiche apprend ; `null` si elle n'apprend rien. */
   readonly parseDetail: (html: string, listing: RawListing) => RawDraft | null;
   /** Fiches lues au plus par passage. */
@@ -79,7 +84,7 @@ export async function runListAndDetails(
   const all = [...stubs.values()];
   const enriched = await enrichNewListings(context, all, {
     max: options.maxDetails,
-    detailUrl: (listing) => listing.sourceUrl,
+    detailUrl: options.detailUrl ?? ((listing) => listing.sourceUrl),
     parse: options.parseDetail,
   });
   requestCount += enriched.requestCount;

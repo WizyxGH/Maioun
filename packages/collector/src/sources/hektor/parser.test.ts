@@ -265,3 +265,89 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(listing?.imageUrls?.[0]).toContain('24bacb08515c2715');
   });
 });
+
+describe('parseDetailPage — ancien gabarit sans commune au titre (Marro)', () => {
+  const url = 'https://www.agence-fictive.fr/1748-appartement-3-piece-s-64-36m-a-louer.html';
+  const html = (postalCode: string) => `<html><head>
+    <title>Location Appartement 3 pièce(s) 64,36m² à louer</title></head><body>
+    <h1 itemprop="name">Appartement 3 pièce(s) 64,36m² à louer</h1>
+    <p class="data"><span class="termInfos">Code postal</span>
+      <span class="valueInfos">${postalCode}</span></p>
+    </body></html>`;
+
+  it('ne prend pas « 3 pièce(s) » pour la commune : le code postal la donne', () => {
+    const { listing } = parseDetailPage(html('06000'), url, 'Agence');
+    expect(listing?.cityText).toBe('Nice');
+    expect(listing?.postalCodeText).toBe('06000');
+  });
+
+  it('laisse la commune inconnue plutôt que d’en inventer une', () => {
+    const { listing } = parseDetailPage(html('06700'), url, 'Agence');
+    expect(listing?.cityText).toBeUndefined();
+  });
+});
+
+describe('type de bien', () => {
+  const page = '<html><head><title>Location Magnifique F1 Aperçu Mer</title></head></html>';
+
+  it('lit le segment de type sans numéro (Immo 3 Points)', () => {
+    const url = 'https://www.agence-fictive.fr/location/1-nice/appartement/205-beau-t2';
+    expect(parseDetailPage(page, url, 'Agence').listing?.propertyTypeText).toBe('appartement');
+  });
+
+  it('ne prend jamais l’adresse de la fiche pour un type', () => {
+    const url = 'https://www.agence-fictive.fr/384-4-pieces-carre-d-or.html';
+    expect(parseDetailPage(page, url, 'Agence').listing?.propertyTypeText).toBeUndefined();
+  });
+});
+
+describe('liste sans liens de fiche (Riviera Angels)', () => {
+  // Liste et fiche réelles du 2026-09-15, allégées et anonymisées.
+  const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+  const FICHE_URL = 'https://www.riviera-angels.com/384-4-pieces-carre-d-or-colocation.html';
+
+  it('reconstruit l’adresse de fiche depuis l’identifiant et le titre', () => {
+    const { urls, warnings } = parseListPage(
+      read('liste-sans-liens.html'),
+      'https://www.riviera-angels.com/a-louer/1',
+    );
+    expect(warnings).toHaveLength(0);
+    expect(urls.map((url) => [url.reference, url.canonicalUrl])).toEqual([
+      ['384', FICHE_URL],
+      ['382', 'https://www.riviera-angels.com/382-2-pieces-dernier-etage-balcon-terrasse.html'],
+    ]);
+  });
+
+  it('lit la fiche, sans la vignette d’une autre annonce', () => {
+    const { listing } = parseDetailPage(read('detail-riviera-angels.html'), FICHE_URL, 'Riviera');
+    expect(listing).toMatchObject({
+      title: "4 PIECES CARRE D'OR COLOCATION",
+      priceText: '2 100 € CC',
+      chargesText: '110 € de charges',
+      depositText: '3 980 €',
+      feesText: '1 422,99 €',
+      areaText: '108,46 m²',
+      roomsText: '4 pièces',
+      cityText: 'Nice',
+      postalCodeText: '06000',
+      extra: { reference: 'SMLAP50000384' },
+    });
+    expect(listing?.propertyTypeText).toBeUndefined();
+    expect(listing?.description).toMatch(/^Au cœur du Carré d’Or[\s\S]+GARANTME souhaitée\.$/);
+    expect(listing?.imageUrls).toHaveLength(10);
+    expect(listing?.imageUrls?.every((url) => url.includes('/b53e6e9009fa8dce'))).toBe(true);
+  });
+
+  it('garde la galerie du bien quand un bloc inconnu glisse une autre photo', () => {
+    const html = `<html><head><title>Location Appartement Nice</title></head><body>
+      <img data-src="//a.staticlbi.com/original/images/biens/1/aaa/photo_1.jpg">
+      <img data-src="//a.staticlbi.com/original/images/biens/1/aaa/photo_2.jpg">
+      <div class="autres"><img data-src="//a.staticlbi.com/500xauto/images/biens/1/bbb/photo_9.jpg"></div>
+      </body></html>`;
+    const { listing } = parseDetailPage(html, 'https://www.agence-fictive.fr/7-t2.html', 'Agence');
+    expect(listing?.imageUrls).toEqual([
+      'https://a.staticlbi.com/1600xauto/images/biens/1/aaa/photo_1.jpg',
+      'https://a.staticlbi.com/1600xauto/images/biens/1/aaa/photo_2.jpg',
+    ]);
+  });
+});

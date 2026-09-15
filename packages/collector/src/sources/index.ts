@@ -147,6 +147,64 @@ import { procivisScraper } from './procivis/index.js';
 import { kaperaScraper } from './kapera/index.js';
 import { safiScraper } from './safi/index.js';
 import { ferreroScraper } from './ferrero/index.js';
+import { cabinetLedeuxScraper } from './cabinet-ledeux/index.js';
+import { residImmoScraper } from './resid-immo/index.js';
+import { gestionCasaImmoScraper } from './gestion-casa-immo/index.js';
+import { laChouetteScraper } from './la-chouette/index.js';
+import { lagenceJeanJauresScraper } from './lagence-jean-jaures/index.js';
+import { marroImmobilierScraper } from './marro-immobilier/index.js';
+import { immo3PointsScraper } from './immo-3-points/index.js';
+import { rivieraAngelsScraper } from './riviera-angels/index.js';
+import { gestymoScraper } from './gestymo/index.js';
+import { azurConseilSalmonScraper } from './azur-conseil-salmon/index.js';
+import { laClefImmobiliereScraper } from './la-clef-immobiliere/index.js';
+import { apiNiceScraper } from './api-nice/index.js';
+import { phoenixGlvScraper } from './phoenix-glv/index.js';
+import { deltaPromotionScraper } from './delta-promotion/index.js';
+import { platineImmobilierScraper } from './platine-immobilier/index.js';
+import { westimmoScraper } from './westimmo/index.js';
+import { blueResidencesScraper } from './blue-residences/index.js';
+import { laPerouseScraper } from './la-perouse/index.js';
+import { isitImmobilierScraper } from './isit-immobilier/index.js';
+import { ericImmoScraper } from './eric-immo/index.js';
+import { etudeDesVosgesScraper } from './etude-des-vosges/index.js';
+import { valroseImmobilierScraper } from './valrose-immobilier/index.js';
+import { aparteImmobilierScraper } from './aparte-immobilier/index.js';
+import { abylaBosseScraper } from './abyla-bosse/index.js';
+import { cabinetCentralGestionScraper } from './cabinet-central-gestion/index.js';
+import { transactimoScraper } from './transactimo/index.js';
+import { homeOnRivieraScraper } from './home-on-riviera/index.js';
+import { laPetiteMaisonScraper } from './la-petite-maison/index.js';
+import { maisonKScraper } from './maison-k/index.js';
+import { toscaNiceLePortScraper } from './tosca-nice-le-port/index.js';
+import { acetimoScraper } from './acetimo/index.js';
+import { agence5PromenadeScraper } from './agence-5-promenade/index.js';
+import { cegestimScraper } from './cegestim/index.js';
+import { immobiliereCamoScraper } from './immobiliere-camo/index.js';
+import { kallisteImmoConseilScraper } from './kalliste-immo-conseil/index.js';
+import { milorImmobilierScraper } from './milor-immobilier/index.js';
+import { cabinetEuropazurScraper } from './cabinet-europazur/index.js';
+import { noraitScraper } from './norait/index.js';
+import { coccimmoScraper } from './coccimmo/index.js';
+import { immoIdealScraper } from './immo-ideal/index.js';
+import { sunImmobiliaScraper } from './sun-immobilia/index.js';
+import { frenchRivieraStudiosScraper } from './french-riviera-studios/index.js';
+import { parnasseImmobilierScraper } from './parnasse-immobilier/index.js';
+import { laFrancoSuisseScraper } from './la-franco-suisse/index.js';
+import { mossImmobilierScraper } from './moss-immobilier/index.js';
+import { marchalImmobilierScraper } from './marchal-immobilier/index.js';
+import { barberaGestionScraper } from './barbera-gestion/index.js';
+import { azurimmoScraper } from './azurimmo/index.js';
+import { richerImmobilierScraper } from './richer-immobilier/index.js';
+import { grandMetropoleScraper } from './grand-metropole/index.js';
+import { elitimoScraper } from './elitimo/index.js';
+import { agenceCalifornieScraper } from './agence-californie/index.js';
+import { forimmoScraper } from './forimmo/index.js';
+import { nestennNicePortScraper } from './nestenn-nice-port/index.js';
+import { orientationImmobiliereScraper } from './orientation-immobiliere/index.js';
+import { imodirectScraper } from './imodirect/index.js';
+import { altareaNiceScraper } from './altarea-nice/index.js';
+import { agenceDuPortScraper } from './agence-du-port/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -291,6 +349,64 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   kaperaScraper,
   safiScraper,
   ferreroScraper,
+  cabinetLedeuxScraper,
+  residImmoScraper,
+  gestionCasaImmoScraper,
+  laChouetteScraper,
+  lagenceJeanJauresScraper,
+  marroImmobilierScraper,
+  immo3PointsScraper,
+  rivieraAngelsScraper,
+  gestymoScraper,
+  azurConseilSalmonScraper,
+  laClefImmobiliereScraper,
+  apiNiceScraper,
+  phoenixGlvScraper,
+  deltaPromotionScraper,
+  platineImmobilierScraper,
+  westimmoScraper,
+  blueResidencesScraper,
+  laPerouseScraper,
+  isitImmobilierScraper,
+  ericImmoScraper,
+  etudeDesVosgesScraper,
+  valroseImmobilierScraper,
+  aparteImmobilierScraper,
+  abylaBosseScraper,
+  cabinetCentralGestionScraper,
+  transactimoScraper,
+  homeOnRivieraScraper,
+  laPetiteMaisonScraper,
+  maisonKScraper,
+  toscaNiceLePortScraper,
+  acetimoScraper,
+  agence5PromenadeScraper,
+  cegestimScraper,
+  immobiliereCamoScraper,
+  kallisteImmoConseilScraper,
+  milorImmobilierScraper,
+  cabinetEuropazurScraper,
+  noraitScraper,
+  coccimmoScraper,
+  immoIdealScraper,
+  sunImmobiliaScraper,
+  frenchRivieraStudiosScraper,
+  parnasseImmobilierScraper,
+  laFrancoSuisseScraper,
+  mossImmobilierScraper,
+  marchalImmobilierScraper,
+  barberaGestionScraper,
+  azurimmoScraper,
+  richerImmobilierScraper,
+  grandMetropoleScraper,
+  elitimoScraper,
+  agenceCalifornieScraper,
+  forimmoScraper,
+  nestennNicePortScraper,
+  orientationImmobiliereScraper,
+  imodirectScraper,
+  altareaNiceScraper,
+  agenceDuPortScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

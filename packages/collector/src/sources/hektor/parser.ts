@@ -67,6 +67,29 @@ export function parseListingUrl(href: string, baseUrl: string): ParsedHektorUrl 
 export interface ParsedList {
   readonly urls: readonly ParsedHektorUrl[];
   readonly warnings: readonly string[];
+  /** `true` si la page dit n'avoir aucun bien : liste vide, pas gabarit cassé. */
+  readonly empty: boolean;
+}
+
+/** Bandeau de liste vide de la plateforme (acsimmo.fr, 2026-09-15). */
+const EMPTY_LIST = /aucun\s+bien\s+ne\s+correspond\s+[àa]\s+vos\s+crit[èe]res/i;
+
+/**
+ * Liste SANS liens de fiche (Riviera Angels : titre vers l'accueil, boutons
+ * obfusqués). L'identifiant est le `rel` du bouton de sélection, et la fiche
+ * `/{id}-{titre en slug}.html` — un slug inexact répond 301 sans destination.
+ * Recours seulement : ailleurs, le lien fait foi.
+ */
+function unlinkedCards($: cheerio.CheerioAPI, pageUrl: string): ParsedHektorUrl[] {
+  const origin = new URL(pageUrl).origin;
+  return $('button.ajoutPanierSelection[rel]')
+    .toArray()
+    .flatMap((button) => {
+      const reference = ($(button).attr('rel') ?? '').trim();
+      const title = cleanText($(button).closest('article').find('h2').first().text());
+      if (!/^\d{1,7}$/.test(reference) || title === '') return [];
+      return parseListingUrl(`${origin}/${reference}-${slugify(title)}.html`, pageUrl) ?? [];
+    });
 }
 
 /** Extrait les liens de fiches d'une page de liste. */
@@ -81,11 +104,18 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
     const parsed = parseListingUrl(href, pageUrl);
     if (parsed !== null && !seen.has(parsed.reference)) seen.set(parsed.reference, parsed);
   });
+  if (seen.size === 0) {
+    for (const parsed of unlinkedCards($, pageUrl)) {
+      if (!seen.has(parsed.reference)) seen.set(parsed.reference, parsed);
+    }
+  }
 
   const urls = [...seen.values()];
+  const empty = urls.length === 0 && EMPTY_LIST.test($('body').text());
   return {
     urls,
-    warnings: urls.length === 0 ? [`Aucune fiche trouvée sur la liste : ${pageUrl}`] : [],
+    warnings: urls.length === 0 && !empty ? [`Aucune fiche trouvée sur la liste : ${pageUrl}`] : [],
+    empty,
   };
 }
 
@@ -194,6 +224,30 @@ function cityFromPostalCode(postalCode: string | undefined): string | undefined 
   return postalCode !== undefined && /^06[0-3]00$/.test(postalCode) ? 'Nice' : undefined;
 }
 
+/** Dossier CDN d'une photo : `/images/biens/1/{dossier}/photo_….jpg`, un par bien. */
+const PHOTO_FOLDER = /\/images\/biens\/\d+\/([^/]+)\//;
+
+/**
+ * Les photos du dossier le plus fourni, le premier en cas d'égalité : une
+ * vignette d'une autre annonce (bloc « autres annonces » au balisage inconnu)
+ * vient d'un autre dossier.
+ */
+function ownGallery(urls: readonly string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const url of urls) {
+    const folder = PHOTO_FOLDER.exec(url)?.[1];
+    if (folder !== undefined) counts.set(folder, (counts.get(folder) ?? 0) + 1);
+  }
+  let own: string | undefined;
+  for (const [folder, count] of counts) {
+    if (own === undefined || count > (counts.get(own) ?? 0)) own = folder;
+  }
+  return urls.filter((url) => {
+    const folder = PHOTO_FOLDER.exec(url)?.[1];
+    return folder === undefined || folder === own;
+  });
+}
+
 /** Le téléphone de l'agence, en pied de page (`coords-phone`, ou `footer_element`). */
 function agencyPhone($: cheerio.CheerioAPI): string | undefined {
   const href = $(
@@ -273,24 +327,28 @@ function parseTypeAndCity(
   pageTitle: string,
   parsedUrl: ParsedHektorUrl,
   labelledCity: string | undefined,
-): { propertyTypeText: string; cityText: string | undefined } {
+): { propertyTypeText: string | undefined; cityText: string | undefined } {
   const match =
     /^location\s+(appartement|studio|maison|villa|parking|garage|local|chambre|duplex|loft)\s+(.+?)(?:\s+\d|$)/i.exec(
       pageTitle,
     );
   // Le libellé « La ville de … » fait foi. Un titre libre (« Appartement meublé
   // à Nice Musiciens ») ne donne la commune que s'il concorde avec l'URL.
-  const fromTitle = match?.[2]?.trim();
+  // Ancien gabarit, sans commune : « Location Appartement 3 pièce(s) 64,36m² »
+  // donnerait « 3 pièce(s) ». Une commune ne commence pas par un chiffre.
+  const titleTown = match?.[2]?.trim();
+  const fromTitle = titleTown !== undefined && !/^\d/.test(titleTown) ? titleTown : undefined;
   const slug = parsedUrl.citySlug;
   const titleAgrees = fromTitle !== undefined && (slug === null || slugify(fromTitle) === slug);
   // Titre libre (« Location Magnifique F1 Aperçu Mer ») : le type est dans l'URL
-  // (`/2-appartement/`).
+  // (`/2-appartement/` ou `/appartement/`). Sans lui, inconnu : l'adresse de la
+  // fiche n'est pas un type.
   const fromUrl =
-    /\/\d{1,3}-(appartement|studio|maison|villa|parking|garage|local|chambre)\//i.exec(
-      parsedUrl.canonicalUrl,
+    /\/(?:\d{1,3}-)?(appartement|studio|maison|villa|parking|garage|local|chambre)\//i.exec(
+      new URL(parsedUrl.canonicalUrl).pathname,
     )?.[1];
   return {
-    propertyTypeText: match?.[1] ?? fromUrl ?? parsedUrl.canonicalUrl,
+    propertyTypeText: match?.[1] ?? fromUrl,
     cityText:
       labelledCity ??
       (titleAgrees ? fromTitle : slug !== null ? slug.replace(/-/g, ' ') : undefined),
@@ -426,7 +484,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // ainsi rendues. On lit donc `data-src` en premier.
   //
   // « Ces biens peuvent aussi vous intéresser » : les photos des AUTRES annonces.
-  $('[class*="property-more"], [class*="properties-related"]').remove();
+  $('[class*="property-more"], [class*="properties-related"], [class*="BienOther"]').remove();
   const imageUrls: string[] = [];
   // Le nom de fichier identifie la photo : la même image apparaît sous
   // plusieurs chemins (`/original/…` et `/1600xauto/…`), et les montrer toutes
@@ -465,7 +523,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     postalCodeText: table.get('cp') ?? labels.postalCode ?? content.postalCode,
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
-    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    imageUrls: imageUrls.length > 0 ? ownGallery(imageUrls) : undefined,
     extra: hektorExtra(table, content, parsedUrl.reference),
   });
 

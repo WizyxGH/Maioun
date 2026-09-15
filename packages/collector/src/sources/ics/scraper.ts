@@ -15,7 +15,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage } from './parser.js';
+import { parseListPage, saysNoResults } from './parser.js';
 
 export interface IcsConfig {
   readonly id: string;
@@ -75,7 +75,8 @@ export function makeIcsScraper(config: IcsConfig): Scraper {
 
         const listings = parseListPage(response.body, config.listUrl, config.name);
         if (listings.length === 0) {
-          warnings.push(`Aucune annonce sur la liste : ${config.listUrl}`);
+          if (saysNoResults(response.body)) stopReason = 'empty';
+          else warnings.push(`Aucune annonce sur la liste : ${config.listUrl}`);
         }
         context.log('list.parsed', { listings: listings.length });
 
