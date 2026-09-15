@@ -559,4 +559,8 @@ export function portalLabel(url: string | null): string | null {
  * leurs descripteurs — l'API, dans le Worker, n'embarque pas les scrapers.
  * Un test du collecteur vérifie qu'elle suit les descripteurs.
  */
-export const ONE_SHOT_SOURCES: readonly string[] = ['bep-abonnes', 'email-alerts', 'nestenn-nice-port'];
+export const ONE_SHOT_SOURCES: readonly string[] = [
+  'bep-abonnes',
+  'email-alerts',
+  'nestenn-nice-port',
+];
