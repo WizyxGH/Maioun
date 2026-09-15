@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import {
+  dpeLetterOfIndex,
   extractAreaText,
   extractPriceText,
   extractRoomsText,
@@ -257,5 +258,43 @@ describe('parseDetail — la description entière, lue sur la fiche', () => {
   it('rend null quand la fiche ne porte pas le bloc attendu (§17)', () => {
     expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
     expect(parseDetail('<div class="s-cms"></div>')).toBeNull();
+  });
+});
+
+describe('parseDetail — montants, DPE et agence du bien (data-estate)', () => {
+  const fiche = readFileSync(join(FIXTURES, 'fiche-estate.html'), 'utf8');
+
+  it('lit dépôt, charges, honoraires et la classe affichée', () => {
+    const draft = parseDetail(fiche);
+    expect(draft?.depositText).toBe('894 €');
+    expect(draft?.chargesText).toBe('56 €');
+    expect(draft?.feesText).toBe('385 €');
+    expect(draft?.extra).toEqual({ dpe: 'D' });
+  });
+
+  it('prend le contact de l’agence, jamais celui de l’agent', () => {
+    const draft = parseDetail(fiche);
+    expect(draft?.phoneText).toBe('06 00 00 00 31');
+    expect(draft?.emailText).toBe('agence@example.invalid');
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const card = { sourceRef: 'x', sourceUrl: PAGE_URL, priceText: '950 € par mois' };
+    const normalized = normalizeListing(
+      { ...card, ...parseDetail(fiche) },
+      { sourceId: 'orpi', nowMs: Date.parse('2026-09-15T00:00:00Z') },
+    );
+    expect(normalized?.deposit).toBe(894);
+    expect(normalized?.charges).toBe(56);
+    expect(normalized?.tenantFees).toBe(385);
+    expect(normalized?.dpe).toBe('D');
+    expect(normalized?.contact.phone).not.toBeNull();
+  });
+
+  it('traduit l’indice du tracking en lettre', () => {
+    expect(dpeLetterOfIndex(4)).toBe('D');
+    expect(dpeLetterOfIndex('7')).toBe('G');
+    expect(dpeLetterOfIndex(0)).toBeUndefined();
+    expect(dpeLetterOfIndex(null)).toBeUndefined();
   });
 });

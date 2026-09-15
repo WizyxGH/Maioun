@@ -23,7 +23,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { cleanMultiline } from '../../normalization/text.js';
+import { cleanMultiline, cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
@@ -150,9 +150,24 @@ export function parseDetail(html: string, url: string): PujolListing | null {
     // Le logo de l'agence vit sur le même serveur : il n'illustre aucun bien.
   ].filter((u) => !/logo/i.test(u));
 
+  const $ = cheerio.load(html);
+  const details = definitionList($);
+  const dpe = /classe\s+([A-G])\b/.exec(
+    $('svg[aria-label^="Performance énergétique"]').first().attr('aria-label') ?? '',
+  )?.[1];
+  // « 7-9, rue de Dijon, 6100 Nice — Vernier » : le quartier suit le tiret long,
+  // parfois redoublé de la commune (« Thiers Nice »).
+  const district = /\s[—–]\s*(.+)$/
+    .exec(cleanText($('.annonce-hero__loc').first().text()))?.[1]
+    ?.replace(/\s+Nice$/i, '');
+
   return {
     closed: isClosed(html),
     listing: compactListing({
+      chargesText: details.get('dont charges') ?? details.get('charges'),
+      depositText: details.get('dépôt de garantie'),
+      feesText: details.get("honoraires d'agence (ttc)"),
+      furnishedText: furnishedOf(details.get('meublé')),
       sourceRef: reference,
       sourceUrl: url,
       title: bien.name !== undefined ? decode(bien.name) : undefined,
@@ -168,7 +183,36 @@ export function parseDetail(html: string, url: string): PujolListing | null {
       agencyName: 'Immobilière Pujol',
       contactFormUrl: url,
       imageUrls: photos.length > 0 ? photos : undefined,
-      extra: { reference },
+      extra: compactExtra({ reference, dpe, quartier: district }),
     }),
   };
+}
+
+/**
+ * Les listes `dt`/`dd` de la fiche — « Caractéristiques techniques »,
+ * « Aspects financiers » —, libellé en minuscules. L'ancien gabarit des
+ * annonces clôturées écrit les mêmes paires.
+ */
+function definitionList($: cheerio.CheerioAPI): Map<string, string> {
+  const pairs = new Map<string, string>();
+  $('dl dt').each((_i, dt) => {
+    const label = cleanText($(dt).text()).toLowerCase().replace(/[’`]/g, "'");
+    const value = cleanText($(dt).next('dd').text());
+    if (label !== '' && value !== '' && !pairs.has(label)) pairs.set(label, value);
+  });
+  return pairs;
+}
+
+/** « Meublé : Oui / Non » de la fiche, dans les mots que la normalisation lit. */
+function furnishedOf(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (/^oui$/i.test(value)) return 'Meublé';
+  if (/^non$/i.test(value)) return 'Non meublé';
+  return undefined;
+}
+
+function compactExtra(extra: Record<string, string | undefined>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(extra).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
 }

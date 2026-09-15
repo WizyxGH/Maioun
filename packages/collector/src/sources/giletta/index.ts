@@ -14,6 +14,12 @@ export const gilettaScraper = makeHektorScraper({
   id: 'giletta',
   name: 'Giletta Immobilier',
   domain: 'giletta-properties.com',
+  // Agence unique, coordonnées du pied de page (relevé du 2026-09-15).
+  agencyContact: {
+    phone: '04 93 16 26 12', // secret-scan-ignore
+    email: 'info@giletta-properties.com', // secret-scan-ignore
+    address: { street: '1 rue Maurice Jaubert', postalCode: '06000', city: 'Nice' },
+  },
   // Pas de /favicon.ico ici : le site declare son icone ailleurs (§17).
   logo: 'https://www.giletta-properties.com/images/favicon.png',
   listUrls: [

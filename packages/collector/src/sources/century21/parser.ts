@@ -16,7 +16,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import type { RawDraft } from '../shared/raw-listing.js';
+import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 
@@ -187,8 +187,19 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
  */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
+  const dpe = highlightedDpe($);
+  const draft: RawDraft = compactListing({
+    description: frenchDescription($),
+    ...toKnowFields($),
+    phoneText: agencyPhone($),
+    extra: dpe !== undefined ? { dpe } : undefined,
+  });
+  return Object.keys(draft).length > 0 ? draft : null;
+}
+
+function frenchDescription($: cheerio.CheerioAPI): string | undefined {
   const block = $('.c-the-property-detail-description').first();
-  if (block.length === 0) return null;
+  if (block.length === 0) return undefined;
 
   // La version française d'abord ; à défaut, le bloc sans son titre — une
   // fiche monolingue reste lisible, et mieux vaut ce texte que rien.
@@ -203,5 +214,73 @@ export function parseDetail(html: string): RawDraft | null {
   }
 
   const description = cleanMultiline(htmlToText($, target));
-  return description.length > 0 ? { description } : null;
+  return description.length > 0 ? description : undefined;
+}
+
+/**
+ * Bloc « À savoir » : une ligne par montant, libellé puis valeur.
+ * « Honoraires charge locataire : 528,72 € TTC dont : … » — seul le premier
+ * montant compte, le détail qui suit en est la ventilation.
+ */
+function toKnowFields($: cheerio.CheerioAPI): RawDraft {
+  const fields: Record<string, string | undefined> = {};
+  $('.c-the-property-detail-to-know > ul > li').each((_i, li) => {
+    const line = cleanText($(li).text().replace(/\s+/g, ' '));
+    const value = /:\s*(.+)$/.exec(line)?.[1];
+    if (value === undefined) return;
+    const amount = /^[\d\s.,]+€/.exec(value)?.[0];
+    if (/^provision pour charges/i.test(line)) fields['chargesText'] = amount;
+    else if (/^d[ée]p[ôo]t de garantie/i.test(line)) fields['depositText'] = amount;
+    else if (/^honoraires charge locataire/i.test(line)) fields['feesText'] = amount;
+    else if (/^libre le/i.test(line)) fields['availableAtText'] = value;
+  });
+  return fields;
+}
+
+/**
+ * Le numéro du bouton « Téléphoner à l'agence » : il est dans la page, en
+ * attribut, et s'affiche au clic. Celui du bandeau d'actions vise l'annonce ;
+ * le bloc agence en bas de fiche sert de repli.
+ */
+function agencyPhone($: cheerio.CheerioAPI): string | undefined {
+  const label =
+    $('.c-the-property-detail-actions [data-click-label]').first().attr('data-click-label') ??
+    $('.c-the-property-detail-agency [data-click-label]').first().attr('data-click-label');
+  const phone = cleanText(label ?? '');
+  return phone !== '' ? phone : undefined;
+}
+
+/** Couleurs officielles de l'étiquette énergie, de A à G. */
+const DPE_COLORS: Readonly<Record<string, string>> = {
+  '#00a06d': 'A',
+  '#52b153': 'B',
+  '#a5cc74': 'C',
+  '#f4e70f': 'D',
+  '#f0b40f': 'E',
+  '#eb8235': 'F',
+  '#d7221f': 'G',
+};
+
+/**
+ * La classe DPE, dessinée et jamais écrite : l'étiquette est un SVG dont les
+ * lettres sont des tracés. La barre de la classe du bien est la seule suivie
+ * de son contour noir. On ne la recalcule pas depuis les kWh et le CO₂ : le
+ * relevé du 2026-09-15 montrait « D » affiché pour 80 kWh et 30 kg, que le
+ * barème général classe « C ».
+ */
+function highlightedDpe($: cheerio.CheerioAPI): string | undefined {
+  let letter: string | undefined;
+  $('.c-the-dpe-ges-new-dpe-svg svg path').each((_i, path) => {
+    if (letter !== undefined) return;
+    const fill = fillOf($(path).attr('style'));
+    const next = $(path).next('path');
+    if (fill !== undefined && fillOf(next.attr('style')) === '#1d1d1b') {
+      letter = DPE_COLORS[fill];
+    }
+  });
+  return letter;
+}
+
+function fillOf(style: string | undefined): string | undefined {
+  return /fill:\s*(#[0-9a-f]{6})/i.exec(style ?? '')?.[1]?.toLowerCase();
 }

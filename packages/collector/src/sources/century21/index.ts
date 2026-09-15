@@ -59,7 +59,8 @@ export const CENTURY21_DESCRIPTOR: SourceDescriptor = {
     'fiches /trouver_logement/detail/ non plus — seul /a/*/trouver_logement/, ' +
     'la variante par agence, est fermé. Une page couvre tout le stock — pas de ' +
     'pagination. Réf. agence dans le h3. Les fiches des annonces nouvelles ' +
-    'sont visitées (10 par exécution) : la carte tronque la description.',
+    'sont visitées (10 par exécution) : la carte tronque la description, et ' +
+    'seule la fiche porte montants, disponibilité, DPE et téléphone de l’agence.',
 };
 
 export const century21Scraper: Scraper = {

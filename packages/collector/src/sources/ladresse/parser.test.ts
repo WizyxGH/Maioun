@@ -106,3 +106,33 @@ describe('parseWithdrawn (L’Adresse)', () => {
     expect(parseWithdrawn('<html></html>')).toBe(false);
   });
 });
+
+describe('parseDetail — montants, DPE et téléphone (L’Adresse)', () => {
+  const fiche = readFileSync(join(FIXTURES, 'fiche.html'), 'utf8');
+
+  it('lit la ligne de résumé, la classe DPE et le numéro de l’agence', () => {
+    const draft = parseDetail(fiche);
+    expect(draft?.depositText).toBe('1700 €');
+    expect(draft?.chargesText).toBe('50 €');
+    expect(draft?.feesText).toBe('598.00 €');
+    expect(draft?.extra).toEqual({ dpe: 'C' });
+    expect(draft?.phoneText).toBe('0600000061');
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const normalized = normalizeListing(
+      {
+        sourceRef: '13368391',
+        sourceUrl: 'https://www.ladresse.com/annonce/location/appartement/nice-06000/13368391',
+        priceText: '900 € / mois cc',
+        ...parseDetail(fiche),
+      },
+      { sourceId: 'ladresse', nowMs: Date.parse('2026-09-15T12:00:00Z') },
+    );
+    expect(normalized?.deposit).toBe(1700);
+    expect(normalized?.charges).toBe(50);
+    expect(normalized?.tenantFees).toBe(598);
+    expect(normalized?.dpe).toBe('C');
+    expect(normalized?.contact.phone).not.toBeNull();
+  });
+});

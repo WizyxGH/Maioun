@@ -91,7 +91,9 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
     'pagination ?page=N autorisées ; les paramètres agency/sujet/contact/orderBy ' +
     'sont interdits et ne sont jamais utilisés. Cartes riches (GPS, quartier, ' +
     'agence, date de création) via attribut data-eulerian-action — traité comme ' +
-    'enrichissement fragile, le HTML visible fait foi.',
+    'enrichissement fragile, le HTML visible fait foi. Fiches des nouvelles : ' +
+    'description entière et JSON data-estate (dépôt, charges, honoraires, DPE, ' +
+    'téléphone et e-mail de l’agence du bien).',
 };
 
 /** §9 : au-delà de ce ratio de déjà-vu sur une page, on cesse de paginer. */

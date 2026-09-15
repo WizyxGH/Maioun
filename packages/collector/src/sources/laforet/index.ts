@@ -15,8 +15,9 @@
  * LES FICHES des annonces nouvelles sont lues ensuite : seules elles portent la
  * description, que la page de ville ne donne pas du tout.
  *
- * CONFORMITÉ. Le scraper n'émet aucune requête vers une page interdite, ne
- * cherche pas à récupérer les coordonnées masquées, et s'arrête au premier 429.
+ * CONFORMITÉ. Le scraper n'émet aucune requête vers une page interdite et
+ * s'arrête au premier 429. Le téléphone retenu est le lien `tel:` du bouton
+ * « Appeler l'agence », écrit dans la page : aucun appel pour le dévoiler.
  */
 
 import type {
@@ -29,7 +30,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
-import { parseDetailPage, parseSearchPage } from './parser.js';
+import { parseDetailPage, parseDpeSvg, parseSearchPage } from './parser.js';
 
 /**
  * Codes postaux couverts. Nice s'étend sur quatre codes ; les interroger tous
@@ -48,6 +49,9 @@ const MAX_LIST_PAGES = 6;
  */
 const MAX_DETAILS = 6;
 
+/** Étiquettes DPE lues par passage : une requête chacune, une fois par annonce. */
+const MAX_DPE_LABELS = 6;
+
 export const LAFORET_DESCRIPTOR: SourceDescriptor = {
   id: 'laforet',
   name: 'Laforêt',
@@ -57,16 +61,21 @@ export const LAFORET_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 45 }),
   budget: budgetFor('agencyNetwork', {
-    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS,
+    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS + MAX_DPE_LABELS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  allowedPaths: ['/ville/location-appartement-*', '/agence-immobiliere/*/louer/*'],
+  allowedPaths: [
+    '/ville/location-appartement-*',
+    '/agence-immobiliere/*/louer/*',
+    '/ajax/properties/*/dpe',
+  ],
   notes:
     'robots.txt vérifié le 2026-08-14 : seul /louer/rechercher?* est interdit, ' +
     "les pages /ville/* sont autorisées et la pagination ?page=N l'est également. " +
     'Revérifié le 2026-09-14 : les fiches /agence-immobiliere/*/louer/* sont ' +
     'ouvertes (seuls leurs /bien/*/pdf, mentions légales et formulaires sont fermés). ' +
+    'Relu le 2026-09-15 : l’étiquette DPE /ajax/properties/{id}/dpe est ouverte. ' +
     'Les pages incluent les agences voisines (Cagnes, Beausoleil, Cannes) : le ' +
     'filtrage sur la ville est assuré par le scoring, pas par le scraper.',
 };
@@ -175,13 +184,82 @@ export const laforetScraper: Scraper = {
     });
     warnings.push(...enriched.warnings);
 
+    const labelled = await withDpeLabels(context, enriched.listings);
+    warnings.push(...labelled.warnings);
+
     return {
       sourceId: LAFORET_DESCRIPTOR.id,
-      listings: enriched.listings,
-      requestCount: requestCount + enriched.requestCount,
-      pagesFetched: pagesFetched + enriched.pagesFetched,
+      listings: labelled.listings,
+      requestCount: requestCount + enriched.requestCount + labelled.requestCount,
+      pagesFetched: pagesFetched + enriched.pagesFetched + labelled.requestCount,
       stopReason,
       warnings,
     };
   },
 };
+
+/** Valeur mémorisée quand l'étiquette ne dit rien : on ne la redemande pas. */
+const NO_DPE = 'inconnu';
+
+/** Champs que la fiche apprend, recopiés dans la mémoire avec le DPE. */
+const DETAIL_KEYS = [
+  'description',
+  'chargesText',
+  'depositText',
+  'feesText',
+  'phoneText',
+  'emailText',
+] as const;
+
+/**
+ * LE DPE N'EST PAS DANS LA FICHE, mais dans une image à part : un SVG servi
+ * par `/ajax/properties/{id}/dpe`, dont le groupe racine porte la classe. On ne
+ * la demande que pour les annonces dont la fiche a été lue, une fois : le
+ * résultat rejoint la mémoire des fiches, et un échec réseau réessaie plus tard.
+ */
+async function withDpeLabels(
+  context: ScrapeContext,
+  listings: readonly RawListing[],
+): Promise<{ listings: RawListing[]; requestCount: number; warnings: string[] }> {
+  const warnings: string[] = [];
+  const learned = new Map<string, string>();
+  const pending = listings.filter(
+    (listing) => listing.description !== undefined && listing.extra?.['dpe'] === undefined,
+  );
+  let requestCount = 0;
+  for (const listing of pending.slice(0, MAX_DPE_LABELS)) {
+    if (context.shouldStop()) break;
+    const url = `https://www.laforet.com/ajax/properties/${listing.sourceRef}/dpe`;
+    try {
+      const response = await context.fetch(url, { conditional: false });
+      requestCount += 1;
+      learned.set(listing.sourceRef, parseDpeSvg(response.body) ?? NO_DPE);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('dpe.failed', { url, error: message });
+      if (message.includes('429')) break;
+    }
+  }
+
+  const updated = listings.map((listing) => {
+    const dpe = learned.get(listing.sourceRef);
+    return dpe === undefined ? listing : { ...listing, extra: { ...listing.extra, dpe } };
+  });
+
+  const entries = updated
+    .filter((listing) => learned.has(listing.sourceRef))
+    .map((listing) => {
+      const draft: Record<string, unknown> = { extra: { dpe: listing.extra?.['dpe'] } };
+      for (const key of DETAIL_KEYS) if (listing[key] !== undefined) draft[key] = listing[key];
+      return { sourceRef: listing.sourceRef, draft: draft as Partial<RawListing> };
+    });
+  if (entries.length > 0) {
+    try {
+      await context.detailMemory.save(entries);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Mémoire des étiquettes DPE non enregistrée (${entries.length}) : ${message}`);
+    }
+  }
+  return { listings: updated, requestCount, warnings };
+}

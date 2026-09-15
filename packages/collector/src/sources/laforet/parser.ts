@@ -21,6 +21,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
+import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 /**
  * Forme d'une URL d'annonce :
@@ -127,6 +128,36 @@ export function extractPropertyTypeText(text: string): string | undefined {
   return match?.[1];
 }
 
+/**
+ * Photos du carrousel de la carte : un lien par photo, vers la fiche.
+ *
+ * AUCUNE ANNONCE LAFORÊT N'AVAIT DE PHOTO (relevé du 2026-09-15) : chaque
+ * image vit dans son propre lien, et seul le lien le plus riche en texte était
+ * gardé — celui du titre, qui n'en porte aucune. Les adresses sont relatives
+ * (`/glide/…`) ; les pictogrammes du site sont en `.svg`.
+ */
+function collectPhotos(
+  $: cheerio.CheerioAPI,
+  anchor: ReturnType<cheerio.CheerioAPI>,
+  pageUrl: string,
+  photos: Map<string, string[]>,
+  reference: string,
+): void {
+  anchor.find('img[src]').each((_i, img) => {
+    const src = $(img).attr('src') ?? '';
+    if (src === '' || src.startsWith('data:') || /\.svg(?:[?#]|$)/i.test(src)) return;
+    let absolute: string;
+    try {
+      absolute = new URL(src, pageUrl).toString();
+    } catch {
+      return;
+    }
+    const list = photos.get(reference) ?? [];
+    if (!list.includes(absolute)) list.push(absolute);
+    photos.set(reference, list);
+  });
+}
+
 /** Résultat du parsing d'une page de résultats. */
 export interface ParsedPage {
   readonly listings: readonly RawListing[];
@@ -146,6 +177,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const $ = cheerio.load(html);
   const warnings: string[] = [];
   const byReference = new Map<string, RawListing>();
+  const photosByReference = new Map<string, string[]>();
+  const phonesByReference = new Map<string, string>();
 
   $('a[href*="/louer/"]').each((_index, element) => {
     const href = $(element).attr('href');
@@ -155,6 +188,13 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     const absolute = href.startsWith('http') ? href : new URL(href, pageUrl).toString();
     const parsed = parseListingUrl(absolute);
     if (parsed === null) return;
+
+    collectPhotos($, $(element), pageUrl, photosByReference, parsed.reference);
+    // Le bouton « Appeler l'agence » de la carte vise l'agence qui publie le bien.
+    const tel = $(element).closest('article').find('a[href^="tel:"]').first().attr('href');
+    if (tel !== undefined && !phonesByReference.has(parsed.reference)) {
+      phonesByReference.set(parsed.reference, tel.slice('tel:'.length).trim());
+    }
 
     // Extraction du texte via cheerio : `.text()` ne rend QUE les nœuds texte,
     // sans jamais laisser fuiter d'attribut (les cartes portent des attributs
@@ -187,9 +227,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       ...(city !== null ? { cityText: city } : {}),
       ...(postalCode !== null ? { postalCodeText: postalCode } : {}),
       agencyName: agencyNameFromSlug(parsed.agencySlug),
-      // §21 : Laforêt ne publie pas les coordonnées directes sur la liste. On
-      // n'invente rien et on ne force aucune page supplémentaire pour les
-      // obtenir — le formulaire de l'annonce reste le canal prévu.
+      // Le téléphone de la carte est posé plus bas ; le formulaire de la fiche
+      // reste l'autre canal.
       contactFormUrl: parsed.canonicalUrl,
       extra: { reference: parsed.reference, agencySlug: parsed.agencySlug },
     };
@@ -197,7 +236,15 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     byReference.set(parsed.reference, listing);
   });
 
-  const listings = [...byReference.values()];
+  const listings = [...byReference.values()].map((listing) => {
+    const photos = photosByReference.get(listing.sourceRef);
+    const phone = phonesByReference.get(listing.sourceRef);
+    return {
+      ...listing,
+      ...(photos !== undefined ? { imageUrls: photos } : {}),
+      ...(phone !== undefined ? { phoneText: phone } : {}),
+    };
+  });
 
   // §61 : détection d'anomalie. Une page qui rend des annonces sans aucun prix
   // signale presque toujours un changement de structure du site.
@@ -227,15 +274,53 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
  * retirés : communs à toutes les annonces de l'agence, ils ne décrivent pas le
  * bien et leur siège social passerait pour une adresse.
  */
-export function parseDetailPage(html: string): { description: string } | null {
+export function parseDetailPage(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const prose = $('#section-description .prose').first().clone();
   if (prose.length === 0) return null;
+  // L'adresse de contact de l'agence est dans ses mentions légales, retirées
+  // ensuite de la description.
+  const email = prose.find('a[href^="mailto:"]').first().attr('href')?.slice('mailto:'.length);
   prose.find('[data-controller="show"]').remove();
   prose
     .children('div')
     .filter((_index, element) => /Référence web/i.test($(element).text()))
     .remove();
   const description = htmlToText($, prose as cheerio.Cheerio<never>);
-  return description === '' ? null : { description };
+  if (description === '') return null;
+  return compactListing({
+    description,
+    chargesText: amountAfter(description, /provision\s+(?:sur\s+|pour\s+)?charges/i),
+    depositText: amountAfter(description, /d[ée]p[ôo]t\s+de\s+garantie/i),
+    feesText: amountAfter(description, /honoraires[^:\n]*locataire/i),
+    phoneText: agencyPhone($),
+    emailText: email !== undefined && email.includes('@') ? email : undefined,
+  });
+}
+
+/** Montant qui suit immédiatement un libellé : « Dépôt de garantie : 2 040,00 € ». */
+function amountAfter(text: string, label: RegExp): string | undefined {
+  const pattern = new RegExp(`${label.source}\\s*:?\\s*(\\d[\\d\\s.,]*€)`, 'i');
+  return pattern.exec(text)?.[1];
+}
+
+/**
+ * Le numéro du bouton « Appeler l'agence » : un lien `tel:` dans la page, dont
+ * seul le libellé attend le clic. Le bloc « A propos de l'agence » sert de
+ * repli ; la page cite aussi d'autres agences, qu'on ne lit pas.
+ */
+function agencyPhone($: cheerio.CheerioAPI): string | undefined {
+  const href =
+    $('a[title="Appeler l\'agence"][href^="tel:"]').first().attr('href') ??
+    $('#section-agency a[href^="tel:"]').first().attr('href');
+  const phone = href?.slice('tel:'.length).trim();
+  return phone !== undefined && phone !== '' ? phone : undefined;
+}
+
+/**
+ * Classe DPE de l'étiquette servie à part (`/ajax/properties/{id}/dpe`) : un
+ * SVG dont le groupe racine s'appelle `DPE_E`. `undefined` si rien de lisible.
+ */
+export function parseDpeSvg(svg: string): string | undefined {
+  return /\bid="DPE_([A-G])"/.exec(svg)?.[1];
 }

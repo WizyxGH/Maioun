@@ -22,7 +22,8 @@ const LIST_URLS = [
 ];
 
 const MAX_DETAILS_LIVE = 8;
-const MAX_DETAILS_BACKFILL = 20;
+// Le stock niçois compte ~35 fiches : un rattrapage les relit toutes.
+const MAX_DETAILS_BACKFILL = 40;
 
 export const CITYA_DESCRIPTOR: SourceDescriptor = {
   id: 'citya',
@@ -42,7 +43,9 @@ export const CITYA_DESCRIPTOR: SourceDescriptor = {
     'robots.txt vérifié le 2026-08-19 : /annonces/* autorisé ; /recherche, ' +
     '/api, /carte et les URLs à paramètres interdits. Pages SEO par commune ' +
     '(Nice = INSEE 06088), SSR. Fiche : JSON-LD RealEstateListing (prix, nom, ' +
-    'description). Seules les fiches résidentielles nouvelles sont visitées.',
+    'description). Seules les fiches résidentielles nouvelles sont visitées ; le ' +
+    'rattrapage relit aussi les connues. Montants, disponibilité, DPE et téléphone ' +
+    'de l’agence référente lus dans le HTML de la fiche (relevé du 2026-09-15).',
 };
 
 export const cityaScraper: Scraper = {
@@ -90,13 +93,19 @@ export const cityaScraper: Scraper = {
     const confirmedRefs = all
       .filter((url) => context.isKnown(url.reference))
       .map((url) => url.reference);
-    const candidates = all.filter((url) => !context.isKnown(url.reference));
+    const fresh = all.filter((url) => !context.isKnown(url.reference));
+    // En rattrapage, les connues suivent : relues, elles gagnent ce que le
+    // parseur a appris depuis (montants, DPE, téléphone de l'agence).
+    const candidates =
+      context.mode === 'backfill'
+        ? [...fresh, ...all.filter((url) => context.isKnown(url.reference))]
+        : fresh;
     const maxDetails = context.mode === 'backfill' ? MAX_DETAILS_BACKFILL : MAX_DETAILS_LIVE;
 
     context.log('list.parsed', {
       discovered: all.length,
       known: confirmedRefs.length,
-      new: candidates.length,
+      new: fresh.length,
       toFetch: Math.min(candidates.length, maxDetails),
     });
 
@@ -107,7 +116,10 @@ export const cityaScraper: Scraper = {
         break;
       }
       try {
-        const response = await context.fetch(url.canonicalUrl);
+        // Une connue se relit en entier : un 304 ne rendrait rien à re-parser.
+        const response = await context.fetch(url.canonicalUrl, {
+          conditional: !context.isKnown(url.reference),
+        });
         requestCount += 1;
         if (response.notModified) continue;
         pagesFetched += 1;

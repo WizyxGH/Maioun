@@ -15,6 +15,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { collectJsonLdNodes, findJsonLdNode } from '../shared/json-ld.js';
+import { compactListing } from '../shared/raw-listing.js';
 
 /**
  * URL de fiche : `/annonces/location/{type}/{ville-cp}/{réf}`, réf
@@ -170,23 +171,71 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     }
   });
 
-  const listing: RawListing = {
+  const dpe = energyClass($);
+  const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
-    ...(name !== '' ? { title: name } : {}),
-    ...(description !== '' ? { description } : {}),
-    ...(priceText !== undefined ? { priceText } : {}),
-    ...(areaText !== undefined ? { areaText } : {}),
-    ...(roomsText !== undefined ? { roomsText } : {}),
+    title: name !== '' ? name : undefined,
+    description: description !== '' ? description : undefined,
+    priceText,
+    areaText,
+    roomsText,
     propertyTypeText: `${parsedUrl.typeSlug} ${jsonLd?.propertyType ?? ''}`,
     furnishedText: `${name} ${description}`,
     cityText: 'nice',
-    ...(postalCode !== undefined ? { postalCodeText: postalCode } : {}),
+    // Le titre visible donne le vrai code postal (« Nice (06000) ») ; l'URL
+    // porte le code INSEE.
+    postalCodeText: /\((\d{5})\)/.exec($('h1 .ville').first().text())?.[1] ?? postalCode,
     agencyName,
+    ...heroFields($),
+    phoneText: agencyPhone($),
     contactFormUrl: parsedUrl.canonicalUrl,
-    ...(imageUrls.length > 0 ? { imageUrls: imageUrls.slice(0, 10) } : {}),
-    extra: { reference: parsedUrl.reference },
-  };
+    imageUrls: imageUrls.length > 0 ? imageUrls.slice(0, 10) : undefined,
+    extra: { reference: parsedUrl.reference, ...(dpe !== undefined ? { dpe } : {}) },
+  });
 
   return { listing, warnings };
+}
+
+/**
+ * Bloc sous le titre : disponibilité (« Libre ») puis une ligne par montant —
+ * « Provisions pour charges de 110 € », « Dépôt de garantie : 944,54 € »,
+ * « Honoraires charge locataire : 298,32 € ».
+ */
+function heroFields($: cheerio.CheerioAPI): Record<string, string | undefined> {
+  const title = $('h1').first();
+  const availability = cleanText(title.next('p').text());
+  const fields: Record<string, string | undefined> = {
+    availableAtText: availability !== '' && !/€/.test(availability) ? availability : undefined,
+  };
+  title
+    .nextAll('section')
+    .first()
+    .find('li')
+    .each((_i, li) => {
+      const line = cleanText($(li).text());
+      const amount = /(\d[\d\s.,]*€)/.exec(line)?.[1];
+      if (/^provisions? pour charges/i.test(line)) fields['chargesText'] = amount;
+      else if (/^d[ée]p[ôo]t de garantie/i.test(line)) fields['depositText'] = amount;
+      else if (/^honoraires/i.test(line)) fields['feesText'] = amount;
+    });
+  return fields;
+}
+
+/** Numéro de l'agence référente du bien — pas celui du service qualité national. */
+function agencyPhone($: cheerio.CheerioAPI): string | undefined {
+  const href = $('.advert-detail-layout__agence a[href^="tel:"]').first().attr('href');
+  const phone = href?.slice('tel:'.length).trim();
+  return phone !== undefined && phone !== '' ? phone : undefined;
+}
+
+/** Classe DPE : la seule case agrandie de l'échelle, dont la lettre est visible. */
+function energyClass($: cheerio.CheerioAPI): string | undefined {
+  let letter: string | undefined;
+  $('.advert-detail-layout__bilan div.text-base').each((_i, label) => {
+    if (letter !== undefined || !/\(DPE\)/.test($(label).text())) return;
+    const shown = cleanText($(label).next().find('span.font-bold').first().text());
+    if (/^[A-G]$/.test(shown)) letter = shown;
+  });
+  return letter;
 }
