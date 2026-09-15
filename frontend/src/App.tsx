@@ -54,7 +54,7 @@ import {
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { formatSourceName } from './format.js';
-import { useDocumentTitle } from './document-title.js';
+import { useDocumentMeta } from './document-title.js';
 import {
   markAlertRead,
   markAlertsSeen,
@@ -1351,7 +1351,7 @@ function AppView(): React.JSX.Element {
     listings.find((listing) => listing.id === selectedId && listing.partial !== true) ?? null;
 
   // Le titre de l'onglet suit l'écran : c'est lui qu'annonce un lecteur d'écran.
-  useDocumentTitle(route, selected);
+  useDocumentMeta(route, selected);
 
   // DÉCLARÉ ICI, avec les autres actions sur une annonce, et non plus après le
   // rendu de la liste : la vue FICHE sort du composant par un `return` anticipé,

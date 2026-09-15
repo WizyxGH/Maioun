@@ -26,9 +26,10 @@
       name="description"
       content="Les annonces de location de Nice, sans doublons, avec les alertes, le suivi des contacts et votre dossier."
     />
-    <!-- Non indexée, mais PARTAGÉE : un lien vers une annonce collé dans une
-      messagerie montre cet aperçu. Le site étant statique, il est le même pour
-      toutes les adresses de l'application. -->
+    <!-- Non indexée, mais PARTAGÉE. Ces valeurs sont celles de l'accueil :
+      l'application les remplace à chaque écran (document-title.ts), avec le
+      titre, la description et la photo de la fiche ouverte. -->
+    <link rel="canonical" href="%SITE_URL%app/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Maïoun" />
     <meta property="og:locale" content="fr_FR" />
@@ -43,6 +44,11 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Maïoun — le bon appartement avant les autres." />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Maïoun — locations à Nice" />
+    <meta
+      name="twitter:description"
+      content="Toutes les locations de Nice au même endroit, sans doublons, avec une alerte dès qu’un logement correspond."
+    />
     <meta name="twitter:image" content="%SITE_URL%og-image.png" />
   </head>
   <body>
