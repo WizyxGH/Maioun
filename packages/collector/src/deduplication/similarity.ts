@@ -13,8 +13,9 @@
  *      un en double (§14).
  */
 
-import type { NormalizedListing } from '@maioun/shared';
+import { ONE_SHOT_SOURCES, type NormalizedListing } from '@maioun/shared';
 import { comparable, tokenize } from '../normalization/text.js';
+import { sameStreet } from '../normalization/parse-listing-fields.js';
 import { haversineKm } from '../core/geo.js';
 
 /** Verdict rendu pour une paire d'annonces. */
@@ -134,6 +135,17 @@ export function sameSourceConflict(
   if (a.area !== null && b.area !== null && !sameArea(a.area, b.area)) {
     return `même source, surfaces différentes (${a.area} m² / ${b.area} m²)`;
   }
+  // Le même système donne le même code postal : 06000 et 06300 chez FNAIM sont
+  // deux studios Saint-Roch, pas un (relevé du 2026-09-15). Pas les alertes des
+  // portails : SeLoger donne 06000 puis 06200 pour le même studio.
+  if (
+    !ONE_SHOT_SOURCES.includes(a.sourceId) &&
+    a.postalCode !== null &&
+    b.postalCode !== null &&
+    a.postalCode !== b.postalCode
+  ) {
+    return `même source, codes postaux différents (${a.postalCode} / ${b.postalCode})`;
+  }
   return null;
 }
 
@@ -243,6 +255,103 @@ function photoOverlap(
   return memeSource ? 'none' : 'partial';
 }
 
+/** Le numéro en tête d'une adresse (« 49 », « 22 bis »), ou `null`. */
+function houseNumber(address: string): string | null {
+  return /^(\d{1,4})\s*(bis|ter)?\b/.exec(comparable(address))?.slice(1).join('') ?? null;
+}
+
+/**
+ * Deux adresses d'une même voie, avec ou sans le même numéro.
+ *
+ * L'égalité stricte ratait les adresses lues dans un titre : « 49 BOULEVARD DE
+ * RIQUIER - NICE RIQUI… » (alerte SeLoger coupée) ne vaut pas « 49 boulevard de
+ * Riquier » caractère pour caractère. Même numéro et même voie désignent le
+ * même immeuble ; la même voie seule, un voisinage.
+ */
+function streetAgreement(a: string | null, b: string | null): 'numbered' | 'street' | 'none' {
+  if (a === null || b === null) return 'none';
+  if (comparable(a) === comparable(b)) return 'numbered';
+  if (!sameStreet(a, b)) return 'none';
+  const numberA = houseNumber(a);
+  const numberB = houseNumber(b);
+  if (numberA !== null && numberB !== null) return numberA === numberB ? 'numbered' : 'none';
+  return 'street';
+}
+
+/**
+ * Mots qui décrivent n'importe quel logement : un titre fait de ceux-là (« Studio
+ * meublé à louer », « 1 pièce · 24 m² ») ne désigne aucun bien.
+ */
+const GENERIC_TITLE_WORDS = new Set([
+  'appartement',
+  'appart',
+  'studio',
+  'studette',
+  'piece',
+  'pieces',
+  'chambre',
+  'chambres',
+  'location',
+  'louer',
+  'loue',
+  'meuble',
+  'meublee',
+  'vide',
+  'nice',
+  'colocation',
+  'logement',
+  'maison',
+  'villa',
+  'duplex',
+  'loft',
+  'etudiant',
+  'etudiante',
+  'bail',
+  'mois',
+  'libre',
+  'disponible',
+  'beau',
+  'belle',
+  'joli',
+  'jolie',
+  'charmant',
+  'lumineux',
+  'grand',
+  'petit',
+]);
+
+/** Les mots d'un titre, sans le dernier s'il est coupé (« … », « ... »). */
+function titleTokens(title: string | null): { readonly tokens: string[]; readonly cut: boolean } {
+  const raw = (title ?? '').trim();
+  const cut = /(?:\.\.\.|…)$/.test(raw);
+  const tokens = tokenize(raw.replace(/(?:\.\.\.|…)$/, ''));
+  return { tokens: cut ? tokens.slice(0, -1) : tokens, cut };
+}
+
+/**
+ * LE MÊME TITRE, ÉCRIT PAR L'AGENCE, EST UNE SIGNATURE.
+ *
+ * « NICE - STUDIO 21m2 - PROMENADES DES ANGLAIS » chez SeLoger et chez l'agence,
+ * mêmes loyer, surface et pièces : cinquante-sept points, sous le seuil — le
+ * titre ne pesait que quinze, qu'il soit « Studio à louer » ou une phrase
+ * propre à ce bien. Un titre identique d'au moins quatre mots, dont deux qui ne
+ * décrivent pas n'importe quel logement, vaut désormais trente points : avec
+ * les chiffres concordants, la fusion. Un titre coupé par le portail compte
+ * s'il est le début de l'autre.
+ */
+function sameDistinctiveTitle(a: NormalizedListing, b: NormalizedListing): boolean {
+  const left = titleTokens(a.title);
+  const right = titleTokens(b.title);
+  const shorter = left.tokens.length <= right.tokens.length ? left : right;
+  const longer = shorter === left ? right : left;
+  if (shorter.tokens.length < 4) return false;
+  if (shorter.tokens.filter((token) => !GENERIC_TITLE_WORDS.has(token)).length < 2) return false;
+  const others = new Set(longer.tokens);
+  if (!shorter.tokens.every((token) => others.has(token))) return false;
+  // Sans coupure, l'inclusion ne suffit pas : il faut les mêmes mots.
+  return shorter.cut || new Set(shorter.tokens).size === others.size;
+}
+
 function collectStrongSignals(
   a: NormalizedListing,
   b: NormalizedListing,
@@ -268,10 +377,12 @@ function collectStrongSignals(
   // qui n'en publient aucun. Il ne distingue donc rien, et additionné à
   // l'adresse ou au GPS il franchissait le seuil de fusion (§14).
   if (a.sourceId !== b.sourceId) {
-    if (a.contact.phone !== null && a.contact.phone === b.contact.phone) {
+    const phone = a.contact.phone;
+    if (phone !== null && phone === b.contact.phone) {
       push({ code: 'phone', label: 'même téléphone', points: 40 });
     }
-    if (a.contact.email !== null && a.contact.email === b.contact.email) {
+    const email = a.contact.email;
+    if (email !== null && email === b.contact.email) {
       push({ code: 'email', label: 'même e-mail', points: 35 });
     }
   }
@@ -284,8 +395,11 @@ function collectStrongSignals(
     push({ code: 'reference', label: 'même référence', points: 35 });
   }
 
-  if (a.address !== null && b.address !== null && comparable(a.address) === comparable(b.address)) {
+  const street = streetAgreement(a.address, b.address);
+  if (street === 'numbered') {
     push({ code: 'address', label: 'même adresse', points: 30 });
+  } else if (street === 'street') {
+    push({ code: 'street', label: 'même rue', points: 10 });
   }
 
   if (a.latitude !== null && a.longitude !== null && b.latitude !== null && b.longitude !== null) {
@@ -384,7 +498,13 @@ function collectMediumSignals(
 
   const agencyA = a.contact.agencyName;
   const agencyB = b.contact.agencyName;
-  if (agencyA !== null && agencyB !== null && comparable(agencyA) === comparable(agencyB)) {
+  // Au sein d'une source d'agence, toutes ses annonces ont « la même agence ».
+  if (
+    a.sourceId !== b.sourceId &&
+    agencyA !== null &&
+    agencyB !== null &&
+    comparable(agencyA) === comparable(agencyB)
+  ) {
     push({ code: 'agency', label: 'même agence', points: 12 });
   }
 
@@ -408,7 +528,9 @@ function collectMediumSignals(
   }
 
   const titleScore = jaccard(tokenize(a.title), tokenize(b.title));
-  if (titleScore > 0.4) {
+  if (a.sourceId !== b.sourceId && sameDistinctiveTitle(a, b)) {
+    push({ code: 'title', label: 'même titre', points: 30 });
+  } else if (titleScore > 0.4) {
     push({
       code: 'title',
       label: `titres proches (${Math.round(titleScore * 100)} %)`,
