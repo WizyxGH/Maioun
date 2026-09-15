@@ -83,6 +83,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '229 avenue de la Californie', postalCode: '06200', city: 'Nice' },
   },
+  'agence-castel': {
+    name: 'Agence Castel',
+    domain: 'agencecastel.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '25 rue Bonaparte', postalCode: '06300', city: 'Nice' },
+  },
   'agence-des-domaines': {
     name: 'Agence des Domaines',
     domain: 'agencedesdomaines.com',
@@ -357,6 +364,20 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  'cdc-immobilier': {
+    name: 'CDC Immobilier',
+    domain: 'cdcimmobilier.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '2 place Wilson', postalCode: '06000', city: 'Nice' },
+  },
+  'cds-gestion': {
+    name: 'CDS Gestion',
+    domain: 'cdsgestion.fr',
+    logo: null,
+    paidContact: false,
+    address: { street: '51 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
+  },
   cegestim: {
     name: 'Cegestim',
     domain: 'cegestim.fr',
@@ -415,6 +436,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  'cote-dazur-properties': {
+    name: "Côte d'Azur Properties",
+    domain: 'immobilierniceouest.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '2 boulevard Carlone', postalCode: '06200', city: 'Nice' },
+  },
   'cote-village': {
     name: 'Immobilier Côté Village',
     domain: 'immobilier-cote-village.com',
@@ -464,6 +492,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: 'https://dinamyimmobilier.com/Vues/Images/favicon.jpg',
     paidContact: false,
     address: { street: '13 rue François Guisol', postalCode: '06300', city: 'Nice' },
+  },
+  'domi-nice-immobilier': {
+    name: 'Domi Nice Immobilier',
+    domain: 'dominiceimmobilier.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '24 rue Gioffredo', postalCode: '06000', city: 'Nice' },
   },
   drago: {
     name: 'Cabinet Drago',
@@ -858,6 +893,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   },
   locservice: { name: 'LocService', domain: null, logo: null, paidContact: true, address: null },
   lodgis: { name: 'Lodgis', domain: null, logo: null, paidContact: false, address: null },
+  loquis: {
+    name: 'Cabinet Loquis',
+    domain: 'loquis.fr',
+    logo: null,
+    paidContact: false,
+    address: { street: '3 place Alexandre Médecin', postalCode: '06100', city: 'Nice' },
+  },
   'lt-immobilier': {
     name: 'LT Immobilier',
     domain: 'lt-immobilier.com',
@@ -942,6 +984,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  miramar: {
+    name: 'Miramar Real Estate',
+    domain: 'miramarimmo.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '7/13 boulevard Franck Pilatte', postalCode: '06300', city: 'Nice' },
+  },
   'mk-immo': {
     name: 'MK Immo',
     domain: 'mk-immo.fr',
@@ -976,6 +1025,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
     address: { street: '21 rue Michel-Ange', postalCode: '06100', city: 'Nice' },
+  },
+  'nicolas-pisani': {
+    name: 'Nicolas Pisani Real Estate',
+    domain: 'nicolaspisani.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '1 rue Paul Doumer', postalCode: '06310', city: 'Beaulieu-sur-Mer' },
   },
   norait: {
     name: 'Norait Immobilier',

@@ -205,6 +205,14 @@ import { orientationImmobiliereScraper } from './orientation-immobiliere/index.j
 import { imodirectScraper } from './imodirect/index.js';
 import { altareaNiceScraper } from './altarea-nice/index.js';
 import { agenceDuPortScraper } from './agence-du-port/index.js';
+import { miramarScraper } from './miramar/index.js';
+import { loquisScraper } from './loquis/index.js';
+import { coteDazurPropertiesScraper } from './cote-dazur-properties/index.js';
+import { cdsGestionScraper } from './cds-gestion/index.js';
+import { agenceCastelScraper } from './agence-castel/index.js';
+import { cdcImmobilierScraper } from './cdc-immobilier/index.js';
+import { nicolasPisaniScraper } from './nicolas-pisani/index.js';
+import { domiNiceImmobilierScraper } from './domi-nice-immobilier/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -407,6 +415,14 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   imodirectScraper,
   altareaNiceScraper,
   agenceDuPortScraper,
+  miramarScraper,
+  loquisScraper,
+  coteDazurPropertiesScraper,
+  cdsGestionScraper,
+  agenceCastelScraper,
+  cdcImmobilierScraper,
+  nicolasPisaniScraper,
+  domiNiceImmobilierScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
