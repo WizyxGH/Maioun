@@ -181,6 +181,16 @@ describe('parseDetailPage — gabarits sans table', () => {
     );
     expect(listing?.extra?.['quartier']).toBe('LE PIOL');
     expect(listing?.phoneText).toBe('06 00 00 00 01');
+    // Les quatre photos de la galerie, dont la première dans son dossier
+    // `original/` : seule la taille change, sinon l'adresse tombait en 404.
+    const cdn =
+      'https://mediterraneeimmo.staticlbi.com/1600xauto/images/biens/1/dc2bb12b70f7a242610c1e1498f3e60f';
+    expect(listing?.imageUrls).toEqual([
+      `${cdn}/original/photo_e4add0c8cf1e6accf75918ecadc2bf79.jpg`,
+      `${cdn}/photo_a79300966ac26d93254613a6256f06b4.jpg`,
+      `${cdn}/photo_c4a9abfc2e463fc531b140f7a51ea59f.jpg`,
+      `${cdn}/photo_414bdd8c757026ad1835bc05f2917866.jpg`,
+    ]);
     const normalized = normalize(listing as NonNullable<typeof listing>);
     expect(normalized).toMatchObject({
       price: 660,
