@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react';
+import type { Route } from './router.js';
 import { MOCK_LISTINGS } from './api/mock-data.js';
 import {
   documentMeta,
