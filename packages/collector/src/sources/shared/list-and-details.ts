@@ -21,6 +21,11 @@ export interface ListAndDetailsOptions {
   /** Annonces esquissées depuis une page de liste. */
   readonly parseList: (body: string, url: string) => readonly RawListing[];
   /**
+   * `true` si la page porte le message « aucun résultat » de la plateforme :
+   * sans lui, une liste vide passe pour un gabarit cassé.
+   */
+  readonly isEmptyList?: (body: string) => boolean;
+  /**
    * Adresse des données de la fiche, quand ce n'est pas la page de l'annonce
    * (API d'une fiche rendue en JavaScript). Défaut : `sourceUrl`.
    */
@@ -41,6 +46,7 @@ export async function runListAndDetails(
   let pagesFetched = 0;
   const stubs = new Map<string, RawListing>();
   let unchanged = 0;
+  let saidEmpty = 0;
 
   for (const url of options.listUrls) {
     try {
@@ -51,9 +57,11 @@ export async function runListAndDetails(
         continue;
       }
       pagesFetched += 1;
-      for (const stub of options.parseList(response.body, url)) {
+      const found = options.parseList(response.body, url);
+      for (const stub of found) {
         if (!stubs.has(stub.sourceRef)) stubs.set(stub.sourceRef, stub);
       }
+      if (found.length === 0 && options.isEmptyList?.(response.body) === true) saidEmpty += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec de la liste ${url} : ${message}`);
@@ -74,6 +82,11 @@ export async function runListAndDetails(
       stopReason: 'notModified',
       warnings,
     };
+  }
+  // Toutes les listes lues ET vides de l'aveu du site : une liste inchangée ou
+  // en échec pourrait encore porter des annonces.
+  if (stubs.size === 0 && saidEmpty === options.listUrls.length) {
+    return { sourceId, listings: [], requestCount, pagesFetched, stopReason: 'empty', warnings };
   }
   if (stubs.size === 0) {
     warnings.push(`Aucune annonce sur la liste : ${options.listUrls[0] ?? ''}`);

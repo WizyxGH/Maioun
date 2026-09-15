@@ -60,6 +60,14 @@ export function parseList(html: string): RawListing[] {
   return [...byRef.values()];
 }
 
+/** Bandeau « No results found » que Houzez met à la place des cartes. */
+export function isEmptyList(html: string): boolean {
+  const $ = cheerio.load(html);
+  return (
+    $('.item-listing-wrap').length === 0 && $('.listing-view .search-no-results-found').length > 0
+  );
+}
+
 /** « Libellé : valeur » du bloc d'informations légales. */
 function legalLines($: cheerio.CheerioAPI): Map<string, string> {
   const lines = new Map<string, string>();

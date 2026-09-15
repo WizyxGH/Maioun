@@ -12,6 +12,7 @@ import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
 import {
+  isEmptyList,
   listUrl,
   parseDetail,
   parseList,
@@ -55,6 +56,7 @@ export const agenceCastelScraper: Scraper = {
       sourceId: AGENCE_CASTEL_DESCRIPTOR.id,
       listUrls: [listUrl(AGENCE_CASTEL)],
       parseList: (body) => parseList(body, AGENCE_CASTEL),
+      isEmptyList,
       parseDetail: (html, listing) => parseDetail(html, listing, AGENCE_CASTEL),
       maxDetails: MAX_DETAILS,
     }),

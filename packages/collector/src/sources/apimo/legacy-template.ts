@@ -63,6 +63,15 @@ export function parseList(html: string, site: ApimoClassicSite): RawListing[] {
   return [...byRef.values()];
 }
 
+/**
+ * Bloc « Aucun résultat » de la recherche. Par sa classe : le même texte sert
+ * d'attribut au sélecteur de ville, sur les pages pleines aussi.
+ */
+export function isEmptyList(html: string): boolean {
+  const $ = cheerio.load(html);
+  return $('li.ad').length === 0 && $('.noResults').length > 0;
+}
+
 /** Les listes « Libellé <span>valeur</span> » d'un bloc de détails. */
 function labelled($: cheerio.CheerioAPI, block: string): Map<string, string> {
   const fields = new Map<string, string>();

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { AGENCE_CASTEL } from '../agence-castel/index.js';
-import { parseDetail, parseList } from './legacy-template.js';
+import { isEmptyList, parseDetail, parseList } from './legacy-template.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
@@ -28,6 +28,15 @@ const rental = (): string =>
 describe('parseList (Agence Castel)', () => {
   it('rend une recherche vide sans erreur', () => {
     expect(parseList(read('location.html'), AGENCE_CASTEL)).toEqual([]);
+  });
+
+  it('reconnaît le bloc « Aucun résultat » des deux agences, et lui seul', () => {
+    expect(isEmptyList(read('location.html'))).toBe(true);
+    const cdc = join(FIXTURES, '../cdc-immobilier/location.html');
+    expect(isEmptyList(readFileSync(cdc, 'utf8'))).toBe(true);
+    expect(isEmptyList(read('vente.html'))).toBe(false);
+    // Le même texte en attribut du sélecteur de ville ne compte pas.
+    expect(isEmptyList('<select data-noResults="Aucun résultat"></select>')).toBe(false);
   });
 
   it('écarte les ventes et lit les cartes de location', () => {

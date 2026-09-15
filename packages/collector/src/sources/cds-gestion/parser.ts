@@ -55,6 +55,12 @@ export function parseList(html: string): RawListing[] {
   return [...byRef.values()];
 }
 
+/** Alerte « Aucun résultat » que RealHomes met à la place des cartes. */
+export function isEmptyList(html: string): boolean {
+  const $ = cheerio.load(html);
+  return $('article.rh_list_card').length === 0 && $('.rh_page__listing .no-results').length > 0;
+}
+
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location ouverte. */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);

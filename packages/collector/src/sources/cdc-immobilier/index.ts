@@ -13,6 +13,7 @@ import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
 import {
+  isEmptyList,
   listUrl,
   parseDetail,
   parseList,
@@ -55,6 +56,7 @@ export const cdcImmobilierScraper: Scraper = {
       sourceId: CDC_IMMOBILIER_DESCRIPTOR.id,
       listUrls: [listUrl(CDC_IMMOBILIER)],
       parseList: (body) => parseList(body, CDC_IMMOBILIER),
+      isEmptyList,
       parseDetail: (html, listing) => parseDetail(html, listing, CDC_IMMOBILIER),
       maxDetails: MAX_DETAILS,
     }),

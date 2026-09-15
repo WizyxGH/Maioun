@@ -12,7 +12,7 @@
 import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
-import { LIST_URL, parseDetail, parseList } from './parser.js';
+import { isEmptyList, LIST_URL, parseDetail, parseList } from './parser.js';
 
 const MAX_DETAILS = 8;
 
@@ -46,6 +46,7 @@ export const cdsGestionScraper: Scraper = {
       sourceId: CDS_GESTION_DESCRIPTOR.id,
       listUrls: [LIST_URL],
       parseList: (body) => parseList(body),
+      isEmptyList,
       parseDetail: (html) => parseDetail(html),
       maxDetails: MAX_DETAILS,
     }),
