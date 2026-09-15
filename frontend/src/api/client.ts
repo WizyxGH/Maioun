@@ -37,6 +37,7 @@ import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
   CHANGELOG_SETTING,
+  ALERTS_SEEN_SETTING,
   ONBOARDING_SETTING,
   REFERENCE_POINTS_SETTING,
   TENANT_PROFILE_SETTING,
@@ -1179,6 +1180,18 @@ export async function fetchChangelogSeen(): Promise<string | null> {
 
 export async function markChangelogSeen(id: string): Promise<void> {
   await writeSetting(CHANGELOG_SETTING, { id, at: new Date().toISOString() });
+}
+
+/** Dernière visite de la page Notifications pour ce compte, en millisecondes ; `null` si inconnue. */
+export async function fetchAlertsSeenAt(): Promise<number | null> {
+  if (!settingsAvailable()) return null;
+  const stored = await readSetting<{ at?: unknown }>(ALERTS_SEEN_SETTING);
+  return typeof stored?.at === 'number' && Number.isFinite(stored.at) ? stored.at : null;
+}
+
+export async function saveAlertsSeenAt(atMs: number): Promise<void> {
+  if (!settingsAvailable()) return;
+  await writeSetting(ALERTS_SEEN_SETTING, { at: atMs });
 }
 
 /**

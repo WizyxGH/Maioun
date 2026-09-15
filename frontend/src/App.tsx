@@ -11,7 +11,7 @@
  * annonces à contacter MAINTENANT (§36 : classement par action, pas par prix).
  */
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TenantProfile } from '@maioun/shared';
 import { MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
 import type {
@@ -55,14 +55,7 @@ import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { formatSourceName } from './format.js';
 import { useDocumentMeta } from './document-title.js';
-import {
-  markAlertRead,
-  markAlertsSeen,
-  readAlertsSeenAt,
-  readOptIn,
-  readReadAlerts,
-  unreadAlertCount,
-} from './notifications.js';
+import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
@@ -99,6 +92,7 @@ import {
 } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
+import { useAlertsSeen } from './use-alerts-seen.js';
 import { readViewState, writeViewState } from './view-state.js';
 import type { View } from './router.js';
 import { useRoute } from './use-route.js';
@@ -919,7 +913,13 @@ function AppView(): React.JSX.Element {
   // Pastille de la cloche. `alertsSeenAt` s'amorce à l'instant du premier
   // lancement : compter tout l'historique afficherait « 90 » à quelqu'un qui
   // n'a rien manqué.
-  const [alertsSeenAt, setAlertsSeenAt] = useState(() => readAlertsSeenAt(Date.now()));
+  // Rangée dans le COMPTE et relue au retour sur l'application : la pastille est
+  // la même sur l'ordinateur et le téléphone (voir `use-alerts-seen.ts`).
+  const reloadRef = useRef<() => void>(() => undefined);
+  const { seenAt: alertsSeenAt, markSeen: markAlertsSeenEverywhere } = useAlertsSeen({
+    enabled: currentUser !== null && currentUser !== undefined,
+    onReturn: () => reloadRef.current(),
+  });
   // Instant de la visite PRÉCÉDENTE, figé à l'ouverture de la page. Sans lui,
   // marquer les alertes comme vues effacerait les repères « non lue » dans la
   // seconde où on arrive dessus.
@@ -1075,6 +1075,9 @@ function AppView(): React.JSX.Element {
       setLoading(false);
     }
   }, [sort, showArchived, favoritesOnly]);
+  // Au retour sur l'application, la liste se recharge : vues et alertes lues
+  // ailleurs y apparaissent.
+  reloadRef.current = () => void load();
 
   /**
    * QUI EST CONNECTÉ — et une limite de patience.
@@ -1147,9 +1150,7 @@ function AppView(): React.JSX.Element {
   useEffect(() => {
     if (view !== 'alerts') return;
     setAlertsViewedFrom(alertsSeenAt);
-    const seenAt = Date.now();
-    markAlertsSeen(seenAt);
-    setAlertsSeenAt(seenAt);
+    markAlertsSeenEverywhere(Date.now());
   }, [view]);
 
   /**
@@ -1288,8 +1289,7 @@ function AppView(): React.JSX.Element {
    */
   const markAllAlertsRead = (): void => {
     const now = Date.now();
-    markAlertsSeen(now);
-    setAlertsSeenAt(now);
+    markAlertsSeenEverywhere(now);
     setAlertsViewedFrom(now);
   };
 
