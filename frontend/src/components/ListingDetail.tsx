@@ -37,12 +37,15 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
+  Check,
   ExternalLink,
   Heart,
   ImageOff,
   MapPin,
+  Share,
   TrainFront,
 } from './icons.js';
+import { shareLink } from '../share-link.js';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
@@ -133,18 +136,41 @@ function TrackingSelect({
  * ne permettait de retenir l'annonce sans revenir en arrière.
  */
 function DetailActions({
+  title,
   favorite,
   archived,
   onFavorite,
   onArchive,
 }: {
+  readonly title: string;
   readonly favorite: boolean;
   readonly archived: boolean;
   readonly onFavorite?: (favorite: boolean) => void;
   readonly onArchive?: (archived: boolean) => void;
 }): React.JSX.Element {
+  // Sans feuille native (ordinateur), le lien est copié : le bouton le dit.
+  const [copied, setCopied] = useState(false);
+  const share = async (): Promise<void> => {
+    const outcome = await shareLink({ title, url: window.location.href });
+    if (outcome !== 'copied') return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+  const shareLabel = copied ? 'Lien copié' : 'Partager l’annonce';
   return (
     <>
+      <Button
+        variant="ghost"
+        onClick={() => void share()}
+        title={shareLabel}
+        aria-label={shareLabel}
+      >
+        {copied ? (
+          <Check aria-hidden="true" className="size-4" />
+        ) : (
+          <Share aria-hidden="true" className="size-4" />
+        )}
+      </Button>
       {onFavorite !== undefined && (
         <Button
           variant="ghost"
@@ -419,6 +445,7 @@ export function ListingDetail({
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
           <DetailActions
+            title={listing.title.value ?? 'Annonce Maïoun'}
             favorite={favorite}
             archived={archived}
             {...(onFavorite !== undefined ? { onFavorite } : {})}
