@@ -979,12 +979,17 @@ function AppView(): React.JSX.Element {
   // d'annonces. Sans mémoïsation, tout serait recalculé à chaque rendu — donc à
   // chaque frappe dans un filtre. Placées avant tout return conditionnel (règle
   // des hooks). Chacune ne se recalcule que si ses entrées changent.
+  // LES SOURCES SÉLECTIONNÉES Y FIGURENT TOUJOURS, même sans annonce chargée :
+  // absentes du menu, elles filtraient sans qu'on puisse les voir ni les retirer.
   const availableSources = useMemo(
     () =>
-      [...new Set(listings.flatMap((l) => l.occurrences.map((o) => o.sourceId)))].sort((a, b) =>
-        formatSourceName(a).localeCompare(formatSourceName(b)),
-      ),
-    [listings],
+      [
+        ...new Set([
+          ...listings.flatMap((l) => l.occurrences.map((o) => o.sourceId)),
+          ...selectedSources,
+        ]),
+      ].sort((a, b) => formatSourceName(a).localeCompare(formatSourceName(b))),
+    [listings, selectedSources],
   );
   const sourceCounts = useMemo(() => {
     const counts = new globalThis.Map<string, number>();
