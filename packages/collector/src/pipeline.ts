@@ -112,6 +112,8 @@ export interface PipelineOptions {
   readonly mode: 'live' | 'backfill';
   /** Ciblage manuel : la ou les sources tournent sans attendre leur tour. */
   readonly force?: boolean;
+  /** Temps accordé au démarrage des sources ; huit minutes par défaut. */
+  readonly sourcePhaseBudgetMs?: number;
   readonly clock: Clock;
   readonly logger: Logger;
   /** Injection de `fetch` — les tests n'accèdent jamais au réseau (§59). */
@@ -927,7 +929,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     (decision) => registry.get(decision.sourceId)?.descriptor.domain ?? decision.sourceId,
     SOURCES_AT_ONCE,
     async (decision) => {
-      if (clock.now() - startedMs > SOURCE_PHASE_BUDGET_MS) {
+      if (clock.now() - startedMs > (options.sourcePhaseBudgetMs ?? SOURCE_PHASE_BUDGET_MS)) {
         notStarted.push(decision.sourceId);
         return;
       }
