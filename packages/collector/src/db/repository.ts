@@ -249,6 +249,10 @@ export function listingHash(listing: ScoredListing): string {
     listing.latitude.value,
     listing.longitude.value,
     listing.address.value,
+    // Le type écarte parkings et locaux de la liste : un box reclassé restait
+    // « appartement » à l'écran (relevé du 2026-09-15). Toujours présent : l'omettre
+    // pour un type laisserait inchangée l'empreinte d'une fiche qui y revient.
+    listing.propertyType.value,
   ]);
   return createHash('sha256').update(material).digest('hex').slice(0, 32);
 }
