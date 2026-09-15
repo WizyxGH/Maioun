@@ -562,6 +562,9 @@ Immobilier dont robots.txt interdit la recherche) — aucun contournement.
 | **Nicolas Pisani Real Estate** (nicolaspisani.com)                 | 2026-09-15 | 6 (Nice, Beaulieu-sur-Mer, Cap-d'Ail), longue durée seule       |
 | **Domi Nice Immobilier** (dominiceimmobilier.com)                  | 2026-09-15 | 0 aujourd'hui (suivie en attente)                               |
 | **BBii** (bbii.fr)                                                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), Twimmo                       |
+| **Agence Dumas** (agencedumas.fr)                                  | 2026-09-15 | 4 (Villefranche-sur-Mer, Beaulieu-sur-Mer), parseur dédié       |
+| **Cap Sud Immobilier** (capsud-immobilier.fr)                      | 2026-09-15 | 0 aujourd'hui (suivie en attente), Apimo ancien schéma          |
+| **Solissimmo** (solissimmo.fr)                                     | 2026-09-15 | 1 (Nice), Apimo ancien schéma                                   |
 | **Altarea Gestion Immobilière - Nice** (altarea.flatbay.fr)        | 2026-09-15 | 8 (Nice ×4 dont 1 box, Mougins, Fréjus, Saint-Raphaël), Flatbay |
 
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)
