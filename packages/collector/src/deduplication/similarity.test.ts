@@ -304,6 +304,17 @@ describe('titre, adresse et même source', () => {
     expect(similarity(a, c).signals.map((s) => s.code)).not.toContain('address');
   });
 
+  it('une voie sans numéro identique : même adresse entre sources, même rue dans une agence', () => {
+    const parking = { ...base, area: null, rooms: null, price: 150, address: 'Rue Massenet' };
+    const a = makeOccurrence({ ...parking, id: 'dazur:1', sourceId: 'dazur' });
+    const b = makeOccurrence({ ...parking, id: 'dazur:2', sourceId: 'dazur' });
+    const c = makeOccurrence({ ...parking, id: 'fnaim:3', sourceId: 'fnaim' });
+    const sameAgency = similarity(a, b).signals.map((s) => s.code);
+    expect(sameAgency).toContain('street');
+    expect(sameAgency).not.toContain('address');
+    expect(similarity(a, c).signals.map((s) => s.code)).toContain('address');
+  });
+
   it('sépare deux annonces d’une même source aux codes postaux différents', () => {
     const a = makeOccurrence({
       ...base,
