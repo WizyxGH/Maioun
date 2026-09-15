@@ -111,6 +111,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '28 boulevard Stalingrad', postalCode: '06300', city: 'Nice' },
   },
+  'agence-dumas': {
+    name: 'Agence Dumas',
+    domain: 'agencedumas.fr',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
   'agence-longchamp': {
     name: 'Agence Longchamp',
     domain: 'agencelongchamp.com',
@@ -357,6 +364,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
     address: { street: '61 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
+  },
+  'cap-sud-immobilier': {
+    name: 'Cap Sud Immobilier',
+    domain: 'capsud-immobilier.fr',
+    logo: null,
+    paidContact: false,
+    address: { street: '256 avenue de la Californie', postalCode: '06200', city: 'Nice' },
   },
   carletta: {
     name: 'Carletta Immobilier',
@@ -1247,6 +1261,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
     address: { street: '24 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
+  },
+  solissimmo: {
+    name: 'Solissimmo',
+    domain: 'solissimmo.fr',
+    logo: null,
+    paidContact: false,
+    address: { street: '30 rue Alphonse Karr', postalCode: '06000', city: 'Nice' },
   },
   studapart: { name: 'Studapart', domain: null, logo: null, paidContact: false, address: null },
   'sud-agence': {
