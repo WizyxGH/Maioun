@@ -133,6 +133,12 @@ const numbersEqual =
     return Math.abs(a - b) <= tolerance;
   };
 
+/** Deux textes égaux aux blancs près : un retour à la ligne n'est pas un désaccord. */
+function sameText(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Fusionne les coordonnées de toutes les occurrences (§15).
  * Exemple typique : le téléphone vient de Leboncoin, la référence du site de
@@ -267,7 +273,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     id: oldest.id,
 
     title: mergeField(occurrences, primary, (l) => l.title),
-    description: mergeField(occurrences, primary, (l) => l.description),
+    description: mergeField(occurrences, primary, (l) => l.description, sameText),
 
     price,
     charges: mergeField(occurrences, primary, (l) => l.charges, numbersEqual(0.01)),
