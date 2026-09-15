@@ -825,6 +825,10 @@ function shortestCommuteMinutes(listing: ScoredListing): number | null {
  */
 const REVISIT_PHOTOLESS_PER_RUN = 5;
 
+/** Au-delà de deux semaines sans relecture, une fiche repasse par le parseur. */
+const REVISIT_STALE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+const REVISIT_STALE_PER_RUN = 2;
+
 /**
  * L URL de l occurrence qui appartient a l agence destinataire.
  *
@@ -909,6 +913,27 @@ export function createRepository(db: Database): Repository {
         args: [sourceId, REVISIT_PHOTOLESS_PER_RUN],
       });
       for (const row of photoless.rows) known.delete(String(row['source_ref']));
+
+      /**
+       * LES FICHES ANCIENNES AUSSI, par roulement. Les adaptateurs qui ne passent
+       * pas par la mémoire des fiches (La Boîte Immo notamment) ne relisaient
+       * jamais une annonce connue : relevé du 2026-09-15, dépôt de garantie à 0 %
+       * en base chez AA Gestion ou Murta quand leurs pages le donnent toutes, lu
+       * par un parseur corrigé depuis. Deux par source et par cycle, les plus
+       * anciennes d'abord : tout le stock repasse par le parseur du jour.
+       */
+      const stale = await db.execute({
+        sql: `SELECT source_ref FROM occurrences
+              WHERE source_id = ? AND lifecycle != 'inactive' AND scraped_at < ?
+              ORDER BY scraped_at ASC
+              LIMIT ?`,
+        args: [
+          sourceId,
+          new Date(Date.now() - REVISIT_STALE_AFTER_MS).toISOString(),
+          REVISIT_STALE_PER_RUN,
+        ],
+      });
+      for (const row of stale.rows) known.delete(String(row['source_ref']));
 
       return known;
     },
@@ -1050,10 +1075,14 @@ export function createRepository(db: Database): Repository {
 
       if (touches.length > 0) {
         const seenAt = listings[0]?.lastSeenAt ?? new Date().toISOString();
+        // Relue et inchangée, la fiche l'a quand même été : sans `scraped_at`, la
+        // relecture des plus anciennes reprendrait les mêmes à chaque passage.
+        const scrapedAt = listings[0]?.scrapedAt ?? seenAt;
         inserts.push({
-          sql: `UPDATE occurrences SET last_seen_at = ?, missing_runs = 0, lifecycle = 'active'
+          sql: `UPDATE occurrences SET last_seen_at = ?, scraped_at = ?, missing_runs = 0,
+                  lifecycle = 'active'
                 WHERE id IN (${touches.map(() => '?').join(',')})`,
-          args: [seenAt, ...touches],
+          args: [seenAt, scrapedAt, ...touches],
         });
       }
 
