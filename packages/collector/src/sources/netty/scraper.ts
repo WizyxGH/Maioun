@@ -27,10 +27,12 @@ import { isFreshMemory, REJECTED_DRAFT } from '../shared/enrich.js';
 import type { RawDraft } from '../shared/raw-listing.js';
 import { sitemapUrls } from '../shared/sitemap.js';
 import {
+  isCommercialUrl,
   matchesCity,
   parseDetailPage,
   parseSitemap,
   parseSitemapIndex,
+  type ParsedDetail,
   type SitemapEntry,
 } from './parser.js';
 
@@ -77,6 +79,41 @@ export function makeNettyDescriptor(config: NettyConfig): SourceDescriptor {
       `cibles sont visitées. Fiches riches : JSON-LD (prix, surface, pièces, ` +
       `commune, photos) et mentions légales portant charges, dépôt et DPE.`,
   };
+}
+
+/** Mémoire d'une fiche écartée : le motif n'est gardé que s'il tient à une règle. */
+const rejectedDraft = (parsed: ParsedDetail): RawDraft =>
+  parsed.excluded === undefined ? REJECTED_DRAFT : { extra: { excluded: parsed.excluded } };
+
+const isExcluded = (draft: RawDraft | undefined): boolean =>
+  draft?.extra?.['excluded'] !== undefined;
+
+/**
+ * Sitemap complet, rien rendu ni confirmé, et toutes les fiches visées écartées
+ * par règle — local d'après l'adresse, saisonnier lu cette fois ou mémorisé
+ * cette semaine : aucun logement à louer. Une fiche illisible, en échec ou non
+ * lue laisse le doute.
+ */
+function allRuledOut(
+  context: ScrapeContext,
+  targeted: readonly SitemapEntry[],
+  outcome: {
+    readonly sitemapComplete: boolean;
+    readonly listings: readonly RawListing[];
+    readonly confirmedRefs: readonly string[];
+    readonly rejected: readonly { sourceRef: string; draft: RawDraft }[];
+  },
+): boolean {
+  if (!outcome.sitemapComplete || outcome.listings.length > 0 || outcome.confirmedRefs.length > 0) {
+    return false;
+  }
+  const now = new Map(outcome.rejected.map((entry) => [entry.sourceRef, entry.draft]));
+  const nowMs = Date.now();
+  return targeted.every(({ url }) => {
+    if (isCommercialUrl(url) || isExcluded(now.get(url.reference))) return true;
+    const memory = context.detailMemory.get(url.reference);
+    return isFreshMemory(memory, nowMs) && isExcluded(memory?.draft);
+  });
 }
 
 export function makeNettyScraper(config: NettyConfig): Scraper {
@@ -192,7 +229,7 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
           const parsed = parseDetailPage(response.body, entry.url.canonicalUrl, config.name);
           warnings.push(...parsed.warnings);
           if (parsed.listing !== null) listings.push(parsed.listing);
-          else rejected.push({ sourceRef: entry.url.reference, draft: REJECTED_DRAFT });
+          else rejected.push({ sourceRef: entry.url.reference, draft: rejectedDraft(parsed) });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           warnings.push(`Échec sur ${entry.url.canonicalUrl} : ${message}`);
@@ -206,6 +243,11 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
             break;
           }
         }
+      }
+
+      const outcome = { sitemapComplete, listings, confirmedRefs, rejected };
+      if (stopReason === 'completed' && allRuledOut(context, targeted, outcome)) {
+        stopReason = 'empty';
       }
 
       if (rejected.length > 0) {

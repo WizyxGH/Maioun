@@ -53,6 +53,16 @@ export function parseList(html: string): RawListing[] {
   return [...byRef.values()];
 }
 
+/** Message « aucun résultat » que WPCasa met à la place de la liste. */
+export function isEmptyList(html: string): boolean {
+  const $ = cheerio.load(html);
+  const list = $('.wpsight-listings-sc');
+  return (
+    list.find('.listing').length === 0 &&
+    /aucune\s+annonce\s+ne\s+correspond/i.test(cleanText(list.text()))
+  );
+}
+
 /** Communes voisines que les annonces nomment quand le bien n'est pas à Nice. */
 const OTHER_TOWNS =
   /\b(Saint[- ]Laurent[- ]du[- ]Var|Cagnes[- ]sur[- ]Mer|Villeneuve[- ]Loubet|Villefranche[- ]sur[- ]Mer|Beaulieu[- ]sur[- ]Mer|Saint[- ]Jean[- ]Cap[- ]Ferrat|[ÈE]ze|La Trinit[ée]|Falicon|Aspremont|Colomars|Vence|Menton|Monaco|Antibes|Cannes)\b/i;

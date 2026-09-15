@@ -10,7 +10,7 @@
 import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
-import { AGENCY_NAME, LIST_URL, parseDetail, parseList } from './parser.js';
+import { AGENCY_NAME, isEmptyList, LIST_URL, parseDetail, parseList } from './parser.js';
 
 const MAX_DETAILS = 8;
 
@@ -44,6 +44,7 @@ export const miramarScraper: Scraper = {
       sourceId: MIRAMAR_DESCRIPTOR.id,
       listUrls: [LIST_URL],
       parseList: (body) => parseList(body),
+      isEmptyList,
       parseDetail: (html) => parseDetail(html),
       maxDetails: MAX_DETAILS,
     }),

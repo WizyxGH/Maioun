@@ -74,6 +74,29 @@ describe('runListAndDetails', () => {
     expect((await runListAndDetails(refused.ctx, options)).stopReason).toBe('rateLimited');
   });
 
+  it('rend `empty` sur le seul message « aucun résultat » de la plateforme', async () => {
+    const withMarker = {
+      ...options,
+      parseList: (body: string) => (body === 'AUCUN' ? [] : options.parseList(body)),
+      isEmptyList: (body: string) => body === 'AUCUN',
+    };
+    const said = await runListAndDetails(context({ [LIST]: 'AUCUN' }).ctx, withMarker);
+    expect(said).toMatchObject({ stopReason: 'empty', warnings: [] });
+
+    // Page vide sans le message : gabarit peut-être cassé, pas d'aveu.
+    const silent = await runListAndDetails(context({ [LIST]: '' }).ctx, withMarker);
+    expect(silent.stopReason).toBe('completed');
+    expect(silent.warnings).toHaveLength(1);
+
+    // Une seconde liste inchangée pourrait encore porter des annonces.
+    const OTHER = 'https://agence.exemple/autres';
+    const partial = await runListAndDetails(context({ [LIST]: 'AUCUN', [OTHER]: '304' }).ctx, {
+      ...withMarker,
+      listUrls: [LIST, OTHER],
+    });
+    expect(partial.stopReason).toBe('completed');
+  });
+
   it('lit les données de la fiche à une autre adresse quand la source le demande', async () => {
     const { ctx, seen } = context({
       [LIST]: 'a',

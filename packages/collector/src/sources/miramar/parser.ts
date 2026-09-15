@@ -53,6 +53,15 @@ export function parseList(html: string): RawListing[] {
   return [...byRef.values()];
 }
 
+/**
+ * Elementor n'écrit ce bloc que si la requête de la grille ne rend aucun bien ;
+ * l'agence l'a laissé sans texte, d'où la lecture de la classe.
+ */
+export function isEmptyList(html: string): boolean {
+  const $ = cheerio.load(html);
+  return $('.e-loop-item').length === 0 && $('.e-loop-nothing-found-message').length > 0;
+}
+
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location au mois. */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);

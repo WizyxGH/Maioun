@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseDetail, parseList } from './parser.js';
+import { isEmptyList, parseDetail, parseList } from './parser.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
@@ -17,6 +17,12 @@ const rental = (): string =>
 describe('parseList (Miramar)', () => {
   it('rend une grille vide sans erreur', () => {
     expect(parseList(read('locations.html'))).toEqual([]);
+  });
+
+  it('reconnaît la grille vide à son bloc « rien trouvé », absent des grilles pleines', () => {
+    expect(isEmptyList(read('locations.html'))).toBe(true);
+    expect(isEmptyList(read('acheter.html'))).toBe(false);
+    expect(isEmptyList('<div class="elementor-widget-container"></div>')).toBe(false);
   });
 
   it('écarte les ventes et lit les cartes de location', () => {

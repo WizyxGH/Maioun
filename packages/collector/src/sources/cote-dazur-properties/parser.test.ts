@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseDetail, parseList } from './parser.js';
+import { isEmptyList, parseDetail, parseList } from './parser.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
@@ -27,6 +27,12 @@ const rental = (): string =>
 describe('parseList (Côte d’Azur Properties)', () => {
   it('rend une recherche vide sans erreur', () => {
     expect(parseList(read('a-louer.html'))).toEqual([]);
+  });
+
+  it('reconnaît « No results found », absent d’une recherche pleine', () => {
+    expect(isEmptyList(read('a-louer.html'))).toBe(true);
+    expect(isEmptyList(read('a-vendre.html'))).toBe(false);
+    expect(isEmptyList('<div class="listing-view"></div>')).toBe(false);
   });
 
   it('écarte les ventes et lit les cartes à louer', () => {

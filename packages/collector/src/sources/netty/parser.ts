@@ -312,6 +312,11 @@ function criterion(criteria: Map<string, string>, patterns: readonly RegExp[]): 
 const COMMERCIAL_SLUGS =
   /commerce|bureau|local|atelier|entrepot|fonds|professionnel|industriel|terrain|hangar|garage|parking/;
 
+/** `true` si l'adresse seule désigne un bien non résidentiel. */
+export function isCommercialUrl(url: ParsedListingUrl): boolean {
+  return COMMERCIAL_SLUGS.test(url.slug);
+}
+
 /** Tournures qui désignent sans ambiguïté une location de vacances. */
 const SEASONAL_PHRASE =
   /location\w*\s+(?:saisonniere|de vacances|estivale|courte duree)|(?:bail|contrat)\s+saisonnier|type de location\s*:?\s*saisonn/;
@@ -357,6 +362,8 @@ function seasonalReason(
 export interface ParsedDetail {
   readonly listing: RawListing | null;
   readonly warnings: readonly string[];
+  /** Bien écarté par règle, et non fiche illisible : seul motif d'une liste vide. */
+  readonly excluded?: 'commercial' | 'seasonal';
 }
 
 /**
@@ -375,8 +382,12 @@ export function parseDetailPage(
   if (parsedUrl === null) {
     return { listing: null, warnings: [`URL inattendue pour une fiche : ${pageUrl}`] };
   }
-  if (COMMERCIAL_SLUGS.test(parsedUrl.slug)) {
-    return { listing: null, warnings: [`Bien à usage commercial (ignoré) : ${pageUrl}`] };
+  if (isCommercialUrl(parsedUrl)) {
+    return {
+      listing: null,
+      warnings: [`Bien à usage commercial (ignoré) : ${pageUrl}`],
+      excluded: 'commercial',
+    };
   }
 
   const $ = cheerio.load(html);
@@ -401,6 +412,7 @@ export function parseDetailPage(
     return {
       listing: null,
       warnings: [`Location saisonnière (ignorée, ${seasonal}) : ${pageUrl}`],
+      excluded: 'seasonal',
     };
   }
 
