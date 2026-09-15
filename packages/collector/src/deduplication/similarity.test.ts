@@ -166,3 +166,113 @@ describe('surface identique au centième', () => {
     expect(similarity(digest, ailleurs).verdict).toBe('distinct');
   });
 });
+
+/** Relevé du 2026-09-15 : alertes SeLoger restées seules, doubles FNAIM enchaînés. */
+describe('titre, adresse et même source', () => {
+  const base = { price: 700, area: 21, rooms: 1, city: null, description: null, imageUrls: [] };
+
+  it('un titre identique et parlant, écrit par l’agence, emporte la fusion', () => {
+    const alerte = makeOccurrence({
+      ...base,
+      id: 'email-alerts:seloger:a',
+      sourceId: 'email-alerts',
+      title: 'NICE - STUDIO 21m2 - PROMENADES DES ANGLAIS',
+      postalCode: '06200',
+    });
+    const agence = makeOccurrence({
+      ...base,
+      id: 'isit-immobilier:1',
+      sourceId: 'isit-immobilier',
+      title: 'NICE - STUDIO 21m2 - PROMENADES DES ANGLAIS',
+      postalCode: '06000',
+    });
+    expect(similarity(alerte, agence).verdict).toBe('duplicate');
+  });
+
+  it('compte un titre coupé par le portail s’il commence l’autre', () => {
+    const alerte = makeOccurrence({
+      ...base,
+      id: 'email-alerts:seloger:b',
+      sourceId: 'email-alerts',
+      title: 'Location Meublée Nice Port/Riquier - Studio Dernie...',
+    });
+    const agence = makeOccurrence({
+      ...base,
+      id: 'victor-hugo:1',
+      sourceId: 'victor-hugo',
+      title: 'Location Meublée Nice Port/Riquier - Studio Dernier Etage Terrasse',
+    });
+    expect(similarity(alerte, agence).signals.map((s) => s.code)).toContain('title');
+  });
+
+  it('ne tire rien d’un titre générique, même identique', () => {
+    const a = makeOccurrence({
+      ...base,
+      id: 'locservice:1',
+      sourceId: 'locservice',
+      title: 'Studio meublé à louer Nice',
+    });
+    const b = makeOccurrence({
+      ...base,
+      id: 'bienici:1',
+      sourceId: 'bienici',
+      title: 'Studio meublé à louer Nice',
+    });
+    expect(similarity(a, b).verdict).not.toBe('duplicate');
+  });
+
+  it('reconnaît la même adresse malgré le bruit d’un titre coupé', () => {
+    const a = makeOccurrence({
+      ...base,
+      id: 'email-alerts:c',
+      sourceId: 'email-alerts',
+      address: '49 BOULEVARD DE RIQUIER - NICE RIQUI',
+    });
+    const b = makeOccurrence({
+      ...base,
+      id: 'foncia:1',
+      sourceId: 'foncia',
+      address: '49 boulevard de Riquier',
+    });
+    const c = makeOccurrence({
+      ...base,
+      id: 'orpi:1',
+      sourceId: 'orpi',
+      address: '12 boulevard de Riquier',
+    });
+    expect(similarity(a, b).signals.map((s) => s.code)).toContain('address');
+    expect(similarity(a, c).signals.map((s) => s.code)).not.toContain('address');
+  });
+
+  it('sépare deux annonces d’une même source aux codes postaux différents', () => {
+    const a = makeOccurrence({
+      ...base,
+      id: 'fnaim:1',
+      sourceId: 'fnaim',
+      postalCode: '06000',
+      title: 'Appartement 1 pièce 20m² NICE 06000',
+    });
+    const b = makeOccurrence({
+      ...base,
+      id: 'fnaim:2',
+      sourceId: 'fnaim',
+      postalCode: '06300',
+      title: 'Appartement 1 pièce 20m² NICE 06300',
+    });
+    expect(similarity(a, b).verdict).toBe('distinct');
+    // Pas les alertes : SeLoger donne deux codes au même studio.
+    const x = makeOccurrence({
+      ...base,
+      id: 'email-alerts:x',
+      sourceId: 'email-alerts',
+      postalCode: '06000',
+    });
+    const y = makeOccurrence({
+      ...base,
+      id: 'email-alerts:y',
+      sourceId: 'email-alerts',
+      postalCode: '06200',
+    });
+    expect(similarity(x, y).blocker).toBeNull();
+  });
+});
