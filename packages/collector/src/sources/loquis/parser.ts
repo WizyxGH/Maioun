@@ -66,14 +66,17 @@ function cityOf(text: string): string {
   return OTHER_TOWNS.exec(text)?.[1] ?? 'Nice';
 }
 
-/** Ce que la fiche apprend ; `null` sans loyer lisible ou à la semaine. */
+/**
+ * Ce que la fiche apprend ; `null` sans loyer lisible. La période reste dans le
+ * prix : la normalisation écarte un loyer à la semaine.
+ */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const box = $('.wpsight-listing').first();
   const price = box.find('.wpsight-listing-price').first();
   const amount = cleanText(price.find('.listing-price-value').text());
   const period = cleanText(price.find('.listing-rental-period').text());
-  if (!/\d/.test(amount) || /semaine|week|jour|day|nuit/i.test(period)) return null;
+  if (!/\d/.test(amount)) return null;
 
   const details = new Map<string, string>();
   box.find('.listing-details-detail, .listing-detail').each((_i, el) => {

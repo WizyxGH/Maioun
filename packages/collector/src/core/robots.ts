@@ -10,7 +10,8 @@
  * Conforme à la RFC 9309 : le groupe qui nomme le robot, sinon `*` ; la règle la
  * plus longue l'emporte, `Allow` à égalité ; `*` joker et `$` fin d'adresse. Un
  * fichier absent (4xx) autorise tout ; un site qui ne répond pas l'interdit, le
- * temps du passage.
+ * temps du passage. Le `Crawl-delay` du groupe retenu règle le délai entre deux
+ * requêtes au site (voir le client HTTP).
  */
 
 export interface RobotsRule {
@@ -28,13 +29,29 @@ function toRegex(pattern: string): RegExp {
   return new RegExp(`^${body}${anchored ? '$' : ''}`);
 }
 
+export interface RobotsFile {
+  readonly rules: readonly RobotsRule[];
+  /**
+   * `Crawl-delay` du même groupe, en secondes, ou `null`. Hors RFC 9309 mais
+   * répandu (Netty, WPCasa) : une demande écrite se respecte.
+   */
+  readonly crawlDelaySeconds: number | null;
+}
+
 /**
  * Les règles qui valent pour ce robot : son groupe s'il est nommé, sinon `*`.
  * `productToken` est le nom du robot sans version (« MaiounBot »).
  */
 export function parseRobots(text: string, productToken: string): readonly RobotsRule[] {
+  return parseRobotsFile(text, productToken).rules;
+}
+
+/** Règles et `Crawl-delay` qui valent pour ce robot. */
+export function parseRobotsFile(text: string, productToken: string): RobotsFile {
   const named: RobotsRule[] = [];
   const star: RobotsRule[] = [];
+  let namedDelay: number | null = null;
+  let starDelay: number | null = null;
   let agents: string[] = [];
   let readingAgents = false;
 
@@ -52,15 +69,27 @@ export function parseRobots(text: string, productToken: string): readonly Robots
       continue;
     }
     readingAgents = false;
+    const forUs = agents.includes(productToken.toLowerCase());
+    const forAll = agents.includes('*');
+
+    if (key === 'crawl-delay') {
+      const seconds = Number(value.replace(',', '.'));
+      if (value === '' || !Number.isFinite(seconds) || seconds < 0) continue;
+      if (forUs) namedDelay = seconds;
+      if (forAll) starDelay = seconds;
+      continue;
+    }
     if ((key !== 'allow' && key !== 'disallow') || value === '') continue;
 
     const rule = { allow: key === 'allow', pattern: value, regex: toRegex(value) };
-    if (agents.includes(productToken.toLowerCase())) {
-      named.push(rule);
-    }
-    if (agents.includes('*')) star.push(rule);
+    if (forUs) named.push(rule);
+    if (forAll) star.push(rule);
   }
-  return named.length > 0 ? named : star;
+  const ours = named.length > 0 || namedDelay !== null;
+  return {
+    rules: named.length > 0 ? named : star,
+    crawlDelaySeconds: ours ? namedDelay : starDelay,
+  };
 }
 
 /** La règle qui décide pour ce chemin (querystring comprise), ou `null` : autorisé. */
@@ -88,6 +117,8 @@ export class RobotsDisallowedError extends Error {
 export interface RobotsGate {
   /** Lève `RobotsDisallowedError` si la page est interdite. */
   check(url: string): Promise<void>;
+  /** `Crawl-delay` demandé pour ce site, en millisecondes ; 0 sans demande. */
+  crawlDelayMs(url: string): Promise<number>;
 }
 
 /**
@@ -102,17 +133,18 @@ export function createRobotsGate(options: {
 }): RobotsGate {
   const doFetch = options.fetchImpl ?? fetch;
   const productToken = options.userAgent.split('/')[0] ?? options.userAgent;
-  const byOrigin = new Map<string, Promise<readonly RobotsRule[] | 'unreachable'>>();
+  const byOrigin = new Map<string, Promise<RobotsFile | 'unreachable'>>();
+  const EMPTY: RobotsFile = { rules: [], crawlDelaySeconds: null };
 
-  const loadOnce = async (origin: string): Promise<readonly RobotsRule[] | 'unreachable'> => {
+  const loadOnce = async (origin: string): Promise<RobotsFile | 'unreachable'> => {
     try {
       const response = await doFetch(`${origin}/robots.txt`, {
         headers: { 'user-agent': options.userAgent },
         signal: AbortSignal.timeout(options.timeoutMs ?? 15_000),
       });
       if (response.status >= 500) return 'unreachable';
-      if (!response.ok) return [];
-      return parseRobots(await response.text(), productToken);
+      if (!response.ok) return EMPTY;
+      return parseRobotsFile(await response.text(), productToken);
     } catch {
       return 'unreachable';
     }
@@ -120,22 +152,31 @@ export function createRobotsGate(options: {
 
   // Une seconde tentative : un raté réseau d'un instant ne doit pas couper une
   // source pour tout le passage.
-  const load = async (origin: string): Promise<readonly RobotsRule[] | 'unreachable'> => {
+  const load = async (origin: string): Promise<RobotsFile | 'unreachable'> => {
     const first = await loadOnce(origin);
     if (first !== 'unreachable') return first;
     await new Promise((resolve) => setTimeout(resolve, options.retryDelayMs ?? 2_000));
     return loadOnce(origin);
   };
 
+  const fileOf = (origin: string): Promise<RobotsFile | 'unreachable'> => {
+    const known = byOrigin.get(origin) ?? load(origin);
+    byOrigin.set(origin, known);
+    return known;
+  };
+
   return {
     async check(url) {
       const parsed = new URL(url);
-      const known = byOrigin.get(parsed.origin) ?? load(parsed.origin);
-      byOrigin.set(parsed.origin, known);
-      const rules = await known;
-      if (rules === 'unreachable') throw new RobotsDisallowedError(url, 'robots.txt injoignable');
-      const rule = blockingRule(rules, `${parsed.pathname}${parsed.search}`);
+      const file = await fileOf(parsed.origin);
+      if (file === 'unreachable') throw new RobotsDisallowedError(url, 'robots.txt injoignable');
+      const rule = blockingRule(file.rules, `${parsed.pathname}${parsed.search}`);
       if (rule !== null) throw new RobotsDisallowedError(url, `Disallow: ${rule.pattern}`);
+    },
+
+    async crawlDelayMs(url) {
+      const file = await fileOf(new URL(url).origin);
+      return file === 'unreachable' ? 0 : (file.crawlDelaySeconds ?? 0) * 1000;
     },
   };
 }

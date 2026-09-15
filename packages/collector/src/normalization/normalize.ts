@@ -20,6 +20,7 @@ import { cleanText, comparable } from './text.js';
 import {
   addressGrade,
   sameStreet,
+  isShortPeriodPrice,
   isShortTermStudentLease,
   isStudentOnlyHousing,
   looksLikeStreet,
@@ -414,9 +415,13 @@ export function normalizeListing(
   // sur un signe FORT de vente ET en l'absence de tout signe de location, pour
   // ne jamais jeter une vraie location par erreur (§17).
   if (isForSale(raw)) return null;
+  // Tarif à la nuit ou à la semaine : location de vacances, pas un loyer au
+  // mois. Écartée ici pour toutes les sources, plutôt que parseur par parseur.
+  if (isShortPeriodPrice(raw.priceText)) return null;
 
   const nowIso = new Date(options.nowMs).toISOString();
-  const price = parsePrice(raw.priceText);
+  const area = resolveArea(raw);
+  const price = parsePrice(raw.priceText, { area });
   const text = textSources(raw);
   const location = resolveLocation(raw);
 
@@ -443,12 +448,12 @@ export function normalizeListing(
       parseDepositFromText(text.prose, price.amount),
     tenantFees:
       parseFeesField(raw.feesText, price.amount) ?? parseFeesFromText(text.prose, price.amount),
-    area: resolveArea(raw),
+    area,
     rooms: parseRooms(text.rooms),
     bedrooms: parseBedrooms(text.bedrooms),
     propertyType: commercialByTitle(raw.title)
       ? 'commercial'
-      : parkingByTitle(raw.title, resolveArea(raw), parseRooms(text.rooms))
+      : parkingByTitle(raw.title, area, parseRooms(text.rooms))
         ? 'parking'
         : parsePropertyType(text.type),
     // Le titre d'abord : « 3 PIÈCES MEUBLÉ » l'emporte sur une case « non »

@@ -23,6 +23,8 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { isFreshMemory, REJECTED_DRAFT } from '../shared/enrich.js';
+import type { RawDraft } from '../shared/raw-listing.js';
 import { sitemapUrls } from '../shared/sitemap.js';
 import {
   matchesCity,
@@ -156,7 +158,14 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
       const confirmedRefs = targeted
         .filter((entry) => context.isKnown(entry.url.reference))
         .map((entry) => entry.url.reference);
-      const candidates = targeted.filter((entry) => !context.isKnown(entry.url.reference));
+      // Une fiche écartée cette semaine (local commercial, saisonnier) ne se relit pas.
+      const nowMs = Date.now();
+      const candidates = targeted.filter(
+        (entry) =>
+          !context.isKnown(entry.url.reference) &&
+          !isFreshMemory(context.detailMemory.get(entry.url.reference), nowMs),
+      );
+      const rejected: { sourceRef: string; draft: RawDraft }[] = [];
 
       const maxDetails = context.mode === 'backfill' ? maxBackfill : maxLive;
 
@@ -183,6 +192,7 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
           const parsed = parseDetailPage(response.body, entry.url.canonicalUrl, config.name);
           warnings.push(...parsed.warnings);
           if (parsed.listing !== null) listings.push(parsed.listing);
+          else rejected.push({ sourceRef: entry.url.reference, draft: REJECTED_DRAFT });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           warnings.push(`Échec sur ${entry.url.canonicalUrl} : ${message}`);
@@ -195,6 +205,16 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
             stopReason = 'blocked';
             break;
           }
+        }
+      }
+
+      if (rejected.length > 0) {
+        try {
+          await context.detailMemory.save(rejected);
+        } catch (error) {
+          // Sans mémoire, ces fiches seront relues : rien de plus grave.
+          const message = error instanceof Error ? error.message : String(error);
+          warnings.push(`Mémoire des fiches non enregistrée (${rejected.length}) : ${message}`);
         }
       }
 

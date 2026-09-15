@@ -1,6 +1,6 @@
 /**
  * Gabarit Apimo « classique » (`/fr/recherche/{transaction}-{type}-…-{cp}-{id}`),
- * partagé par Agence Castel et CDC Immobilier — il pourra rejoindre `apimo/`.
+ * antérieur à celui de `parser.ts`, partagé par Agence Castel et CDC Immobilier.
  *
  * La recherche `/fr/recherche/?nature=2` ne rend que les locations, en cartes
  * `li.ad` portant l'identifiant Apimo (`?estate=`) et « Type, Ville ». La fiche
@@ -15,6 +15,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import { dpeFromValues } from '../../normalization/parse-listing-fields.js';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
@@ -24,11 +25,6 @@ export interface ApimoClassicSite {
   /** Origine du site, sans barre finale (`http://www.agencecastel.com`). */
   readonly origin: string;
 }
-
-export const AGENCE_CASTEL: ApimoClassicSite = {
-  agencyName: 'Agence Castel',
-  origin: 'http://www.agencecastel.com',
-};
 
 /** Recherche filtrée sur la location à l'année. */
 export const listUrl = (site: ApimoClassicSite): string => `${site.origin}/fr/recherche/?nature=2`;
@@ -65,17 +61,6 @@ export function parseList(html: string, site: ApimoClassicSite): RawListing[] {
     );
   });
   return [...byRef.values()];
-}
-
-/** Classe DPE depuis les deux valeurs, en double seuil (méthode de 2021). */
-export function dpeFromValues(kwh: number, co2: number): string {
-  const energy = [70, 110, 180, 250, 330, 420];
-  const gas = [6, 11, 30, 50, 70, 100];
-  const rank = (value: number, bounds: number[]): number => {
-    const index = bounds.findIndex((bound) => value <= bound);
-    return index === -1 ? bounds.length : index;
-  };
-  return 'ABCDEFG'.charAt(Math.max(rank(kwh, energy), rank(co2, gas)));
 }
 
 /** Les listes « Libellé <span>valeur</span> » d'un bloc de détails. */
@@ -142,7 +127,8 @@ export function parseDetail(
     .toArray()
     .map((li) => cleanText($(li).text()))
     .find((text) => /€/.test(text));
-  if (price === undefined || /semaine|nuit|jour/i.test(price)) return null;
+  // Un tarif à la semaine passe : la normalisation l'écarte.
+  if (price === undefined) return null;
 
   const summary = labelled($, 'summary');
   const legal = labelled($, 'legal');

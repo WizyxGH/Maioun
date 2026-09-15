@@ -22,8 +22,11 @@ export class CooldownError extends Error {
 }
 
 export interface RateLimiter {
-  /** Attend jusqu'à ce qu'une requête soit autorisée. */
-  acquire(): Promise<void>;
+  /**
+   * Attend jusqu'à ce qu'une requête soit autorisée. `minDelayMs` relève le
+   * délai du budget pour cette requête (`Crawl-delay` du site), jamais ne l'abaisse.
+   */
+  acquire(minDelayMs?: number): Promise<void>;
   /** Signale un HTTP 429 : déclenche la mise au repos prévue par le budget. */
   register429(): void;
   /** Instant de fin de cooldown, ou `null` si la source est disponible. */
@@ -54,7 +57,7 @@ export function createRateLimiter(budget: RateLimitBudget, clock: Clock): RateLi
   }
 
   /** Délai à respecter avant la prochaine requête, en millisecondes. */
-  function computeWaitMs(now: number): number {
+  function computeWaitMs(now: number, delayMs: number): number {
     // 1. Cooldown après 429 : prioritaire sur tout le reste.
     if (cooldownUntilMs !== null && now < cooldownUntilMs) {
       return cooldownUntilMs - now;
@@ -63,8 +66,8 @@ export function createRateLimiter(budget: RateLimitBudget, clock: Clock): RateLi
     // 2. Délai minimal entre deux requêtes, plus jitter.
     let wait = 0;
     if (lastRequestAt !== null) {
-      const jitter = budget.delayBetweenRequestsMs * JITTER_RATIO * clock.random();
-      const target = lastRequestAt + budget.delayBetweenRequestsMs + jitter;
+      const jitter = delayMs * JITTER_RATIO * clock.random();
+      const target = lastRequestAt + delayMs + jitter;
       wait = Math.max(0, target - now);
     }
 
@@ -81,12 +84,13 @@ export function createRateLimiter(budget: RateLimitBudget, clock: Clock): RateLi
   }
 
   return {
-    async acquire(): Promise<void> {
+    async acquire(minDelayMs = 0): Promise<void> {
+      const delayMs = Math.max(budget.delayBetweenRequestsMs, minDelayMs);
       // Une seule itération suffit tant que le limiteur est utilisé
       // séquentiellement ; la boucle protège les usages concurrents.
       for (let guard = 0; guard < 10; guard += 1) {
         const now = clock.now();
-        const wait = computeWaitMs(now);
+        const wait = computeWaitMs(now, delayMs);
         if (wait <= 0) break;
         await clock.sleep(wait);
       }

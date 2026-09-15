@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseDetail, parseList } from '../agence-castel/parser.js';
+import { parseDetail, parseList } from '../apimo/legacy-template.js';
 import { CDC_IMMOBILIER } from './index.js';
 
 // Pages réelles du 2026-09-15, allégées : recherche de location vide, fiche de vente.

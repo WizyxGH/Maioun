@@ -4,8 +4,8 @@
  *
  * Une requête de liste par passage, puis les fiches des annonces nouvelles.
  * robots.txt vérifié le 2026-09-15 : aucune interdiction, mais `Crawl-delay:
- * 10`, que le budget respecte. Page des locations vide au relevé (5 ventes) :
- * suivie en attente.
+ * 10`, que le client HTTP applique de lui-même. Page des locations vide au
+ * relevé (5 ventes) : suivie en attente.
  */
 
 import type { Scraper, SourceDescriptor } from '@maioun/shared';
@@ -23,10 +23,7 @@ export const LOQUIS_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 2,
   schedule: scheduleFor('localAgency'),
-  budget: budgetFor('localAgency', {
-    maxPagesPerRun: 1 + MAX_DETAILS,
-    delayBetweenRequestsMs: 10_000,
-  }),
+  budget: budgetFor('localAgency', { maxPagesPerRun: 1 + MAX_DETAILS }),
   enabled: true,
   allowedPaths: ['/location/', '/listing/*'],
   agencyContact: {
@@ -35,8 +32,8 @@ export const LOQUIS_DESCRIPTOR: SourceDescriptor = {
   },
   notes:
     'WordPress, thème Beaver Builder + WPCasa, rendu serveur. robots.txt ' +
-    'vérifié le 2026-09-15 : aucune interdiction, Crawl-delay 10 (délai du ' +
-    'budget). Liste /location/ (offre « à louer », cartes #listing-{id}), ' +
+    'vérifié le 2026-09-15 : aucune interdiction, Crawl-delay 10 (appliqué par ' +
+    'le client HTTP).Liste /location/ (offre « à louer », cartes #listing-{id}), ' +
     'fiches /listing/{slug}/ ; montants et DPE lus dans la description.',
 };
 

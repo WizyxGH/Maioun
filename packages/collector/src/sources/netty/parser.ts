@@ -28,7 +28,10 @@ import * as cheerio from 'cheerio';
 import { sitemapIndexUrls, sitemapUrls } from '../shared/sitemap.js';
 import type { RawListing } from '@maioun/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
-import { isShortTermStudentLease } from '../../normalization/parse-listing-fields.js';
+import {
+  isShortTermStudentLease,
+  mentionsShortPeriodPrice,
+} from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 import {
@@ -309,16 +312,6 @@ function criterion(criteria: Map<string, string>, patterns: readonly RegExp[]): 
 const COMMERCIAL_SLUGS =
   /commerce|bureau|local|atelier|entrepot|fonds|professionnel|industriel|terrain|hangar|garage|parking/;
 
-/**
- * Prix donné à la nuit ou à la semaine. Lu sur un texte seulement désaccentué :
- * `comparable` effacerait le « € » et la barre.
- */
-const SHORT_PERIOD_PRICE = /\d\s*(?:€|euros?)\s*(?:\/|par|la)\s*(?:nuit|nuitee|semaine|sem\b)/i;
-
-function unaccented(text: string): string {
-  return text.normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
 /** Tournures qui désignent sans ambiguïté une location de vacances. */
 const SEASONAL_PHRASE =
   /location\w*\s+(?:saisonniere|de vacances|estivale|courte duree)|(?:bail|contrat)\s+saisonnier|type de location\s*:?\s*saisonn/;
@@ -349,7 +342,7 @@ function seasonalReason(
   if (/saisonn|vacances|courte duree|estival/.test(comparable(leaseType ?? ''))) {
     return `type de location « ${leaseType} »`;
   }
-  if (SHORT_PERIOD_PRICE.test(unaccented(mentions ?? ''))) return 'loyer légal à courte période';
+  if (mentionsShortPeriodPrice(mentions)) return 'loyer légal à courte période';
 
   const raw = `${title ?? ''} ${jsonLd.name ?? ''} ${description ?? ''}`;
   if (isShortTermStudentLease(raw)) return undefined;
@@ -357,7 +350,7 @@ function seasonalReason(
   if (SEASONAL_PHRASE.test(comparable(`${title ?? ''} ${jsonLd.name ?? ''}`))) {
     return 'location saisonnière annoncée';
   }
-  if (SHORT_PERIOD_PRICE.test(unaccented(raw))) return 'prix à la nuit ou à la semaine';
+  if (mentionsShortPeriodPrice(raw)) return 'prix à la nuit ou à la semaine';
   return undefined;
 }
 

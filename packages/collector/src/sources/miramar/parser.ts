@@ -71,7 +71,8 @@ export function parseDetail(html: string): RawDraft | null {
     }
   });
   const price = headings.find((text) => /^\d[\d\s.]*€/.test(text));
-  if (price === undefined || /semaine|nuit/i.test(price)) return null;
+  // Un tarif à la semaine passe : la normalisation l'écarte.
+  if (price === undefined) return null;
 
   const title = cleanText($('title').first().text()).replace(/\s*-\s*MIRAMAR REAL ESTATE$/i, '');
   const description = htmlToText($, '.elementor-widget-theme-post-content');

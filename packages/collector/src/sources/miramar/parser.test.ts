@@ -66,4 +66,14 @@ describe('parseDetail (Miramar)', () => {
     expect(normalized?.city).toBe('nice');
     expect(normalized?.dpe).toBe('B');
   });
+
+  it('laisse la normalisation écarter un tarif à la semaine', () => {
+    const weekly = parseDetail(rental().replace('>1 800 €<', '>1 800 € / semaine<'));
+    expect(
+      normalizeListing(
+        { sourceRef: '2809', sourceUrl: 'https://miramarimmo.com/biens/x/', ...weekly },
+        { sourceId: 'miramar', nowMs: Date.parse('2026-09-15T12:00:00Z') },
+      ),
+    ).toBeNull();
+  });
 });

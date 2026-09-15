@@ -18,9 +18,18 @@ import { extractNumber, parseFrenchNumber } from './parse-number.js';
 /**
  * Bornes de plausibilité d'un loyer mensuel, en euros.
  * En dessous de 50 € il s'agit presque toujours d'un prix au m² ou d'un
- * fragment de référence ; au-dessus de 20 000 € d'un prix de vente.
+ * fragment de référence ; au-dessus de 20 000 €, le plus souvent d'un prix de
+ * vente (voir `LUXURY_RENT` pour l'exception).
  */
 const PRICE_BOUNDS = { min: 50, max: 20_000 };
+
+/**
+ * Au-delà de 20 000 €, une villa de prestige se loue bel et bien (25 000 €/mois
+ * chez Nicolas Pisani). On l'admet si le loyer au m² reste celui d'une location
+ * haut de gamme : un prix de vente mal lu le dépasse de loin (350 000 € pour
+ * 60 m², c'est 5 800 €/m²). Sans surface, rien ne permet de trancher.
+ */
+const LUXURY_RENT = { max: 100_000, maxPerSqm: 150 };
 
 /** Bornes de plausibilité d'une surface habitable, en m². */
 const AREA_BOUNDS = { min: 5, max: 1_000 };
@@ -38,14 +47,73 @@ export interface ParsedPrice {
   readonly chargesIncluded: boolean | null;
 }
 
+/** Minuscules sans accents, ponctuation gardée : « € » et « / » comptent ici. */
+function unaccentedLower(text: string | null | undefined): string {
+  return cleanText(text).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+const CONNECTOR = String.raw`(?:\/|\(|(?:par|per|la|a la|pour une?|each)\s+)`;
+const EURO = String.raw`(?:€|eur(?:os?)?\b)`;
+
+const SHORT_PERIODS = String.raw`(?:nuit(?:ee)?s?|semaines?|sem|jours?|nights?|weeks?|days?)\b`;
+
+/**
+ * Loyer à la nuit, à la semaine ou au jour, dans un champ de PRIX : « 700 €/sem. »,
+ * « 95 € la nuit », « 450 per week », « weekly ». Ce n'est pas un loyer au mois.
+ */
+const SHORT_PERIOD_PRICE_FIELD = new RegExp(
+  String.raw`\d\s*${EURO}\s*(?:ttc\s*)?(?:${CONNECTOR}\s*)?${SHORT_PERIODS}` +
+    String.raw`|\d\s*${CONNECTOR}\s*${SHORT_PERIODS}` +
+    String.raw`|\/\s*(?:nuit|semaine|sem|jour|night|week|day)\b` +
+    String.raw`|\b(?:weekly|nightly|daily|hebdomadaire|hebdo)\b` +
+    String.raw`|\b(?:par|per|a la)\s+(?:nuit(?:ee)?|semaine|night|week)\b`,
+);
+
+/**
+ * Même idée dans une PROSE, plus stricte : devise exigée, et ni jour ni day —
+ * « 10 € par jour de retard » ou « 2 fois par semaine » ne sont pas des loyers.
+ */
+const SHORT_PERIOD_PRICE_PROSE = new RegExp(
+  String.raw`\d\s*${EURO}\s*(?:ttc\s*)?${CONNECTOR}\s*(?:nuit(?:ee)?s?|semaines?|sem|nights?|weeks?)\b`,
+);
+
+/** `true` si le champ de prix donne un tarif à la nuit, à la semaine ou au jour. */
+export function isShortPeriodPrice(priceText: string | null | undefined): boolean {
+  return SHORT_PERIOD_PRICE_FIELD.test(unaccentedLower(priceText));
+}
+
+/** `true` si le texte cite un montant à la nuit ou à la semaine. */
+export function mentionsShortPeriodPrice(text: string | null | undefined): boolean {
+  return SHORT_PERIOD_PRICE_PROSE.test(unaccentedLower(text));
+}
+
+/** Montant suivi de sa devise, ou nombre seul. */
+const EURO_AMOUNT = new RegExp(String.raw`(\d[\d\s.,]*?)\s*${EURO}`, 'i');
+const BARE_AMOUNT = /^\s*(\d[\d\s.,]*)\s*$/;
+
+/** Loyer de prestige, admis au vu de la surface ; `null` sinon. */
+function luxuryAmount(segment: string, area: number | null | undefined): number | null {
+  if (area === null || area === undefined || area <= 0) return null;
+  const fragment = EURO_AMOUNT.exec(segment)?.[1] ?? BARE_AMOUNT.exec(segment)?.[1];
+  const value = fragment === undefined ? null : parseFrenchNumber(fragment);
+  if (value === null || value <= PRICE_BOUNDS.max || value > LUXURY_RENT.max) return null;
+  return value / area <= LUXURY_RENT.maxPerSqm ? value : null;
+}
+
 /**
  * Extrait un loyer mensuel.
  *
  * Le texte est d'abord coupé avant toute mention de charges, pour éviter que
  * « 690 € + 50 € de charges » ne rende 50. On ne retient ensuite que le premier
- * nombre plausible.
+ * nombre plausible. Un tarif à la nuit ou à la semaine ne rend rien.
+ *
+ * @param context.area surface connue, qui seule permet d'admettre un loyer de
+ *        prestige au-delà du plafond courant
  */
-export function parsePrice(text: string | null | undefined): ParsedPrice {
+export function parsePrice(
+  text: string | null | undefined,
+  context: { readonly area?: number | null } = {},
+): ParsedPrice {
   const cleaned = cleanText(text);
   if (cleaned === '') return { amount: null, chargesIncluded: null };
 
@@ -62,7 +130,11 @@ export function parsePrice(text: string | null | undefined): ParsedPrice {
   const separatorIndex = cleaned.search(/\+|\bdont\b|\bcharges\b/i);
   const priceSegment = separatorIndex > 0 ? cleaned.slice(0, separatorIndex) : cleaned;
 
-  const amount = extractNumber(priceSegment, PRICE_BOUNDS) ?? extractNumber(cleaned, PRICE_BOUNDS);
+  if (isShortPeriodPrice(cleaned)) return { amount: null, chargesIncluded };
+  const amount =
+    extractNumber(priceSegment, PRICE_BOUNDS) ??
+    extractNumber(cleaned, PRICE_BOUNDS) ??
+    luxuryAmount(priceSegment, context.area);
   return { amount, chargesIncluded };
 }
 
@@ -368,6 +440,21 @@ export function parseDpe(text: string | null | undefined): string | null {
   // n’avaient pas de DPE alors qu’il y figurait.
   const parenthesised = /classe\s+[ée]nerg[ée]tique\s*\([^)]*\)\s*[:-]?\s*([A-G])\b/i.exec(text);
   return parenthesised?.[1] !== undefined ? parenthesised[1].toUpperCase() : null;
+}
+
+/**
+ * Classe DPE depuis ses deux valeurs (kWh/m²/an et kg CO₂/m²/an), en double
+ * seuil (méthode de 2021) : la pire des deux classes l'emporte. Sert aux sites
+ * qui ne publient que les chiffres.
+ */
+export function dpeFromValues(kwh: number, co2: number): string {
+  const energy = [70, 110, 180, 250, 330, 420];
+  const gas = [6, 11, 30, 50, 70, 100];
+  const rank = (value: number, bounds: number[]): number => {
+    const index = bounds.findIndex((bound) => value <= bound);
+    return index === -1 ? bounds.length : index;
+  };
+  return 'ABCDEFG'.charAt(Math.max(rank(kwh, energy), rank(co2, gas)));
 }
 
 /**
