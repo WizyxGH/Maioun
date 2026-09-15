@@ -28,6 +28,7 @@ import {
   traitConditions,
   type TraitFilters,
 } from '../core/trait-filters.js';
+import { listColumns, reasonlessScores } from '../core/list-payload.js';
 import { actionPriority } from '@maioun/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
@@ -1239,6 +1240,8 @@ export function createRepository(db: Database): Repository {
         if (previous === undefined) inserted += 1;
         else updated += 1;
 
+        const serialized = serializeListing(listing);
+        const list = listColumns(serialized);
         statements.push({
           sql: `
             INSERT INTO listings (
@@ -1247,8 +1250,8 @@ export function createRepository(db: Database): Repository {
               lifecycle, tracking, match_score, opportunity_score, visit_score,
               risk_score, action_priority, matches_criteria, payload, content_hash, updated_at,
               flat_share, student_only, furnished, landlord_kind, commute_minutes,
-              available_at, district
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              available_at, district, list_payload, list_scores, list_hash
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title, price = excluded.price, area = excluded.area,
               rooms = excluded.rooms, property_type = excluded.property_type,
@@ -1277,7 +1280,11 @@ export function createRepository(db: Database): Repository {
               -- « Le Port » désignent le même quartier, et un menu ne peut pas
               -- proposer les deux. Le texte d'origine reste dans la charge
               -- utile, intact (§15).
-              district = excluded.district
+              district = excluded.district,
+              -- La version que la liste recopie, et l'empreinte qui la date :
+              -- une fiche réécrite sans elles se reconnaît à la lecture.
+              list_payload = excluded.list_payload, list_scores = excluded.list_scores,
+              list_hash = excluded.list_hash
           `,
           args: [
             listing.id,
@@ -1301,7 +1308,7 @@ export function createRepository(db: Database): Repository {
             listing.scores.risk.value,
             actionPriority(listing.scores),
             listing.matchesCriteria ? 1 : 0,
-            JSON.stringify(serializeListing(listing)),
+            JSON.stringify(serialized),
             hash,
             new Date().toISOString(),
             boolToInt(listing.flatShare.value),
@@ -1311,6 +1318,9 @@ export function createRepository(db: Database): Repository {
             shortestCommuteMinutes(listing),
             listing.availableAt.value,
             canonicalDistrict(listing.district.value),
+            list.payload,
+            list.scores,
+            hash,
           ],
         });
 
@@ -1439,8 +1449,9 @@ export function createRepository(db: Database): Repository {
           sql: `INSERT INTO listing_user_score (
                   user_id, listing_id, matches_criteria, action_priority,
                   match_score, opportunity_score, visit_score, risk_score,
-                  commute_minutes, scores, distances, content_hash, updated_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                  commute_minutes, scores, distances, content_hash, updated_at,
+                  list_scores, list_hash
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(user_id, listing_id) DO UPDATE SET
                   matches_criteria = excluded.matches_criteria,
                   action_priority = excluded.action_priority,
@@ -1452,7 +1463,9 @@ export function createRepository(db: Database): Repository {
                   scores = excluded.scores,
                   distances = excluded.distances,
                   content_hash = excluded.content_hash,
-                  updated_at = excluded.updated_at`,
+                  updated_at = excluded.updated_at,
+                  list_scores = excluded.list_scores,
+                  list_hash = excluded.list_hash`,
           args: [
             userId,
             listing.id,
@@ -1467,6 +1480,8 @@ export function createRepository(db: Database): Repository {
             distances,
             hash,
             now,
+            reasonlessScores(listing.scores),
+            hash,
           ],
         });
       }
@@ -2407,7 +2422,7 @@ export function createRepository(db: Database): Repository {
 }
 
 /** Sérialise la fiche complète stockée dans `listings.payload`. */
-function serializeListing(listing: ScoredListing): unknown {
+function serializeListing(listing: ScoredListing): Record<string, unknown> {
   return {
     title: listing.title,
     description: listing.description,

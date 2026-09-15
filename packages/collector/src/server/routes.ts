@@ -337,13 +337,123 @@ const USER_STATE_COLUMNS = `listings.*,
  * couper aurait cassé l'écran pour économiser un peu moins.
  *
  * La FICHE, elle, recharge tout : `getListing` ne passe pas par ici.
+ *
+ * La liste principale lit désormais une version préparée à l'écriture
+ * (`LIST_COLUMNS`) ; ce calcul reste celui des alertes, et son repli.
  */
-const LIST_PAYLOAD = `json_remove(listings.payload,
+const LIST_PAYLOAD_EXPRESSION = `json_remove(listings.payload,
   '$.description',
   '$.scores.match.reasons',
   '$.scores.opportunity.reasons',
   '$.scores.visitProbability.reasons',
-  '$.scores.risk.reasons') AS payload_light`;
+  '$.scores.risk.reasons')`;
+const LIST_PAYLOAD = `${LIST_PAYLOAD_EXPRESSION} AS payload_light`;
+
+/**
+ * Les colonnes de la LISTE : de quoi recopier la fiche préparée à l'écriture
+ * (`core/list-payload.ts`) sans analyser ni réémettre son JSON.
+ *
+ * Mêmes valeurs que `rowToListing` lit sur `USER_STATE_COLUMNS`, où
+ * `listings.*` passe en tête : à nom égal, la PREMIÈRE colonne l'emporte, si
+ * bien que suivi, vue, archivage, favori, pertinence et priorité s'y lisent
+ * sur `listings` et non sur les alias personnels. La liste lit les mêmes, sans
+ * quoi elle contredirait la fiche qui la remplace à l'ouverture.
+ *
+ * `list_hash` différent de `content_hash` : la fiche a été réécrite par un code
+ * qui ignore les colonnes préparées. On rend alors de quoi refaire le calcul
+ * d'avant — `payload_light` et le score brut —, et seulement dans ce cas.
+ */
+const LIST_COLUMNS = `listings.id AS id,
+  listings.lifecycle AS lifecycle,
+  listings.tracking AS tracking,
+  listings.first_seen_at AS first_seen_at,
+  listings.last_seen_at AS last_seen_at,
+  listings.matches_criteria AS matches_criteria,
+  listings.action_priority AS action_priority,
+  listings.viewed AS viewed,
+  listings.archived AS archived,
+  listings.favorite AS favorite,
+  listings.rented AS rented,
+  listings.notified_at AS notified_at,
+  us.notified_at AS user_notified_at,
+  us.gone_notified_at AS gone_notified_at,
+  us.reminded_at AS reminded_at,
+  sc.distances AS user_distances,
+  sc.list_hash IS sc.content_hash AS score_ready,
+  CASE WHEN listings.list_hash IS listings.content_hash THEN listings.list_payload END AS list_payload,
+  CASE WHEN listings.list_hash IS listings.content_hash THEN listings.list_scores END AS list_scores,
+  CASE WHEN listings.list_hash IS listings.content_hash
+    THEN json_extract(listings.list_payload, '$.applicationStatus') IS 'full' END AS application_full,
+  CASE WHEN listings.list_hash IS NOT listings.content_hash THEN ${LIST_PAYLOAD_EXPRESSION} END AS payload_light,
+  CASE WHEN sc.list_hash IS sc.content_hash THEN sc.list_scores END AS own_list_scores,
+  CASE WHEN sc.list_hash IS NOT sc.content_hash OR listings.list_hash IS NOT listings.content_hash
+    THEN sc.scores END AS user_scores`;
+
+/** Encode une valeur de colonne ; `null` pour une colonne absente. */
+function jsonValue(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
+/**
+ * Une fiche de la liste, en JSON, par ASSEMBLAGE de textes déjà encodés.
+ *
+ * `JSON.parse` de ce texte vaut `rowToListing(row)`, clé pour clé. L'ordre
+ * compte : les champs de la ligne d'abord, la fiche ensuite, les scores et
+ * trajets du lecteur en dernier — c'est la dernière occurrence d'une clé qui
+ * l'emporte à la lecture, comme l'étalement dans `rowToListing`.
+ */
+export function listItemJson(row: Record<string, unknown>): string {
+  const stored = row['list_payload'];
+  if (typeof stored !== 'string' || !stored.startsWith('{') || !stored.endsWith('}')) {
+    return JSON.stringify(rowToListing(row));
+  }
+  const body = stored.slice(1, -1);
+  const archived = Number(row['archived'] ?? 0) === 1 || Number(row['application_full']) === 1;
+  const scores = listScoresJson(row);
+  return (
+    `{"id":${JSON.stringify(String(row['id']))}` +
+    `,"lifecycle":${jsonValue(row['lifecycle'])}` +
+    `,"tracking":${jsonValue(row['tracking'])}` +
+    `,"firstSeenAt":${jsonValue(row['first_seen_at'])}` +
+    `,"lastSeenAt":${jsonValue(row['last_seen_at'])}` +
+    `,"matchesCriteria":${Number(row['matches_criteria']) === 1}` +
+    `,"actionPriority":${jsonValue(Number(row['action_priority'] ?? 0))}` +
+    `,"viewed":${Number(row['viewed'] ?? 0) === 1}` +
+    `,"archived":${archived}` +
+    `,"favorite":${Number(row['favorite'] ?? 0) === 1}` +
+    `,"rented":${Number(row['rented'] ?? 0) === 1}` +
+    `,"partial":true` +
+    `,"notifiedAt":${jsonValue(row['user_notified_at'] ?? row['notified_at'])}` +
+    `,"goneNotifiedAt":${jsonValue(row['gone_notified_at'])}` +
+    `,"remindedAt":${jsonValue(row['reminded_at'])}` +
+    (body === '' ? '' : `,${body}`) +
+    (scores === null ? '' : `,"scores":${scores}`) +
+    `,"distances":${listDistancesJson(row)}}`
+  );
+}
+
+/** Les scores du lecteur, à défaut ceux de la fiche ; raisons vidées. */
+function listScoresJson(row: Record<string, unknown>): string | null {
+  const own = row['own_list_scores'];
+  if (typeof own === 'string') return own;
+  const shared = typeof row['list_scores'] === 'string' ? row['list_scores'] : null;
+  // Score du compte écrit sans sa version préparée : le calcul d'avant.
+  if (row['user_scores'] !== null && row['user_scores'] !== undefined) {
+    const payload = { scores: parseJson<StoredScores>(shared) ?? undefined };
+    const { scores } = personalScoring(row, payload, true);
+    return scores === undefined ? null : JSON.stringify(scores);
+  }
+  return shared;
+}
+
+/** Les trajets du lecteur ; recopiés tels quels quand la collecte les a écrits. */
+function listDistancesJson(row: Record<string, unknown>): string {
+  const raw = row['user_distances'];
+  if (Number(row['score_ready']) === 1) {
+    return typeof raw === 'string' && raw !== '' && raw !== 'null' ? raw : '[]';
+  }
+  return JSON.stringify(parseJson<unknown[]>(raw) ?? []);
+}
 
 /** Ce qui décrit une interrogation de la liste, sans l'exécuter. */
 interface ListQuery {
@@ -508,51 +618,77 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
  * inchangé, on passe donc de deux interrogations dont une lourde à une seule
  * légère.
  */
+/**
+ * Change à chaque évolution de la FORME de la réponse : une copie gardée par le
+ * navigateur avant un déploiement ne doit pas être revalidée après.
+ */
+const LIST_FORMAT = 'liste-2';
+
 async function listSignature(
   db: Client,
   query: ListQuery,
   userId: string,
 ): Promise<{ etag: string; total: number }> {
+  // Le score du compte compte aussi : la collecte le réécrit quand les critères
+  // changent, sans toucher ni à la fiche ni à l'état.
   const result = await db.execute({
     sql: `SELECT COUNT(*) AS n,
                  MAX(listings.updated_at) AS listing_at,
-                 MAX(us.updated_at) AS state_at
+                 MAX(us.updated_at) AS state_at,
+                 MAX(sc.updated_at) AS score_at
           FROM listings ${USER_STATE_JOIN} ${query.filter}`,
     args: [userId, userId, ...query.filterArgs],
   });
   const row = (result.rows[0] ?? {}) as Record<string, unknown>;
   const total = Number(row['n'] ?? 0);
-  // Le tri et la pagination font partie de la réponse : deux tris différents
-  // sur le même contenu ne sont pas la même page.
+  /**
+   * LE COMPTE ET SES FILTRES FONT PARTIE DE L'EMPREINTE. Le navigateur range la
+   * réponse sous son adresse seule : sans le compte, une autre session sur le
+   * même navigateur pouvait se voir confirmer la copie du précédent. Sans les
+   * filtres, changer de quartiers pour un nombre égal d'annonces aussi.
+   */
   const parts = [
+    LIST_FORMAT,
+    userId,
     total,
     String(row['listing_at'] ?? ''),
     String(row['state_at'] ?? ''),
+    String(row['score_at'] ?? ''),
+    query.filter,
+    JSON.stringify(query.filterArgs),
     query.orderBy,
     query.limit,
     query.offset,
   ];
-  return { etag: `W/"${parts.join('|')}"`, total };
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(parts.join('\n')));
+  const hex = [...new Uint8Array(digest)]
+    .slice(0, 16)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+  return { etag: `W/"${hex}"`, total };
 }
 
-async function listListings(
+/** `If-None-Match` désigne-t-il cette version ? Comparaison faible, liste permise. */
+export function etagMatches(header: string | null, etag: string): boolean {
+  if (header === null) return false;
+  const bare = (tag: string): string => tag.trim().replace(/^W\//, '');
+  return header.split(',').some((tag) => tag.trim() === '*' || bare(tag) === bare(etag));
+}
+
+/** Le corps de la réponse, assemblé sans passer par des objets. */
+async function listListingsJson(
   db: Client,
   query: ListQuery,
   userId: string,
   total: number,
-): Promise<unknown> {
+): Promise<string> {
   const result = await db.execute({
-    sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN} ${query.filter}
+    sql: `SELECT ${LIST_COLUMNS} FROM listings ${USER_STATE_JOIN} ${query.filter}
           ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`,
     args: [userId, userId, ...query.filterArgs, query.limit, query.offset],
   });
-
-  return {
-    listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)),
-    total,
-    limit: query.limit,
-    offset: query.offset,
-  };
+  const items = result.rows.map((row) => listItemJson(row as Record<string, unknown>));
+  return `{"listings":[${items.join(',')}],"total":${total},"limit":${query.limit},"offset":${query.offset}}`;
 }
 
 async function getListing(db: Client, id: string, userId: string): Promise<unknown | null> {
@@ -1373,15 +1509,15 @@ async function handleListingsRoute(
     // REQUÊTE CONDITIONNELLE. Le navigateur renvoie l'empreinte qu'il détient ;
     // si rien n'a bougé, on répond 304 sans corps et il ressert sa copie. Le
     // code de la page n'en sait rien : il reçoit un 200 et ses données.
-    if (request.headers.get('If-None-Match') === etag) {
+    if (etagMatches(request.headers.get('If-None-Match'), etag)) {
       return new Response(null, {
         status: 304,
         headers: { ...cors, ETag: etag, 'Cache-Control': 'private, no-cache' },
       });
     }
 
-    const body = await listListings(db, query, userId, total);
-    return new Response(JSON.stringify(body), {
+    const body = await listListingsJson(db, query, userId, total);
+    return new Response(body, {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
