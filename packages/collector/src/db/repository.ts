@@ -491,6 +491,15 @@ export interface Repository {
   staleFavorites(userId: string, hours: number): Promise<NotifiableListing[]>;
   markReminded(userId: string, ids: readonly string[]): Promise<void>;
   /**
+   * Candidatures qui rouvrent. `noteClosedApplications` retient les annonces
+   * déjà signalées à ce compte dont la source vient de fermer les candidatures ;
+   * `reopenedApplications` rend celles qui ont rouvert depuis, dans les critères ;
+   * `markReopenNotified` efface la trace une fois l'alerte partie.
+   */
+  noteClosedApplications(userId: string): Promise<void>;
+  reopenedApplications(userId: string): Promise<NotifiableListing[]>;
+  markReopenNotified(userId: string, ids: readonly string[]): Promise<void>;
+  /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
    * lesquelles aucun brouillon n'a encore été créé (§22). Triées par priorité.
    */
@@ -1959,6 +1968,46 @@ export function createRepository(db: Database): Repository {
         args: [userId, userId, since],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async noteClosedApplications(userId) {
+      // Seulement ce que ce compte a déjà reçu : une annonce jamais signalée
+      // rouvrant ses candidatures part comme une nouvelle annonce, pas en double.
+      await db.execute({
+        sql: `UPDATE listing_user_state SET applications_closed_at = ?
+              WHERE user_id = ? AND notified = 1 AND applications_closed_at IS NULL
+                AND listing_id IN (
+                  SELECT id FROM listings
+                  WHERE json_extract(payload, '$.applicationStatus') = 'full'
+                )`,
+        args: [new Date().toISOString(), userId],
+      });
+    },
+
+    async reopenedApplications(userId) {
+      const result = await db.execute({
+        sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
+                     listings.city, listings.postal_code, sc.action_priority, listings.payload
+              FROM listings
+              JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              JOIN listing_user_score AS sc
+                ON sc.listing_id = listings.id AND sc.user_id = ?
+              WHERE us.applications_closed_at IS NOT NULL
+                AND COALESCE(us.archived, 0) = 0
+                AND sc.matches_criteria = 1
+                AND ${OPEN_TO_APPLICATIONS_SQL}
+                AND listings.lifecycle = 'active'
+                AND listings.rented = 0
+              ORDER BY sc.action_priority DESC`,
+        args: [userId, userId],
+      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async markReopenNotified(userId, ids) {
+      if (ids.length === 0) return;
+      await recordUserState(db, userId, ids, { applications_closed_at: null });
     },
 
     async markReminded(userId, ids) {

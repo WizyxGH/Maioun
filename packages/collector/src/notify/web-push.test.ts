@@ -223,3 +223,27 @@ describe('lien de la notification', () => {
     expect(avec.url).not.toContain('//listing');
   });
 });
+
+describe('reopenedContentFor', () => {
+  it('annonce la réouverture avec le téléphone et le lien de la fiche', async () => {
+    const { reopenedContentFor } = await import('./web-push.js');
+    const content = reopenedContentFor(
+      {
+        id: 'foncia:1',
+        title: '2 pièces rue Reine Jeanne',
+        price: 690,
+        area: 31,
+        rooms: 2,
+        city: 'nice',
+        postalCode: '06000',
+        actionPriority: 70,
+        phone: '06 00 00 00 01',
+        photoUrls: [],
+      } as never,
+      'https://exemple.invalid/app/',
+    );
+    expect(content.title).toBe('Candidatures rouvertes');
+    expect(content.body).toContain('06 00 00 00 01');
+    expect(content.tag).toBe('maioun-rouverte-foncia:1');
+  });
+});
