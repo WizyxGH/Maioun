@@ -50,7 +50,7 @@ describe('métadonnées par page', () => {
   it('met à jour les balises de partage et l’adresse canonique', () => {
     document.head.innerHTML = '<meta property="og:image" content="https://exemple.invalid/og.png">';
     const { rerender } = renderHook(({ route }) => useDocumentMeta(route, null), {
-      initialProps: { route: { view: 'stats' as const } },
+      initialProps: { route: { view: 'stats' } as Route },
     });
     const content = (selector: string): string | null | undefined =>
       document.head.querySelector(selector)?.getAttribute('content');
@@ -59,7 +59,7 @@ describe('métadonnées par page', () => {
     expect(content('meta[name="description"]')).toMatch(/marché locatif/);
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBeTruthy();
 
-    rerender({ route: { view: 'sources' as const } });
+    rerender({ route: { view: 'sources' } });
     expect(content('meta[name="twitter:title"]')).toBe('Sources — Maïoun');
     expect(content('meta[property="og:image"]')).toBe('https://exemple.invalid/og.png');
   });
