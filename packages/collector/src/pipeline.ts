@@ -303,8 +303,9 @@ async function geocodeMissingAddresses(
   options: PipelineOptions,
   nowMs: number,
 ): Promise<Map<string, Coordinates | null>> {
+  // Sans condition sur les points de référence DU COMPTE PRINCIPAL : la carte et
+  // les trajets des autres comptes ont besoin des mêmes coordonnées.
   const geocoded = new Map<string, Coordinates | null>();
-  if (options.referencePoints.length === 0) return geocoded;
 
   const cache = memoizeStore(options.repository.geocodeCache());
   const geocoder = createGeocoder({
@@ -404,9 +405,14 @@ async function resolveTransitMinutes(
   options: PipelineOptions,
   geocoded: ReadonlyMap<string, Coordinates | null>,
   nowMs: number,
+  // Les points et les critères du compte routé ; le compte principal par défaut.
+  account: {
+    readonly referencePoints: readonly ReferencePoint[];
+    readonly criteria: PublicConfig['criteria'];
+  } = { referencePoints: options.referencePoints, criteria: options.config.criteria },
 ): Promise<Map<string, Record<string, number>>> {
   const byListing = new Map<string, Record<string, number>>();
-  const transitPoints = options.referencePoints.filter((point) => point.mode === 'transit');
+  const transitPoints = account.referencePoints.filter((point) => point.mode === 'transit');
   if (options.transitConfig === undefined || transitPoints.length === 0) return byListing;
 
   const router = createTransitRouter({
@@ -425,7 +431,7 @@ async function resolveTransitMinutes(
     if (latitude === null || longitude === null) continue;
     // On ne route que les candidats déjà retenus par les autres critères, pour
     // ne pas dépenser d'appels sur des biens de toute façon écartés (§30).
-    if (!scoreMatch(listing, options.config.criteria).matchesCriteria) continue;
+    if (!scoreMatch(listing, account.criteria).matchesCriteria) continue;
 
     routed += 1;
     const byLabel: Record<string, number> = {};
@@ -688,8 +694,16 @@ async function scoreForEachUser(deps: {
       stored: await repository.readSettingFor(userId, REFERENCE_POINTS_SETTING),
     });
 
+    // LE TRAJET RÉEL AUSSI, avec SES points : sans lui, ce compte n'avait qu'une
+    // estimation à vol d'oiseau, et son plafond de trajet jugeait sur elle. Le
+    // cache Navitia est commun — un même trajet ne se paie qu'une fois.
+    const transit = await resolveTransitMinutes(merged, options, geocoded, nowMs, {
+      referencePoints,
+      criteria,
+    });
     const theirs = merged.map((listing) => {
       const coords = geocoded.get(listing.id) ?? null;
+      const transitMinutes = transit.get(listing.id);
       return scoreListing(listing, {
         criteria,
         nowMs,
@@ -697,6 +711,7 @@ async function scoreForEachUser(deps: {
         referencePoints,
         priceDroppedIds,
         resolvedCoordinates: coords,
+        ...(transitMinutes !== undefined ? { resolvedTransitMinutes: transitMinutes } : {}),
       });
     });
     const written = await repository.saveUserScores(userId, theirs);
