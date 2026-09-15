@@ -10,6 +10,13 @@ describe('cleanMultiline — texte long', () => {
     );
   });
 
+  it('change en retour à la ligne un <br> resté en toutes lettres', () => {
+    // Relevé sur des annonces relayées : la balise arrive échappée, donc en texte.
+    expect(cleanMultiline('Studio lumineux.<BR><br/>Libre de suite.&lt;br&gt;Cave')).toBe(
+      'Studio lumineux.\n\nLibre de suite.\nCave',
+    );
+  });
+
   it('normalise les fins de ligne Windows', () => {
     expect(cleanMultiline('Ligne 1\r\nLigne 2')).toBe('Ligne 1\nLigne 2');
   });

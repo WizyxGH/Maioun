@@ -879,6 +879,22 @@ describe('extractStreetAddress — voies abrégées', () => {
     expect(extractStreetAddress('12 BD. STE. FICTIVE, 06100 NICE')).toBe('12 BD. STE. FICTIVE');
   });
 
+  it('arrête une voie numérotée au tiret qui la suit', () => {
+    expect(
+      extractStreetAddress(
+        'NICE FICTIF NORD - 17 AV DE LA FICTIVE - STUDIO VIDE - PROCHE FAC - BALCON - MODERNE',
+      ),
+    ).toBe('17 AV DE LA FICTIVE');
+    expect(extractStreetAddress('39 BD FICTIF - NICE RIQUIER Votre conseiller Paul')).toBe(
+      '39 BD FICTIF',
+    );
+    expect(
+      extractStreetAddress('BAIL du 1er septembre au 31 mai 2027 Boulevard Fictif - 3 pièces'),
+    ).toBeNull();
+    // Le tiret collé d'un nom composé ne coupe pas.
+    expect(extractStreetAddress('12 rue Jean-Fictif, Nice')).toBe('12 rue Jean-Fictif');
+  });
+
   it('le point de fin de phrase coupe toujours', () => {
     expect(extractStreetAddress('NICE CENTRE - RUE FICTIVE. 2 PIECES VIDE')).toBe('RUE FICTIVE');
   });
@@ -1303,5 +1319,28 @@ describe('staleTextFeatures — nettoyer ce que l’ancienne détection a posé 
   it('ne fait rien sans texte à relire', () => {
     expect(staleTextFeatures(['Jardin'], null)).toEqual([]);
     expect(staleTextFeatures(['Jardin'], '')).toEqual([]);
+  });
+});
+
+describe('isStudentOnlyHousing — aperçu tronqué', () => {
+  // Aperçu Rentumo du 2026-09-15 : la fiche dit « STUDIO ETUDIANT uniquement ».
+  const teaser = '4 BD FRANCOIS GROSSO 06000 NICE STUDIO ETUDIANT uniquemen...';
+
+  it('lit la mention coupée par l’ellipse', () => {
+    expect(isStudentOnlyHousing(teaser)).toBe(true);
+    expect(isStudentOnlyHousing('Studio meublé, bail étud…')).toBe(true);
+    expect(isStudentOnlyHousing('3P meublé en bail mobi...')).toBe(true);
+    expect(extractFeatures(teaser)).toContain(STUDENT_HOUSING_FEATURE);
+  });
+
+  it('reconnaît « étudiant(e)s uniquement »', () => {
+    expect(isStudentOnlyHousing('Studio meublé pour étudiant(e)s uniquement')).toBe(true);
+  });
+
+  it('ne complète pas un mot trop court ni un argument de vente', () => {
+    expect(isStudentOnlyHousing('Studio étudiant uni...')).toBe(false);
+    expect(isStudentOnlyHousing('Studio idéal étudiant, proche fac...')).toBe(false);
+    expect(isStudentOnlyHousing('Studio idéal pour étud…')).toBe(false);
+    expect(isStudentOnlyHousing('Studio étudiant uniquemen')).toBe(false);
   });
 });

@@ -12,7 +12,7 @@ import {
   STUDENT_HOUSING_FEATURE,
   type PropertyType,
 } from '@maioun/shared';
-import { cleanText, comparable } from './text.js';
+import { cleanText, comparable, completeTruncatedWords } from './text.js';
 import { extractNumber, parseFrenchNumber } from './parse-number.js';
 
 /**
@@ -405,12 +405,20 @@ const SHARED_DWELLING =
  *
  * Le texte est comparé en forme `comparable` : minuscules, sans accent.
  */
+// « étudiant(e)s uniquement » arrive en « etudiant e s uniquement ».
 const STUDENT_ONLY =
-  /residence etudiante|logement etudiant|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2} uniquement|\bcrous\b|bail etudiant|bail (de )?mobilite|\bcoloc\w*\s+etudiant\w*/;
+  /residence etudiante|logement etudiant|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2}(?: e)?(?: s)? uniquement|\bcrous\b|bail etudiant|bail (de )?mobilite|\bcoloc\w*\s+etudiant\w*/;
+
+/** Mots par lesquels une mention « réservé aux étudiants » peut finir. */
+const STUDENT_ONLY_LAST_WORDS = ['uniquement', 'etudiant', 'etudiante', 'mobilite'];
 
 /** `true` si l'annonce réserve le logement aux étudiants ou à un bail qui s'arrête. */
 export function isStudentOnlyHousing(text: string | null | undefined): boolean {
-  return STUDENT_ONLY.test(comparable(text));
+  // Un aperçu tronqué (« ETUDIANT uniquemen... ») compte comme le texte entier.
+  return (
+    STUDENT_ONLY.test(comparable(text)) ||
+    STUDENT_ONLY.test(completeTruncatedWords(text, STUDENT_ONLY_LAST_WORDS))
+  );
 }
 
 /**
@@ -690,7 +698,7 @@ export function extractFeatures(
     // Réservé aux étudiants : ce n'est pas un agrément, c'est une condition
     // d'accès. Elle mérite d'être VUE, même quand l'utilisateur n'exclut pas
     // ces locations.
-    [STUDENT_ONLY.test(lower), STUDENT_HOUSING_FEATURE],
+    [isStudentOnlyHousing(text), STUDENT_HOUSING_FEATURE],
   ];
   for (const [present, label] of flags) if (present) add(label);
 
@@ -915,10 +923,11 @@ const STREET_NAME_CHAR = '(?:[^,;.:()!?0-9"«»”„]|(?<=\\bste?)\\.)';
  *     « disponible 06/2027 Boulevard Napoléon III » livrait « 2027 Boulevard
  *     Napoléon III » — une date prise pour un numéro ;
  *   - la seconde moitié d'un intervalle (« 22-24 ») tient sur trois chiffres :
- *     au-delà, c'est une année.
+ *     au-delà, c'est une année ;
+ *   - ni d'un mois : « du 1er septembre au 31 mai 2027 Boulevard X ».
  */
 const STREET_ADDRESS = new RegExp(
-  `(?<![\\d/-])(\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+${STREET_NAME_CHAR}{2,45})`,
+  `(?<![\\d/-])(?<!\\b(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\\s+)(\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+${STREET_NAME_CHAR}{2,45})`,
   'i',
 );
 
@@ -1682,7 +1691,10 @@ export function extractStreetAddress(text: string | null | undefined): string | 
     // sauve l'adresse au lieu de la jeter avec la phrase, et le fait AVANT le
     // contrôle rattrape aussi le candidat qui paraissait propre en gardant un
     // mot de trop — « 1 boulevard Lech Walesa Joli ».
-    const candidate = trimAtProse(numbered[1]) ?? numbered[1];
+    // Le tiret entouré d'espaces clôt la voie : « 17 AV DE LA CALIFORNIE -
+    // STUDIO VIDE » était sinon jeté avec l'accroche.
+    const head = numbered[1].split(/\s+[-–—]\s+/)[0] ?? numbered[1];
+    const candidate = trimAtProse(head) ?? head;
     if (isCleanStreet(candidate)) return cleanText(candidate);
   }
 
