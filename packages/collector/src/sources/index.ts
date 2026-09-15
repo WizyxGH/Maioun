@@ -218,6 +218,8 @@ import { bbiiScraper } from './bbii/index.js';
 import { agenceDumasScraper } from './agence-dumas/index.js';
 import { capSudImmobilierScraper } from './cap-sud-immobilier/index.js';
 import { solissimmoScraper } from './solissimmo/index.js';
+import { johnTaylorScraper } from './john-taylor/index.js';
+import { barnesScraper } from './barnes/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -433,6 +435,8 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   agenceDumasScraper,
   capSudImmobilierScraper,
   solissimmoScraper,
+  johnTaylorScraper,
+  barnesScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

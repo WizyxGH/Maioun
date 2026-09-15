@@ -258,6 +258,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '29 avenue Jean Médecin', postalCode: '06000', city: 'Nice' },
   },
+  barnes: { name: 'BARNES', domain: null, logo: null, paidContact: false, address: null },
   bbii: { name: 'BBii', domain: 'bbii.fr', logo: null, paidContact: false, address: null },
   beaumont: {
     name: 'Beaumont Immobilier',
@@ -791,6 +792,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
     address: { street: '26 rue de la Buffa', postalCode: '06000', city: 'Nice' },
+  },
+  'john-taylor': {
+    name: 'John Taylor',
+    domain: null,
+    logo: null,
+    paidContact: false,
+    address: null,
   },
   'joseph-garnier': {
     name: 'Joseph Garnier Real Estate',
