@@ -113,7 +113,7 @@ function priceIcon(listing: ListingView): L.DivIcon {
  * Combien d'annonces de la liste sont sur la carte.
  *
  * Le total est celui de la LISTE, décomposé comme le compteur de la recherche
- * (« 55 résultats · 6 à vérifier ») : « sur 61 » seul ne s'y retrouvait pas.
+ * (« 61 résultats · 6 à vérifier ») : la part en ligne et la part à vérifier.
  */
 function LocatedNote({
   located,
