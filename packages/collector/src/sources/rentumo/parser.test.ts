@@ -95,3 +95,37 @@ describe('parseDetail (Rentumo)', () => {
     expect(parseDetail('<html><body></body></html>')).toBeNull();
   });
 });
+
+describe('parseDetail (Rentumo) — localisation affichée', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(
+      new URL('../../../../../tests/fixtures/rentumo/fiche-localisation.html', import.meta.url),
+    ),
+    'utf8',
+  );
+  const JSON_LD =
+    '<script type="application/ld+json">{"@type":"Apartment","name":"T2","description":"Texte.","address":{"postalCode":"06000"}}</script>';
+
+  it('prend la voie et le code postal affichés, pas ceux du JSON-LD', () => {
+    const detail = parseDetail(FICHE);
+    expect(detail?.addressText).toBe('AVENUE FICTIVE');
+    expect(detail?.postalCodeText).toMatch(/\b06100\b/);
+  });
+
+  it('ne va pas chercher le numéro masqué ailleurs dans la page', () => {
+    expect(parseDetail(FICHE)?.addressText).not.toMatch(/\d/);
+  });
+
+  it('lit le quartier d’une localisation sans voie', () => {
+    const detail = parseDetail(`<html><head>${JSON_LD}</head><body>
+      <span id='address'>Nice - Fleurs Gambetta</span></body></html>`);
+    expect(detail?.extra).toEqual({ quartier: 'Gambetta' });
+    expect(detail?.addressText).toBeUndefined();
+    expect(detail?.postalCodeText).toBeUndefined();
+  });
+
+  it('sans localisation affichée, n’invente ni voie ni code postal', () => {
+    const detail = parseDetail(`<html><head>${JSON_LD}</head><body></body></html>`);
+    expect(detail).toEqual({ title: 'T2', description: 'Texte.' });
+  });
+});

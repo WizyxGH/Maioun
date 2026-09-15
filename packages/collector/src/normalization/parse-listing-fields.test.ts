@@ -871,6 +871,19 @@ describe('extractStreetAddress — le deux-points sépare l’annonce de son con
   });
 });
 
+describe('extractStreetAddress — voies abrégées', () => {
+  it('ne coupe pas au point de « AV. » ni de « ST. »', () => {
+    expect(extractStreetAddress('NICE NORD - AV. ST FICTIF. PROCHE TRAM - BALCON')).toBe(
+      'AV. ST FICTIF',
+    );
+    expect(extractStreetAddress('12 BD. STE. FICTIVE, 06100 NICE')).toBe('12 BD. STE. FICTIVE');
+  });
+
+  it('le point de fin de phrase coupe toujours', () => {
+    expect(extractStreetAddress('NICE CENTRE - RUE FICTIVE. 2 PIECES VIDE')).toBe('RUE FICTIVE');
+  });
+});
+
 describe('parseChargesFromText', () => {
   it('lit un montant ATTRIBUÉ aux charges, sous ses trois formes', () => {
     expect(parseChargesFromText('Charges : 75,28€', 1063)).toBe(75.28);
