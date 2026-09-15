@@ -95,10 +95,9 @@ import {
   QuickFilters,
   DEFAULT_QUICK_FILTERS,
   hasActiveQuickFilters,
-  matchesQuickFilters,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
-import { matchesSearch } from './search.js';
+import { filterListings } from './listing-filter.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { readViewState, writeViewState } from './view-state.js';
 import type { View } from './router.js';
@@ -1001,24 +1000,16 @@ function AppView(): React.JSX.Element {
       [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
     [listings],
   );
-  // Filtre par source (§13), puis filtres rapides (budget/surface/pièces/type),
-  // puis la recherche libre.
-  const filtered = useMemo(() => {
-    const bySource =
-      selectedSources.size === 0
-        ? listings
-        : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
-    // Les champs AFFICHENT vos critères, mais ne filtrent qu'une fois modifiés.
-    // Les appliquer d'emblée aurait ré-exclu aussitôt les annonces demandées par
-    // la bascule « hors critères » — deux réglages qui se contredisent.
-    const byQuick = hasActiveQuickFilters(quickFilters)
-      ? bySource.filter((l) => matchesQuickFilters(l, quickFilters))
-      : bySource;
-    const bySearch = byQuick.filter((l) => matchesSearch(l, search));
-    // « À vérifier » = disparue de sa source depuis plusieurs collectes. On peut
-    // les masquer pour ne garder que ce qui est encore publié (§33).
-    return hideUncertain ? bySearch.filter((l) => l.lifecycle !== 'possiblyInactive') : bySearch;
-  }, [listings, selectedSources, quickFilters, search, hideUncertain]);
+  const filtered = useMemo(
+    () =>
+      filterListings(listings, {
+        sources: selectedSources,
+        quick: quickFilters,
+        search,
+        hideUncertain,
+      }),
+    [listings, selectedSources, quickFilters, search, hideUncertain],
+  );
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
   const ranked = useMemo(
@@ -1614,16 +1605,14 @@ function AppView(): React.JSX.Element {
    * (§30). Le chiffre reste un ordre de grandeur utile pour reconnaître sa
    * recherche, et le libellé ne promet rien de plus.
    */
-  const countForSearch = (saved: SavedSearch): number => {
-    const quick = toQuickFilters(saved.view);
-    const sources = new Set(saved.view.sources ?? []);
-    return listings.filter((listing) => {
-      if (listing.lifecycle !== 'active') return false;
-      if (!matchesQuickFilters(listing, quick)) return false;
-      if (sources.size === 0) return true;
-      return listing.occurrences.some((one) => sources.has(one.sourceId));
+  const countForSearch = (saved: SavedSearch): number =>
+    // Le même filtre que la liste : le chiffre annoncé est celui qu'on verra.
+    filterListings(listings, {
+      sources: new Set(saved.view.sources ?? []),
+      quick: toQuickFilters(saved.view),
+      search: saved.view.search ?? '',
+      hideUncertain,
     }).length;
-  };
 
   // Les bandeaux d'alerte flottent AU-DESSUS de la vue courante, quelle qu'elle
   // soit : une annonce trouvée pendant qu'on lit une fiche doit se voir aussi.
