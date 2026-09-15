@@ -12,7 +12,9 @@ import {
   RateLimitedError,
   createHttpClient,
   createMemoryCacheStore,
+  MAX_CRAWL_DELAY_MS,
 } from './http-client.js';
+import type { RobotsGate } from './robots.js';
 import { silentLogger } from './logger.js';
 import { DEFAULT_BUDGET } from './budgets.js';
 
@@ -82,6 +84,17 @@ describe('createRateLimiter', () => {
     expect(clock.sleptMs).toContain(60_000);
   });
 
+  it('relève le délai à la demande, sans jamais l’abaisser', async () => {
+    const clock = createTestClock({ random: 0 });
+    const limiter = createRateLimiter(budget, clock);
+
+    await limiter.acquire(5_000);
+    await limiter.acquire(5_000);
+    await limiter.acquire(200);
+
+    expect(clock.sleptMs).toEqual([5_000, 1_000]);
+  });
+
   it('calcule un backoff exponentiel plafonné', () => {
     const clock = createTestClock({ random: 0 });
     const limiter = createRateLimiter({ ...budget, backoffFactor: 3 }, clock);
@@ -113,6 +126,55 @@ describe('createHttpClient', () => {
     const headers = fetchImpl.mock.calls[0]?.[1]?.headers as Record<string, string>;
     expect(headers['user-agent']).toBe('MaiounBot/0.1 (test)');
     expect(headers['user-agent']).not.toMatch(/Mozilla|Chrome|Safari/);
+  });
+
+  describe('Crawl-delay', () => {
+    const robotsWith = (seconds: number): RobotsGate => ({
+      check: () => Promise.resolve(),
+      crawlDelayMs: () => Promise.resolve(seconds * 1000),
+    });
+
+    it('espace les requêtes du délai demandé quand il dépasse le budget', async () => {
+      const clock = createTestClock({ random: 0 });
+      const client = createHttpClient({
+        ...baseOptions(),
+        clock,
+        robots: robotsWith(10),
+        fetchImpl: (async () => response(200, 'ok')) as never,
+      });
+      await client.get('https://example.invalid/a');
+      await client.get('https://example.invalid/b');
+      expect(clock.sleptMs).toEqual([10_000]);
+    });
+
+    it('garde le budget quand il est plus long', async () => {
+      const clock = createTestClock({ random: 0 });
+      const client = createHttpClient({
+        ...baseOptions(),
+        clock,
+        robots: robotsWith(0.5),
+        fetchImpl: (async () => response(200, 'ok')) as never,
+      });
+      await client.get('https://example.invalid/a');
+      await client.get('https://example.invalid/b');
+      expect(clock.sleptMs).toEqual([1_000]);
+    });
+
+    it('plafonne un délai démesuré et le signale une fois', async () => {
+      const clock = createTestClock({ random: 0 });
+      const warnings: string[] = [];
+      const logger = { ...silentLogger, warn: (event: string) => warnings.push(event) };
+      const client = createHttpClient({
+        ...baseOptions(),
+        clock,
+        logger,
+        robots: robotsWith(600),
+        fetchImpl: (async () => response(200, 'ok')) as never,
+      });
+      for (const path of ['a', 'b', 'c']) await client.get(`https://example.invalid/${path}`);
+      expect(clock.sleptMs).toEqual([MAX_CRAWL_DELAY_MS, MAX_CRAWL_DELAY_MS]);
+      expect(warnings).toEqual(['http.crawl_delay_capped']);
+    });
   });
 
   it('lève RateLimitedError sur un 429 sans jamais réessayer (§10)', async () => {

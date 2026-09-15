@@ -1,6 +1,6 @@
 /**
  * Source : Agence Castel (agencecastel.com, en http seulement) — 25 rue
- * Bonaparte, 06300 Nice. Gabarit Apimo classique, voir `parser.ts`.
+ * Bonaparte, 06300 Nice. Gabarit Apimo classique, voir `../apimo/legacy-template.ts`.
  *
  * Une requête de recherche par passage, puis les fiches des annonces nouvelles.
  * robots.txt vérifié le 2026-09-15 : /q/*, impressions, formulaires, /diagnostic/*
@@ -11,9 +11,19 @@
 import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
-import { AGENCE_CASTEL, listUrl, parseDetail, parseList } from './parser.js';
+import {
+  listUrl,
+  parseDetail,
+  parseList,
+  type ApimoClassicSite,
+} from '../apimo/legacy-template.js';
 
 const MAX_DETAILS = 8;
+
+export const AGENCE_CASTEL: ApimoClassicSite = {
+  agencyName: 'Agence Castel',
+  origin: 'http://www.agencecastel.com',
+};
 
 export const AGENCE_CASTEL_DESCRIPTOR: SourceDescriptor = {
   id: 'agence-castel',

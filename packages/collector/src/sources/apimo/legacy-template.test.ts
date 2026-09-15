@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { AGENCE_CASTEL, dpeFromValues, parseDetail, parseList } from './parser.js';
+import { AGENCE_CASTEL } from '../agence-castel/index.js';
+import { parseDetail, parseList } from './legacy-template.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
@@ -83,13 +84,5 @@ describe('parseDetail (Agence Castel)', () => {
     expect(normalized?.furnished).toBe(true);
     expect(normalized?.city).toBe('nice');
     expect(normalized?.dpe).toBe('B');
-  });
-});
-
-describe('dpeFromValues', () => {
-  it('retient la pire des deux classes', () => {
-    expect(dpeFromValues(76, 8)).toBe('B');
-    expect(dpeFromValues(60, 40)).toBe('D');
-    expect(dpeFromValues(500, 2)).toBe('G');
   });
 });

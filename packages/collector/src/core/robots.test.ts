@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { blockingRule, createRobotsGate, parseRobots, RobotsDisallowedError } from './robots.js';
+import {
+  blockingRule,
+  createRobotsGate,
+  parseRobots,
+  parseRobotsFile,
+  RobotsDisallowedError,
+} from './robots.js';
 
 const FNAIM = `User-agent: *
 Disallow: /include/
@@ -49,6 +55,30 @@ describe('parseRobots / blockingRule', () => {
   });
 });
 
+describe('parseRobotsFile — Crawl-delay', () => {
+  it('lit le délai du groupe `*`', () => {
+    const file = parseRobotsFile('User-agent: *\nDisallow: /*.pdf\nCrawl-delay: 10', 'MaiounBot');
+    expect(file.crawlDelaySeconds).toBe(10);
+    expect(file.rules).toHaveLength(1);
+  });
+
+  it('préfère le groupe qui nomme le robot, même sans règle', () => {
+    const text = 'User-agent: *\nCrawl-delay: 20\n\nUser-agent: MaiounBot\nCrawl-delay: 2';
+    expect(parseRobotsFile(text, 'MaiounBot').crawlDelaySeconds).toBe(2);
+    expect(parseRobotsFile(text, 'AutreBot').crawlDelaySeconds).toBe(20);
+  });
+
+  it('ignore le délai d’un autre robot et une valeur illisible', () => {
+    expect(
+      parseRobotsFile('User-agent: AhrefsBot\nCrawl-delay: 60', 'MaiounBot').crawlDelaySeconds,
+    ).toBeNull();
+    expect(
+      parseRobotsFile('User-agent: *\nCrawl-delay: lent', 'MaiounBot').crawlDelaySeconds,
+    ).toBeNull();
+    expect(parseRobotsFile('User-agent: *\nCrawl-delay: 0.5', 'X').crawlDelaySeconds).toBe(0.5);
+  });
+});
+
 describe('createRobotsGate', () => {
   const fetcher = (status: number, body = '') => {
     const calls: string[] = [];
@@ -67,6 +97,16 @@ describe('createRobotsGate', () => {
     ).rejects.toBeInstanceOf(RobotsDisallowedError);
     await gate.check('https://www.fnaim.fr/liste-annonces-immobilieres/18/nice.htm');
     expect(calls).toEqual(['https://www.fnaim.fr/robots.txt']);
+  });
+
+  it('rend le Crawl-delay du site sans relire le fichier, 0 sans demande', async () => {
+    const { impl, calls } = fetcher(200, 'User-agent: *\nCrawl-delay: 5');
+    const gate = createRobotsGate({ userAgent: 'MaiounBot/0.1', fetchImpl: impl });
+    await gate.check('https://agence.invalid/location/1');
+    expect(await gate.crawlDelayMs('https://agence.invalid/location/2')).toBe(5_000);
+    expect(calls).toHaveLength(1);
+    const silent = createRobotsGate({ userAgent: 'MaiounBot', fetchImpl: fetcher(404).impl });
+    expect(await silent.crawlDelayMs('https://autre.invalid/')).toBe(0);
   });
 
   it('un fichier absent autorise tout ; un site en panne interdit le temps du passage', async () => {

@@ -170,6 +170,52 @@ describe('normalizeListing — exclusion des ventes (§3)', () => {
   });
 });
 
+describe('normalizeListing — tarifs à courte période', () => {
+  it('écarte un loyer à la semaine ou à la nuit, quelle que soit la source', () => {
+    for (const priceText of ['700 €/semaine', '95 € la nuit', '1 200 € / sem.', '450 per week']) {
+      expect(normalizeListing(raw({ title: 'T2 Nice', priceText }), OPTIONS)).toBeNull();
+    }
+  });
+
+  it('garde le loyer au mois, et le bail étudiant de neuf mois qui cite son tarif d’été', () => {
+    const student = normalizeListing(
+      raw({
+        title: 'Studio meublé',
+        priceText: '650 € / mois',
+        description: 'Bail étudiant de septembre à juin, saisonnier en juillet : 500 €/semaine.',
+      }),
+      OPTIONS,
+    );
+    expect(student?.price).toBe(650);
+    expect(student?.features).toContain(SHORT_TERM_LEASE_FEATURE);
+  });
+});
+
+describe('normalizeListing — loyers de prestige', () => {
+  it('admet une villa à 25 000 €/mois quand la surface la rend plausible', () => {
+    const villa = normalizeListing(
+      raw({ title: 'Villa vue mer', priceText: '25 000 € / Mois', areaText: '450 m²' }),
+      OPTIONS,
+    );
+    expect(villa?.price).toBe(25_000);
+  });
+
+  it('refuse un prix de vente pris pour un loyer', () => {
+    const studio = normalizeListing(
+      raw({ title: 'Studio', priceText: '85 000 €', areaText: '22 m²' }),
+      OPTIONS,
+    );
+    expect(studio?.price).toBeNull();
+    const sansSurface = normalizeListing(raw({ title: 'Villa', priceText: '25 000 €' }), OPTIONS);
+    expect(sansSurface?.price).toBeNull();
+    const vente = normalizeListing(
+      raw({ title: 'Villa', priceText: '1 250 000 €', areaText: '900 m²' }),
+      OPTIONS,
+    );
+    expect(vente?.price).toBeNull();
+  });
+});
+
 describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
   /** Une occurrence telle qu'elle revient de la base. */
   const stored = (over: Record<string, unknown> = {}): never =>

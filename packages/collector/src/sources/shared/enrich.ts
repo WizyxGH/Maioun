@@ -21,7 +21,7 @@
  * série sur-le-champ : la source vient de dire qu'elle en a assez.
  */
 
-import type { RawListing, ScrapeContext } from '@maioun/shared';
+import type { DetailMemoryEntry, RawListing, ScrapeContext } from '@maioun/shared';
 import type { RawDraft } from './raw-listing.js';
 
 export interface EnrichOptions {
@@ -47,7 +47,21 @@ export interface EnrichResult {
  * Au-delà, on relit une fiche si le budget le permet : l'annonceur a pu changer
  * son texte, et la mémoire ne doit pas le figer indéfiniment.
  */
-const REFRESH_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+export const REFRESH_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Fiche lue mais écartée par le parseur (saisonnier, « prix sur demande »,
+ * local commercial) : mémorisée vide, elle ne coûte plus de requête avant
+ * `REFRESH_AFTER_MS`. Sans cela, elle était relue à chaque passage.
+ */
+export const REJECTED_DRAFT: RawDraft = {};
+
+/** `true` si la mémoire de cette fiche est assez récente pour ne pas la relire. */
+export function isFreshMemory(memory: DetailMemoryEntry | null, nowMs: number): boolean {
+  if (memory === null) return false;
+  const age = nowMs - Date.parse(memory.fetchedAt);
+  return Number.isFinite(age) && age < REFRESH_AFTER_MS;
+}
 
 /**
  * La mémoire s'écrit PAR PAQUETS, au fil de la lecture.
@@ -97,6 +111,9 @@ function mergeDraft(listing: RawListing, draft: RawDraft): RawListing {
  *      budget que les nouvelles laissent libre ;
  *   3. les connues dont la fiche date de plus d'une semaine.
  *
+ * Une inconnue dont la fiche a été lue cette semaine n'est pas revisitée : le
+ * parseur ou la normalisation l'a écartée, et rien n'aura changé d'ici là.
+ *
  * En rattrapage, toutes les connues suivent, fraîches comprises.
  *
  * L'ordre de la liste est conservé : elle est triée par la source (fraîcheur,
@@ -114,11 +131,13 @@ export async function enrichNewListings(
 
   const nowMs = Date.now();
   const rang = (listing: RawListing): number | null => {
-    if (!context.isKnown(listing.sourceRef)) return 0;
     const memory = context.detailMemory.get(listing.sourceRef);
+    const fresh = isFreshMemory(memory, nowMs);
+    // Une inconnue à mémoire fraîche a déjà été lue : écartée par le parseur
+    // ou par la normalisation, elle ne se relit pas.
+    if (!context.isKnown(listing.sourceRef) && !fresh) return 0;
     if (memory === null) return 1;
-    const age = nowMs - Date.parse(memory.fetchedAt);
-    if (!Number.isFinite(age) || age >= REFRESH_AFTER_MS) return 2;
+    if (!fresh) return 2;
     return context.mode === 'backfill' ? 3 : null;
   };
   const aVisiter = listings
@@ -156,13 +175,20 @@ export async function enrichNewListings(
     try {
       const page = await context.fetch(url);
       requestCount += 1;
-      // Fiche inchangée : ce que la mémoire en garde reste vrai.
-      if (page.notModified) continue;
-      pagesFetched += 1;
-      const draft = options.parse(page.body, listing);
-      if (draft !== null) {
-        learned.set(listing.sourceRef, draft);
-        pending.push({ sourceRef: listing.sourceRef, draft });
+      const previous = context.detailMemory.get(listing.sourceRef)?.draft;
+      let remembered: RawDraft | undefined;
+      if (page.notModified) {
+        // Fiche inchangée : ce que la mémoire en garde reste vrai, et rajeunit.
+        remembered = previous;
+      } else {
+        pagesFetched += 1;
+        const draft = options.parse(page.body, listing);
+        if (draft !== null) learned.set(listing.sourceRef, draft);
+        // Écartée : ce qu'on savait déjà est gardé, sinon la fiche est notée vide.
+        remembered = draft ?? previous ?? REJECTED_DRAFT;
+      }
+      if (remembered !== undefined) {
+        pending.push({ sourceRef: listing.sourceRef, draft: remembered });
         if (pending.length >= SAVE_EVERY) await flush();
       }
     } catch (error) {

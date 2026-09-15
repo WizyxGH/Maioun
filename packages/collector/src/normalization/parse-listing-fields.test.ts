@@ -12,6 +12,7 @@ import {
   parseDistrict,
   parseDistrictOf,
   parseDpe,
+  dpeFromValues,
   extractFeatures,
   staleTextFeatures,
   extractStreetAddress,
@@ -22,6 +23,8 @@ import {
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
+  isShortPeriodPrice,
+  mentionsShortPeriodPrice,
   parsePrice,
   parsePropertyType,
   parsePublishedAt,
@@ -63,6 +66,51 @@ describe('parsePrice', () => {
   it('rejette une valeur hors bornes plausibles', () => {
     // Un prix de vente n'est pas un loyer.
     expect(parsePrice('250 000 €').amount).toBeNull();
+  });
+
+  it('ne rend rien d’un tarif à la nuit, à la semaine ou au jour', () => {
+    for (const text of [
+      '700 €/semaine',
+      '700 € par semaine',
+      '650 € la semaine',
+      '1 200 €/sem.',
+      '95 € la nuit',
+      '95 €/nuit',
+      '120 € par nuitée',
+      '80 €/jour',
+      '450 € per week',
+      '€ 1,500 weekly',
+      '95 per night',
+    ]) {
+      expect(parsePrice(text).amount, text).toBeNull();
+      expect(isShortPeriodPrice(text), text).toBe(true);
+    }
+  });
+
+  it('garde les loyers au mois', () => {
+    for (const text of ['690 €/mois', '690 € par mois', '1 200 € / Mois CC', '750 € HC']) {
+      expect(isShortPeriodPrice(text), text).toBe(false);
+      expect(parsePrice(text).amount, text).not.toBeNull();
+    }
+  });
+
+  it('admet un loyer de prestige au vu de la surface, jamais sans', () => {
+    expect(parsePrice('25 000 € / Mois', { area: 450 }).amount).toBe(25_000);
+    expect(parsePrice('25000', { area: 300 }).amount).toBe(25_000);
+    expect(parsePrice('25 000 € / Mois').amount).toBeNull();
+    // 1 000 €/m² : un prix de vente.
+    expect(parsePrice('45 000 €', { area: 45 }).amount).toBeNull();
+    // Au-delà du plafond de prestige, une vente quelle que soit la surface.
+    expect(parsePrice('150 000 €', { area: 1_000 }).amount).toBeNull();
+  });
+});
+
+describe('mentionsShortPeriodPrice', () => {
+  it('repère un montant à la semaine dans une prose, sans prendre une fréquence', () => {
+    expect(mentionsShortPeriodPrice('Tarif : 95 €/nuit, ménage inclus.')).toBe(true);
+    expect(mentionsShortPeriodPrice('Loyer de base 650 € la semaine.')).toBe(true);
+    expect(mentionsShortPeriodPrice('Ménage 2 fois par semaine.')).toBe(false);
+    expect(mentionsShortPeriodPrice('Pénalité de 10 € par jour de retard.')).toBe(false);
   });
 });
 
@@ -798,6 +846,14 @@ describe('parseRooms — nombres écrits en toutes lettres', () => {
 
   it('ne conclut rien d’un texte sans nombre de pièces', () => {
     expect(parseRooms('Appartement lumineux')).toBeNull();
+  });
+});
+
+describe('dpeFromValues', () => {
+  it('retient la pire des deux classes', () => {
+    expect(dpeFromValues(76, 8)).toBe('B');
+    expect(dpeFromValues(60, 40)).toBe('D');
+    expect(dpeFromValues(500, 2)).toBe('G');
   });
 });
 

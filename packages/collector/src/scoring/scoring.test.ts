@@ -377,6 +377,17 @@ describe('scoreRisk (§19)', () => {
     expect(score.reasons.some((reason) => reason.code === 'price.veryLow')).toBe(true);
   });
 
+  it('ne tient pas un loyer de prestige pour suspect : seul un loyer bas l’est', () => {
+    const score = scoreRisk(
+      makeAggregated({ price: 25_000, area: 420, propertyType: 'house', contact: makeContact() }),
+      options,
+    );
+    expect(
+      score.reasons.some((reason) => reason.code.startsWith('price.') && reason.delta > 0),
+    ).toBe(false);
+    expect(score.value).toBeLessThan(40);
+  });
+
   it('ne pénalise plus une COLOCATION : la surface est celle du logement entier', () => {
     // Mesuré le 2026-09-02 : 46 des 57 annonces « à risque » étaient des
     // colocations, et pas une arnaque. 780 € pour une chambre dans 135 m²

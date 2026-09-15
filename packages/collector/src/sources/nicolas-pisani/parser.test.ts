@@ -61,4 +61,19 @@ describe('parseDetail (Nicolas Pisani)', () => {
     expect(normalized?.city).toBe('nice');
     expect(normalized?.propertyType).toBe('studio');
   });
+
+  it('garde le loyer d’une villa de prestige, refuse le même sur un studio', () => {
+    const normalize = (html: string) =>
+      normalizeListing(
+        {
+          sourceRef: '87067700',
+          sourceUrl: 'https://www.nicolaspisani.com/fr/detail-location/villa/87067700.cfm',
+          ...parseDetail(html),
+        },
+        { sourceId: 'nicolas-pisani', nowMs: Date.parse('2026-09-15T12:00:00Z') },
+      );
+    const luxe = read('fiche-87067700.html').replaceAll('1 500 € / Mois', '25 000 € / Mois');
+    expect(normalize(luxe.replace('28.68m2', '420m2'))?.price).toBe(25_000);
+    expect(normalize(luxe)?.price).toBeNull();
+  });
 });

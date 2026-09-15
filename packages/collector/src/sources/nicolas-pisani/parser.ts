@@ -14,8 +14,8 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import { dpeFromValues } from '../../normalization/parse-listing-fields.js';
 import { cleanText } from '../../normalization/text.js';
-import { dpeFromValues } from '../agence-castel/parser.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 

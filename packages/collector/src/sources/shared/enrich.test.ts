@@ -204,6 +204,53 @@ describe('enrichNewListings', () => {
     expect(result.listings[0]?.description).toBe('demi-phrase tronquée par la…');
   });
 
+  describe('fiche écartée par le parseur', () => {
+    it('est mémorisée vide, puis n’est plus relue de la semaine', async () => {
+      const premier = context();
+      await enrichNewListings(premier.ctx, [listing('saison')], {
+        max: 5,
+        detailUrl: (one) => one.sourceUrl,
+        parse: () => null,
+      });
+      expect(premier.saved).toEqual([{ sourceRef: 'saison', draft: {} }]);
+
+      const memoire = new Map([['saison', { draft: {}, fetchedAt: FRAICHE() }]]);
+      const second = context({ memoire });
+      const result = await enrichNewListings(second.ctx, [listing('saison')], {
+        max: 5,
+        detailUrl: (one) => one.sourceUrl,
+        parse: () => null,
+      });
+      expect(second.visited).toEqual([]);
+      expect(result.listings[0]?.description).toBe('demi-phrase tronquée par la…');
+    });
+
+    it('est relue une fois la mémoire périmée', async () => {
+      const memoire = new Map([['saison', { draft: {}, fetchedAt: '2026-01-01T00:00:00Z' }]]);
+      const { ctx, visited } = context({ memoire });
+      await enrichNewListings(ctx, [listing('saison')], {
+        max: 5,
+        detailUrl: (one) => one.sourceUrl,
+        parse: () => null,
+      });
+      expect(visited).toHaveLength(1);
+    });
+
+    it('ne fait pas oublier ce qu’une lecture précédente avait appris', async () => {
+      const memoire = new Map([
+        ['a', { draft: { description: 'appris' }, fetchedAt: '2026-01-01T00:00:00Z' }],
+      ]);
+      const { ctx, saved } = context({ known: ['a'], memoire });
+      const result = await enrichNewListings(ctx, [listing('a')], {
+        max: 5,
+        detailUrl: (one) => one.sourceUrl,
+        parse: () => null,
+      });
+      expect(saved).toEqual([{ sourceRef: 'a', draft: { description: 'appris' } }]);
+      expect(result.listings[0]?.description).toBe('appris');
+    });
+  });
+
   it('une fiche injoignable laisse l’annonce en place et prévient (§69)', async () => {
     const { ctx } = context({ fail: () => 'ECONNRESET' });
     const result = await enrichNewListings(ctx, [listing('a')], {

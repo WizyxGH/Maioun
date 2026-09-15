@@ -1,7 +1,7 @@
 /**
  * Source : CDC Immobilier (cdcimmobilier.com) — 2 place Wilson, 06000 Nice.
  * Même gabarit Apimo classique qu'Agence Castel : parseur partagé dans
- * `../agence-castel/parser.ts`.
+ * `../apimo/legacy-template.ts`.
  *
  * Une requête de recherche par passage, puis les fiches des annonces nouvelles.
  * robots.txt vérifié le 2026-09-15 : identique à celui d'Agence Castel (/q/*,
@@ -12,7 +12,12 @@
 import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
-import { listUrl, parseDetail, parseList, type ApimoClassicSite } from '../agence-castel/parser.js';
+import {
+  listUrl,
+  parseDetail,
+  parseList,
+  type ApimoClassicSite,
+} from '../apimo/legacy-template.js';
 
 const MAX_DETAILS = 8;
 

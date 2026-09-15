@@ -60,7 +60,8 @@ export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const status = cleanText($('.rh_page__property_price .status').first().text());
   const price = cleanText($('.rh_page__property_price .price').first().text());
-  if (!OPEN_RENTAL(status) || !/\d/.test(price) || /semaine|nuit/i.test(price)) return null;
+  // Un tarif à la semaine passe : la normalisation l'écarte.
+  if (!OPEN_RENTAL(status) || !/\d/.test(price)) return null;
 
   const meta = new Map<string, string>();
   $('.rh_property__meta_wrap .rh_property__meta').each((_i, el) => {

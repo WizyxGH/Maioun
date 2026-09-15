@@ -3,7 +3,8 @@
  * (§6, §10, §30).
  *
  * Il concentre les garanties du projet :
- *   - le budget de la source est appliqué avant chaque requête ;
+ *   - le budget de la source est appliqué avant chaque requête, son délai
+ *     relevé au `Crawl-delay` du site s'il est plus long ;
  *   - les en-têtes conditionnels (ETag / If-Modified-Since) évitent de
  *     retélécharger un contenu inchangé ;
  *   - un 429 arrête la source et déclenche son cooldown, sans contournement ;
@@ -157,6 +158,12 @@ export interface HttpClient {
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
+/**
+ * Plafond du `Crawl-delay` honoré. Au-delà, une source de dix fiches tiendrait
+ * le passage plusieurs minutes : on plafonne, et on le signale.
+ */
+export const MAX_CRAWL_DELAY_MS = 30_000;
+
 /** Statuts pour lesquels une nouvelle tentative a un sens. */
 const RETRYABLE_STATUSES = new Set([408, 500, 502, 503, 504]);
 
@@ -173,6 +180,23 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
   const doFetch = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const limiter = createRateLimiter(budget, clock);
+  const cappedOrigins = new Set<string>();
+
+  /** Délai imposé par le `Crawl-delay` du site, plafonné. */
+  async function crawlDelayFor(url: string): Promise<number> {
+    const requested = (await options.robots?.crawlDelayMs(url)) ?? 0;
+    if (requested <= MAX_CRAWL_DELAY_MS) return requested;
+    const { origin } = new URL(url);
+    if (!cappedOrigins.has(origin)) {
+      cappedOrigins.add(origin);
+      logger.warn('http.crawl_delay_capped', {
+        origin,
+        requestedMs: requested,
+        appliedMs: MAX_CRAWL_DELAY_MS,
+      });
+    }
+    return MAX_CRAWL_DELAY_MS;
+  }
 
   async function attempt(
     url: string,
@@ -181,8 +205,9 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     body: string | undefined,
     redirect: 'follow' | 'manual' = 'follow',
     conditional = true,
+    minDelayMs = 0,
   ): Promise<FetchResult> {
-    await limiter.acquire();
+    await limiter.acquire(minDelayMs);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -254,6 +279,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     async get(url, init) {
       // Avant tout : une page interdite n'est même pas demandée (§10).
       await options.robots?.check(url);
+      const crawlDelayMs = await crawlDelayFor(url);
       const method = init?.method ?? 'GET';
       const headers: Record<string, string> = {
         'user-agent': userAgent,
@@ -281,6 +307,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
             init?.body,
             init?.redirect ?? 'follow',
             conditional,
+            crawlDelayMs,
           );
         } catch (error) {
           // 429 et blocage ne sont jamais réessayés : ce sont des refus, pas

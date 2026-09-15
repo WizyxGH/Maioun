@@ -51,8 +51,15 @@ describe('parseDetail (Loquis)', () => {
     );
   });
 
-  it('refuse un loyer à la semaine', () => {
-    expect(parseDetail(rental().replace('/ mois', '/ semaine'))).toBeNull();
+  it('laisse la normalisation écarter un loyer à la semaine', () => {
+    const weekly = parseDetail(rental().replace('/ mois', '/ semaine'));
+    expect(weekly?.priceText).toMatch(/semaine/);
+    expect(
+      normalizeListing(
+        { sourceRef: '93152', sourceUrl: 'https://loquis.fr/listing/x/', ...weekly },
+        { sourceId: 'loquis', nowMs: Date.parse('2026-09-15T12:00:00Z') },
+      ),
+    ).toBeNull();
   });
 
   it('se normalise', () => {
