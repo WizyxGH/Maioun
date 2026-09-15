@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeOccurrence } from '../../../../tests/helpers/factories.js';
+import { makeContact, makeOccurrence } from '../../../../tests/helpers/factories.js';
 import { similarity } from './similarity.js';
 
 /**
@@ -164,6 +164,66 @@ describe('surface identique au centième', () => {
     const digest = bien('email-alerts', 22.81);
     const ailleurs = { ...bien('saint-roch', 22.81), city: 'cannes' };
     expect(similarity(digest, ailleurs).verdict).toBe('distinct');
+  });
+});
+
+/** Alerte Bien'ici restée seule à côté de l'annonce Bien'ici qu'elle signale. */
+describe('même page d’annonce', () => {
+  const page = 'https://portail.example.invalid/annonce/ag000000-1';
+  const alerte = makeOccurrence({
+    id: 'email-alerts:portail:ag000000-1',
+    sourceId: 'email-alerts',
+    sourceUrl: page,
+    title: 'Studio 20 m²',
+    price: 675,
+    area: 20,
+    rooms: 1,
+    city: null,
+    postalCode: '06200',
+    description: null,
+    imageUrls: [],
+  });
+  const portail = makeOccurrence({
+    id: 'portail:ag000000-1',
+    sourceId: 'portail',
+    sourceUrl: `${page}/`,
+    title: 'STUDIO VIDE - BALCON - AU PIED DU TRAM',
+    description: 'Joli studio vide moderne au 3e étage, balcon, coin cuisine. '.repeat(3),
+    price: 675,
+    area: 20,
+    rooms: 1,
+    city: 'nice',
+    postalCode: '06200',
+    contact: makeContact({ agencyName: 'Agence Exemple', providedBy: ['portail'] }),
+    imageUrls: ['https://photos.example.invalid/1.jpg'],
+  });
+
+  it('fusionne une alerte avec l’annonce du portail vers laquelle elle renvoie', () => {
+    const result = similarity(alerte, portail);
+    expect(result.signals.map((s) => s.code)).toContain('url');
+    expect(result.verdict).toBe('duplicate');
+  });
+
+  it('laisse les garde-fous souverains', () => {
+    const autre = { ...portail, rooms: 2, area: 40 };
+    expect(similarity(alerte, autre).verdict).toBe('distinct');
+  });
+
+  it('ignore un lien partagé au sein d’une source, ou une simple racine', () => {
+    const liste = 'https://bulletin.example.invalid/w_index_abonnes.php';
+    const a = makeOccurrence({ id: 'bulletin:1', sourceId: 'bulletin', sourceUrl: liste });
+    const b = makeOccurrence({ id: 'bulletin:2', sourceId: 'bulletin', sourceUrl: liste });
+    expect(similarity(a, b).signals.map((s) => s.code)).not.toContain('url');
+
+    const racine = { ...alerte, sourceUrl: 'https://portail.example.invalid/' };
+    const autreRacine = { ...portail, sourceUrl: 'https://portail.example.invalid' };
+    expect(similarity(racine, autreRacine).signals.map((s) => s.code)).not.toContain('url');
+  });
+
+  it('distingue deux annonces dont seul le paramètre change', () => {
+    const a = { ...alerte, sourceUrl: 'https://agence.example.invalid/bien.php?id=1' };
+    const b = { ...portail, sourceUrl: 'https://agence.example.invalid/bien.php?id=2' };
+    expect(similarity(a, b).signals.map((s) => s.code)).not.toContain('url');
   });
 });
 
