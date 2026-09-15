@@ -8,9 +8,8 @@
  * conséquences, assumées et signalées à l'utilisateur :
  *
  *   1. AUCUN LIEN VERS L'ANNONCE D'ORIGINE. La fiche Rentumo ne le publie pas,
- *      et les coordonnées y sont floutées derrière un abonnement payant. On ne
- *      collecte donc QUE la page de résultats : visiter les fiches coûterait
- *      des requêtes pour rien (§30).
+ *      et les coordonnées y sont floutées derrière un abonnement payant. Sa
+ *      fiche n'est lue, pour les nouvelles, que pour le texte d'origine.
  *   2. CHAMPS « extraits par IA », de l'aveu du site lui-même (« may not be
  *      100% accurate »). On ne retient que ce qui est affiché tel quel sur la
  *      carte — prix, surface, chambres, type, ville — jamais une déduction.
@@ -26,9 +25,10 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { cleanText } from '../../normalization/text.js';
-import { compactListing, type ParsedList } from '../shared/raw-listing.js';
+import { cleanMultiline, cleanText } from '../../normalization/text.js';
+import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';
+import { collectJsonLdNodes, jsonLdString, jsonLdType } from '../shared/json-ld.js';
 
 /**
  * URL d'origine d'une image servie par le proxy de Rentumo.
@@ -179,4 +179,31 @@ export function parseListPage(html: string, pageUrl: string): RentumoList {
   // `hasNext` est rendu ici : le document est déjà analysé, et le relire pour
   // le seul `<link rel="next">` coûtait une seconde analyse complète.
   return { listings, warnings, hasNext: $('link[rel="next"]').attr('href') !== undefined };
+}
+
+/**
+ * Ce que la FICHE apprend : le titre et le texte ENTIER de l'annonce d'origine,
+ * dans son JSON-LD.
+ *
+ * La carte n'en montre qu'une accroche : aucune description de plus de deux
+ * cents caractères au 2026-09-15, donc ni charges, ni dépôt, ni DPE, ni
+ * disponibilité à lire. Le JSON-LD recopie le texte source tel quel — loyer,
+ * provision, dépôt de garantie compris.
+ *
+ * On n'y prend PAS `numberOfRooms` : c'est un champ « extrait par IA », qui
+ * rend « 2 » pour un deux-pièces à une chambre.
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  const node = collectJsonLdNodes($).find((one) => {
+    const type = jsonLdType(one);
+    return (
+      type !== '' && type !== 'breadcrumblist' && jsonLdString(one['description']) !== undefined
+    );
+  });
+  if (node === undefined) return null;
+  const description = cleanMultiline(jsonLdString(node['description']));
+  const title = cleanText(jsonLdString(node['name']));
+  if (description === '') return null;
+  return { description, ...(title !== '' ? { title } : {}) };
 }

@@ -9,8 +9,9 @@
  * projet n'a aucun accès conforme (§10), avec assez de faits pour décider s'il
  * vaut la peine de les chercher ailleurs.
  *
- * SEULES LES PAGES DE RÉSULTATS sont lues : la fiche n'ajoute rien qu'on
- * puisse exploiter, et la visiter coûterait une requête par annonce (§30).
+ * LES FICHES DES NOUVELLES seulement, en plus des pages de résultats : la
+ * carte ne donne qu'une accroche, la fiche le texte entier de l'annonce
+ * d'origine (voir `parseDetail`).
  */
 
 import type {
@@ -22,7 +23,8 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetail, parseListPage } from './parser.js';
 
 const ORIGIN = 'https://rentumo.com';
 
@@ -36,6 +38,12 @@ const LIST_URL = `${ORIGIN}/rent-apartment/nice`;
  */
 const MAX_PAGES = 4;
 
+/** Fiches lues par passage : les nouveautés d'un cycle, pages de 450 Ko. */
+const MAX_DETAILS = 10;
+
+/** En rattrapage : le stock entier, environ 120 annonces. */
+const MAX_DETAILS_BACKFILL = 150;
+
 export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
   id: 'rentumo',
   name: 'Rentumo',
@@ -46,7 +54,10 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
   // d'origine. Une source directe qui publie le même bien doit primer (§13).
   priority: 4,
   schedule: scheduleFor('aggregator'),
-  budget: budgetFor('aggregator', { maxPagesPerRun: MAX_PAGES, maxListingsPerRun: 100 }),
+  budget: budgetFor('aggregator', {
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS_BACKFILL,
+    maxListingsPerRun: 100,
+  }),
   enabled: true,
   // Agrégateur : les photos décodées portent l'URL d'origine, propre à UNE
   // annonce — deux fiches qui la partagent sont le même bien (§14).
@@ -62,7 +73,8 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
     'annonces par page, pagination `?page=N` déclarée en <link rel="next">. ' +
     'AGRÉGATEUR : aucun lien vers l’annonce d’origine, coordonnées floutées ' +
     'derrière un abonnement payant, et champs annoncés comme « extraits par ' +
-    'IA » — on ne retient donc que ce que la carte affiche tel quel. Les ' +
+    'IA » — on ne retient donc que ce que la carte affiche tel quel, et, sur ' +
+    'la fiche, le titre et le texte d’origine recopiés dans le JSON-LD. Les ' +
     'photos passent par un proxy dont l’URL encode en base64 l’adresse ' +
     'D’ORIGINE : on la décode, ce qui donne la photo en pleine qualité et ' +
     'révèle l’hébergeur du site source (FNAIM, La Boîte Immo, Orpi…).',
@@ -119,7 +131,22 @@ export const rentumoScraper: Scraper = {
       }
     }
 
-    const listings = [...byRef.values()];
+    // Les fiches APRÈS la pagination, et aucune après un 429.
+    const enriched = await enrichNewListings(context, [...byRef.values()], {
+      max:
+        stopReason === 'rateLimited'
+          ? 0
+          : context.mode === 'backfill'
+            ? MAX_DETAILS_BACKFILL
+            : MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetail(html),
+    });
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
+    const listings = [...enriched.listings];
     context.log('list.parsed', {
       listings: listings.length,
       known: listings.filter((listing) => context.isKnown(listing.sourceRef)).length,

@@ -32,6 +32,7 @@ import {
   parseChargesFromText,
   parseDepositField,
   parseDepositFromText,
+  rentExcludingCharges,
   parseFeesField,
   parseFeesFromText,
   parseEmail,
@@ -424,6 +425,13 @@ export function normalizeListing(
   const price = parsePrice(raw.priceText, { area });
   const text = textSources(raw);
   const location = resolveLocation(raw);
+  // Trois sources, de la plus explicite à la plus indirecte. La description
+  // n'est consultée qu'en dernier — mais elle porte le montant dans deux
+  // cent trente-quatre annonces sur mille, là où le champ dédié est vide.
+  const charges =
+    parseChargesField(raw.chargesText) ??
+    parseCharges(raw.priceText) ??
+    parseChargesFromText(text.prose, price.amount);
 
   return {
     id: occurrenceId(options.sourceId, sourceRef),
@@ -435,17 +443,15 @@ export function normalizeListing(
     description: toNull(raw.description),
 
     price: price.amount,
-    // Trois sources, de la plus explicite à la plus indirecte. La description
-    // n'est consultée qu'en dernier — mais elle porte le montant dans deux
-    // cent trente-quatre annonces sur mille, là où le champ dédié est vide.
-    charges:
-      parseChargesField(raw.chargesText) ??
-      parseCharges(raw.priceText) ??
-      parseChargesFromText(text.prose, price.amount),
+    charges,
     chargesIncluded: price.chargesIncluded,
     deposit:
       parseDepositField(raw.depositText, price.amount) ??
-      parseDepositFromText(text.prose, price.amount),
+      parseDepositFromText(
+        text.prose,
+        price.amount,
+        rentExcludingCharges(price.amount, price.chargesIncluded, charges),
+      ),
     tenantFees:
       parseFeesField(raw.feesText, price.amount) ?? parseFeesFromText(text.prose, price.amount),
     area,
@@ -525,6 +531,10 @@ function fillGaps(
   | 'furnished'
   | 'availableAt'
 > {
+  const charges =
+    occurrence.charges === null
+      ? parseChargesFromText(occurrence.description, occurrence.price)
+      : occurrence.charges;
   return {
     // Le TITRE est transmis à part : « Chambre meublée à Nice nord » loue une
     // chambre, et on ne loue une chambre seule que dans un logement partagé.
@@ -544,14 +554,15 @@ function fillGaps(
       occurrence.maxOccupants === null ? parseMaxOccupants(text) : occurrence.maxOccupants,
     // Bornées par le loyer quand il est connu : au-delà, ce n'est pas une
     // provision de charges mais un loyer qu'une tournure a laissé passer.
-    charges:
-      occurrence.charges === null
-        ? parseChargesFromText(occurrence.description, occurrence.price)
-        : occurrence.charges,
+    charges,
     // Même règle du silence : un montant publié par la source fait autorité.
     deposit:
       occurrence.deposit === null
-        ? parseDepositFromText(occurrence.description, occurrence.price)
+        ? parseDepositFromText(
+            occurrence.description,
+            occurrence.price,
+            rentExcludingCharges(occurrence.price, occurrence.chargesIncluded, charges),
+          )
         : occurrence.deposit,
     tenantFees:
       occurrence.tenantFees === null
@@ -587,7 +598,12 @@ function fillGaps(
      */
     availableAt:
       occurrence.availableAt === null
-        ? parseAvailabilityInText(text, nowMs)
+        ? // Le point sépare le titre, comme à la normalisation : une description
+          // qui s'ouvre sur « À partir du 15 septembre » commence une phrase.
+          parseAvailabilityInText(
+            `${occurrence.title ?? ''}. ${occurrence.description ?? ''}`,
+            nowMs,
+          )
         : occurrence.availableAt,
   };
 }

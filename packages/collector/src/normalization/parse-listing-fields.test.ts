@@ -666,6 +666,76 @@ describe('parseAvailabilityInText (§17 — disponibilité en texte libre)', () 
     expect(parseAvailabilityInText('Grand studio, une chambre libre sur deux', now)).toBeNull();
   });
 
+  it('lit début, mi et fin de mois (relevé du 2026-09-15)', () => {
+    expect(parseAvailabilityInText('Cave. Disponible début septembre. Proche', now)).toBe(
+      '2026-09-01T00:00:00.000Z',
+    );
+    expect(parseAvailabilityInText('Disponible à partir de la mi-septembre.', now)).toBe(
+      '2026-09-15T00:00:00.000Z',
+    );
+    expect(parseAvailabilityInText('À louer ! LIBRE FIN SEPTEMBRE. Venez', now)).toBe(
+      '2026-09-30T00:00:00.000Z',
+    );
+    // La première date écrite, pas la première forme reconnue.
+    expect(parseAvailabilityInText('Disponible de octobre à fin mai.', now)).toBe(
+      '2026-10-01T00:00:00.000Z',
+    );
+  });
+
+  it('lit jour et mois sans année, et l’année sur deux chiffres', () => {
+    expect(parseAvailabilityInText('Garage. Libre au 29/09 Eau chaude collective', now)).toBe(
+      '2026-09-29T00:00:00.000Z',
+    );
+    expect(parseAvailabilityInText('Disponible à partir du 01/10/26 Les', now)).toBe(
+      '2026-10-01T00:00:00.000Z',
+    );
+    // Le point d'une date ne clôt pas la phrase.
+    expect(parseAvailabilityInText('Disponible à compter du 21.09.2026 ; A visiter', now)).toBe(
+      '2026-09-21T00:00:00.000Z',
+    );
+    expect(parseAvailabilityInText('DISPONIBLE A PARTIR DU 16 SEPTEMBRE2026, SITUE', now)).toBe(
+      '2026-09-16T00:00:00.000Z',
+    );
+    // « 3/4 chambres » n'est pas le 3 avril.
+    expect(parseAvailabilityInText('Maison disponible, 3/4 chambres', now)).toBeNull();
+  });
+
+  it('lit « à partir du » rattaché à la location, pas à l’étude des dossiers', () => {
+    expect(
+      parseAvailabilityInText('LOCATION ETUDIANTE A PARTIR DU 01 SEPTEMBRE - BAIL DE 9 MOIS', now),
+    ).toBe('2026-09-01T00:00:00.000Z');
+    expect(
+      parseAvailabilityInText('Les dossiers seront étudiés à partir du 10 septembre.', now),
+    ).toBeNull();
+  });
+
+  it('lit « actuellement » et « immédiatement » placés avant ou après', () => {
+    const today = '2026-08-14T12:00:00.000Z';
+    expect(parseAvailabilityInText('Salle d’eau. Disponible actuellement Les infos', now)).toBe(
+      today,
+    );
+    expect(parseAvailabilityInText('Location VIDE actuellement disponible, 3 pièces', now)).toBe(
+      today,
+    );
+    expect(parseAvailabilityInText('Immédiatement disponible, premier contact', now)).toBe(today);
+    // « à proximité immédiate » situe le bien, il ne le libère pas.
+    expect(parseAvailabilityInText('Disponible, à proximité immédiate du tram', now)).toBeNull();
+  });
+
+  it('n’envoie pas à l’année suivante un mois tout juste passé', () => {
+    const septembre = Date.parse('2026-09-15T10:00:00.000Z');
+    expect(parseAvailabilityInText('Une cave. Disponible début AOUT. Loyer', septembre)).toBe(
+      '2026-08-01T00:00:00.000Z',
+    );
+    // Une année écrite plus loin, pour la FIN du bail, ne décale pas le début.
+    expect(
+      parseAvailabilityInText(
+        'Bail mobilité (à partir d’octobre jusqu’à max juin 2027)',
+        septembre,
+      ),
+    ).toBe('2026-10-01T00:00:00.000Z');
+  });
+
   it('essaie TOUTES les mentions, pas seulement la première', () => {
     // La phrase parasite ouvre presque toujours le bal ; s’arrêter là
     // condamnait la vraie, trois lignes plus bas.
@@ -823,6 +893,34 @@ describe('parseChargesFromText', () => {
     expect(parseChargesFromText('LOYER MENSUEL 495.00 € CHARGES COMPRISES', 495)).toBeNull();
   });
 
+  it('lit les tournures « provision » sans deux-points (relevé du 2026-09-15)', () => {
+    expect(
+      parseChargesFromText('Loyer hors charges 575,00 € par mois, provision charges 155,00 €', 730),
+    ).toBe(155);
+    expect(parseChargesFromText('Loyer : 711 € + provision sur charges de 55 € (eau)', 790)).toBe(
+      55,
+    );
+    expect(parseChargesFromText('Loyer: 1.460,00€ + 50,00€ Prov. charges HCL', 1510)).toBe(50);
+    expect(parseChargesFromText('Loyer: 750,00€ + 40,00€ charges DG: 1500,00€', 790)).toBe(40);
+    expect(
+      parseChargesFromText(
+        'LOYER 1470euros CHARGES COMPRISES DONT 250euros PROVISION SUR CHARGES',
+        1470,
+      ),
+    ).toBe(250);
+  });
+
+  it('lit « ? » pour un euro perdu à l’encodage, dans ces seules tournures', () => {
+    expect(parseChargesFromText('Loyer mensuel : 850 ? (dont 130 ? de charges)', 850)).toBe(130);
+    expect(parseChargesFromText('Combien ? Charges comprises', 850)).toBeNull();
+  });
+
+  it('ne prend pas « loyer hors charges : 675 € » pour des charges', () => {
+    expect(
+      parseChargesFromText('Loyer hors charges : 675 € - Charges locatives : 155 €', 885),
+    ).toBe(155);
+  });
+
   it('refuse des charges supérieures au loyer — ce n’en sont pas', () => {
     expect(parseChargesFromText('Charges : 900 €', 650)).toBeNull();
   });
@@ -866,6 +964,25 @@ describe('parseDpe — libellé suivi de son unité', () => {
   it('ne prend pas une valeur de GES pour une classe (§17)', () => {
     expect(parseDpe('GES : 60')).toBeNull();
     expect(parseDpe('CONSOMMATION ENERGETIQUE EXCESSIVE')).toBeNull();
+  });
+});
+
+describe('parseDpe — mots de libellé entre le sigle et la lettre', () => {
+  it('lit les tournures relevées le 2026-09-15', () => {
+    expect(parseDpe('Performance énergétique : DPE : Classe C. Consommation')).toBe('C');
+    expect(parseDpe('DPE et GES : Classe D Honoraires : 13€/m²')).toBe('D');
+    expect(
+      parseDpe("Diagnostic de performance énergétique de l'appartement : classe F Montant"),
+    ).toBe('F');
+    expect(parseDpe('DPE Conso C 160 / GES A 4')).toBe('C');
+    expect(parseDpe('Classe Energie B71 GES B7')).toBe('B');
+    expect(parseDpe('DPE cat. C Loyer')).toBe('C');
+  });
+
+  it('ne lit pas une préposition ni un DPE en attente', () => {
+    expect(parseDpe('DPE à venir')).toBeNull();
+    expect(parseDpe('DPE : en cours')).toBeNull();
+    expect(parseDpe('DPE : vierge Loyer')).toBeNull();
   });
 });
 

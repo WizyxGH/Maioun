@@ -120,6 +120,30 @@ describe('parseDetail — position (LocService)', () => {
   });
 });
 
+describe('parseDetail — bloc « À propos du prix » (LocService)', () => {
+  const FICHE_PRIX = readFileSync(
+    fileURLToPath(
+      new URL('../../../../../tests/fixtures/locservice/fiche-prix.html', import.meta.url),
+    ),
+    'utf8',
+  );
+
+  it('lit loyer, charges, dépôt et honoraires réels', () => {
+    const detail = parseDetail(FICHE_PRIX);
+    expect(detail?.priceText).toBe('850 € / mois (charges comprises)');
+    expect(detail?.chargesText).toBe('50 € / mois');
+    expect(detail?.depositText).toBe('1 600 €');
+    // L'estimation barrée (465 €) n'est pas ce que paie le locataire.
+    expect(detail?.feesText).toBe('0 €');
+  });
+
+  it('ne pose rien quand le bloc manque', () => {
+    const detail = parseDetail('<div id="accommodation-ad-description"><p>Texte</p></div>');
+    expect(detail?.chargesText).toBeUndefined();
+    expect(detail?.depositText).toBeUndefined();
+  });
+});
+
 describe('pageUrlFor', () => {
   it('laisse la première page sans suffixe', () => {
     expect(pageUrlFor('https://x.invalid/location-nice', 1)).toBe(

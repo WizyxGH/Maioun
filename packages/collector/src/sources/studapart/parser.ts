@@ -59,7 +59,7 @@ export function buildSearchBody(citySlug: string): string {
 }
 
 /** Forme minimale d'une fiche telle que renvoyée dans un bucket. */
-interface StudapartSource {
+export interface StudapartSource {
   readonly reference?: string | number;
   readonly distinctId?: string;
   readonly title?: string;
@@ -80,6 +80,35 @@ interface StudapartSource {
   readonly canonicalUrls?: { fr?: string };
   readonly media?: unknown;
   readonly availabilities?: { start?: number }[];
+  /** Loyer hors charges et charges de chaque chambre, dans le même ordre. */
+  readonly roomsRents?: readonly number[];
+  readonly roomsExpenses?: readonly number[];
+}
+
+/**
+ * Les charges, déduites du détail par chambre que l'API publie.
+ *
+ * Une COLOCATION affiche la chambre la moins chère : ses charges sont celles de
+ * la chambre dont loyer + charges donne exactement ce montant. Un logement
+ * ENTIER affiche la somme des chambres : ses charges sont la somme des leurs —
+ * à un euro près par chambre, l'API arrondissant chaque part (2 687 € pour
+ * trois fois 745 + 150).
+ *
+ * Aucune chambre ne correspond : rien. 188 annonces sur 201 se lisent ainsi
+ * (relevé du 2026-09-15).
+ */
+export function chargesFromRooms(source: StudapartSource): number | null {
+  const total = source.rentWithExpensesAmount;
+  const rents = source.roomsRents ?? [];
+  const expenses = source.roomsExpenses ?? [];
+  if (total === undefined || rents.length === 0 || rents.length !== expenses.length) return null;
+  const at = (index: number): number => expenses[index] ?? 0;
+  if (source.rentedByRoom === true) {
+    const index = rents.findIndex((rent, i) => Math.abs(rent + at(i) - total) <= 1);
+    return index === -1 ? null : at(index);
+  }
+  const sum = (values: readonly number[]): number => values.reduce((a, b) => a + b, 0);
+  return Math.abs(sum(rents) + sum(expenses) - total) <= rents.length ? sum(expenses) : null;
 }
 
 /** Type français attendu par la normalisation (elle lit surtout le titre). */
@@ -145,6 +174,7 @@ function resolveRefAndUrl(
 
 /** Transforme une fiche brute de l'API en `RawListing`. `null` si inexploitable. */
 function toRawListing(source: StudapartSource): RawListing | null {
+  const charges = chargesFromRooms(source);
   const identity = resolveRefAndUrl(source);
   if (identity === null) return null;
   const { reference, sourceUrl } = identity;
@@ -167,6 +197,7 @@ function toRawListing(source: StudapartSource): RawListing | null {
       source.rentWithExpensesAmount !== undefined
         ? `${source.rentWithExpensesAmount} € CC`
         : undefined,
+    chargesText: charges !== null && charges > 0 ? `${charges} €` : undefined,
     depositText:
       source.depositAmount !== undefined && source.depositAmount !== ''
         ? `${source.depositAmount} €`

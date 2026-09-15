@@ -176,6 +176,7 @@ export function parseDetail(html: string): RawDraft | null {
   const photos = detailPhotos($);
   const position = detailPosition($);
   return {
+    ...detailPrices($),
     ...(description !== '' ? { description } : {}),
     ...(disponibilite !== undefined ? { availableAtText: disponibilite } : {}),
     ...(meuble !== undefined ? { furnishedText: meuble } : {}),
@@ -183,6 +184,40 @@ export function parseDetail(html: string): RawDraft | null {
     ...(position ?? {}),
     ...(Object.keys(extra).length > 0 ? { extra } : {}),
   };
+}
+
+/**
+ * Le bloc « À propos du prix » : une ligne par montant, intitulé en `<h3>`.
+ *
+ * Il donne charges, dépôt et honoraires en champs dédiés, là où la description
+ * n'en dit presque jamais rien (5 % de charges et de dépôts au 2026-09-15).
+ * Les honoraires affichent l'estimation barrée PUIS le montant réel : seul
+ * le second (`strong`) compte.
+ */
+function detailPrices(
+  $: cheerio.CheerioAPI,
+): Pick<RawDraft, 'priceText' | 'chargesText' | 'depositText' | 'feesText'> {
+  const prices: {
+    priceText?: string;
+    chargesText?: string;
+    depositText?: string;
+    feesText?: string;
+  } = {};
+  $('#accommodation-ad-prices-section h3').each((_i, heading) => {
+    const label = $(heading).text().replace(/\s+/g, ' ').trim();
+    const cell = $(heading).next();
+    const amount = (cell.find('strong').first().text() || cell.text()).replace(/\s+/g, ' ').trim();
+    if (amount === '') return;
+    if (/^loyer\b/i.test(label)) {
+      // « Loyer (charges comprises) » : la précision suit le montant, où la
+      // normalisation la lit.
+      const precision = $(heading).find('em').text().trim();
+      prices.priceText = precision === '' ? amount : `${amount} ${precision}`;
+    } else if (/^charges\b/i.test(label)) prices.chargesText = amount;
+    else if (/d[ée]p[ôo]t de garantie/i.test(label)) prices.depositText = amount;
+    else if (/^honoraires\b/i.test(label)) prices.feesText = amount;
+  });
+  return prices;
 }
 
 /**
