@@ -33,6 +33,7 @@ import type {
   SourceStateView,
   StatsData,
 } from '../types.js';
+import { archiveReasonOf } from '../availability.js';
 import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
@@ -289,7 +290,8 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
     let filtered = includeAll
       ? MOCK_LISTINGS
       : MOCK_LISTINGS.filter((listing) => listing.matchesCriteria);
-    if (!includeArchived) filtered = filtered.filter((listing) => listing.archived !== true);
+    if (!includeArchived)
+      filtered = filtered.filter((listing) => archiveReasonOf(listing) === null);
     if (favoritesOnly) filtered = filtered.filter((listing) => listing.favorite === true);
     const listings = sortMock(filtered, sort);
     return { listings, total: listings.length, limit: listings.length, offset: 0 };

@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { decodeProxiedImage, parseDetail, parseListPage } from './parser.js';
+import {
+  decodeProxiedImage,
+  isWithdrawnDraft,
+  isWithdrawnPage,
+  parseDetail,
+  parseDetailResponse,
+  parseListPage,
+  WITHDRAWN_DRAFT,
+} from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(new URL('../../../../../tests/fixtures/rentumo/liste.html', import.meta.url)),
@@ -127,5 +135,45 @@ describe('parseDetail (Rentumo) — localisation affichée', () => {
   it('sans localisation affichée, n’invente ni voie ni code postal', () => {
     const detail = parseDetail(`<html><head>${JSON_LD}</head><body></body></html>`);
     expect(detail).toEqual({ title: 'T2', description: 'Texte.' });
+  });
+});
+
+describe('fiche retirée (Rentumo)', () => {
+  const DESACTIVEE = readFileSync(
+    fileURLToPath(
+      new URL(
+        '../../../../../tests/fixtures/rentumo/recherche-annonce-desactivee.html',
+        import.meta.url,
+      ),
+    ),
+    'utf8',
+  );
+  const FICHE = readFileSync(
+    fileURLToPath(new URL('../../../../../tests/fixtures/rentumo/fiche.html', import.meta.url)),
+    'utf8',
+  );
+  const ok = { status: 200, location: null };
+
+  it('reconnaît la redirection vers la recherche de la commune', () => {
+    const page = { status: 302, location: 'https://rentumo.com/rentals/nice' };
+    expect(isWithdrawnPage('', page)).toBe(true);
+    expect(parseDetailResponse('', page)).toBe(WITHDRAWN_DRAFT);
+    expect(isWithdrawnDraft(parseDetailResponse('', page) ?? undefined)).toBe(true);
+  });
+
+  it('reconnaît le bandeau « the listing has been deactivated »', () => {
+    expect(isWithdrawnPage(DESACTIVEE, ok)).toBe(true);
+    expect(parseDetailResponse(DESACTIVEE, ok)).toBe(WITHDRAWN_DRAFT);
+  });
+
+  it('ne conclut rien d’une redirection vers une autre fiche, ni d’une fiche en ligne', () => {
+    const versFiche = { status: 301, location: '/listings/appartement-nice-26131834' };
+    expect(isWithdrawnPage('', versFiche)).toBe(false);
+    expect(parseDetailResponse('', versFiche)).toBeNull();
+    expect(isWithdrawnPage('', { status: 302, location: null })).toBe(false);
+    // La fiche vivante porte « no longer available » dans son formulaire de
+    // signalement : ce n'est pas un retrait.
+    expect(isWithdrawnPage(FICHE, ok)).toBe(false);
+    expect(isWithdrawnDraft(parseDetailResponse(FICHE, ok) ?? undefined)).toBe(false);
   });
 });

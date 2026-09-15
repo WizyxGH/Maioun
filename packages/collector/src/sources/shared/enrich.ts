@@ -33,12 +33,23 @@ export interface EnrichOptions {
    * Ce que la fiche apprend, à fusionner sur l'annonce. `null` si la page
    * n'apprend rien — on ne remplace alors surtout pas ce qu'on avait (§17).
    */
-  readonly parse: (html: string, listing: RawListing) => RawDraft | null;
+  readonly parse: (html: string, listing: RawListing, page: DetailPage) => RawDraft | null;
+  /**
+   * `'manual'` : une redirection n'est pas suivie, et `parse` la reçoit (statut,
+   * `location`, corps vide). Pour les sources qui redirigent une fiche retirée.
+   */
+  readonly redirect?: 'follow' | 'manual';
   /**
    * Fiches déjà lues pendant ce passage, par référence, avec ce que `parse` en
    * a tiré : traitées comme une visite, sans requête ni part du budget.
    */
   readonly prefetched?: ReadonlyMap<string, RawDraft | null>;
+}
+
+/** La réponse d'une fiche, au-delà de son corps. */
+export interface DetailPage {
+  readonly status: number;
+  readonly location: string | null;
 }
 
 export interface EnrichResult {
@@ -196,14 +207,19 @@ export async function enrichNewListings(
 
     budget -= 1;
     try {
-      const page = await context.fetch(url);
+      const page =
+        options.redirect === undefined
+          ? await context.fetch(url)
+          : await context.fetch(url, { redirect: options.redirect });
       requestCount += 1;
       if (page.notModified) {
         // Fiche inchangée : ce que la mémoire en garde reste vrai, et rajeunit.
         await remember(listing.sourceRef, context.detailMemory.get(listing.sourceRef)?.draft);
       } else {
         pagesFetched += 1;
-        await learn(listing, options.parse(page.body, listing));
+        const location = options.redirect === 'manual' ? (page.headers['location'] ?? null) : null;
+        const response = { status: page.status, location };
+        await learn(listing, options.parse(page.body, listing, response));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

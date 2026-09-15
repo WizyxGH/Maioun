@@ -421,6 +421,17 @@ export interface Repository {
    * @returns le nombre de fiches effectivement marquées.
    */
   markRented(sourceId: SourceId, refs: readonly string[]): Promise<number>;
+  /**
+   * Éteint sur-le-champ les occurrences que leur source dit retirées.
+   * @param inactiveAfter seuil d'absences : le compteur y est porté, pour que
+   *   le vieillissement ne les ramène pas au doute.
+   * @returns le nombre d'occurrences éteintes.
+   */
+  markWithdrawn(
+    sourceId: SourceId,
+    refs: readonly string[],
+    inactiveAfter: number,
+  ): Promise<number>;
   loadSourceState(sourceId: SourceId): Promise<SourceRuntimeState>;
   saveSourceState(state: SourceRuntimeState): Promise<void>;
   recordRun(entry: CollectionRunRecord): Promise<void>;
@@ -1682,6 +1693,17 @@ export function createRepository(db: Database): Repository {
                 WHERE source_id = ? AND source_ref IN (${placeholders}) AND group_id IS NOT NULL
               )`,
         args: [new Date().toISOString(), sourceId, ...refs],
+      });
+      return result.rowsAffected;
+    },
+
+    async markWithdrawn(sourceId, refs, inactiveAfter) {
+      if (refs.length === 0) return 0;
+      const result = await db.execute({
+        sql: `UPDATE occurrences SET lifecycle = 'inactive', missing_runs = MAX(missing_runs, ?)
+              WHERE source_id = ? AND lifecycle != 'inactive'
+                AND source_ref IN (${refs.map(() => '?').join(',')})`,
+        args: [inactiveAfter, sourceId, ...refs],
       });
       return result.rowsAffected;
     },

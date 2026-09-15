@@ -97,6 +97,16 @@ describe('ordre de la liste', () => {
     expect(query('?archived=true').filter).not.toContain('applicationStatus');
   });
 
+  it('archive d’office ce que la source dit loué ou retiré, et le montre aux archives', () => {
+    const disponible = "listings.lifecycle != 'inactive' AND listings.rented = 0";
+    expect(query('').filter).toContain(disponible);
+    expect(query('?all=true').filter).toContain(disponible);
+    expect(query('?favorite=true').filter).toContain(disponible);
+    // La vue des archivées les rend, avec leur raison.
+    expect(query('?archived=true').filter).not.toContain('rented');
+    expect(query('?archived=true').filter).not.toContain("'inactive'");
+  });
+
   it('ouvre aux hors-critères sur demande explicite', () => {
     expect(query('?all=true').filter).not.toContain('matches_criteria = 1');
   });
@@ -223,6 +233,19 @@ describe('rowToListing', () => {
     const fermee = vueMoi(row({ payload: '{"applicationStatus":"full"}' }));
     expect(fermee['archived']).toBe(true);
     expect(vueMoi(row({ payload: '{"applicationStatus":"open"}' }))['archived']).toBe(false);
+  });
+
+  it('archive d’office une annonce louée ou retirée, jamais une annonce en doute', () => {
+    expect(vueMoi(row({ rented: 1 }))).toMatchObject({ archived: true, archiveReason: 'rented' });
+    expect(vueMoi(row({ lifecycle: 'inactive' }))).toMatchObject({
+      archived: true,
+      archiveReason: 'offline',
+    });
+    expect(vueMoi(row({ lifecycle: 'possiblyInactive' }))).toMatchObject({
+      archived: false,
+      archiveReason: null,
+    });
+    expect(vueMoi(row({ user_archived: 1 }))['archiveReason']).toBe('user');
   });
 
   it('déplie le payload par-dessus, sans écraser l’identifiant', () => {
@@ -416,6 +439,20 @@ describe('listItemJson', () => {
     const { avant, apres } = lignes(fiche({ applicationStatus: 'full' }));
     pareil({ avant, apres });
     expect((JSON.parse(listItemJson(apres)) as { archived: boolean }).archived).toBe(true);
+  });
+
+  it('archive d’office une fiche louée ou retirée, avec sa raison', () => {
+    for (const [extra, raison] of [
+      [{ rented: 1 }, 'rented'],
+      [{ lifecycle: 'inactive' }, 'offline'],
+    ] as const) {
+      const { avant, apres } = lignes(fiche(), {}, extra);
+      pareil({ avant, apres });
+      expect(JSON.parse(listItemJson(apres))).toMatchObject({
+        archived: true,
+        archiveReason: raison,
+      });
+    }
   });
 
   it('rend `notifiedAt` du compte, jamais celui de la fiche', () => {

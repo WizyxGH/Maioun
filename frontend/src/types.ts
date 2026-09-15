@@ -28,6 +28,9 @@ export type {
   PropertyType,
 };
 
+/** Archivée parce que louée, retirée de sa source, fermée aux candidatures, ou à la main. */
+export type ArchiveReason = 'rented' | 'offline' | 'applicationsFull' | 'user';
+
 /** Occurrence telle que l'API la résume : de quoi ouvrir l'annonce d'origine (§38). */
 export interface OccurrenceView {
   readonly id: string;
@@ -97,8 +100,10 @@ export interface ListingView {
   readonly priceDropped?: boolean;
   /** `true` dès que la fiche a été ouverte au moins une fois (posé automatiquement). */
   readonly viewed?: boolean;
-  /** `true` si l'utilisateur a archivé l'annonce (retirée de la liste par défaut). */
+  /** `true` si l'annonce est archivée, à la main ou d'office (voir `archiveReason`). */
   readonly archived?: boolean;
+  /** Pourquoi elle l'est ; l'API le donne, `availability.ts` le retrouve sinon. */
+  readonly archiveReason?: ArchiveReason | null;
   /** `true` si l'utilisateur a mis l'annonce en favori. */
   readonly favorite?: boolean;
   /** `true` si la source affiche le bien comme DÉJÀ LOUÉ (§32, §33). */
