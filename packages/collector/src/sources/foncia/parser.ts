@@ -359,44 +359,28 @@ export function parseDetail(html: string, reference: string): RawDraft | null {
   return description.length > 0 ? { description } : null;
 }
 
-/** Ce que Foncia dit de la candidature en ligne sur une annonce. */
-export interface ApplicationOverview {
-  readonly rented: boolean;
-  /** `null` : pas de candidature en ligne chez cette agence. */
-  readonly applications: ApplicationStatus | null;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const isCount = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+/** Ce que dit le bouton de candidature d'une fiche. */
+export type ApplicationButton = ApplicationStatus | 'rented';
 
 /**
- * Lit la réponse de `parcours-locataire/api/v1/properties/overview`, que la
- * fiche appelle pour choisir son bouton. Même règle que le site : agence sans
- * candidature en ligne → rien ; loué → loué ; dossiers actifs ≥ plafond →
- * complet ; sinon ouvert. `rented` absent vaut `false`.
+ * Lit le bouton de candidature en bas de la fiche : « Je dépose mon dossier »,
+ * « Dépôt de candidature : complet » ou « … : déjà loué ».
  *
- * L'API ne connaît pas les annonces retirées (elle répond « ouvert ») : le
- * retrait reste l'affaire de `parseWithdrawn`.
+ * Seul le TEXTE RENDU du `<button>` compte. Les mêmes libellés figurent dans le
+ * dictionnaire de traduction de l'état de transfert, présent sur toutes les
+ * fiches : une recherche dans le HTML brut verrait « complet » partout. Et la
+ * classe `navbar-footer-button-full` veut dire pleine largeur, pas complet.
  *
- * @returns `null` si la réponse n'a pas la forme attendue — rien n'est conclu.
+ * @returns `null` sans bouton reconnu (agence sans candidature en ligne, mise
+ *          en page modifiée) : rien n'est conclu.
  */
-export function parseApplicationOverview(json: string): ApplicationOverview | null {
-  let data: unknown;
-  try {
-    data = JSON.parse(json);
-  } catch {
-    return null;
+export function parseApplicationButton(html: string): ApplicationButton | null {
+  const $ = cheerio.load(html);
+  for (const element of $('button.navbar-footer-button').toArray()) {
+    const label = cleanText($(element).text()).toLowerCase();
+    if (/d[ée]j[àa]\s+lou[ée]/.test(label)) return 'rented';
+    if (/\bcomplet\b/.test(label)) return 'full';
+    if (/je\s+d[ée]pose\s+mon\s+dossier/.test(label)) return 'open';
   }
-  if (!isRecord(data) || !isRecord(data['agency'])) return null;
-  const { activeApplicationsCount: active, rented = false } = data;
-  const { enabled, max } = data['agency'];
-  if (!isCount(active) || typeof rented !== 'boolean') return null;
-  if (typeof enabled !== 'boolean' || !isCount(max)) return null;
-
-  if (rented) return { rented: true, applications: null };
-  if (!enabled) return { rented: false, applications: null };
-  return { rented: false, applications: active >= max ? 'full' : 'open' };
+  return null;
 }

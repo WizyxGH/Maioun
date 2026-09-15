@@ -34,6 +34,11 @@ export interface EnrichOptions {
    * n'apprend rien — on ne remplace alors surtout pas ce qu'on avait (§17).
    */
   readonly parse: (html: string, listing: RawListing) => RawDraft | null;
+  /**
+   * Fiches déjà lues pendant ce passage, par référence, avec ce que `parse` en
+   * a tiré : traitées comme une visite, sans requête ni part du budget.
+   */
+  readonly prefetched?: ReadonlyMap<string, RawDraft | null>;
 }
 
 export interface EnrichResult {
@@ -165,9 +170,27 @@ export async function enrichNewListings(
     }
   };
 
+  const remember = async (sourceRef: string, draft: RawDraft | undefined): Promise<void> => {
+    if (draft === undefined) return;
+    pending.push({ sourceRef, draft });
+    if (pending.length >= SAVE_EVERY) await flush();
+  };
+  /** Ce qu'une fiche lue apprend. Écartée : on garde l'acquis, sinon on la note vide. */
+  const learn = async (listing: RawListing, draft: RawDraft | null): Promise<void> => {
+    if (draft !== null) learned.set(listing.sourceRef, draft);
+    const previous = context.detailMemory.get(listing.sourceRef)?.draft;
+    await remember(listing.sourceRef, draft ?? previous ?? REJECTED_DRAFT);
+  };
+
   let budget = options.max;
   for (const listing of aVisiter) {
-    if (budget <= 0 || context.shouldStop()) break;
+    if (options.prefetched?.has(listing.sourceRef) === true) {
+      await learn(listing, options.prefetched.get(listing.sourceRef) ?? null);
+      continue;
+    }
+    if (context.shouldStop()) break;
+    // Budget épuisé : seules les fiches déjà lues passent encore.
+    if (budget <= 0) continue;
     const url = options.detailUrl(listing);
     if (url === null) continue;
 
@@ -175,21 +198,12 @@ export async function enrichNewListings(
     try {
       const page = await context.fetch(url);
       requestCount += 1;
-      const previous = context.detailMemory.get(listing.sourceRef)?.draft;
-      let remembered: RawDraft | undefined;
       if (page.notModified) {
         // Fiche inchangée : ce que la mémoire en garde reste vrai, et rajeunit.
-        remembered = previous;
+        await remember(listing.sourceRef, context.detailMemory.get(listing.sourceRef)?.draft);
       } else {
         pagesFetched += 1;
-        const draft = options.parse(page.body, listing);
-        if (draft !== null) learned.set(listing.sourceRef, draft);
-        // Écartée : ce qu'on savait déjà est gardé, sinon la fiche est notée vide.
-        remembered = draft ?? previous ?? REJECTED_DRAFT;
-      }
-      if (remembered !== undefined) {
-        pending.push({ sourceRef: listing.sourceRef, draft: remembered });
-        if (pending.length >= SAVE_EVERY) await flush();
+        await learn(listing, options.parse(page.body, listing));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
