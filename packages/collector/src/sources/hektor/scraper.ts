@@ -77,6 +77,8 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
 
       // --- 1. Listes : découvrir les fiches ---------------------------------
       const discovered = new Map<string, ParsedHektorUrl>();
+      let saysEmpty = false;
+      let listFailed = false;
       for (const listUrl of config.listUrls) {
         try {
           const response = await context.fetch(listUrl);
@@ -88,6 +90,7 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
           pagesFetched += 1;
           const parsed = parseListPage(response.body, listUrl);
           warnings.push(...parsed.warnings);
+          saysEmpty ||= parsed.empty;
           for (const url of parsed.urls) {
             if (!discovered.has(url.reference)) discovered.set(url.reference, url);
           }
@@ -95,6 +98,7 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
           const message = error instanceof Error ? error.message : String(error);
           warnings.push(`Échec de la liste ${listUrl} : ${message}`);
           context.log('list.failed', { url: listUrl, error: message });
+          listFailed = true;
           if (message.includes('429')) {
             return {
               sourceId: config.id,
@@ -106,6 +110,18 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
             };
           }
         }
+      }
+
+      // L'agence affiche n'avoir aucune location : rien à visiter, rien de cassé.
+      if (discovered.size === 0 && saysEmpty && !listFailed) {
+        return {
+          sourceId: config.id,
+          listings,
+          requestCount,
+          pagesFetched,
+          stopReason: 'empty',
+          warnings,
+        };
       }
 
       // --- 2. Nouvelles fiches d'abord, connues confirmées sans requête -----

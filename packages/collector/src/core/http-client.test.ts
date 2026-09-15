@@ -195,4 +195,31 @@ describe('createHttpClient', () => {
     const headers = fetchImpl.mock.calls[1]?.[1]?.headers as Record<string, string>;
     expect(headers['if-modified-since']).toBe(lastModified);
   });
+
+  describe('décodage du corps', () => {
+    const bytesResponse = (bytes: number[]) =>
+      new Response(new Uint8Array(bytes), {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=UTF-8' },
+      });
+    const read = async (bytes: number[]) => {
+      const fetchImpl = vi.fn(async () => bytesResponse(bytes));
+      const client = createHttpClient({ ...baseOptions(), fetchImpl: fetchImpl as never });
+      return (await client.get('https://example.invalid/fiche')).body;
+    };
+
+    it('lit l’UTF-8 annoncé tel quel', async () => {
+      // « Pièce € » en UTF-8.
+      expect(await read([0x50, 0x69, 0xc3, 0xa8, 0x63, 0x65, 0x20, 0xe2, 0x82, 0xac])).toBe(
+        'Pièce €',
+      );
+    });
+
+    it('relit en windows-1252 un corps annoncé UTF-8 mais invalide', async () => {
+      // « Pièce € » en windows-1252 : 0xE8 et 0x80 sont invalides en UTF-8.
+      expect(await read([0x50, 0x69, 0xe8, 0x63, 0x65, 0x20, 0x80])).toBe('Pièce €');
+      // « l’œil Ÿ » : apostrophe typographique et ligatures de la plage 0x80-0x9F.
+      expect(await read([0x6c, 0x92, 0x9c, 0x69, 0x6c, 0x20, 0x9f])).toBe('l’œil Ÿ');
+    });
+  });
 });

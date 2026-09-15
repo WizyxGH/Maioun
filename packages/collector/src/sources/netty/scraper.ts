@@ -23,6 +23,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { sitemapUrls } from '../shared/sitemap.js';
 import {
   matchesCity,
   parseDetailPage,
@@ -42,6 +43,8 @@ export interface NettyConfig {
   readonly priority?: number;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
+  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
+  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 /** `Crawl-delay: 5`, tel que l'écrivent les `robots.txt` engendrés par Netty. */
@@ -53,6 +56,7 @@ export function makeNettyDescriptor(config: NettyConfig): SourceDescriptor {
     id: config.id,
     name: config.name,
     domain: config.domain,
+    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
     kind: 'localAgency',
     method: 'sitemap',
     priority: config.priority ?? 2,
@@ -90,6 +94,8 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
 
       // --- 1. Sitemap : découvrir toutes les fiches de location ------------
       let entries: SitemapEntry[] = [];
+      // Sitemap lu en entier et non vide : sans location visée, l'agence n'en a pas.
+      let sitemapComplete = false;
       try {
         const index = await context.fetch(config.sitemapUrl);
         requestCount += 1;
@@ -118,6 +124,9 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
           if (!child.notModified) bodies.push(child.body);
         }
         entries = bodies.flatMap((body) => parseSitemap(body));
+        sitemapComplete =
+          bodies.length === Math.max(children.length, 1) &&
+          bodies.some((body) => sitemapUrls(body).length > 0);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         warnings.push(`Échec du sitemap : ${message}`);
@@ -134,6 +143,16 @@ export function makeNettyScraper(config: NettyConfig): Scraper {
 
       // --- 2. Filtrer -----------------------------------------------------
       const targeted = entries.filter((entry) => matchesCity(entry.url, config.citySlugs));
+      if (targeted.length === 0 && sitemapComplete) {
+        return {
+          sourceId: config.id,
+          listings,
+          requestCount,
+          pagesFetched,
+          stopReason: 'empty',
+          warnings,
+        };
+      }
       const confirmedRefs = targeted
         .filter((entry) => context.isKnown(entry.url.reference))
         .map((entry) => entry.url.reference);

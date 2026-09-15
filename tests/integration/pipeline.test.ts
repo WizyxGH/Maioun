@@ -443,3 +443,47 @@ describe('cycle de vie des annonces (§32)', () => {
     expect(Number(inactive.rows[0]?.['n'])).toBeGreaterThan(0);
   });
 });
+
+describe('liste vide affichée ≠ gabarit cassé', () => {
+  /** La source Laforêt, qui ne rend plus rien, pour la raison donnée. */
+  const emptied = (stopReason: 'empty' | 'completed'): Scraper => ({
+    descriptor: laforetScraper.descriptor,
+    run: async () => ({
+      sourceId: laforetScraper.descriptor.id,
+      listings: [],
+      requestCount: 1,
+      pagesFetched: 1,
+      stopReason,
+      warnings: [],
+    }),
+  });
+
+  async function afterTwoEmptyRuns(stopReason: 'empty' | 'completed') {
+    const { db, repository } = await setupDatabase();
+    await runPipeline(pipelineOptions(repository, serveNominal));
+    for (const offset of [3_600_000, 7_200_000]) {
+      await runPipeline(
+        pipelineOptions(repository, serveNominal, [emptied(stopReason)], NOW + offset),
+      );
+    }
+    const doubtful = await db.execute(
+      "SELECT COUNT(*) AS n FROM occurrences WHERE lifecycle = 'possiblyInactive'",
+    );
+    return {
+      health: (await repository.loadSourceState('laforet')).health,
+      doubtful: Number(doubtful.rows[0]?.['n']),
+    };
+  }
+
+  it('une agence qui affiche n’avoir aucune location reste saine, et son stock vieillit', async () => {
+    const { health, doubtful } = await afterTwoEmptyRuns('empty');
+    expect(health).toBe('healthy');
+    expect(doubtful).toBeGreaterThan(0);
+  });
+
+  it('une page vide sans ce signe dégrade la source, sans retirer son stock', async () => {
+    const { health, doubtful } = await afterTwoEmptyRuns('completed');
+    expect(health).toBe('degraded');
+    expect(doubtful).toBe(0);
+  });
+});

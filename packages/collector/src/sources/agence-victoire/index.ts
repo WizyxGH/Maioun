@@ -20,9 +20,11 @@ export const NICE_AREA_SLUGS = [
   'cap-d-ail',
   'villefranche-sur-mer',
   'la-trinite',
+  'saint-andre-de-la-roche',
   'drap',
   'carros',
   'contes',
+  'colomars',
 ] as const;
 
 export const agenceVictoireScraper = makeApimoScraper({

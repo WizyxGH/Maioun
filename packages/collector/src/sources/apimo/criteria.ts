@@ -140,6 +140,19 @@ export function apimoMoney(criteria: ApimoCriteria): {
   };
 }
 
+/**
+ * Ameublement déclaré par l'agence : la prestation « Meublé », ou une ligne
+ * « Meublé : Oui/Non ». Jamais la description, que la normalisation lit déjà.
+ */
+export function apimoFurnished(criteria: ApimoCriteria): string | undefined {
+  const service = criteria.services.find((item) => /^(?:non )?meublee?$/.test(comparable(item)));
+  if (service !== undefined) return service;
+  const value = comparable(criterion(criteria, [/^meublee?$/, /^ameublement$/]));
+  if (/^(?:oui|meublee?)$/.test(value)) return 'Meublé';
+  if (/^(?:non|non meublee?|vide)$/.test(value)) return 'Non meublé';
+  return undefined;
+}
+
 /** « 1er » → `1`, « 3ème » → `3`, « Rez-de-chaussée » → `0`. */
 export function apimoFloor(criteria: ApimoCriteria): string | undefined {
   const value = criterion(criteria, [/^etage$/]);

@@ -59,6 +59,14 @@ function parseCity(cityField: string, title: string, slug: string): string | und
   return /-([a-z]+(?:-[a-z]+)*)-[A-Z]{2,}\d/.exec(slug)?.[1]?.replace(/-/g, ' ');
 }
 
+/** Message de liste vide de la plateforme (agenceduportdenice.fr, 2026-09-15). */
+const NO_RESULTS = /n(?:'|&apos;|&#0?39;)a\s+donn(?:é|&eacute;)\s+aucun\s+r(?:é|&eacute;)sultat/i;
+
+/** `true` si la page dit n'avoir aucun résultat : liste vide, pas gabarit changé. */
+export function saysNoResults(html: string): boolean {
+  return NO_RESULTS.test(html);
+}
+
 /** Analyse la page de liste et rend une annonce par entrée du JSON. */
 export function parseListPage(html: string, pageUrl: string, agencyName: string): RawListing[] {
   const block = /var\s+properties\s*=\s*(\[[\s\S]*?\]);/.exec(html)?.[1];

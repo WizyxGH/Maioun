@@ -68,6 +68,28 @@ export class BlockedError extends Error {
   }
 }
 
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
+
+/**
+ * Caractères de `windows-1252` pour les octets 0x80 à 0x9F (le reste coïncide
+ * avec Latin-1). Le `TextDecoder` de Node les lit en contrôles Latin-1.
+ */
+const CP1252_C1 = '€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ';
+
+/**
+ * UTF-8 annoncé, mais des sites (Haton Immobilier, HKB Real Estate) servent du
+ * `windows-1252` : des octets invalides en UTF-8 trahissent ce jeu réel.
+ */
+function decodeUtf8OrLatin1(bytes: Buffer): string {
+  try {
+    return STRICT_UTF8.decode(bytes);
+  } catch {
+    return bytes
+      .toString('latin1')
+      .replace(/[\u0080-\u009F]/g, (char) => CP1252_C1[char.charCodeAt(0) - 0x80] ?? char);
+  }
+}
+
 /**
  * Lit le corps en respectant l'ENCODAGE réellement déclaré.
  *
@@ -91,7 +113,7 @@ async function decodeBody(response: Response): Promise<string> {
   const fromMeta = /<meta[^>]+charset=["']?([\w-]+)/i.exec(head)?.[1];
   const charset = (fromHeader ?? fromMeta ?? 'utf-8').toLowerCase();
 
-  if (charset === 'utf-8' || charset === 'utf8') return bytes.toString('utf8');
+  if (charset === 'utf-8' || charset === 'utf8') return decodeUtf8OrLatin1(bytes);
   try {
     return new TextDecoder(charset).decode(bytes);
   } catch {

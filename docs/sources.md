@@ -439,7 +439,6 @@ description (« NICE NORD – 36 BD GORBELLA »), lue telle quelle.
 | **iad France** (iadfrance.fr)                                                                                                                               | 2026-09-14 | 🟡 `/annonces/pg-nice_06/location` et les fiches sont autorisées ; ~4 locations dans la zone. Données dans `__NUXT_DATA__`. Une demi-journée.                                                                                               |
 | **Century 21 Lafage** (century21-lafage-nice.com)                                                                                                           | 2026-09-14 | 🟡 22 locations dans la zone, lisibles par le parseur century21 existant. La source Century 21 ne lit que les appartements de Nice : lui ajouter maisons, Villefranche et Beaulieu (pages `v-*` autorisées) couvrirait ce stock. Une heure. |
 | **Orpi Agence Régionale** (Cagnes-sur-Mer)                                                                                                                  | 2026-09-14 | 🟡 Sans site propre ; ses annonces de Cagnes et Villeneuve-Loubet sont sur orpi.com. Ajouter ces pages à la source Orpi : une heure.                                                                                                        |
-| **Sun Immobilia** (sunimmobilia.fr)                                                                                                                         | 2026-09-14 | ⏸️ Netty, compatible tel quel, mais aucune location d'habitation au relevé.                                                                                                                                                                 |
 | **Madie Real Estate** (madieimmobilier.fr), **Riviera Angels** (riviera-angels.com)                                                                         | 2026-09-14 | ⏸️ La Boîte Immo, liste de locations vide au relevé.                                                                                                                                                                                        |
 | **Les Hespérides / Sopregim** (leshesperides.fr)                                                                                                            | 2026-09-14 | ⏸️ Résidence services seniors : un logement à Nice, réservé à un public âgé, que la recherche n'a pas de critère pour trier.                                                                                                                |
 | **DS Immobilier**, **Forimmo**                                                                                                                              | 2026-09-14 | 🔴 `robots.txt` en `Disallow: /` (Forimmo redirige vers la page de fermeture « Ma Boîte Immo »).                                                                                                                                            |
@@ -457,6 +456,104 @@ description (« NICE NORD – 36 BD GORBELLA »), lue telle quelle.
 `procivis.fr/louer?agency=immo-de-france-nice` est partie AVANT la lecture du
 `robots.txt`, qui interdit `/louer?*`. La page a été supprimée sans être lue ; la
 source n'utilise que les pages par type et commune, autorisées.
+
+### Balayage de l'annuaire du 2026-09-15 : toutes les agences de Nice
+
+Liste croisée : annuaire SIRENE (codes 68.31Z à Nice et alentours), agences vues
+sur les portails sans être lues, pages 1 des annuaires SeLoger et PagesJaunes.
+240 agences examinées ; 58 ajoutées. Les agences sans location le jour
+du relevé sont suivies quand même : elles en publieront. Une page vide n'est
+« vide » que si elle porte le message de la plateforme (« Aucun bien ne
+correspond… ») ; sans lui, la source passe en dégradée et ses annonces ne
+vieillissent pas.
+
+Écartées : ventes seules, location saisonnière seule, locaux commerciaux, viager,
+promoteurs, liquidations, sites introuvables, et les sites fermés aux robots
+(Haton Immobilier derrière AWS WAF, Sixième Avenue en 403, Crédit Agricole
+Immobilier dont robots.txt interdit la recherche) — aucun contournement.
+
+#### Ajoutées le 2026-09-15 — La Boîte Immo (adaptateur `hektor`)
+
+| Source                                               | Vérifié    | Locations relevées                      |
+| ---------------------------------------------------- | ---------- | --------------------------------------- |
+| **Cabinet Ledeux Immobilier** (cabinetledeux.com)    | 2026-09-15 | 2 (Nice)                                |
+| **Resid’Immo** (residimmo.fr)                        | 2026-09-15 | 2 (Colomars)                            |
+| **Gestion Casa Immobilière** (gestion-casa-immo.com) | 2026-09-15 | 4 (Nice ×3, Saint-Laurent-du-Var)       |
+| **La Chouette Agence Immobilière** (lachouette.immo) | 2026-09-15 | 1 (Saint-Laurent-du-Var)                |
+| **L’Agence Jean Jaurès** (l-agence.fr)               | 2026-09-15 | 2 (Nice, Villeneuve-Loubet)             |
+| **Cabinet Marro Immobilier** (marro-immobilier.com)  | 2026-09-15 | 3 (Nice)                                |
+| **Immo 3 Points** (immo3points.fr)                   | 2026-09-15 | 6 (Nice ×5 dont 1 cave, Cagnes-sur-Mer) |
+| **Riviera Angels Immobilier** (riviera-angels.com)   | 2026-09-15 | 2 (Nice), liste sans liens              |
+| **Gestymo** (gestymo.com)                            | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **Azur Conseil Salmon** (acsimmo.fr)                 | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **La Clef Immobilière** (laclefimmobiliere.com)      | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **API Nice** (agence-api.com)                        | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **Phoenix GLV** (phoenix-glv.com)                    | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **Delta Promotion** (delta-promotion.com)            | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **Platine Immobilier** (platineimmobilier.eu)        | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+| **Westimmo** (westimmo-properties.com)               | 2026-09-15 | 0 aujourd'hui (suivie en attente)       |
+
+#### Ajoutées le 2026-09-15 — Apimo (adaptateur `apimo`, sitemap)
+
+| Source                                                     | Vérifié    | Locations relevées                                                |
+| ---------------------------------------------------------- | ---------- | ----------------------------------------------------------------- |
+| **Blue Résidences** (blue-residences.fr)                   | 2026-09-15 | 50 au sitemap (Nice, Cagnes-sur-Mer, Saint-Laurent-du-Var)        |
+| **La Pérouse Immobilier** (laperouse-immobilier.com)       | 2026-09-15 | 27 au sitemap (Nice, La Trinité, Saint-André-de-la-Roche, Contes) |
+| **ISIT Immobilier** (isitimmo.com)                         | 2026-09-15 | 5 (Nice)                                                          |
+| **Eric Immo** (eric-immo.com)                              | 2026-09-15 | 15 (Nice, Saint-Laurent-du-Var)                                   |
+| **Étude des Vosges** (etudedesvosges.fr)                   | 2026-09-15 | 1 (Nice)                                                          |
+| **Valrose Immobilier** (valrose-immo.fr)                   | 2026-09-15 | ~30 (Nice)                                                        |
+| **Aparté Immobilier** (aparte-immobilier.com)              | 2026-09-15 | 4 (Nice)                                                          |
+| **Abyla Bosse** (immobiliere-abc.com)                      | 2026-09-15 | 5 (Nice)                                                          |
+| **Cabinet Central Gestion** (immobilier-cabinetcentral.fr) | 2026-09-15 | 8 (Nice)                                                          |
+| **Transactimo** (transactimo-nice.com)                     | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                 |
+| **Home on Riviera** (homeonriviera.com)                    | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                 |
+| **La Petite Maison** (la-petitemaison.fr)                  | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                 |
+| **Maison K Immobilier** (maisonk-immobilier.com)           | 2026-09-15 | 2 (meublés Mont Boron)                                            |
+| **Agence Tosca Nice le Port** (agencetosca.com)            | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                 |
+| **Acetimo** (acetimo.com)                                  | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                 |
+
+#### Ajoutées le 2026-09-15 — Apimo ancien schéma (`apimo/list-scraper.ts`)
+
+| Source                                                | Vérifié    | Locations relevées                                                      |
+| ----------------------------------------------------- | ---------- | ----------------------------------------------------------------------- |
+| **Agence 5 Promenade** (5promenade.fr)                | 2026-09-15 | 1 (Nice)                                                                |
+| **Cegestim** (cegestim.fr)                            | 2026-09-15 | 7 (Saint-Laurent-du-Var ×4 dont 3 parkings, Nice ×2, Villeneuve-Loubet) |
+| **Immobilière Camo** (immobiliere-camo.fr)            | 2026-09-15 | 5 (Nice, dont 3 chambres en colocation)                                 |
+| **Kalliste Immo Conseil** (kalliste-immo-conseil.com) | 2026-09-15 | 8 (Nice, dont 3 parkings)                                               |
+| **Milor Immobilier** (milorimmobilier.com)            | 2026-09-15 | 2 (Nice)                                                                |
+| **Cabinet Europazur** (europazur.fr)                  | 2026-09-15 | 2 parkings, 0 logement (suivie en attente)                              |
+| **Norait Immobilier** (norait-immobilier.fr)          | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                       |
+| **Coccimmo** (coccimmo.com)                           | 2026-09-15 | 0 aujourd'hui (liste, le sitemap garde 13 annonces mortes)              |
+| **Immo Idéal** (immo-ideal.fr)                        | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                       |
+
+#### Ajoutées le 2026-09-15 — Netty (adaptateur `netty`)
+
+| Source                                              | Vérifié    | Locations relevées                         |
+| --------------------------------------------------- | ---------- | ------------------------------------------ |
+| **Sun Immobilia** (sunimmobilia.fr, Cagnes-sur-Mer) | 2026-09-15 | 0 logement aujourd'hui (suivie en attente) |
+
+#### Ajoutées le 2026-09-15 — parseurs dédiés et petits adaptateurs (`twimmo`, `adaptimmo` v2)
+
+| Source                                                             | Vérifié    | Locations relevées                                              |
+| ------------------------------------------------------------------ | ---------- | --------------------------------------------------------------- |
+| **French Riviera Studios** (studios-nice.com)                      | 2026-09-15 | 18 au mois (Nice), WordPress Houzez                             |
+| **Parnasse Immobilier** (parnasse-immobilier.com)                  | 2026-09-15 | 8 (Nice ×7 dont 4 stationnements/cave, Valberg), WP Residence   |
+| **La Franco Suisse** (lafrancosuisse.com)                          | 2026-09-15 | 4 (Nice), On'App                                                |
+| **Moss Immobilier** (mossimmobilier.com)                           | 2026-09-15 | 3 (Nice), WordPress + extension Apimo                           |
+| **Marchal Immobilier** (marchal-immobilier.fr)                     | 2026-09-15 | 7 (Nice), AdaptImmo nouvelle version                            |
+| **Barbera Gestion & Patrimoine** (barbera-gestion.com)             | 2026-09-15 | 2 (Nice)                                                        |
+| **Azurimmo** (azurimmo06.net)                                      | 2026-09-15 | 1 (Nice, studio étudiant)                                       |
+| **Richer Immobilier** (richerimmobilier.com)                       | 2026-09-15 | 1 (Nice), WordPress Retro Listings                              |
+| **Grand Métropole** (gdmetropole.com)                              | 2026-09-15 | 1 (Nice), WordPress JetEngine                                   |
+| **Elitimo** (elitimo.com)                                          | 2026-09-15 | 4 (Nice ×3, Villeneuve-Loubet), Twimmo                          |
+| **Agence Californie** (agencecalifornie.fr)                        | 2026-09-15 | 9 (Nice, Saint-Laurent-du-Var, Villefranche, Carros), RealHomes |
+| **Forimmo** (forimmo.fr)                                           | 2026-09-15 | 8 (Nice ×3, Cagnes-sur-Mer, Menton), ICS resultat.php           |
+| **Nestenn Nice Port - Riquier** (immobilier-nice-port.nestenn.com) | 2026-09-15 | 3 mises en avant sur ~9 : absences sans effet                   |
+| **L’Orientation Immobilière** (orimnice.fr)                        | 2026-09-15 | 4 (Nice ×3 dont 1 parking, Le Cannet), ICS neocs                |
+| **Imodirect** (annonces.imodirect.com)                             | 2026-09-15 | 2 (Nice)                                                        |
+| **Agence du Port de Nice** (agenceduportdenice.fr)                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), ICS                          |
+| **Altarea Gestion Immobilière - Nice** (altarea.flatbay.fr)        | 2026-09-15 | 8 (Nice ×4 dont 1 box, Mougins, Fréjus, Saint-Raphaël), Flatbay |
 
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)
 

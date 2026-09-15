@@ -15,7 +15,14 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseDetailPage, parseSitemap, parseSitemapIndex, type SitemapEntry } from './parser.js';
+import { sitemapUrls } from '../shared/sitemap.js';
+import {
+  isCommercialSlug,
+  parseDetailPage,
+  parseSitemap,
+  parseSitemapIndex,
+  type SitemapEntry,
+} from './parser.js';
 
 export interface ApimoConfig {
   readonly id: string;
@@ -92,6 +99,8 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
 
       // --- 1. Sitemap : découvrir toutes les fiches de location ------------
       let entries: SitemapEntry[] = [];
+      // Sitemap lu en entier et non vide : sans location visée, l'agence n'en a pas.
+      let sitemapComplete = false;
       try {
         const index = await context.fetch(config.sitemapUrl);
         requestCount += 1;
@@ -119,6 +128,9 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
           if (!child.notModified) bodies.push(child.body);
         }
         entries = bodies.flatMap((body) => parseSitemap(body));
+        sitemapComplete =
+          bodies.length === Math.max(children.length, 1) &&
+          bodies.some((body) => sitemapUrls(body).length > 0);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         warnings.push(`Échec du sitemap : ${message}`);
@@ -148,7 +160,19 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
         context.log('sitemap.stale_skipped', { skipped: skippedStale, maxEntryAgeDays });
       }
 
-      const targeted = fresh.filter((entry) => targetCities.has(entry.url.citySlug));
+      const targeted = fresh.filter(
+        (entry) => targetCities.has(entry.url.citySlug) && !isCommercialSlug(entry.url.typeSlug),
+      );
+      if (targeted.length === 0 && sitemapComplete) {
+        return {
+          sourceId: config.id,
+          listings,
+          requestCount,
+          pagesFetched,
+          stopReason: 'empty',
+          warnings,
+        };
+      }
       const confirmedRefs = targeted
         .filter((entry) => context.isKnown(entry.url.reference))
         .map((entry) => entry.url.reference);
