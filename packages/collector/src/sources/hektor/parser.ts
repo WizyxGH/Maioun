@@ -11,7 +11,10 @@
  *     pièces, meublé, loyer CC, charges…), description
  *     `property-detail-v1__description__text`, photos sur `*.staticlbi.com` ;
  *   - DPE servi en IMAGE générée sous /admin (interdit par robots) → laissé
- *     inconnu, honnêtement (§17).
+ *     inconnu, honnêtement (§17). Seul le gabarit « pastilles » l'écrit en
+ *     texte (`bubble_dpe_b bubble--active`) : lu là, et là seulement.
+ *   - ni rue ni date de disponibilité structurées : seul le texte libre en
+ *     parle, et la normalisation l'y lit.
  */
 
 import * as cheerio from 'cheerio';
@@ -71,8 +74,36 @@ export interface ParsedList {
   readonly empty: boolean;
 }
 
-/** Bandeau de liste vide de la plateforme (acsimmo.fr, 2026-09-15). */
-const EMPTY_LIST = /aucun\s+bien\s+ne\s+correspond\s+[àa]\s+vos\s+crit[èe]res/i;
+/**
+ * Bandeaux de liste vide de la plateforme, relevés le 2026-09-15 : acsimmo.fr,
+ * agence-api.com et laclefimmobiliere.com, westimmo-properties.com. Le bouton
+ * « Aucune annonce trouvée » seul ne compte pas : il est aussi sur les listes
+ * pleines.
+ */
+const EMPTY_LIST = new RegExp(
+  [
+    String.raw`aucun\s+bien\s+ne\s+correspond\s+[àa]\s+vos\s+crit[èe]res`,
+    String.raw`aucun\s+bien\s+n['’]est\s+disponible\s+pour\s+le\s+moment`,
+    String.raw`aucune\s+annonce\s+trouv[ée]e\s+selon\s+vos\s+crit[èe]res`,
+  ].join('|'),
+  'i',
+);
+
+/**
+ * Fiche de démonstration laissée sur un site neuf : slug « test »
+ * (dominiceimmobilier.com, terrain de 50 m² à Paris) ou slug vide, fiche sans
+ * titre ni type (gestymo.com, Boulouparis à 123 €). Ni l'une ni l'autre n'est
+ * un bien à louer.
+ */
+const DEMO_FICHE = /\/\d{1,7}-(?:test)?(?:\.html)?\/?$/i;
+
+function isDemoFiche(href: string, baseUrl: string): boolean {
+  try {
+    return DEMO_FICHE.test(new URL(href, baseUrl).pathname);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Liste SANS liens de fiche (Riviera Angels : titre vers l'accueil, boutons
@@ -96,11 +127,16 @@ function unlinkedCards($: cheerio.CheerioAPI, pageUrl: string): ParsedHektorUrl[
 export function parseListPage(html: string, pageUrl: string): ParsedList {
   const $ = cheerio.load(html);
   const seen = new Map<string, ParsedHektorUrl>();
+  let demoSeen = false;
 
   // Une annonce sans titre n'a parfois aucun lien, seulement des boutons
   // `data-url` (sudagence.fr).
   $('a[href], [data-url]').each((_i, el) => {
     const href = $(el).attr('href') ?? $(el).attr('data-url') ?? '';
+    if (isDemoFiche(href, pageUrl)) {
+      demoSeen = true;
+      return;
+    }
     const parsed = parseListingUrl(href, pageUrl);
     if (parsed !== null && !seen.has(parsed.reference)) seen.set(parsed.reference, parsed);
   });
@@ -111,7 +147,8 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
   }
 
   const urls = [...seen.values()];
-  const empty = urls.length === 0 && EMPTY_LIST.test($('body').text());
+  // Une liste qui ne montre que la fiche de démonstration est vide.
+  const empty = urls.length === 0 && (demoSeen || EMPTY_LIST.test($('body').text()));
   return {
     urls,
     warnings: urls.length === 0 && !empty ? [`Aucune fiche trouvée sur la liste : ${pageUrl}`] : [],
@@ -266,11 +303,17 @@ function agencyPhone($: cheerio.CheerioAPI): string | undefined {
  */
 interface DetailContent {
   readonly reference?: string;
+  /** Rue saisie à la place de la référence (« Référence 37 Boulevard … »). */
+  readonly address?: string;
   readonly city?: string;
   readonly postalCode?: string;
   readonly district?: string;
   readonly items: readonly string[];
 }
+
+/** Numéro puis type de voie : « 37 Boulevard François Grosso », « 4 bis, rue … ». */
+const STREET =
+  /^\d{1,4}\s*(?:bis|ter)?\s*,?\s+(?:rue|avenue|av\.?|boulevard|bd|place|chemin|route|impasse|all[ée]e|quai|promenade|square|cours|mont[ée]e|traverse|corniche|esplanade|passage)\s+\S/i;
 
 function readDetailContent($: cheerio.CheerioAPI): DetailContent {
   // « Référence : 19 » en paragraphe `.ref` sur l'ancien gabarit (AA Gestion).
@@ -286,8 +329,12 @@ function readDetailContent($: cheerio.CheerioAPI): DetailContent {
   const district = items
     .map((item) => /^quartier\s*:?\s+(.+)$/i.exec(item)?.[1])
     .find((value) => value !== undefined);
+  // Méditerranée Immo écrit parfois l'adresse du bien dans le champ référence :
+  // c'est une rue, pas un code qui retrouve l'annonce.
+  const isStreet = STREET.test(reference);
   return {
-    ...(reference !== '' ? { reference } : {}),
+    ...(reference !== '' && !isStreet ? { reference } : {}),
+    ...(isStreet ? { address: reference } : {}),
     ...(location?.[1] !== undefined ? { city: location[1] } : {}),
     ...(location?.[2] !== undefined ? { postalCode: location[2] } : {}),
     ...(district !== undefined ? { district } : {}),
@@ -412,11 +459,39 @@ function readFigures(
   return { priceText, areaText, roomsText, furnishedText };
 }
 
-/** Atouts (caractéristiques, vue, exposition), quartier et référence d'agence. */
+/** Classe énergie du gabarit « pastilles » : la lettre marquée active. */
+function energyClass($: cheerio.CheerioAPI): string | undefined {
+  const letter = cleanText($('[class*="bubble_dpe_"].bubble--active').first().text());
+  return /^[A-G]$/i.test(letter) ? letter.toUpperCase() : undefined;
+}
+
+/**
+ * Quartier déclaré : ligne `QUARTIER` de la table, paire `termInfos`
+ * (« Quartier LANTERNE »), puis puce « quartier LE PIOL ». Le préfixe de la
+ * commune (« NICE - CIMIEZ ») est retiré.
+ */
+function declaredDistrict(
+  $: cheerio.CheerioAPI,
+  table: Map<string, string>,
+  content: DetailContent,
+): string | undefined {
+  const term = $('.termInfos')
+    .filter((_i, el) => /^quartier$/i.test(cleanText($(el).text())))
+    .first()
+    .nextAll('.valueInfos')
+    .first()
+    .text();
+  const district = table.get('QUARTIER') ?? table.get('quartier') ?? (cleanText(term) || undefined);
+  const value = (district ?? content.district)?.replace(/^nice\s*[-–]\s*/i, '').trim();
+  return value !== undefined && value !== '' ? value : undefined;
+}
+
+/** Atouts (caractéristiques, vue, exposition), quartier, DPE et référence d'agence. */
 function hektorExtra(
   table: Map<string, string>,
   content: DetailContent,
   urlReference: string,
+  declared: { readonly district: string | undefined; readonly dpe: string | undefined },
 ): Record<string, string> {
   const vue = table.get('vue');
   const exposition = table.get('exposition');
@@ -431,7 +506,8 @@ function hektorExtra(
   // La référence que l'agence affiche, qui la retrouve sur les portails.
   const extra: Record<string, string> = { reference: content.reference ?? urlReference };
   if (featureList.length > 0) extra['features'] = featureList.join(' · ');
-  if (content.district !== undefined) extra['quartier'] = content.district;
+  if (declared.district !== undefined) extra['quartier'] = declared.district;
+  if (declared.dpe !== undefined) extra['dpe'] = declared.dpe;
   return extra;
 }
 
@@ -440,6 +516,8 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   if (parsedUrl === null) {
     return { listing: null, warnings: [`URL inattendue pour une fiche : ${pageUrl}`] };
   }
+  // Fiche de démonstration : écartée sans avertissement, rien n'est cassé.
+  if (isDemoFiche(pageUrl, pageUrl)) return { listing: null, warnings: [] };
 
   const $ = cheerio.load(html);
   const warnings: string[] = [];
@@ -516,15 +594,23 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     roomsText,
     propertyTypeText,
     furnishedText,
-    depositText: labels.deposit !== undefined ? `${labels.deposit} €` : undefined,
+    // « 1 € » : valeur de remplissage du formulaire, pas un dépôt.
+    depositText:
+      labels.deposit !== undefined && !/^\d$/.test(labels.deposit)
+        ? `${labels.deposit} €`
+        : undefined,
     feesText: labels.fees !== undefined ? `${labels.fees} €` : undefined,
     phoneText: agencyPhone($),
+    addressText: content.address,
     cityText: cityText ?? content.city ?? cityFromPostalCode(table.get('cp') ?? labels.postalCode),
     postalCodeText: table.get('cp') ?? labels.postalCode ?? content.postalCode,
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? ownGallery(imageUrls) : undefined,
-    extra: hektorExtra(table, content, parsedUrl.reference),
+    extra: hektorExtra(table, content, parsedUrl.reference, {
+      district: declaredDistrict($, table, content),
+      dpe: energyClass($),
+    }),
   });
 
   return { listing, warnings };

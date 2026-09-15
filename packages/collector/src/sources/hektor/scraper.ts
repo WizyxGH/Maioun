@@ -55,8 +55,8 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
     notes:
       'Plateforme La Boîte Immo/Hektor (adaptateur générique, §47). robots.txt ' +
       'permissif (interdits : /stats, /phpmv2, /fonctions, /templates, /admin). ' +
-      'Listes SSR → fiches nouvelles uniquement. DPE non extrait (image sous ' +
-      '/admin, interdit par robots) — laissé inconnu (§17).',
+      'Listes SSR → fiches nouvelles uniquement. DPE lu sur le seul gabarit à ' +
+      'pastilles ; ailleurs image sous /admin, interdit par robots — laissé inconnu (§17).',
   };
 }
 

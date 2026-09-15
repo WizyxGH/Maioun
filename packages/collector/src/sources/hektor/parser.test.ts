@@ -58,6 +58,18 @@ describe('parseListPage', () => {
     expect(urls[0]?.canonicalUrl).not.toContain('#');
   });
 
+  it('une liste réduite à la fiche de démonstration est vide (Gestymo, Domi Nice)', () => {
+    const untitled = `<article><a href="/location/-/3-boulouparis/2-appartement/t1/2-/" class="item__title">
+      <span class="title__content-1">Boulouparis (98812)</span></a><div class="item__reference">Réf : 456</div></article>`;
+    expect(parseListPage(untitled, BASE)).toEqual({ urls: [], warnings: [], empty: true });
+    const test = '<a href="/location/40-paris/terrain/351-test">test</a>';
+    expect(parseListPage(test, BASE)).toMatchObject({ urls: [], empty: true });
+    // À côté d'un vrai bien, la fiche de démonstration est seulement ignorée.
+    const mixed = `${test}<a href="/location/1-nice/appartement/31-t2">T2</a>`;
+    expect(parseListPage(mixed, BASE)).toMatchObject({ empty: false, warnings: [] });
+    expect(parseListPage(mixed, BASE).urls.map((url) => url.reference)).toEqual(['31']);
+  });
+
   it('signale une liste sans fiche (structure changée, §69)', () => {
     const { warnings } = parseListPage('<html><body>vide</body></html>', BASE);
     expect(warnings).toHaveLength(1);
@@ -263,6 +275,67 @@ describe('parseDetailPage — gabarits sans table', () => {
     // « Consulter les autres biens » : la photo de l’autre annonce est écartée.
     expect(listing?.imageUrls).toHaveLength(1);
     expect(listing?.imageUrls?.[0]).toContain('24bacb08515c2715');
+  });
+});
+
+// Relevés du 2026-09-15 : DPE, quartier et rue là où la plateforme les écrit.
+describe('parseDetailPage — DPE, quartier, rue', () => {
+  const url = 'https://www.agence-fictive.fr/location/1-nice/appartement/3688-madeleine-3-pieces';
+  const page = (body: string) =>
+    `<html><head><title>Location appartement Nice 2 pièces 40m² 900€</title></head><body>${body}</body></html>`;
+
+  it('lit la lettre active du gabarit à pastilles (Midem)', () => {
+    const html = readFileSync(join(FIXTURES, 'detail-pastilles.html'), 'utf8');
+    const { listing, warnings } = parseDetailPage(html, url, 'Agence');
+    expect(warnings).toHaveLength(0);
+    expect(listing?.extra).toMatchObject({ dpe: 'B', quartier: 'MADELEINE' });
+    expect(listing).toMatchObject({ depositText: '1 145 €', feesText: '832,72 €' });
+    const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
+      sourceId: 'hektor-test',
+      nowMs: Date.parse('2026-09-15T12:00:00Z'),
+    });
+    expect(normalized).toMatchObject({ dpe: 'B', district: 'MADELEINE', charges: 205 });
+  });
+
+  it('ne prend pas l’image du DPE ni « DPE vierge » pour une classe', () => {
+    const html =
+      page(`<div class="energy__drawing"><img src="/admin/dpe.php?lang=fr&idann=1" alt="DPE"></div>
+      <div class="bubble_diag bubble_dpe bubble_dpe--unactive"><span class="bubble bubble_dpe_a">A</span></div>
+      <div class="energy__label">DPE vierge</div>`);
+    expect(parseDetailPage(html, url, 'Agence').listing?.extra?.['dpe']).toBeUndefined();
+  });
+
+  it('quartier de la table (Immobilière Niçoise) sans le préfixe de la commune', () => {
+    const html = page(`<div class="table-aria__tr QUARTIER" role="row">
+      <span class="table-aria__td" role="cell">Quartier</span>
+      <span class="table-aria__td" role="cell"> NICE - CIMIEZ </span></div>`);
+    expect(parseDetailPage(html, url, 'Agence').listing?.extra?.['quartier']).toBe('CIMIEZ');
+  });
+
+  it('quartier en paire termInfos (Bérénice)', () => {
+    const html = page(`<p class="data"><span class="termInfos">Quartier</span>
+      <span class="valueInfos ">LANTERNE</span></p>`);
+    expect(parseDetailPage(html, url, 'Agence').listing?.extra?.['quartier']).toBe('LANTERNE');
+  });
+
+  it('rue saisie dans le champ référence (Méditerranée Immo)', () => {
+    const html =
+      page(`<span class="ref_item">Référence <span class="id_ref_item">37 Boulevard François Grosso</span></span>
+      <span class="title_finance">Dépôt de garantie TTC</span> <span class="price_finance">1 €</span>`);
+    const { listing } = parseDetailPage(html, url, 'Agence');
+    expect(listing?.addressText).toBe('37 Boulevard François Grosso');
+    // Pas une référence : celle de l'URL reprend sa place.
+    expect(listing?.extra?.['reference']).toBe('3688');
+    // « 1 € » de dépôt : remplissage, pas un montant.
+    expect(listing?.depositText).toBeUndefined();
+  });
+
+  it('écarte la fiche de démonstration « test » sans avertissement (Domi Nice)', () => {
+    const demo = 'https://www.agence-fictive.fr/location/40-paris/terrain/351-test';
+    expect(parseDetailPage(page('<h1>test</h1>'), demo, 'Agence')).toEqual({
+      listing: null,
+      warnings: [],
+    });
   });
 });
 

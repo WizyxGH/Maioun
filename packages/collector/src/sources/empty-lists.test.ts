@@ -46,6 +46,19 @@ describe('La Boîte Immo (Hektor)', () => {
     expect(result).toMatchObject({ stopReason: 'empty', warnings: [] });
   });
 
+  it('rend `empty` sur les deux autres bandeaux (agence-api.com, westimmo-properties.com)', async () => {
+    const api = `<div class="no-result__text relative editorial my-6"><div class="editorial__text-block text-center">
+      <p>Désolé, aucun bien n'est disponible pour le moment.</p></div></div>`;
+    const west = `<h2 class="title__content"><span class="title__content-1">Désolé,</span>
+      <span class="title__content-2">aucune annonce trouvée selon vos critères</span></h2>`;
+    for (const html of [api, west]) {
+      expect(await scraper.run(context({ [LIST]: html }))).toMatchObject({
+        stopReason: 'empty',
+        warnings: [],
+      });
+    }
+  });
+
   it('ne s’y trompe pas : le bouton « Aucune annonce trouvée » est aussi sur les listes pleines', async () => {
     const html = '<button data-text="Aucune annonce trouvée">Voir</button><div class="new"></div>';
     const result = await scraper.run(context({ [LIST]: html }));
