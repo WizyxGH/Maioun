@@ -198,8 +198,9 @@ export function AccountActions({
       {/* AVEC LEUR INTITULÉ. Réduits à leur icône, ils ne disaient plus ce
         qu'ils font : une porte et une corbeille se ressemblent assez pour qu'on
         hésite avant de cliquer — et l'un des deux efface le compte. Le libellé
-        coûte deux mots et lève le doute. */}
-      <div className="mt-2 flex flex-wrap justify-end gap-2">
+        coûte deux mots et lève le doute. Un par ligne, de même largeur : côte
+        à côte, ils passaient à la ligne selon l'écran et se désalignaient. */}
+      <div className="mt-2 flex flex-col gap-2">
         <Button variant="outline" onClick={() => setAsking('signOut')}>
           <SignOut aria-hidden="true" className="size-4" />
           Se déconnecter
