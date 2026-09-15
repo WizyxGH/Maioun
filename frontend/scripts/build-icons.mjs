@@ -94,6 +94,7 @@ const ICONS = {
   Door: 'Door',
   Ruler: 'Ruler',
   Stack: 'Stack',
+  Share: 'Export',
   UserCircle: 'UserCircle',
   Users: 'Users',
   X: 'X',
@@ -181,6 +182,19 @@ ${table}
 
 export const ${exported}: IconComponent = (props) => <Icon {...props} paths={${exported}_PATHS} />;`);
 }
+
+// Balisage brut pour ce qui ne rend pas de composant React (pastilles Leaflet).
+parts.push(`
+/**
+ * Les mêmes icônes, en balisage : pour ce qui ne rend pas de composant React,
+ * comme les pastilles de la carte (Leaflet prend du HTML). Mêmes tracés que les
+ * cartes et la fiche, pour qu'un repère se lise pareil partout.
+ */
+const MARKUP_PATHS = { heart: Heart_PATHS, mail: Mail_PATHS, eye: Eye_PATHS } as const;
+
+export function iconMarkup(name: keyof typeof MARKUP_PATHS, color: string, size = 12): string {
+  return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="\${size}" height="\${size}" fill="\${color}" aria-hidden="true" style="display:block;flex:none">\${MARKUP_PATHS[name].fill}</svg>\`;
+}`);
 
 writeFileSync(out, `${parts.join('\n')}\n`, 'utf8');
 console.log(`${Object.keys(ICONS).length} icônes écrites dans ${out}`);
