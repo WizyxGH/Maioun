@@ -9,7 +9,8 @@
  *
  *   1. AUCUN LIEN VERS L'ANNONCE D'ORIGINE. La fiche Rentumo ne le publie pas,
  *      et les coordonnées y sont floutées derrière un abonnement payant. Sa
- *      fiche n'est lue, pour les nouvelles, que pour le texte d'origine.
+ *      fiche n'est lue, pour les nouvelles, que pour le texte d'origine
+ *      et la localisation affichée.
  *   2. CHAMPS « extraits par IA », de l'aveu du site lui-même (« may not be
  *      100% accurate »). On ne retient que ce qui est affiché tel quel sur la
  *      carte — prix, surface, chambres, type, ville — jamais une déduction.
@@ -25,6 +26,11 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
+import {
+  extractStreetAddress,
+  parseDistrict,
+  parsePostalCode,
+} from '../../normalization/parse-listing-fields.js';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
 import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';
@@ -192,6 +198,8 @@ export function parseListPage(html: string, pageUrl: string): RentumoList {
  *
  * On n'y prend PAS `numberOfRooms` : c'est un champ « extrait par IA », qui
  * rend « 2 » pour un deux-pièces à une chambre.
+ *
+ * La localisation, elle, se lit dans la page (voir `locationFields`).
  */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
@@ -205,5 +213,33 @@ export function parseDetail(html: string): RawDraft | null {
   const description = cleanMultiline(jsonLdString(node['description']));
   const title = cleanText(jsonLdString(node['name']));
   if (description === '') return null;
-  return { description, ...(title !== '' ? { title } : {}) };
+  return {
+    description,
+    ...(title !== '' ? { title } : {}),
+    ...locationFields(cleanText($('#address').first().text())),
+  };
+}
+
+/**
+ * La localisation affichée sous le titre, telle que la source l'a écrite :
+ * « 11 RUE X, 06300, Nice », « 06100, Nice », « Nice - Fleurs Gambetta ».
+ *
+ * Le `postalCode` du JSON-LD n'est PAS repris : relevé le 2026-09-15, il vaut
+ * 06000 quand la source n'en donne aucun, et contredit parfois celle-ci
+ * (06000 pour un bien affiché « 06100, Nice »).
+ *
+ * Le numéro de voie est masqué (« ** AVENUE X ») : on garde la voie seule,
+ * sans aller le chercher là où la page l'a laissé en clair.
+ */
+function locationFields(location: string): RawDraft {
+  if (location === '') return {};
+  const street = extractStreetAddress(location.replace(/^\*+\s*/, ''));
+  // Sans voie, la localisation nomme souvent un quartier ; avec, le nom de la
+  // voie pourrait passer pour un quartier (« avenue de la Californie »).
+  const district = street === null ? parseDistrict(location) : null;
+  return {
+    ...(street !== null ? { addressText: street } : {}),
+    ...(parsePostalCode(location) !== null ? { postalCodeText: location } : {}),
+    ...(district !== null ? { extra: { quartier: district } } : {}),
+  };
 }

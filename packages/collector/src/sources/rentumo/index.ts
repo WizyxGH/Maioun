@@ -74,7 +74,9 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
     'AGRÉGATEUR : aucun lien vers l’annonce d’origine, coordonnées floutées ' +
     'derrière un abonnement payant, et champs annoncés comme « extraits par ' +
     'IA » — on ne retient donc que ce que la carte affiche tel quel, et, sur ' +
-    'la fiche, le titre et le texte d’origine recopiés dans le JSON-LD. Les ' +
+    'la fiche, le titre et le texte d’origine recopiés dans le JSON-LD, et la ' +
+    'localisation affichée (#address ; le code postal du JSON-LD vaut 06000 ' +
+    'par défaut et n’est pas repris). Les ' +
     'photos passent par un proxy dont l’URL encode en base64 l’adresse ' +
     'D’ORIGINE : on la décode, ce qui donne la photo en pleine qualité et ' +
     'révèle l’hébergeur du site source (FNAIM, La Boîte Immo, Orpi…).',

@@ -902,6 +902,12 @@ const STREET_KINDS =
   'avenue|av\\.?|boulevard|bd\\.?|rue|place|chemin|impasse|all[ée]e|promenade|quai|route|mont[ée]e|traverse|square|passage|corniche';
 
 /**
+ * Un caractère de NOM de voie. Le point n'y entre qu'abrégeant « Saint » :
+ * « AV. ST. MAURICE » s'arrêtait sinon à « AV. ST ».
+ */
+const STREET_NAME_CHAR = '(?:[^,;.:()!?0-9"«»”„]|(?<=\\bste?)\\.)';
+
+/**
  * Adresse AVEC numéro de voie.
  *
  * Deux précautions sur le numéro :
@@ -912,7 +918,7 @@ const STREET_KINDS =
  *     au-delà, c'est une année.
  */
 const STREET_ADDRESS = new RegExp(
-  `(?<![\\d/-])(\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45})`,
+  `(?<![\\d/-])(\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+${STREET_NAME_CHAR}{2,45})`,
   'i',
 );
 
@@ -932,7 +938,7 @@ export const NUMBERED_STREET = new RegExp(
  * du port… »). Les agences niçoises situent le bien ainsi bien plus souvent
  * qu'avec un numéro : l'exiger laissait 86 fiches sur 93 sans rue.
  */
-const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45}$`, 'i');
+const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+${STREET_NAME_CHAR}{2,45}$`, 'i');
 
 /** Une adresse qui COMMENCE par un type de voie, numéro ou non. */
 const STARTS_WITH_KIND = new RegExp(`^(?:${STREET_KINDS})\\b`, 'i');
@@ -1625,8 +1631,11 @@ const ADDRESS_HEAD = 120;
  * par un type de voie — l'adresse était perdue alors qu'elle était écrite en
  * toutes lettres. En français, le deux-points sépare l'annonce de son contenu :
  * c'est une frontière de segment aussi sûre qu'une virgule.
+ *
+ * Le point d'une abréviation ne coupe pas : « NICE NORD - AV. ST MAURICE »
+ * perdait sa voie, réduite à « AV ».
  */
-const SEGMENT_BREAK = /[,;/.:¶]|\s+[-–—]\s+/;
+const SEGMENT_BREAK = /[,;/:¶]|(?<!\b(?:av|bd|st|ste))\.|\s+[-–—]\s+/i;
 
 /**
  * Marqueur de fin de ligne, posé avant le nettoyage.
