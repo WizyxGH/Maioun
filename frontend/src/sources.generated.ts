@@ -737,6 +737,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  'immo-riviera-transactions': {
+    name: 'Immo Riviera Transactions',
+    domain: 'immoriviera.fr',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
   'immo-sud': {
     name: 'Immo-Sud Nice',
     domain: 'agenceimmosud.com',
@@ -1235,6 +1242,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: 'https://www.rivieraconcept.com/images/favicon.png',
     paidContact: false,
     address: { street: '67 rue Rossini', postalCode: '06000', city: 'Nice' },
+  },
+  'riviera-sud-immobilier': {
+    name: 'Riviera Sud Immobilier',
+    domain: 'rsi-immo.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '5 boulevard Gambetta', postalCode: '06000', city: 'Nice' },
   },
   roseland: {
     name: 'Immobilière Roseland',

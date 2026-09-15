@@ -222,6 +222,8 @@ import { johnTaylorScraper } from './john-taylor/index.js';
 import { barnesScraper } from './barnes/index.js';
 import { guyHoquetScraper } from './guy-hoquet/index.js';
 import { kellerWilliamsScraper } from './keller-williams/index.js';
+import { rivieraSudImmobilierScraper } from './riviera-sud-immobilier/index.js';
+import { immoRivieraTransactionsScraper } from './immo-riviera-transactions/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -441,6 +443,8 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   barnesScraper,
   guyHoquetScraper,
   kellerWilliamsScraper,
+  rivieraSudImmobilierScraper,
+  immoRivieraTransactionsScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
