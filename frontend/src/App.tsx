@@ -53,6 +53,7 @@ import {
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
+import { archiveReasonOf } from './availability.js';
 import { formatSourceName } from './format.js';
 import { useDocumentMeta } from './document-title.js';
 import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
@@ -1076,13 +1077,11 @@ function AppView(): React.JSX.Element {
             if (!current()) return false;
             // Une archivée ne s'affiche pas avec un badge : elle sort de la liste,
             // de l'accueil et de la carte. Y compris celle que sa source ferme aux
-            // candidatures, même si l'API ne l'a pas encore écartée.
+            // candidatures, loue ou retire, même si l'API ne l'a pas encore écartée.
             setListings(
               showArchived
                 ? response.listings
-                : response.listings.filter(
-                    (listing) => listing.archived !== true && listing.applicationStatus !== 'full',
-                  ),
+                : response.listings.filter((listing) => archiveReasonOf(listing) === null),
             );
             setNowMs(Date.now());
             setLoading(false);

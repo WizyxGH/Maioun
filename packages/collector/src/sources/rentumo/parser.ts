@@ -32,6 +32,7 @@ import {
   parsePostalCode,
 } from '../../normalization/parse-listing-fields.js';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
+import type { DetailPage } from '../shared/enrich.js';
 import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';
 import { collectJsonLdNodes, jsonLdString, jsonLdType } from '../shared/json-ld.js';
@@ -218,6 +219,43 @@ export function parseDetail(html: string): RawDraft | null {
     ...(title !== '' ? { title } : {}),
     ...locationFields(cleanText($('#address').first().text())),
   };
+}
+
+/**
+ * Mémoire d'une fiche retirée : la liste peut montrer l'annonce encore
+ * quelque temps, cette marque l'emporte sur elle.
+ */
+export const WITHDRAWN_DRAFT: RawDraft = { extra: { retiree: 'oui' } };
+
+export function isWithdrawnDraft(draft: Partial<RawListing> | undefined): boolean {
+  return draft?.extra?.['retiree'] === 'oui';
+}
+
+const DEACTIVATED_FLASH = /the listing has been deactivated/i;
+
+/**
+ * `true` si Rentumo dit l'annonce retirée. Relevé le 2026-09-15 : la fiche
+ * désactivée redirige (302) vers la recherche de la commune, qui affiche
+ * « Sorry, the listing has been deactivated ». Une redirection vers une autre
+ * fiche ne prouve rien.
+ */
+export function isWithdrawnPage(html: string, page: DetailPage): boolean {
+  if (page.status === 410) return true;
+  if (page.status >= 300 && page.status < 400) {
+    if (page.location === null) return false;
+    try {
+      return !new URL(page.location, 'https://rentumo.com').pathname.startsWith('/listings/');
+    } catch {
+      return false;
+    }
+  }
+  return DEACTIVATED_FLASH.test(html);
+}
+
+/** Ce qu'une réponse de fiche apprend : retrait, contenu, ou rien. */
+export function parseDetailResponse(html: string, page: DetailPage): RawDraft | null {
+  if (isWithdrawnPage(html, page)) return WITHDRAWN_DRAFT;
+  return page.status >= 200 && page.status < 300 ? parseDetail(html) : null;
 }
 
 /**

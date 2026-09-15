@@ -7,6 +7,7 @@
  */
 
 import type { ListingView } from '../types.js';
+import { archiveReasonOf, isUnavailable } from '../availability.js';
 import {
   formatAddress,
   formatAge,
@@ -110,9 +111,9 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
   );
 }
 
-/** Archivée à la main, ou d'office parce que sa source ferme les candidatures. */
+/** Archivée à la main, ou d'office : louée, retirée, fermée aux candidatures. */
 function isArchived(listing: ListingView): boolean {
-  return listing.archived === true || listing.applicationStatus === 'full';
+  return archiveReasonOf(listing) !== null;
 }
 
 /** Réversible : un dossier refusé rouvre une place, d'où l'absence de grisé. */
@@ -156,11 +157,12 @@ function StatusBadges({
   return (
     <>
       {rented && <Badge variant="bad">Loué</Badge>}
+      {archiveReasonOf(listing) === 'offline' && <Badge variant="bad">Plus en ligne</Badge>}
       {/* Absente de sa source au dernier passage : probablement retirée (§32). */}
       {listing.lifecycle === 'possiblyInactive' && !rented && (
         <Badge variant="warning">Peut-être retirée</Badge>
       )}
-      {archived && !rented && <Badge variant="warning">Archivée</Badge>}
+      {archived && !isUnavailable(listing) && <Badge variant="warning">Archivée</Badge>}
       {listing.tracking !== 'new' ? (
         <Badge>{formatTracking(listing.tracking)}</Badge>
       ) : (
@@ -312,9 +314,9 @@ export function ListingCard({
       // où il n'y a pas de survol, `active:` est le seul retour qui dise que
       // le doigt a été reçu — la fiche met un instant à s'ouvrir.
       className={`${rank === undefined ? '' : 'rf-rise '}relative cursor-pointer overflow-hidden transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-md active:translate-y-0 active:shadow-sm has-[>button:focus-visible]:ring-2 has-[>button:focus-visible]:ring-ring ${
-        isHot && !rented ? 'border-2 border-hot' : ''
-      } ${archived || rented ? 'opacity-60' : uncertain ? 'opacity-70' : ''} ${
-        rented ? 'grayscale' : ''
+        isHot && !isUnavailable(listing) ? 'border-2 border-hot' : ''
+      } ${archived ? 'opacity-60' : uncertain ? 'opacity-70' : ''} ${
+        isUnavailable(listing) ? 'grayscale' : ''
       }`}
       data-testid="listing-card"
       {...(rank === undefined

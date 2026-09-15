@@ -403,6 +403,12 @@ export interface ScrapeResult {
    * mais conservées pour les favoris et les statistiques (§32, §33).
    */
   readonly rentedRefs?: readonly string[];
+  /**
+   * Références dont la source dit la fiche RETIRÉE (redirection vers la
+   * recherche, 410, bandeau « désactivée »). L'occurrence s'éteint dans le même
+   * passage, sans attendre les absences, et même si la liste la montre encore.
+   */
+  readonly withdrawnRefs?: readonly string[];
   /** Nombre de requêtes HTTP réellement émises — sert au suivi du coût (§62). */
   readonly requestCount: number;
   /** Pages parcourues avant arrêt. */

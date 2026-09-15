@@ -165,6 +165,7 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
    */
   const partial = row['payload_light'] !== undefined && row['payload_light'] !== null;
   const payload = JSON.parse(String(source ?? '{}')) as Record<string, unknown>;
+  const reason = archiveReason(row, payload['applicationStatus'] === 'full');
   return {
     id: String(row['id']),
     lifecycle: row['lifecycle'],
@@ -176,8 +177,8 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
     matchesCriteria: Number(row['user_matches_criteria'] ?? 0) === 1,
     actionPriority: Number(row['user_action_priority'] ?? 0),
     viewed: Number(row['user_viewed'] ?? 0) === 1,
-    // Fermée aux candidatures par sa source : archivée d'office, sans écriture.
-    archived: Number(row['user_archived'] ?? 0) === 1 || payload['applicationStatus'] === 'full',
+    archived: reason !== null,
+    archiveReason: reason,
     favorite: Number(row['user_favorite'] ?? 0) === 1,
     rented: Number(row['rented'] ?? 0) === 1,
     ...(partial ? { partial: true } : {}),
@@ -209,6 +210,30 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
     ...personalScoring(row, payload, partial),
   };
 }
+
+/** Pourquoi une fiche est rangée avec les archivées, ou `null`. */
+export type ArchiveReason = 'rented' | 'offline' | 'applicationsFull' | 'user';
+
+/**
+ * Archivée d'office quand la source est formelle — louée, retirée, fermée aux
+ * candidatures —, sans écriture : c'est vrai pour tous les comptes, et cela
+ * cesse de l'être si l'annonce revient. Sinon, par le geste du lecteur.
+ */
+export function archiveReason(
+  row: Record<string, unknown>,
+  applicationFull: boolean,
+): ArchiveReason | null {
+  if (Number(row['rented'] ?? 0) === 1) return 'rented';
+  if (row['lifecycle'] === 'inactive') return 'offline';
+  if (applicationFull) return 'applicationsFull';
+  return Number(row['user_archived'] ?? 0) === 1 ? 'user' : null;
+}
+
+/**
+ * Ni louée ni retirée d'après la source. Le doute (`possiblyInactive`) reste
+ * disponible : seule la certitude archive.
+ */
+const AVAILABLE_SQL = "listings.lifecycle != 'inactive' AND listings.rented = 0";
 
 /** Un score tel que la fiche le range : une valeur, des raisons. */
 type StoredScores = Record<string, { value?: unknown; reasons?: unknown }>;
@@ -428,7 +453,7 @@ export function listItemJson(row: Record<string, unknown>): string {
     return JSON.stringify(rowToListing(row));
   }
   const body = stored.slice(1, -1);
-  const archived = Number(row['user_archived'] ?? 0) === 1 || Number(row['application_full']) === 1;
+  const reason = archiveReason(row, Number(row['application_full']) === 1);
   const scores = listScoresJson(row);
   return (
     `{"id":${JSON.stringify(String(row['id']))}` +
@@ -439,7 +464,8 @@ export function listItemJson(row: Record<string, unknown>): string {
     `,"matchesCriteria":${Number(row['user_matches_criteria'] ?? 0) === 1}` +
     `,"actionPriority":${jsonValue(Number(row['user_action_priority'] ?? 0))}` +
     `,"viewed":${Number(row['user_viewed'] ?? 0) === 1}` +
-    `,"archived":${archived}` +
+    `,"archived":${reason !== null}` +
+    `,"archiveReason":${jsonValue(reason)}` +
     `,"favorite":${Number(row['user_favorite'] ?? 0) === 1}` +
     `,"rented":${Number(row['rented'] ?? 0) === 1}` +
     `,"partial":true` +
@@ -572,7 +598,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
     // Même prédicat que son « dans les critères » : la liste et la fiche concordent.
     conditions.push(`(${CATALOGUE_SQL})`);
   } else if (!includeAll) {
-    conditions.push('COALESCE(sc.matches_criteria, 0) = 1', "lifecycle != 'inactive'");
+    conditions.push('COALESCE(sc.matches_criteria, 0) = 1');
 
     // TOUS les filtres s'appliquent en direct : les changer depuis l'interface
     // se répercute sur la liste immédiatement, sans re-collecter. Un champ NULL
@@ -596,17 +622,15 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
     }
   }
 
-  // Les annonces archivées sont masquées, sauf demande explicite (§ archivage).
+  // Archivées à la main ou d'office — louées, retirées, fermées aux
+  // candidatures : masquées, favoris compris, sauf dans la vue des archivées.
   if (url.searchParams.get('archived') !== 'true') {
-    conditions.push('COALESCE(us.archived, 0) = 0', OPEN_TO_APPLICATIONS_SQL);
+    conditions.push('COALESCE(us.archived, 0) = 0', OPEN_TO_APPLICATIONS_SQL, AVAILABLE_SQL);
   }
   // Vue « favoris uniquement » sur demande.
   if (url.searchParams.get('favorite') === 'true') {
     conditions.push('COALESCE(us.favorite, 0) = 1');
   }
-  // Un bien LOUÉ sort de la liste, définitivement — même en favori (décision
-  // utilisateur : ni grisé, ni montré). §32/§33.
-  conditions.push('rented = 0');
 
   return {
     filter: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
@@ -637,7 +661,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
  * Change à chaque évolution de la FORME de la réponse : une copie gardée par le
  * navigateur avant un déploiement ne doit pas être revalidée après.
  */
-const LIST_FORMAT = 'liste-2';
+const LIST_FORMAT = 'liste-3';
 
 async function listSignature(
   db: Client,

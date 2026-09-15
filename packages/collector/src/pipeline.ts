@@ -952,6 +952,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   const rawBySource = new Map<string, readonly RawListing[]>();
   const confirmedBySource = new Map<string, readonly string[]>();
   const rentedBySource = new Map<string, readonly string[]>();
+  const withdrawnBySource = new Map<string, readonly string[]>();
 
   // EN PARALLÈLE, un site à la fois. Une source qui n'a pas démarré avant la fin
   // du budget de temps n'est pas comptée comme passée : elle reste due.
@@ -991,6 +992,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
         rawBySource.set(decision.sourceId, outcome.result.listings);
         confirmedBySource.set(decision.sourceId, outcome.result.confirmedRefs ?? []);
         rentedBySource.set(decision.sourceId, outcome.result.rentedRefs ?? []);
+        withdrawnBySource.set(decision.sourceId, outcome.result.withdrawnRefs ?? []);
       }
 
       const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
@@ -1074,6 +1076,14 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     logger,
     nowIso: new Date(clock.now()).toISOString(),
   });
+
+  // Retrait dit par la source : APRÈS l'écriture et les confirmations, qui
+  // remettent l'occurrence en ligne, et AVANT le regroupement, qui éteint la fiche.
+  let withdrawn = 0;
+  for (const [sourceId, refs] of withdrawnBySource) {
+    withdrawn += await repository.markWithdrawn(sourceId, refs, config.missingRunsBeforeInactive);
+  }
+  if (withdrawn > 0) logger.info('pipeline.withdrawn_marked', { count: withdrawn });
 
   // --- 5 & 6. Dédoublonnage, fusion, scoring, persistance ------------------
   const { groups, comparisonCount, listingReport } = await regroupAndScore(options, nowMs);

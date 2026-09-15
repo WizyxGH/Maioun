@@ -8,6 +8,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { StoredReferencePoint, TenantProfile } from '@maioun/shared';
 import { fetchReferencePoints } from '../api/client.js';
+import { isArchivedBySource } from '../availability.js';
 import { directionsUrl } from '../directions.js';
 import type { ListingView, TrackingStatus } from '../types.js';
 import {
@@ -450,11 +451,9 @@ export function ListingDetail({
             favorite={favorite}
             archived={archived}
             {...(onFavorite !== undefined ? { onFavorite } : {})}
-            // Archivée par sa source (candidatures fermées) : la désarchiver
-            // n'aurait aucun effet, le bouton n'est pas proposé.
-            {...(onArchive !== undefined && listing.applicationStatus !== 'full'
-              ? { onArchive }
-              : {})}
+            // Archivée par sa source (louée, retirée, candidatures fermées) : la
+            // désarchiver n'aurait aucun effet, le bouton n'est pas proposé.
+            {...(onArchive !== undefined && !isArchivedBySource(listing) ? { onArchive } : {})}
           />
         </span>
       </header>

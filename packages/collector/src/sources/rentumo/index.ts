@@ -23,10 +23,23 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { enrichNewListings } from '../shared/enrich.js';
-import { parseDetail, parseListPage } from './parser.js';
+import { enrichNewListings, REJECTED_DRAFT } from '../shared/enrich.js';
+import type { RawDraft } from '../shared/raw-listing.js';
+import { isWithdrawnDraft, parseDetailResponse, parseListPage } from './parser.js';
 
 const ORIGIN = 'https://rentumo.com';
+
+/** La fiche répond aussi à la seule référence de la carte (vérifié le 2026-09-15). */
+const listingUrl = (reference: string): string => `${ORIGIN}/listings/${reference}`;
+
+/**
+ * Connues absentes des pages lues, dont on relit la fiche par passage : la
+ * liste s'arrête aux nouveautés, et une annonce désactivée n'y reparaît pas.
+ */
+const MAX_WITHDRAWN_CHECKS = 4;
+
+/** Une fiche vérifiée ne l'est pas de nouveau avant un jour. */
+const RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /** Page de résultats par commune. 21 annonces par page. */
 const LIST_URL = `${ORIGIN}/rent-apartment/nice`;
@@ -55,7 +68,7 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
   priority: 4,
   schedule: scheduleFor('aggregator'),
   budget: budgetFor('aggregator', {
-    maxPagesPerRun: MAX_PAGES + MAX_DETAILS_BACKFILL,
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS_BACKFILL + MAX_WITHDRAWN_CHECKS,
     maxListingsPerRun: 100,
   }),
   enabled: true,
@@ -81,6 +94,67 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
     'D’ORIGINE : on la décode, ce qui donne la photo en pleine qualité et ' +
     'révèle l’hébergeur du site source (FNAIM, La Boîte Immo, Orpi…).',
 };
+
+/** Âge de la mémoire d'une fiche ; illisible ou absente, elle passe en premier. */
+function memoryTime(context: ScrapeContext, reference: string): number {
+  const at = Date.parse(context.detailMemory.get(reference)?.fetchedAt ?? '');
+  return Number.isFinite(at) ? at : 0;
+}
+
+/**
+ * Relit la fiche des annonces connues que les pages lues ne portaient pas, les
+ * moins récemment lues d'abord. Une fiche injoignable ne prouve rien.
+ */
+async function checkVanished(
+  context: ScrapeContext,
+  seen: ReadonlySet<string>,
+): Promise<{ withdrawn: string[]; requestCount: number; pagesFetched: number }> {
+  const nowMs = Date.now();
+  const due = [...context.knownRefs]
+    .filter((reference) => !seen.has(reference))
+    .filter((reference) => !isWithdrawnDraft(context.detailMemory.get(reference)?.draft))
+    .filter((reference) => nowMs - memoryTime(context, reference) >= RECHECK_AFTER_MS)
+    .sort((a, b) => memoryTime(context, a) - memoryTime(context, b))
+    .slice(0, MAX_WITHDRAWN_CHECKS);
+
+  const withdrawn: string[] = [];
+  const learned: { sourceRef: string; draft: RawDraft }[] = [];
+  let requestCount = 0;
+  let pagesFetched = 0;
+  for (const reference of due) {
+    if (context.shouldStop()) break;
+    const previous = context.detailMemory.get(reference)?.draft;
+    try {
+      const page = await context.fetch(listingUrl(reference), { redirect: 'manual' });
+      requestCount += 1;
+      if (page.notModified) {
+        if (previous !== undefined) learned.push({ sourceRef: reference, draft: previous });
+        continue;
+      }
+      pagesFetched += 1;
+      const draft = parseDetailResponse(page.body, {
+        status: page.status,
+        location: page.headers['location'] ?? null,
+      });
+      if (draft !== null && isWithdrawnDraft(draft)) withdrawn.push(reference);
+      learned.push({ sourceRef: reference, draft: draft ?? previous ?? REJECTED_DRAFT });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('withdrawn.check_failed', { reference, error: message });
+      if (message.includes('429')) break;
+    }
+  }
+
+  if (learned.length > 0) {
+    try {
+      await context.detailMemory.save(learned);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('detail.memory_failed', { count: learned.length, error: message });
+    }
+  }
+  return { withdrawn, requestCount, pagesFetched };
+}
 
 export const rentumoScraper: Scraper = {
   descriptor: RENTUMO_DESCRIPTOR,
@@ -134,29 +208,41 @@ export const rentumoScraper: Scraper = {
     }
 
     // Les fiches APRÈS la pagination, et aucune après un 429.
+    const halted = stopReason === 'rateLimited' || stopReason === 'blocked';
     const enriched = await enrichNewListings(context, [...byRef.values()], {
-      max:
-        stopReason === 'rateLimited'
-          ? 0
-          : context.mode === 'backfill'
-            ? MAX_DETAILS_BACKFILL
-            : MAX_DETAILS,
+      max: halted ? 0 : context.mode === 'backfill' ? MAX_DETAILS_BACKFILL : MAX_DETAILS,
       detailUrl: (listing) => listing.sourceUrl,
-      parse: (html) => parseDetail(html),
+      // Non suivie : la redirection EST le signe du retrait.
+      redirect: 'manual',
+      parse: (html, _listing, page) => parseDetailResponse(html, page),
     });
     requestCount += enriched.requestCount;
     pagesFetched += enriched.pagesFetched;
     warnings.push(...enriched.warnings);
 
-    const listings = [...enriched.listings];
+    const checked = halted
+      ? { withdrawn: [], requestCount: 0, pagesFetched: 0 }
+      : await checkVanished(context, new Set(byRef.keys()));
+    requestCount += checked.requestCount;
+    pagesFetched += checked.pagesFetched;
+
+    // Retirée d'après sa fiche, lue maintenant ou mémorisée : la carte ne la
+    // ramène pas.
+    const listings = enriched.listings.filter((listing) => !isWithdrawnDraft(listing));
+    const withdrawnRefs = [
+      ...enriched.listings.filter((listing) => isWithdrawnDraft(listing)).map((l) => l.sourceRef),
+      ...checked.withdrawn,
+    ];
     context.log('list.parsed', {
       listings: listings.length,
       known: listings.filter((listing) => context.isKnown(listing.sourceRef)).length,
+      withdrawn: withdrawnRefs.length,
     });
 
     return {
       sourceId: RENTUMO_DESCRIPTOR.id,
       listings,
+      withdrawnRefs,
       requestCount,
       pagesFetched,
       stopReason,
