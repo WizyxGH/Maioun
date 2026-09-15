@@ -347,10 +347,10 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
   expect(filtered).toBeGreaterThan(0);
   expect(filtered).toBeLessThanOrEqual(before);
 
-  // « Tout désélectionner » réinitialise — il vit au pied du menu, à rouvrir.
+  // La ligne « Toutes », en tête du menu, réinitialise.
   await toolbar.getByRole('button', { name: /Filtres/ }).click();
   await dialog.getByRole('button', { name: /^Sources/ }).click();
-  await page.getByRole('button', { name: /tout désélectionner/i }).click();
+  await page.getByRole('checkbox', { name: 'Toutes', exact: true }).check();
   await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(cards).toHaveCount(before);
 });
