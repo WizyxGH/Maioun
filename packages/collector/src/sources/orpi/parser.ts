@@ -116,7 +116,7 @@ interface EulerianData {
   readonly codePostal?: string | null;
   readonly quartier?: string;
   readonly dateCreation?: string;
-  readonly dpe?: string | null;
+  readonly dpe?: string | number | null;
   readonly etage?: number | null;
   readonly ascenseur?: number;
   readonly nbBalcons?: number | string;
@@ -205,7 +205,10 @@ function buildOrpiExtra(eulerian: EulerianData | null, reference: string): Recor
   if (eulerian.quartier !== undefined && eulerian.quartier !== '') {
     extra['quartier'] = eulerian.quartier;
   }
-  if (eulerian.dpe != null && eulerian.dpe !== '') extra['dpe'] = eulerian.dpe;
+  // Le tracking code la classe en indice (4 pour « D ») : tel quel, il était perdu.
+  const dpe =
+    dpeLetterOfIndex(eulerian.dpe) ?? (typeof eulerian.dpe === 'string' ? eulerian.dpe : '');
+  if (dpe !== '') extra['dpe'] = dpe;
   if (eulerian.etage != null) extra['etage'] = String(eulerian.etage);
   if (eulerian.ascenseur != null) extra['ascenseur'] = String(eulerian.ascenseur);
   if (eulerian.nbBalcons != null && eulerian.nbBalcons !== '') {
@@ -367,7 +370,75 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const block = $('.s-cms').first();
-  if (block.length === 0) return null;
-  const description = htmlToText($, block as cheerio.Cheerio<never>);
-  return description.length > 0 ? { description } : null;
+  const description = block.length > 0 ? htmlToText($, block as cheerio.Cheerio<never>) : '';
+  const estate = parseEstateData($('[data-estate]').first().attr('data-estate'));
+  const fields = estate === null ? {} : estateFields(estate);
+  const draft: RawDraft = {
+    ...(description.length > 0 ? { description } : {}),
+    ...fields,
+  };
+  return Object.keys(draft).length > 0 ? draft : null;
+}
+
+/** Sous-ensemble utile du JSON `data-estate` de la fiche. */
+interface EstateData {
+  readonly deposit?: number | null;
+  readonly chargeReserve?: number | null;
+  readonly agencyCommission?: number | null;
+  readonly dpeDisplay?: boolean;
+  readonly consumptionIndex?: number | null;
+  readonly agency?: {
+    readonly phone?: string | null;
+    readonly email?: string | null;
+    readonly rentEmail?: string | null;
+  } | null;
+}
+
+function parseEstateData(raw: string | undefined): EstateData | null {
+  if (raw === undefined || raw === '') return null;
+  try {
+    const data: unknown = JSON.parse(raw);
+    return typeof data === 'object' && data !== null ? (data as EstateData) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Indice 1 à 7 → classe « A » à « G », comme l'échelle affichée par la fiche. */
+export function dpeLetterOfIndex(index: number | string | null | undefined): string | undefined {
+  const n = typeof index === 'string' ? Number.parseInt(index, 10) : index;
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 7
+    ? 'ABCDEFG'.charAt(n - 1)
+    : undefined;
+}
+
+const euros = (value: number | null | undefined): string | undefined =>
+  typeof value === 'number' && value >= 0 ? `${value} €` : undefined;
+
+const nonEmpty = (value: string | null | undefined): string | undefined =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+
+/**
+ * Montants, DPE et coordonnées de l'agence du bien, lus dans `data-estate`.
+ *
+ * La fiche affiche les mêmes valeurs (« Dépôt de garantie : 894 € ») ; le JSON
+ * les donne sans libellé à interpréter. Le contact est celui de l'agence qui
+ * porte l'annonce, jamais l'e-mail personnel de l'agent. Le DPE est la classe
+ * surlignée sur l'échelle « Consommation énergétique » de la fiche.
+ */
+function estateFields(estate: EstateData): RawDraft {
+  const agency = estate.agency ?? undefined;
+  const dpe = estate.dpeDisplay === false ? undefined : dpeLetterOfIndex(estate.consumptionIndex);
+  return compactDraft({
+    depositText: euros(estate.deposit),
+    chargesText: euros(estate.chargeReserve),
+    feesText: euros(estate.agencyCommission),
+    phoneText: nonEmpty(agency?.phone),
+    emailText: nonEmpty(agency?.rentEmail) ?? nonEmpty(agency?.email),
+    extra: dpe !== undefined ? { dpe } : undefined,
+  });
+}
+
+function compactDraft(draft: RawDraft): RawDraft {
+  return Object.fromEntries(Object.entries(draft).filter(([, v]) => v !== undefined)) as RawDraft;
 }

@@ -35,6 +35,13 @@ export const PUJOL_DESCRIPTOR: SourceDescriptor = {
   id: 'pujol',
   name: 'Immobilière Pujol',
   domain: 'immobiliere-pujol.fr',
+  // Une seule agence, à Marseille, qui gère aussi les biens niçois : coordonnées
+  // de son JSON-LD RealEstateAgent (relevé du 2026-09-15).
+  agencyContact: {
+    phone: '04 91 37 38 39', // secret-scan-ignore
+    email: 'contact@immobiliere-pujol.fr', // secret-scan-ignore
+    address: { street: '7 rue du Dr Fiolle', postalCode: '13006', city: 'Marseille' },
+  },
   kind: 'localAgency',
   method: 'sitemap',
   // Volume minuscule, mais des adresses exactes et des loyers obtenus.

@@ -109,3 +109,37 @@ describe('photos : les voisines ne sont pas les siennes', () => {
     expect(listing?.imageUrls).toHaveLength(3);
   });
 });
+
+describe('parseDetailPage — montants, DPE et agence référente', () => {
+  const fiche = readFileSync(join(FIXTURES, 'detail-montants.html'), 'utf8');
+  const listing = parseDetailPage(fiche, DETAIL_URL, 'Citya Immobilier').listing;
+
+  it('lit charges, dépôt, honoraires et disponibilité sous le titre', () => {
+    expect(listing?.chargesText).toBe('110 €');
+    expect(listing?.depositText).toBe('944,54 €');
+    expect(listing?.feesText).toBe('298,32 €');
+    expect(listing?.availableAtText).toBe('Libre');
+    expect(listing?.postalCodeText).toBe('06000');
+  });
+
+  it('prend la case agrandie du DPE et le numéro de l’agence, pas celui du service qualité', () => {
+    expect(listing?.extra?.['dpe']).toBe('C');
+    expect(listing?.phoneText).toBe('0600000051');
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const normalized =
+      listing === null
+        ? null
+        : normalizeListing(listing, {
+            sourceId: 'citya',
+            nowMs: Date.parse('2026-09-15T12:00:00Z'),
+          });
+    expect(normalized?.deposit).toBe(944.54);
+    expect(normalized?.charges).toBe(110);
+    expect(normalized?.tenantFees).toBe(298.32);
+    expect(normalized?.dpe).toBe('C');
+    expect(normalized?.availableAt).not.toBeNull();
+    expect(normalized?.contact.phone).not.toBeNull();
+  });
+});

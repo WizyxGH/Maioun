@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { normalizeListing } from '../../normalization/normalize.js';
 import { descriptionOf, isClosed, niceListingUrls, parseDetail, referenceOf } from './parser.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -114,5 +115,37 @@ describe('parseDetail', () => {
 
   it('refuse une page sans annonce exploitable', () => {
     expect(parseDetail('<html><body>Page introuvable</body></html>', URL_LOUEE)).toBeNull();
+  });
+});
+
+describe('parseDetail — caractéristiques, montants et DPE', () => {
+  const url = 'https://www.immobiliere-pujol.fr/annonces/1399neot-7-9-rue-de-dijon-6100-nice/';
+  const listing = parseDetail(fixture('active-details.html'), url)?.listing;
+
+  it('lit charges, dépôt, honoraires et ameublement dans les listes', () => {
+    expect(listing?.chargesText).toBe('70 €/mois');
+    expect(listing?.depositText).toBe('1025 €');
+    expect(listing?.feesText).toBe('642,49 €');
+    expect(listing?.furnishedText).toBe('Non meublé');
+  });
+
+  it('lit la classe DPE de l’étiquette et le quartier de la ligne d’adresse', () => {
+    expect(listing?.extra).toEqual({ reference: '1399neot', dpe: 'E', quartier: 'Vernier' });
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const normalized =
+      listing === undefined
+        ? null
+        : normalizeListing(listing, {
+            sourceId: 'pujol',
+            nowMs: Date.parse('2026-09-15T12:00:00Z'),
+          });
+    expect(normalized?.charges).toBe(70);
+    expect(normalized?.deposit).toBe(1025);
+    expect(normalized?.tenantFees).toBe(642.49);
+    expect(normalized?.dpe).toBe('E');
+    expect(normalized?.furnished).toBe(false);
+    expect(normalized?.district).toBe('Vernier');
   });
 });

@@ -125,3 +125,41 @@ describe('parseDetail — la description entière, lue sur la fiche', () => {
     expect(parseDetail('<section class="c-the-property-detail-description"></section>')).toBeNull();
   });
 });
+
+describe('parseDetail — « À savoir », DPE et téléphone de l’agence', () => {
+  const fiche = readFileSync(join(FIXTURES, 'fiche-a-savoir.html'), 'utf8');
+
+  it('lit charges, dépôt, honoraires et disponibilité', () => {
+    const draft = parseDetail(fiche);
+    expect(draft?.chargesText).toBe('80 €');
+    expect(draft?.depositText).toBe('1400 €');
+    expect(draft?.feesText).toBe('299 €');
+    expect(draft?.availableAtText).toBe('15 septembre 2026');
+  });
+
+  it('prend la classe surlignée sur l’étiquette dessinée', () => {
+    expect(parseDetail(fiche)?.extra).toEqual({ dpe: 'D' });
+  });
+
+  it('préfère le numéro du bandeau d’actions à celui du bloc agence', () => {
+    expect(parseDetail(fiche)?.phoneText).toBe('06 00 00 00 21');
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const normalized = normalizeListing(
+      {
+        sourceRef: '1',
+        sourceUrl: 'https://www.century21.fr/trouver_logement/detail/1/',
+        priceText: '780 € par mois charges comprises',
+        ...parseDetail(fiche),
+      },
+      { sourceId: 'century21', nowMs: Date.parse('2026-09-01T00:00:00Z') },
+    );
+    expect(normalized?.deposit).toBe(1400);
+    expect(normalized?.charges).toBe(80);
+    expect(normalized?.tenantFees).toBe(299);
+    expect(normalized?.dpe).toBe('D');
+    expect(normalized?.availableAt?.slice(0, 10)).toBe('2026-09-15');
+    expect(normalized?.contact.phone).not.toBeNull();
+  });
+});

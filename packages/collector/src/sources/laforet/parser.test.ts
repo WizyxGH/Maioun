@@ -13,6 +13,7 @@ import {
   agencyNameFromSlug,
   extractCity,
   parseDetailPage,
+  parseDpeSvg,
   parseListingUrl,
   parseSearchPage,
 } from './parser.js';
@@ -278,5 +279,62 @@ describe('parseDetailPage (Laforêt)', () => {
 
   it('ne conclut rien d’une page sans description (§17)', () => {
     expect(parseDetailPage('<html><body></body></html>')).toBeNull();
+  });
+
+  it('lit les montants, le téléphone et l’e-mail de l’agence', () => {
+    const draft = parseDetailPage(readFixture('fiche.html'));
+    expect(draft?.chargesText).toBe('215,00 €');
+    expect(draft?.depositText).toBe('6 370,00 €');
+    expect(draft?.feesText).toBe('1 500,00 €');
+    expect(draft?.phoneText).toBe('0600000002');
+    expect(draft?.emailText).toBe('contact@example.invalid');
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const [normalized] = normalizeAll(
+      [
+        {
+          sourceRef: '52819662',
+          sourceUrl: 'https://www.laforet.com/agence-immobiliere/nice-centre/louer/nice/x-52819662',
+          priceText: '3 400 €/mois',
+          ...parseDetailPage(readFixture('fiche.html')),
+        },
+      ],
+      { sourceId: 'laforet', nowMs: Date.parse('2026-09-15T12:00:00.000Z') },
+    );
+    expect(normalized?.charges).toBe(215);
+    expect(normalized?.deposit).toBe(6370);
+    expect(normalized?.tenantFees).toBe(1500);
+    expect(normalized?.contact.phone).not.toBeNull();
+  });
+});
+
+describe('carte de la page ville (Laforêt)', () => {
+  const page = parseSearchPage(readFixture('carte-photos.html'), PAGE_URL);
+  const listing = page.listings.find((l) => l.sourceRef === '19168366');
+
+  it('garde les photos du carrousel, en adresse absolue', () => {
+    expect(listing?.imageUrls).toHaveLength(2);
+    expect(listing?.imageUrls?.[0]).toMatch(
+      /^https:\/\/www\.laforet\.com\/glide\/.+19168366a\.jpg/,
+    );
+  });
+
+  it('lit le numéro du bouton d’appel de la carte', () => {
+    expect(listing?.phoneText).toBe('0600000041');
+  });
+
+  it('garde le titre complet malgré les liens photo', () => {
+    expect(listing?.priceText).toBe('1 080 €/mois');
+  });
+});
+
+describe('parseDpeSvg (Laforêt)', () => {
+  it('lit la classe dans le groupe racine de l’étiquette', () => {
+    expect(parseDpeSvg(readFixture('etiquette-dpe.svg'))).toBe('E');
+  });
+
+  it('ne devine rien d’une réponse illisible', () => {
+    expect(parseDpeSvg('<html>Erreur</html>')).toBeUndefined();
   });
 });

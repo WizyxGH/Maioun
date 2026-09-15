@@ -137,7 +137,34 @@ export function parseDetail(html: string): RawDraft | null {
   // Le premier paragraphe seul : le suivant est la mention Géorisques, commune
   // à toutes les fiches.
   const description = htmlToText($, '#annonce-description > p');
-  return description !== '' ? { description } : null;
+  const dpe = /\bdpe-([a-g])\b/i.exec(
+    $('#annonce-description .dpe').first().attr('class') ?? '',
+  )?.[1];
+  const phone = $('#annonce-contact a[href^="tel:"]').first().attr('href')?.slice('tel:'.length);
+  const draft = compactListing({
+    description: description !== '' ? description : undefined,
+    ...summaryAmounts(cleanText($('.annonce-caracteristiques').first().text())),
+    phoneText: phone !== undefined && phone.trim() !== '' ? phone.trim() : undefined,
+    extra: dpe !== undefined ? { dpe: dpe.toUpperCase() } : undefined,
+  });
+  return Object.keys(draft).length > 0 ? draft : null;
+}
+
+/**
+ * Ligne de résumé sous la référence : « 1700 € de dépôt de garantie | Charges :
+ * 50 € | Honoraires 598.00 TTC à la charge du locataire (dont 138.00€ …) ».
+ * Le montant précède ou suit son libellé selon le segment.
+ */
+function summaryAmounts(line: string): RawDraft {
+  const fields: Record<string, string | undefined> = {};
+  for (const segment of line.split('|')) {
+    const amount = /(\d[\d\s.,]*)\s*(?:€|TTC)/.exec(segment)?.[1]?.trim();
+    if (amount === undefined) continue;
+    if (/d[ée]p[ôo]t de garantie/i.test(segment)) fields['depositText'] = `${amount} €`;
+    else if (/^\s*charges/i.test(segment)) fields['chargesText'] = `${amount} €`;
+    else if (/honoraires/i.test(segment)) fields['feesText'] = `${amount} €`;
+  }
+  return fields;
 }
 
 /**
