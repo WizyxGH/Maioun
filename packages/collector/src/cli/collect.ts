@@ -55,6 +55,7 @@ import {
   loadVapidConfig,
   nearMatchContentFor,
   reminderContentFor,
+  reopenedContentFor,
   sendListingAlerts,
   sendWebPush,
 } from '../notify/web-push.js';
@@ -297,6 +298,20 @@ async function notifyOne(deps: {
     const mailed = await alsoByEmail(pending, 'Nouvelles annonces');
     await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
+
+    // DES CANDIDATURES QUI ROUVRENT, sur une annonce déjà signalée : elle
+    // revenait dans la liste sans un mot. Les réouvertures d'abord, puis les
+    // fermetures de ce passage, pour qu'une annonce ne ferme et rouvre pas au
+    // même instant.
+    const reopened = await repository.reopenedApplications(userId);
+    const reopenReport = await sendListingAlerts(
+      { ...common, listings: reopened },
+      reopenedContentFor,
+    );
+    const reopenMailed = await alsoByEmail(reopened, 'Candidatures rouvertes');
+    await repository.markReopenNotified(userId, [...reopenReport.notifiedIds, ...reopenMailed]);
+    if (reopenReport.sent > 0) sentAnything = true;
+    await repository.noteClosedApplications(userId);
   }
 
   // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :

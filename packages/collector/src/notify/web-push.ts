@@ -153,6 +153,31 @@ export function goneContentFor(listing: NotifiableListing, siteUrl: string): Pus
 }
 
 /**
+ * Des candidatures qui rouvrent : un dossier refusé libère une place, et la
+ * première candidature reçue passe souvent la première. Le téléphone suit,
+ * comme pour une nouvelle annonce.
+ */
+export function reopenedContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: 'Candidatures rouvertes',
+    body: [
+      listing.title ?? 'Une annonce qui était complète',
+      summarize(listing),
+      location !== '' ? `📍 ${location}` : null,
+      listing.phone !== null ? `📞 ${listing.phone}` : null,
+    ]
+      .filter((line): line is string => line !== null && line !== '')
+      .join('\n'),
+    url: listingUrl(siteUrl, listing.id),
+    tag: `maioun-rouverte-${listing.id}`,
+    ...imagePayload(listing.photoUrls[0]),
+    listingId: listing.id,
+    ...(listing.phone !== null ? { phone: listing.phone } : {}),
+  };
+}
+
+/**
  * Un favori jamais contacté (§29).
  *
  * Le marché ne patiente pas : un logement mis de côté lundi et oublié jusqu'à

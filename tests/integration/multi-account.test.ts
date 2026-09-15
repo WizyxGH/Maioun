@@ -198,6 +198,34 @@ describe('cloisonnement entre comptes (§26)', () => {
     expect(await repository.pendingNotifications('alice', 0)).toHaveLength(1);
   });
 
+  it('signale une seule fois que les candidatures ont rouvert, et à qui l’avait reçue', async () => {
+    const repository = createRepository(db);
+    const statut = (value: string): Promise<unknown> =>
+      db.execute({
+        sql: "UPDATE listings SET payload = json_set(payload, '$.applicationStatus', ?)",
+        args: [value],
+      });
+    const rouvertes = async (userId: string): Promise<string[]> =>
+      (await repository.reopenedApplications(userId)).map((listing) => listing.id);
+
+    // Alice l'a reçue ; Bob jamais.
+    await repository.markNotified('alice', ['orpi:1']);
+    await statut('full');
+    await repository.noteClosedApplications('alice');
+    await repository.noteClosedApplications('bob');
+    // Toujours complète : rien à dire.
+    expect(await rouvertes('alice')).toEqual([]);
+
+    await statut('open');
+    expect(await rouvertes('alice')).toEqual(['orpi:1']);
+    // Bob la recevra comme une nouvelle annonce, pas comme une réouverture.
+    expect(await rouvertes('bob')).toEqual([]);
+    expect(await repository.pendingNotifications('bob', 0)).toHaveLength(1);
+
+    await repository.markReopenNotified('alice', ['orpi:1']);
+    expect(await rouvertes('alice')).toEqual([]);
+  });
+
   it('ne tait pas à l’un ce que l’autre a DÉJÀ reçu', async () => {
     // « Signalée » était une colonne de la fiche : dès que le premier compte
     // recevait une annonce, le second ne la recevait jamais.
