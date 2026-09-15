@@ -2145,9 +2145,8 @@ function AppView(): React.JSX.Element {
     );
   }
 
-  // Deux compteurs distincts pour la liste : les annonces encore actives, et
-  // celles qui ont disparu de leur source (affichées, mais à vérifier).
-  const activeCount = filtered.filter((l) => l.lifecycle === 'active').length;
+  // Le total est ce que la liste affiche ; la part « à vérifier » (disparue de
+  // sa source depuis quelques passages) est précisée à côté.
   const uncertainCount = filtered.filter((l) => l.lifecycle === 'possiblyInactive').length;
   // RÉINITIALISATION. « Par défaut » = le tri par priorité, les critères de
   // recherche dans les champs, aucune bascule, toutes les sources — c'est-à-dire
@@ -2311,12 +2310,12 @@ function AppView(): React.JSX.Element {
             />
 
             {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
-            Il distingue les annonces ACTIVES de celles disparues de leur source :
-            un total unique laissait croire à deux fois plus d'opportunités, et
-            divergeait du compteur de l'onglet Statistiques (§33, §17). */}
+            LE TOTAL EST CELUI DE LA LISTE : « 46 résultats » au-dessus de 66
+            cartes ne se retrouvait pas (relevé du 2026-09-15). La part à
+            vérifier reste précisée, sans être retranchée. */}
             {!loading && (
               <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
-                {activeCount} résultat{activeCount > 1 ? 's' : ''}
+                {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
                 {uncertainCount > 0 && (
                   <span className="font-normal"> · {uncertainCount} à vérifier</span>
                 )}
