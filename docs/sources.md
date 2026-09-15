@@ -535,37 +535,39 @@ Immobilier dont robots.txt interdit la recherche) — aucun contournement.
 
 #### Ajoutées le 2026-09-15 — parseurs dédiés et petits adaptateurs (`twimmo`, `adaptimmo` v2)
 
-| Source                                                             | Vérifié    | Locations relevées                                              |
-| ------------------------------------------------------------------ | ---------- | --------------------------------------------------------------- |
-| **French Riviera Studios** (studios-nice.com)                      | 2026-09-15 | 18 au mois (Nice), WordPress Houzez                             |
-| **Parnasse Immobilier** (parnasse-immobilier.com)                  | 2026-09-15 | 8 (Nice ×7 dont 4 stationnements/cave, Valberg), WP Residence   |
-| **La Franco Suisse** (lafrancosuisse.com)                          | 2026-09-15 | 4 (Nice), On'App                                                |
-| **Moss Immobilier** (mossimmobilier.com)                           | 2026-09-15 | 3 (Nice), WordPress + extension Apimo                           |
-| **Marchal Immobilier** (marchal-immobilier.fr)                     | 2026-09-15 | 7 (Nice), AdaptImmo nouvelle version                            |
-| **Barbera Gestion & Patrimoine** (barbera-gestion.com)             | 2026-09-15 | 2 (Nice)                                                        |
-| **Azurimmo** (azurimmo06.net)                                      | 2026-09-15 | 1 (Nice, studio étudiant)                                       |
-| **Richer Immobilier** (richerimmobilier.com)                       | 2026-09-15 | 1 (Nice), WordPress Retro Listings                              |
-| **Grand Métropole** (gdmetropole.com)                              | 2026-09-15 | 1 (Nice), WordPress JetEngine                                   |
-| **Elitimo** (elitimo.com)                                          | 2026-09-15 | 4 (Nice ×3, Villeneuve-Loubet), Twimmo                          |
-| **Agence Californie** (agencecalifornie.fr)                        | 2026-09-15 | 9 (Nice, Saint-Laurent-du-Var, Villefranche, Carros), RealHomes |
-| **Forimmo** (forimmo.fr)                                           | 2026-09-15 | 8 (Nice ×3, Cagnes-sur-Mer, Menton), ICS resultat.php           |
-| **Nestenn Nice Port - Riquier** (immobilier-nice-port.nestenn.com) | 2026-09-15 | 3 mises en avant sur ~9 : absences sans effet                   |
-| **L’Orientation Immobilière** (orimnice.fr)                        | 2026-09-15 | 4 (Nice ×3 dont 1 parking, Le Cannet), ICS neocs                |
-| **Imodirect** (annonces.imodirect.com)                             | 2026-09-15 | 2 (Nice)                                                        |
-| **Agence du Port de Nice** (agenceduportdenice.fr)                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), ICS                          |
-| **Miramar Real Estate** (miramarimmo.com)                          | 2026-09-15 | 0 aujourd'hui (suivie en attente)                               |
-| **Cabinet Loquis** (loquis.fr)                                     | 2026-09-15 | 0 aujourd'hui (suivie en attente), Crawl-delay 10 s respecté    |
-| **Côte d'Azur Properties** (immobilierniceouest.com)               | 2026-09-15 | 0 aujourd'hui (suivie en attente), Houzez                       |
-| **CDS Gestion** (cdsgestion.fr)                                    | 2026-09-15 | 0 aujourd'hui (suivie en attente), RealHomes                    |
-| **Agence Castel** (agencecastel.com)                               | 2026-09-15 | 0 aujourd'hui (suivie en attente), ancien gabarit Apimo         |
-| **CDC Immobilier** (cdcimmobilier.com)                             | 2026-09-15 | 0 aujourd'hui (suivie en attente), ancien gabarit Apimo         |
-| **Nicolas Pisani Real Estate** (nicolaspisani.com)                 | 2026-09-15 | 6 (Nice, Beaulieu-sur-Mer, Cap-d'Ail), longue durée seule       |
-| **Domi Nice Immobilier** (dominiceimmobilier.com)                  | 2026-09-15 | 0 aujourd'hui (suivie en attente)                               |
-| **BBii** (bbii.fr)                                                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), Twimmo                       |
-| **Agence Dumas** (agencedumas.fr)                                  | 2026-09-15 | 4 (Villefranche-sur-Mer, Beaulieu-sur-Mer), parseur dédié       |
-| **Cap Sud Immobilier** (capsud-immobilier.fr)                      | 2026-09-15 | 0 aujourd'hui (suivie en attente), Apimo ancien schéma          |
-| **Solissimmo** (solissimmo.fr)                                     | 2026-09-15 | 1 (Nice), Apimo ancien schéma                                   |
-| **Altarea Gestion Immobilière - Nice** (altarea.flatbay.fr)        | 2026-09-15 | 8 (Nice ×4 dont 1 box, Mougins, Fréjus, Saint-Raphaël), Flatbay |
+| Source                                                             | Vérifié    | Locations relevées                                                   |
+| ------------------------------------------------------------------ | ---------- | -------------------------------------------------------------------- |
+| **French Riviera Studios** (studios-nice.com)                      | 2026-09-15 | 18 au mois (Nice), WordPress Houzez                                  |
+| **Parnasse Immobilier** (parnasse-immobilier.com)                  | 2026-09-15 | 8 (Nice ×7 dont 4 stationnements/cave, Valberg), WP Residence        |
+| **La Franco Suisse** (lafrancosuisse.com)                          | 2026-09-15 | 4 (Nice), On'App                                                     |
+| **Moss Immobilier** (mossimmobilier.com)                           | 2026-09-15 | 3 (Nice), WordPress + extension Apimo                                |
+| **Marchal Immobilier** (marchal-immobilier.fr)                     | 2026-09-15 | 7 (Nice), AdaptImmo nouvelle version                                 |
+| **Barbera Gestion & Patrimoine** (barbera-gestion.com)             | 2026-09-15 | 2 (Nice)                                                             |
+| **Azurimmo** (azurimmo06.net)                                      | 2026-09-15 | 1 (Nice, studio étudiant)                                            |
+| **Richer Immobilier** (richerimmobilier.com)                       | 2026-09-15 | 1 (Nice), WordPress Retro Listings                                   |
+| **Grand Métropole** (gdmetropole.com)                              | 2026-09-15 | 1 (Nice), WordPress JetEngine                                        |
+| **Elitimo** (elitimo.com)                                          | 2026-09-15 | 4 (Nice ×3, Villeneuve-Loubet), Twimmo                               |
+| **Agence Californie** (agencecalifornie.fr)                        | 2026-09-15 | 9 (Nice, Saint-Laurent-du-Var, Villefranche, Carros), RealHomes      |
+| **Forimmo** (forimmo.fr)                                           | 2026-09-15 | 8 (Nice ×3, Cagnes-sur-Mer, Menton), ICS resultat.php                |
+| **Nestenn Nice Port - Riquier** (immobilier-nice-port.nestenn.com) | 2026-09-15 | 3 mises en avant sur ~9 : absences sans effet                        |
+| **L’Orientation Immobilière** (orimnice.fr)                        | 2026-09-15 | 4 (Nice ×3 dont 1 parking, Le Cannet), ICS neocs                     |
+| **Imodirect** (annonces.imodirect.com)                             | 2026-09-15 | 2 (Nice)                                                             |
+| **Agence du Port de Nice** (agenceduportdenice.fr)                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), ICS                               |
+| **Miramar Real Estate** (miramarimmo.com)                          | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                    |
+| **Cabinet Loquis** (loquis.fr)                                     | 2026-09-15 | 0 aujourd'hui (suivie en attente), Crawl-delay 10 s respecté         |
+| **Côte d'Azur Properties** (immobilierniceouest.com)               | 2026-09-15 | 0 aujourd'hui (suivie en attente), Houzez                            |
+| **CDS Gestion** (cdsgestion.fr)                                    | 2026-09-15 | 0 aujourd'hui (suivie en attente), RealHomes                         |
+| **Agence Castel** (agencecastel.com)                               | 2026-09-15 | 0 aujourd'hui (suivie en attente), ancien gabarit Apimo              |
+| **CDC Immobilier** (cdcimmobilier.com)                             | 2026-09-15 | 0 aujourd'hui (suivie en attente), ancien gabarit Apimo              |
+| **Nicolas Pisani Real Estate** (nicolaspisani.com)                 | 2026-09-15 | 6 (Nice, Beaulieu-sur-Mer, Cap-d'Ail), longue durée seule            |
+| **Domi Nice Immobilier** (dominiceimmobilier.com)                  | 2026-09-15 | 0 aujourd'hui (suivie en attente)                                    |
+| **BBii** (bbii.fr)                                                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), Twimmo                            |
+| **Agence Dumas** (agencedumas.fr)                                  | 2026-09-15 | 4 (Villefranche-sur-Mer, Beaulieu-sur-Mer), parseur dédié            |
+| **Cap Sud Immobilier** (capsud-immobilier.fr)                      | 2026-09-15 | 0 aujourd'hui (suivie en attente), Apimo ancien schéma               |
+| **Solissimmo** (solissimmo.fr)                                     | 2026-09-15 | 1 (Nice), Apimo ancien schéma                                        |
+| **John Taylor** (john-taylor.fr)                                   | 2026-09-15 | 4 (Cagnes-sur-Mer, Vence, Tourrettes-sur-Loup), loyers au mois seuls |
+| **BARNES** (barnes-international.com)                              | 2026-09-15 | 0 aujourd'hui (suivie en attente), longue durée seule                |
+| **Altarea Gestion Immobilière - Nice** (altarea.flatbay.fr)        | 2026-09-15 | 8 (Nice ×4 dont 1 box, Mougins, Fréjus, Saint-Raphaël), Flatbay      |
 
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)
 
