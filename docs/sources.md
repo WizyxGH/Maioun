@@ -461,7 +461,7 @@ source n'utilise que les pages par type et commune, autorisées.
 
 Liste croisée : annuaire SIRENE (codes 68.31Z à Nice et alentours), agences vues
 sur les portails sans être lues, pages 1 des annuaires SeLoger et PagesJaunes.
-240 agences examinées ; 58 ajoutées. Les agences sans location le jour
+245 agences examinées ; 66 ajoutées. Les agences sans location le jour
 du relevé sont suivies quand même : elles en publieront. Une page vide n'est
 « vide » que si elle porte le message de la plateforme (« Aucun bien ne
 correspond… ») ; sans lui, la source passe en dégradée et ses annonces ne
@@ -553,6 +553,14 @@ Immobilier dont robots.txt interdit la recherche) — aucun contournement.
 | **L’Orientation Immobilière** (orimnice.fr)                        | 2026-09-15 | 4 (Nice ×3 dont 1 parking, Le Cannet), ICS neocs                |
 | **Imodirect** (annonces.imodirect.com)                             | 2026-09-15 | 2 (Nice)                                                        |
 | **Agence du Port de Nice** (agenceduportdenice.fr)                 | 2026-09-15 | 0 aujourd'hui (suivie en attente), ICS                          |
+| **Miramar Real Estate** (miramarimmo.com)                          | 2026-09-15 | 0 aujourd'hui (suivie en attente)                               |
+| **Cabinet Loquis** (loquis.fr)                                     | 2026-09-15 | 0 aujourd'hui (suivie en attente), Crawl-delay 10 s respecté    |
+| **Côte d'Azur Properties** (immobilierniceouest.com)               | 2026-09-15 | 0 aujourd'hui (suivie en attente), Houzez                       |
+| **CDS Gestion** (cdsgestion.fr)                                    | 2026-09-15 | 0 aujourd'hui (suivie en attente), RealHomes                    |
+| **Agence Castel** (agencecastel.com)                               | 2026-09-15 | 0 aujourd'hui (suivie en attente), ancien gabarit Apimo         |
+| **CDC Immobilier** (cdcimmobilier.com)                             | 2026-09-15 | 0 aujourd'hui (suivie en attente), ancien gabarit Apimo         |
+| **Nicolas Pisani Real Estate** (nicolaspisani.com)                 | 2026-09-15 | 6 (Nice, Beaulieu-sur-Mer, Cap-d'Ail), longue durée seule       |
+| **Domi Nice Immobilier** (dominiceimmobilier.com)                  | 2026-09-15 | 0 aujourd'hui (suivie en attente)                               |
 | **Altarea Gestion Immobilière - Nice** (altarea.flatbay.fr)        | 2026-09-15 | 8 (Nice ×4 dont 1 box, Mougins, Fréjus, Saint-Raphaël), Flatbay |
 
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)
