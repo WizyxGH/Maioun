@@ -16,6 +16,7 @@ import 'leaflet/dist/leaflet.css';
 import { PRIORITY_HOT } from '@maioun/shared';
 import type { ListingView } from '../types.js';
 import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../format.js';
+import { iconMarkup } from './icons.js';
 
 /** Centre par défaut : Nice. Utilisé quand aucune annonce n'est géolocalisée. */
 const NICE_CENTER: [number, number] = [43.7009, 7.2683];
@@ -77,19 +78,26 @@ const CONTACTED_STATUSES = new Set([
 /**
  * Pastille de prix, teintée selon la priorité (cohérente avec les cartes).
  *
- * Deux repères visuels s'ajoutent, comme sur les cartes des grands portails :
- * ♥ pour un FAVORI — le même symbole que la carte et la fiche, pour qu'un seul
- * geste se lise partout — et ✉️ pour une annonce déjà CONTACTÉE. Ils évitent de rouvrir
- * une fiche pour se souvenir de son état, et de recontacter deux fois la même
- * agence.
+ * Trois repères s'ajoutent, dans l'ordre où l'œil les cherche : cœur pour un
+ * FAVORI, enveloppe pour une annonce déjà CONTACTÉE, œil pour une annonce déjà
+ * CONSULTÉE — le badge « Consultée » des cartes, qui manquait ici : on rouvrait
+ * sur la carte des fiches déjà lues. Les icônes sont celles de l'application,
+ * pas des émojis, qui changent de dessin d'un téléphone à l'autre.
  */
 function priceIcon(listing: ListingView): L.DivIcon {
   const hot = listing.actionPriority >= PRIORITY_HOT;
   const label = listing.price.value !== null ? `${listing.price.value} €` : '— €';
   const favorite = listing.favorite === true;
   const contacted = CONTACTED_STATUSES.has(listing.tracking);
-  // Le favori prime sur le contact : c'est le repère que l'œil cherche d'abord.
-  const badge = favorite ? '♥' : contacted ? '✉️' : '';
+  const viewed = listing.viewed === true;
+  const ink = hot ? '#ffffff' : '#1a1a1a';
+  const badge = favorite
+    ? iconMarkup('heart', hot ? '#ffffff' : '#e00034')
+    : contacted
+      ? iconMarkup('mail', ink)
+      : viewed
+        ? iconMarkup('eye', hot ? '#ffffff' : '#71717a')
+        : '';
   // Un favori garde une bordure dorée même quand il n'est pas « chaud », pour
   // rester repérable au milieu des autres pastilles.
   const border = favorite ? '#f59e0b' : hot ? '#e00034' : '#d4d4d8';
@@ -103,8 +111,8 @@ function priceIcon(listing: ListingView): L.DivIcon {
         border: ${favorite ? '2px' : '1px'} solid ${border};
         font: 600 12px system-ui, sans-serif; white-space: nowrap;
         box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
-        ${contacted && !favorite ? 'opacity: .75;' : ''}
-      ">${badge === '' ? '' : `${badge} `}${label}</div>`,
+        ${(contacted || viewed) && !favorite ? 'opacity: .75;' : ''}
+      ">${badge === '' ? '' : `${badge}&nbsp;`}${label}</div>`,
     iconSize: [0, 0],
   });
 }
