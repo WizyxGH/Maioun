@@ -3,6 +3,7 @@ import {
   describeSearch,
   formatCriteriaCity,
   formatDistricts,
+  formatSources,
   searchParts,
   suggestName,
   type SavedSearch,
@@ -73,5 +74,14 @@ describe('suggestName', () => {
     expect(
       suggestName({ cities: ['cagnes-sur-mer'], maxPrice: 700, minArea: 0 }, DEFAULT_QUICK_FILTERS),
     ).toMatch(/^Cagnes-sur-Mer/);
+  });
+});
+
+describe('formatSources', () => {
+  it('nomme les sources retenues, puis combien d’autres', () => {
+    expect(formatSources(['orpi', 'fnaim'])).toMatch(/^Seulement .+, .+$/);
+    const many = formatSources(['orpi', 'fnaim', 'foncia', 'bienici']);
+    expect(many).toMatch(/^Seulement .+, .+ \+2$/);
+    expect(many).not.toContain('orpi');
   });
 });

@@ -28,6 +28,7 @@ import {
 } from '@maioun/shared';
 import type { FilterConfig, SortMode } from './types.js';
 import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
+import { formatSourceName } from './format.js';
 
 /** L'affinage d'affichage, sous une forme qui passe par JSON. */
 export interface SavedView {
@@ -140,6 +141,23 @@ export function formatDistricts(slugs: readonly string[]): string {
   return rest > 0 ? `${shown} +${rest}` : shown;
 }
 
+/** Au-delà, la carte dit combien d'autres plutôt que de tout énumérer. */
+const MAX_SOURCES_SHOWN = 2;
+
+/**
+ * « Seulement Orpi, FNAIM +17 » : QUELLES sources, pas seulement combien.
+ *
+ * « 19 sources » ne disait pas qu'une recherche était restreinte : rappelée, elle
+ * écartait en silence toutes les autres, y compris les agences ajoutées depuis
+ * (relevé du 2026-09-15).
+ */
+export function formatSources(ids: readonly string[]): string {
+  const names = ids.map(formatSourceName).sort((a, b) => a.localeCompare(b));
+  const shown = names.slice(0, MAX_SOURCES_SHOWN).join(', ');
+  const rest = names.length - MAX_SOURCES_SHOWN;
+  return `Seulement ${shown}${rest > 0 ? ` +${rest}` : ''}`;
+}
+
 /** Les critères d'une recherche, un par un, dans l'ordre où on les lit. */
 export function searchParts(search: SavedSearch): readonly SearchPart[] {
   const parts: SearchPart[] = [];
@@ -176,9 +194,7 @@ export function searchParts(search: SavedSearch): readonly SearchPart[] {
   if (criteria.landlordFilter === 'agency') add('landlord', 'agences');
   if (criteria.furnishedFilter === 'furnished') add('furnished', 'meublé');
   if (criteria.furnishedFilter === 'unfurnished') add('furnished', 'non meublé');
-  if (view.sources.length > 0) {
-    add('sources', `${view.sources.length} source${view.sources.length > 1 ? 's' : ''}`);
-  }
+  if (view.sources.length > 0) add('sources', formatSources(view.sources));
   if (view.search !== '') add('text', `« ${view.search} »`);
   return parts;
 }
