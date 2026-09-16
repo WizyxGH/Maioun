@@ -71,8 +71,19 @@ const SOURCES_AT_ONCE = 12;
  */
 const SOURCE_PHASE_BUDGET_MS = 8 * 60_000;
 
-/** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
-const GEOCODE_NETWORK_BUDGET = 80;
+/**
+ * Plafond d'appels réseau de géocodage par run (les adresses en cache sont
+ * gratuites, §30).
+ *
+ * RELEVABLE LE TEMPS D'UN RATTRAPAGE. Quand la résolution s'améliore, le cache
+ * repart à zéro et le stock met une dizaine de passages à se replacer :
+ * `GEOCODE_BUDGET=1500 pnpm reprocess` fait le rattrapage en une fois, sans
+ * toucher au plafond des collectes ordinaires.
+ */
+const GEOCODE_NETWORK_BUDGET = Math.max(
+  1,
+  Number.parseInt(process.env['GEOCODE_BUDGET'] ?? '', 10) || 80,
+);
 
 /**
  * Recherches de DPE au plus par passage, hors cache.
