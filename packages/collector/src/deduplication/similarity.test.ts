@@ -265,6 +265,55 @@ describe('titre, adresse et même source', () => {
     expect(similarity(alerte, agence).signals.map((s) => s.code)).toContain('title');
   });
 
+  /**
+   * UN ESPACE AVANT LES POINTS DE SUSPENSION LAISSE LE DERNIER MOT ENTIER.
+   *
+   * Le portail coupe tantôt au milieu d'un mot (« Studio Dernie... »), tantôt
+   * après lui (« SAINT ROCH ... »). Écarter le dernier mot dans les deux cas
+   * jetait ici le seul mot distinctif : il ne restait que « saint », commun à
+   * Saint-Roch, Saint-Augustin et Saint-Sylvestre, et le titre ne comptait plus.
+   * L'alerte restait séparée de l'annonce du portail qui portait pourtant les
+   * mêmes loyer, surface, pièces et code postal.
+   */
+  it('garde le dernier mot d’un titre coupé après un espace', () => {
+    const commun = { ...base, price: 750, area: 38, rooms: 2, postalCode: '06300' };
+    const alerte = makeOccurrence({
+      ...commun,
+      id: 'email-alerts:seloger:d',
+      sourceId: 'email-alerts',
+      title: 'Appartement Nice VIDE 2 pièce(s) 38 m2 SAINT ROCH ...',
+    });
+    const portail = makeOccurrence({
+      ...commun,
+      id: 'bienici:1',
+      sourceId: 'bienici',
+      title: 'Appartement Nice VIDE 2 pièce(s) 38 m2 SAINT ROCH avec TERRASE',
+    });
+    const resultat = similarity(alerte, portail);
+    expect(resultat.signals.find((s) => s.code === 'title')?.label).toBe('même titre');
+    expect(resultat.verdict).toBe('duplicate');
+  });
+
+  /**
+   * LE GARDE-FOU TIENT TOUJOURS : garder le dernier mot ne dispense pas d'avoir
+   * deux mots distinctifs. « Studio meublé à louer ... » n'en a aucun.
+   */
+  it('ne fusionne pas sur un titre coupé qui reste générique', () => {
+    const alerte = makeOccurrence({
+      ...base,
+      id: 'email-alerts:seloger:e',
+      sourceId: 'email-alerts',
+      title: 'Appartement meublé à louer ...',
+    });
+    const agence = makeOccurrence({
+      ...base,
+      id: 'citya:1',
+      sourceId: 'citya',
+      title: 'Appartement meublé à louer studio lumineux',
+    });
+    expect(similarity(alerte, agence).verdict).not.toBe('duplicate');
+  });
+
   it('ne tire rien d’un titre générique, même identique', () => {
     const a = makeOccurrence({
       ...base,

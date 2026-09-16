@@ -406,12 +406,24 @@ const GENERIC_TITLE_WORDS = new Set([
   'petit',
 ]);
 
-/** Les mots d'un titre, sans le dernier s'il est coupé (« … », « ... »). */
+/**
+ * Les mots d'un titre, sans le dernier s'il est coupé (« … », « ... »).
+ *
+ * UN ESPACE AVANT LES POINTS VEUT DIRE QUE LE DERNIER MOT EST ENTIER. « SAINT
+ * ROCH ... » s'arrête après « ROCH » ; « SAINT ROC... » coupe « ROC » au
+ * milieu. Retirer le dernier mot dans les deux cas jetait le seul mot
+ * distinctif de titres par ailleurs très génériques — « Appartement Nice VIDE
+ * 2 pièce(s) 38 m2 SAINT ROCH ... » ne gardait que « saint », un mot que
+ * partagent Saint-Roch, Saint-Augustin et Saint-Sylvestre, et l'alerte restait
+ * séparée de l'annonce Bien'ici qui portait les mêmes loyer, surface, pièces et
+ * code postal.
+ */
 function titleTokens(title: string | null): { readonly tokens: string[]; readonly cut: boolean } {
   const raw = (title ?? '').trim();
   const cut = /(?:\.\.\.|…)$/.test(raw);
+  const tronqueLeMot = /[^\s](?:\.\.\.|…)$/.test(raw);
   const tokens = tokenize(raw.replace(/(?:\.\.\.|…)$/, ''));
-  return { tokens: cut ? tokens.slice(0, -1) : tokens, cut };
+  return { tokens: tronqueLeMot ? tokens.slice(0, -1) : tokens, cut };
 }
 
 /**
