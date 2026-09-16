@@ -872,3 +872,74 @@ describe('dedupe — les clichés de catalogue', () => {
     expect(communes).toContain('photo:medias.invalid/img/6a84bb03973e96025cedff03.jpg');
   });
 });
+
+describe('« même référence » — ce qui rapproche vraiment deux annonces', () => {
+  /** Une annonce sans aucun autre point commun, pour isoler le seul signal testé. */
+  const seule = (
+    id: string,
+    sourceId: string,
+    sourceRef: string,
+    reference: string | null,
+  ): NormalizedListing =>
+    listing({
+      id,
+      sourceId,
+      sourceRef,
+      price: null,
+      area: null,
+      rooms: null,
+      title: null,
+      city: null,
+      contact: { ...EMPTY_CONTACT, reference },
+    });
+
+  const aSignalRef = (a: NormalizedListing, b: NormalizedListing): boolean =>
+    similarity(a, b).signals.some((s) => s.code === 'reference');
+
+  it('rapproche la référence PUBLIÉE par un portail de l’identifiant de l’agence', () => {
+    // Relevé en base : bep:87280764 est l'identifiant Apimo de l'agence, et
+    // Paru Vendu republie « Réf. annonce 87280764 ». C'est le même
+    // appartement, et le repli supprimé ne doit pas coûter ce rapprochement —
+    // 186 paires inter-sources en dépendaient.
+    const agence = seule('bep:87280764', 'bep', '87280764', null);
+    const portail = seule('paruvendu:1295', 'paruvendu', '1295', '87280764');
+    expect(aSignalRef(agence, portail)).toBe(true);
+  });
+
+  it('rapproche deux références publiées identiques', () => {
+    expect(
+      aSignalRef(
+        seule('bienici:ag-1', 'bienici', 'ag-1', 'AN006144'),
+        seule('imodirect:6144', 'imodirect', '6144', 'AN006144'),
+      ),
+    ).toBe(true);
+  });
+
+  it('ne rapproche PAS deux identifiants internes qui se croisent', () => {
+    // Deux compteurs d'agence arrivés au même nombre : sag-immobilier:1553
+    // n'est pas cabinet-ledeux:1553. Il faut qu'un côté PUBLIE la valeur.
+    expect(
+      aSignalRef(
+        seule('sag-immobilier:1553', 'sag-immobilier', '1553', null),
+        seule('cabinet-ledeux:1553', 'cabinet-ledeux', '1553', null),
+      ),
+    ).toBe(false);
+  });
+
+  it('ignore un identifiant trop court pour distinguer quoi que ce soit', () => {
+    expect(aSignalRef(seule('a:12', 'a', '12', '12'), seule('b:99', 'b', '99', '12'))).toBe(false);
+  });
+
+  it('ne compare rien au sein d’une même source', () => {
+    expect(aSignalRef(seule('a:1', 'a', '1', 'REF-4242'), seule('a:2', 'a', '2', 'REF-4242'))).toBe(
+      false,
+    );
+  });
+
+  it('bloque sur l’identifiant de source, sinon la paire ne serait jamais comparée', () => {
+    const agence = seule('bep:87280764', 'bep', '87280764', null);
+    const portail = seule('paruvendu:1295', 'paruvendu', '1295', '87280764');
+    const communes = blockingKeys(agence).filter((k) => blockingKeys(portail).includes(k));
+    expect(communes).toContain('ref:87280764');
+  });
+});

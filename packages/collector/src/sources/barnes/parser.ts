@@ -74,7 +74,9 @@ export function parseList(html: string): RawListing[] {
         agencyName: AGENCY_NAME,
         contactFormUrl: sourceUrl,
         imageUrls: image !== undefined ? [image] : undefined,
-        extra: { reference, communeSlug: match[1] },
+        // La référence publiée est lue sur la FICHE (tableau « Référence ») ;
+        // l'identifiant d'URL n'en est pas une (§17).
+        extra: { communeSlug: match[1] },
       }),
     );
   });

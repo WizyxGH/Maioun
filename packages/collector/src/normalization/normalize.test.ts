@@ -647,3 +647,30 @@ describe('faux positifs relevés le 2026-09-14', () => {
     ).toBe(false);
   });
 });
+
+describe('contact.reference — publiée, ou rien (§17)', () => {
+  it('garde la référence que la source PUBLIE', () => {
+    const n = normalizeListing(raw({ extra: { reference: 'LA2495' } }), OPTIONS);
+    expect(n?.contact.reference).toBe('LA2495');
+  });
+
+  it('laisse la référence VIDE quand la source n’en publie aucune', () => {
+    // Le repli sur `sourceRef` faisait afficher « Réf. agence : ref1 » — un
+    // numéro tiré de l'URL par nous, que l'agence ne reconnaît pas au
+    // téléphone. Trois occurrences actives sur quatre le portaient.
+    const n = normalizeListing(raw({ sourceRef: '565' }), OPTIONS);
+    expect(n?.contact.reference).toBeNull();
+  });
+
+  it('ne recopie pas l’identifiant d’URL même quand `extra` porte d’autres clés', () => {
+    const n = normalizeListing(raw({ sourceRef: '565', extra: { quartier: 'Riquier' } }), OPTIONS);
+    expect(n?.contact.reference).toBeNull();
+    expect(n?.district).toBe('Riquier');
+  });
+
+  it('traite une référence vide comme absente', () => {
+    expect(normalizeListing(raw({ extra: { reference: '  ' } }), OPTIONS)?.contact.reference).toBe(
+      null,
+    );
+  });
+});

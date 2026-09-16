@@ -10,8 +10,13 @@
  */
 
 import { ONE_SHOT_SOURCES, type NormalizedListing } from '@maioun/shared';
-import { comparable } from '../normalization/text.js';
-import { photoKeys, sameSourceConflict, similarity, type SimilarityResult } from './similarity.js';
+import {
+  identifiers,
+  photoKeys,
+  sameSourceConflict,
+  similarity,
+  type SimilarityResult,
+} from './similarity.js';
 
 /** Groupe d'occurrences désignant le même logement. */
 export interface DuplicateGroup {
@@ -69,10 +74,10 @@ export function blockingKeys(listing: NormalizedListing): string[] {
   if (listing.contact.phone !== null) keys.push(`phone:${listing.contact.phone}`);
   if (listing.contact.email !== null) keys.push(`email:${listing.contact.email}`);
 
-  const reference = listing.contact.reference;
-  if (reference !== null && reference.length >= 4) {
-    keys.push(`ref:${comparable(reference)}`);
-  }
+  // Référence publiée ET identifiant de source : le blocage doit être au moins
+  // aussi large que le signal « même référence », sinon la paire qu'il
+  // rapprocherait n'est jamais comparée.
+  for (const key of identifiers(listing).all) keys.push(`ref:${key}`);
 
   const city = listing.city ?? listing.postalCode ?? 'ville-inconnue';
 

@@ -36,7 +36,9 @@ describe('parseSearchPage — fixture nominale', () => {
     expect(f3?.areaText).toBe('78,27 m2');
     expect(f3?.roomsText).toBe('3 pièces');
     expect(f3?.cityText).toBe('NICE');
-    expect(f3?.extra?.['agencyRef']).toBe('90001');
+    // « Ref : 90001 » est ce que l'agence AFFICHE : c'est la référence, et non
+    // l'identifiant d'URL qui occupait la place.
+    expect(f3?.extra?.['reference']).toBe('90001');
   });
 
   it('garde les photos écrites en chemin relatif, et laisse l’habillage', () => {

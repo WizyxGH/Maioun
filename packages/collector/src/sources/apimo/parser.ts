@@ -373,11 +373,12 @@ function apimoExtra(
   const district = apimoDistrict($, jsonLd?.city);
   const lines = criteria.pairs.map(([label, value]) => `${label} : ${value}`);
   if (criteria.services.length > 0) lines.push(`Prestations : ${criteria.services.join(', ')}`);
-  const extra: Record<string, string> = {
-    // La référence affichée par l'agence, qui peut différer de l'identifiant d'URL.
-    reference: criterion(criteria, [/^reference$/]) ?? parsedUrl.reference,
-    citySlug: parsedUrl.citySlug,
-  };
+  const extra: Record<string, string> = { citySlug: parsedUrl.citySlug };
+  // La référence AFFICHÉE par l'agence, et elle seule. L'identifiant d'URL
+  // servait de repli : la fiche annonçait alors « Réf. agence » un numéro que
+  // nous avions fabriqué, et que l'agence ne reconnaissait pas au téléphone.
+  const reference = criterion(criteria, [/^reference$/]);
+  if (reference !== undefined) extra['reference'] = reference;
   if (lines.length > 0) extra['features'] = lines.join(' · ');
   const floor = apimoFloor(criteria);
   if (floor !== undefined) extra['etage'] = floor;

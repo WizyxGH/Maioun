@@ -132,8 +132,9 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         imageUrls:
           image !== undefined && image !== '' ? [new URL(image, pageUrl).toString()] : undefined,
         extra: {
-          reference,
-          ...(params.get('ref') !== null ? { agencyRef: params.get('ref') as string } : {}),
+          // `ref` est la référence affichée ; `idBien` n'est que la clé interne
+          // du site, qui remplissait à tort la ligne « Réf. agence ».
+          ...(params.get('ref') !== null ? { reference: params.get('ref') as string } : {}),
           ...(district !== undefined ? { quartier: district } : {}),
         },
       }),

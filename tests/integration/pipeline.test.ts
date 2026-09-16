@@ -148,9 +148,10 @@ describe('scénario 2 — la même annonce sur deux sources (§53)', () => {
 
     await runPipeline(pipelineOptions(repository, serveNominal, [laforetScraper, cloned]));
 
-    const occurrences = await db.execute(
-      "SELECT * FROM occurrences WHERE contact_reference = '40000001'",
-    );
+    // On retrouve les deux occurrences par leur IDENTIFIANT DE SOURCE, pas par
+    // `contact_reference` : Laforêt ne publie pas de référence, et ce champ ne
+    // reçoit plus l'identifiant d'URL faute de mieux (§17).
+    const occurrences = await db.execute("SELECT * FROM occurrences WHERE source_ref = '40000001'");
     expect(occurrences.rows).toHaveLength(2);
 
     // Les deux occurrences pointent vers la même fiche agrégée.

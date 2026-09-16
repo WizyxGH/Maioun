@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { isEmptyList, parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/loquis');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('loquis');
 
 const rental = (): string =>
   read('fiche-vente.html')
@@ -49,7 +47,9 @@ describe('parseDetail (Loquis)', () => {
     expect(draft?.chargesText).toBe('170€');
     expect(draft?.depositText).toBe('1 000 €');
     expect(draft?.cityText).toBe('Nice');
-    expect(draft?.extra).toEqual({ reference: '87316835', dpe: 'B' });
+    // Pas de `reference` : elle se devinait dans le nom de fichier d'une photo,
+    // et Loquis ne l'affiche nulle part (§17).
+    expect(draft?.extra).toEqual({ dpe: 'B' });
     expect(draft?.description).toMatch(/^Venez vite découvrir[\s\S]+DPE: B et B$/);
     expect(draft?.imageUrls).toHaveLength(12);
     expect(draft?.imageUrls?.[0]).toBe(

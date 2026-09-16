@@ -130,7 +130,8 @@ describe('parseDetail — caractéristiques, montants et DPE', () => {
   });
 
   it('lit la classe DPE de l’étiquette et le quartier de la ligne d’adresse', () => {
-    expect(listing?.extra).toEqual({ reference: '1399neot', dpe: 'E', quartier: 'Vernier' });
+    // Pas de `reference` : « 1399neot » vient de l'URL, l'agence ne l'affiche pas.
+    expect(listing?.extra).toEqual({ dpe: 'E', quartier: 'Vernier' });
   });
 
   it('va jusqu’à la fiche normalisée', () => {

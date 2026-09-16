@@ -183,7 +183,9 @@ export function parseDetail(html: string, url: string): PujolListing | null {
       agencyName: 'Immobilière Pujol',
       contactFormUrl: url,
       imageUrls: photos.length > 0 ? photos : undefined,
-      extra: compactExtra({ reference, dpe, quartier: district }),
+      // Pas de `reference` : `reference` est l'identifiant d'URL, pas une
+      // référence publiée par l'agence (§17).
+      extra: compactExtra({ dpe, quartier: district }),
     }),
   };
 }

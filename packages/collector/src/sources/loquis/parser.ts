@@ -111,11 +111,12 @@ export function parseDetail(html: string): RawDraft | null {
     ),
   ];
   const text = `${title}\n${description}`;
-  const apimo = /picture-(\d{6,})-\d+/.exec(imageUrls[0] ?? '')?.[1];
   const dpe = /DPE\s*:?\s*([A-G])\b/.exec(description)?.[1];
 
+  // Aucune `reference` : l'identifiant Apimo se devinait dans le NOM DE FICHIER
+  // d'une photo. Le site ne l'affiche nulle part, et l'agence ne le reconnaît
+  // pas — une valeur devinée n'est pas une donnée publiée (§17).
   const extra: Record<string, string> = {};
-  if (apimo !== undefined) extra['reference'] = apimo;
   if (dpe !== undefined) extra['dpe'] = dpe;
 
   return {

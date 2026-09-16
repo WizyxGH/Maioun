@@ -268,6 +268,60 @@ export function photoKeys(listing: NormalizedListing): string[] {
   return [...keys];
 }
 
+/** Un identifiant trop court ne distingue rien : « 12 » désigne mille biens. */
+const IDENTIFIER_MIN_LENGTH = 4;
+
+/**
+ * Les identifiants sous lesquels une annonce peut être reconnue ailleurs.
+ *
+ * DEUX CHOSES DIFFÉRENTES, longtemps confondues. La référence PUBLIÉE est celle
+ * que l'agence imprime sur sa fiche et qu'on lui cite au téléphone. Le
+ * `sourceRef` est le numéro que NOUS tirons de l'URL pour ne pas collecter deux
+ * fois la même page — il ne s'affiche nulle part.
+ *
+ * Les confondre remplissait la ligne « Réf. agence » d'un numéro fabriqué. Les
+ * séparer, sans plus, aurait coûté des regroupements : le `sourceRef` d'une
+ * agence est souvent l'identifiant de son logiciel métier (Apimo, Hektor), et
+ * c'est CE numéro que le portail republie comme référence. bep:87280764 et la
+ * fiche Paru Vendu de référence 87280764 sont le même appartement.
+ *
+ * On garde donc les deux comme clés de rapprochement, et le champ affiché
+ * n'en garde qu'une.
+ */
+export function identifiers(listing: NormalizedListing): {
+  readonly published: string | null;
+  readonly all: readonly string[];
+} {
+  const keep = (value: string | null): string | null => {
+    if (value === null) return null;
+    const key = comparable(value);
+    return key.length >= IDENTIFIER_MIN_LENGTH ? key : null;
+  };
+  const published = keep(listing.contact.reference);
+  const all = [...new Set([published, keep(listing.sourceRef)].filter((k) => k !== null))];
+  return { published, all };
+}
+
+/**
+ * Deux annonces portent-elles le même identifiant ?
+ *
+ * ENTRE SOURCES SEULEMENT : au sein d'une même source, le `sourceRef` est unique
+ * par construction et la référence publiée est déjà l'identifiant — la
+ * comparaison serait vaine.
+ *
+ * UN CÔTÉ AU MOINS DOIT PUBLIER la valeur. Deux `sourceRef` égaux ne prouvent
+ * rien : ce sont deux compteurs internes qui se croisent, et sag-immobilier:1553
+ * n'est pas cabinet-ledeux:1553. Il faut qu'une source ait ÉCRIT ce numéro sur
+ * sa fiche pour que le rapprochement ait un sens.
+ */
+function sameIdentifier(a: NormalizedListing, b: NormalizedListing): boolean {
+  if (a.sourceId === b.sourceId) return false;
+  const left = identifiers(a);
+  const right = identifiers(b);
+  const shared = left.all.filter((key) => right.all.includes(key));
+  return shared.some((key) => key === left.published || key === right.published);
+}
+
 /**
  * Ce que les photos de deux annonces prouvent.
  *
@@ -523,11 +577,7 @@ function collectStrongSignals(
     }
   }
 
-  // La référence d'agence n'est comparée qu'entre sources différentes : au sein
-  // d'une même source, elle est déjà l'identifiant, la comparaison serait vaine.
-  const refA = a.contact.reference;
-  const refB = b.contact.reference;
-  if (refA !== null && refB !== null && comparable(refA) === comparable(refB) && refA.length >= 4) {
+  if (sameIdentifier(a, b)) {
     push({ code: 'reference', label: 'même référence', points: 35 });
   }
 

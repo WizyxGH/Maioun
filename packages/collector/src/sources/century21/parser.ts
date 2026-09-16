@@ -120,8 +120,11 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       // `data:` : ce n'est pas une photo du logement.
       .filter((src): src is string => src !== null && /^https?:/i.test(src));
 
-    const extra: Record<string, string> = { reference: url.reference };
-    if (agencyRef !== undefined) extra['agencyRef'] = agencyRef;
+    // « Ref : … » est ce que l'agence affiche ; il partait en `agencyRef`, que
+    // personne ne lisait, pendant que `reference` — la ligne « Réf. agence » de
+    // la fiche — recevait l'identifiant d'URL, inconnu de l'agence.
+    const extra: Record<string, string> = {};
+    if (agencyRef !== undefined) extra['reference'] = agencyRef;
 
     const listing: RawListing = {
       sourceRef: url.reference,

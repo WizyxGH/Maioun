@@ -127,6 +127,27 @@ function toNullMultiline(value: string | undefined): string | null {
 }
 
 /**
+ * La COLOCATION telle que la source la déclare, ou `null` si elle n'en dit rien.
+ *
+ * `parseFlatShare` fouille un titre et une prose : c'est la seule ressource
+ * quand la source ne classe rien. Mais MorningCroissant range chaque annonce
+ * dans « Logement entier », « Chambre privée » ou « Chambre partagée », et
+ * Appartager ne publie QUE des colocations — le deviner à partir du texte
+ * serait retomber sur une heuristique là où le fait est écrit.
+ *
+ * L'ENJEU EST UNE EXCLUSION. Ce compte écarte les colocations
+ * (`excludeFlatShare`) : une chambre partagée qui ressort `null` passe le
+ * filtre et part en alerte. On prend donc la déclaration de la source telle
+ * quelle, comme on le fait déjà pour `landlord` juste en dessous.
+ */
+function declaredFlatShare(raw: RawListing): boolean | null {
+  const declared = raw.extra?.['flatShare'];
+  if (declared === 'true') return true;
+  if (declared === 'false') return false;
+  return null;
+}
+
+/**
  * Déduit la nature du bailleur.
  *
  * TROIS INDICES, DU PLUS SÛR AU PLUS FAIBLE. Une agence nommée tranche. Le mot
@@ -165,7 +186,20 @@ function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKi
   const agencyName = toNull(raw.agencyName);
   const name = toNull(raw.contactName);
   const formUrl = toNull(raw.contactFormUrl);
-  const reference = toNull(raw.extra?.['reference']) ?? raw.sourceRef;
+  /**
+   * LA RÉFÉRENCE EST CELLE QUE L'AGENCE PUBLIE, ou rien.
+   *
+   * Un repli sur `sourceRef` traînait ici, et la fiche affichait « Réf. agence :
+   * 565 » — un numéro que nous avions fabriqué depuis l'URL, que personne ne
+   * reconnaissait au téléphone. Sur les occurrences actives, les trois quarts
+   * portaient ainsi un identifiant interne présenté comme une référence.
+   *
+   * Un champ absent reste absent (§17). Le rapprochement, lui, ne perd rien :
+   * il compare désormais les identifiants de source explicitement, au lieu de
+   * les faire passer pour des références (voir `identifiers` dans
+   * `deduplication/similarity.ts`).
+   */
+  const reference = toNull(raw.extra?.['reference']);
 
   const hasAny =
     phone !== null || email !== null || agencyName !== null || name !== null || formUrl !== null;
@@ -506,7 +540,8 @@ export function normalizeListing(
     // Le titre d'abord : « 3 PIÈCES MEUBLÉ » l'emporte sur une case « non »
     // de la source, que plusieurs agences laissent à sa valeur par défaut.
     furnished: parseFurnished(raw.title) ?? parseFurnished(text.furnished),
-    flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
+    flatShare:
+      declaredFlatShare(raw) ?? parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
     dpe: resolveDpe(raw),
     ges: resolveGes(raw),
     /**

@@ -334,8 +334,8 @@ describe('parseDetailPage — DPE, quartier, rue', () => {
       <span class="title_finance">Dépôt de garantie TTC</span> <span class="price_finance">1 €</span>`);
     const { listing } = parseDetailPage(html, url, 'Agence');
     expect(listing?.addressText).toBe('37 Boulevard François Grosso');
-    // Pas une référence : celle de l'URL reprend sa place.
-    expect(listing?.extra?.['reference']).toBe('3688');
+    // Pas une référence, et l'URL n'en fournit pas : le champ reste vide (§17).
+    expect(listing?.extra?.['reference']).toBeUndefined();
     // « 1 € » de dépôt : remplissage, pas un montant.
     expect(listing?.depositText).toBeUndefined();
   });

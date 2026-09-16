@@ -54,7 +54,9 @@ describe('parseDetailPage', () => {
     expect(listing?.longitude).toBeCloseTo(7.26051, 4);
     expect((listing?.imageUrls ?? []).length).toBeGreaterThan(0);
     expect(listing?.phoneText).toBeDefined();
-    expect(listing?.extra?.['reference']).toBe('87252043');
+    // Mirabello n'affiche aucune référence : l'identifiant d'URL n'en tient pas
+    // lieu, il reste le seul `sourceRef` (§17).
+    expect(listing?.extra?.['reference']).toBeUndefined();
     // Les deux étiquettes sont dans la classe CSS de leur bloc, pas dans le SVG.
     expect(listing?.extra?.['dpe']).toBe('DPE C');
     expect(listing?.extra?.['ges']).toBe('GES C');

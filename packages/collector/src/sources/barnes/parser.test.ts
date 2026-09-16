@@ -1,33 +1,15 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { MVP_CRITERIA, type RawListing, type ScrapeContext } from '@maioun/shared';
+import type { RawListing } from '@maioun/shared';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { barnesScraper } from './index.js';
 import { detailUrl, isEmptyList, LIST_URL, parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
+import { contextServing } from '../../../../../tests/helpers/scrape-context.js';
 
 // Pages réelles du 2026-09-15, allégées et anonymisées : liste des
 // Alpes-Maritimes, recherche Nice sans résultat, une fiche louée au mois
 // (Paris) et une à prix sur demande (Roquebrune-Cap-Martin).
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/barnes');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
-
-function context(pages: Record<string, string>): ScrapeContext {
-  return {
-    criteria: MVP_CRITERIA,
-    mode: 'live',
-    fetch: (url) =>
-      Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
-    isKnown: () => false,
-    knownRefs: new Set(),
-    lastFullPassAt: null,
-    detailMemory: { get: () => null, save: () => Promise.resolve() },
-    pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
-    log: () => undefined,
-    credentials: null,
-    shouldStop: () => false,
-  };
-}
+const read = fixtureReader('barnes');
 
 const ROQUEBRUNE =
   'https://www.barnes-international.com/fr/location/france/roquebrune-cap-martin/ref-ITB-LS104-2.html';
@@ -44,7 +26,9 @@ describe('parseList (BARNES)', () => {
       propertyTypeText: 'Maison',
       areaText: '363 m²',
       cityText: 'Roquebrune-Cap-Martin',
-      extra: { reference: 'ITB-LS104-2', communeSlug: 'roquebrune-cap-martin' },
+      // La liste ne publie pas de référence : l'identifiant d'URL sert de
+      // `sourceRef`, la référence viendra du tableau de la fiche.
+      extra: { communeSlug: 'roquebrune-cap-martin' },
     });
     expect(listings[0]?.priceText).toBeUndefined();
   });
@@ -110,13 +94,13 @@ describe('parseDetail (BARNES)', () => {
 describe('barnesScraper', () => {
   it('rend `empty` sur « La recherche n’indique aucun résultat »', async () => {
     const result = await barnesScraper.run(
-      context({ [LIST_URL]: read('location-nice-vide.html') }),
+      contextServing({ [LIST_URL]: read('location-nice-vide.html') }),
     );
     expect(result).toMatchObject({ stopReason: 'empty', warnings: [] });
   });
 
   it('garde l’avertissement sur une page sans résultats ni bandeau', async () => {
-    const result = await barnesScraper.run(context({ [LIST_URL]: '<html></html>' }));
+    const result = await barnesScraper.run(contextServing({ [LIST_URL]: '<html></html>' }));
     expect(result.stopReason).toBe('completed');
     expect(result.warnings).toHaveLength(1);
   });

@@ -51,7 +51,9 @@ describe('parseListPage (Dinamy)', () => {
     expect(l?.cityText).toBe('Nice');
     expect(l?.extra?.['quartier']).toBe('Carras');
     expect(l?.furnishedText).toBe('meublé');
-    expect(l?.extra?.['agencyRef']).toBe('500227');
+    // Le paramètre `ref` est la référence affichée ; `idBien`, la clé interne
+    // du site, n'a plus à se faire passer pour elle.
+    expect(l?.extra?.['reference']).toBe('500227');
   });
 
   it('distingue la location VIDE de la meublée', () => {

@@ -644,7 +644,6 @@ function declaredDistrict(
 function hektorExtra(
   table: Map<string, string>,
   content: DetailContent,
-  urlReference: string,
   declared: {
     readonly district: string | undefined;
     readonly dpe: string | undefined;
@@ -661,8 +660,11 @@ function hektorExtra(
     ...(exposition !== undefined ? [`Exposition ${exposition}`] : []),
     ...content.items,
   ];
-  // La référence que l'agence affiche, qui la retrouve sur les portails.
-  const extra: Record<string, string> = { reference: content.reference ?? urlReference };
+  // La référence que l'agence AFFICHE, qui la retrouve sur les portails. Sans
+  // elle, pas de ligne « Réf. agence » : l'identifiant d'URL qui servait de
+  // repli ne désigne rien chez l'agence.
+  const extra: Record<string, string> = {};
+  if (content.reference !== undefined) extra['reference'] = content.reference;
   if (featureList.length > 0) extra['features'] = featureList.join(' · ');
   if (declared.district !== undefined) extra['quartier'] = declared.district;
   if (declared.dpe !== undefined) extra['dpe'] = declared.dpe;
@@ -773,7 +775,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? ownGallery(imageUrls) : undefined,
-    extra: hektorExtra(table, content, parsedUrl.reference, {
+    extra: hektorExtra(table, content, {
       district: declaredDistrict($, table, content),
       dpe: energyClass($, 'dpe'),
       ges: energyClass($, 'ges'),
