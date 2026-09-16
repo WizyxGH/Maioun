@@ -9,9 +9,9 @@
  * `similarity`, et fusionnées via une structure union-find.
  */
 
-import type { NormalizedListing } from '@maioun/shared';
+import { ONE_SHOT_SOURCES, type NormalizedListing } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
-import { sameSourceConflict, similarity, type SimilarityResult } from './similarity.js';
+import { photoKeys, sameSourceConflict, similarity, type SimilarityResult } from './similarity.js';
 
 /** Groupe d'occurrences désignant le même logement. */
 export interface DuplicateGroup {
@@ -112,7 +112,59 @@ export function blockingKeys(listing: NormalizedListing): string[] {
     }
   }
 
+  // CHAQUE PHOTO EST UNE CLÉ. Sans elle, la comparaison fine n'avait jamais
+  // lieu : une annonce d'agrégateur sans ville et au loyer hors charges ne
+  // tombe dans aucun seau commun avec l'annonce d'origine, alors même qu'elles
+  // servent le même fichier image. Les seaux restent minuscules — une photo
+  // est portée par une poignée d'annonces au plus.
+  for (const key of photoKeys(listing)) keys.push(`photo:${key}`);
+
   return keys;
+}
+
+/**
+ * Nombre d'annonces D'UNE MÊME SOURCE qu'il faut voir porter une photo pour la
+ * tenir pour un cliché de catalogue.
+ *
+ * DEUX NE SUFFIT PAS : c'est le compte d'une annonce republiée sous une
+ * seconde référence, et l'écarter reviendrait à perdre le seul indice qui les
+ * rapproche. Les vrais fonds de catalogue sont bien plus visibles — mesurés le
+ * 2026-09-16, ils reviennent de cinq à dix-neuf fois, toujours à l'intérieur
+ * d'une seule source, et aucune paire inter-sources n'en dépend.
+ */
+const CATALOG_REPEATS = 3;
+
+/**
+ * Les photos qui n'identifient personne : celles qu'une source pose sur
+ * plusieurs de ses biens — façade, hall, plan de quartier, cliché tamponné.
+ *
+ * SEULES COMPTENT LES SOURCES QUI PUBLIENT CHAQUE BIEN UNE FOIS. Un portail
+ * d'alertes renvoie la même annonce à chaque envoi, et un agrégateur la
+ * reprend de plusieurs flux : leurs répétitions ne disent rien d'un fonds de
+ * catalogue. Sept alertes réunies se sont dispersées tant que cette nuance
+ * manquait.
+ */
+function catalogPhotos(
+  listings: readonly NormalizedListing[],
+  relaysListings: (sourceId: string) => boolean,
+): Set<string> {
+  const perSource = new Map<string, Map<string, number>>();
+  for (const listing of listings) {
+    if (relaysListings(listing.sourceId) || ONE_SHOT_SOURCES.includes(listing.sourceId)) continue;
+    for (const key of photoKeys(listing)) {
+      const counts = perSource.get(key) ?? new Map<string, number>();
+      counts.set(listing.sourceId, (counts.get(listing.sourceId) ?? 0) + 1);
+      perSource.set(key, counts);
+    }
+  }
+
+  const catalog = new Set<string>();
+  for (const [key, counts] of perSource) {
+    for (const count of counts.values()) {
+      if (count >= CATALOG_REPEATS) catalog.add(key);
+    }
+  }
+  return catalog;
 }
 
 export interface DedupeOptions {
@@ -159,6 +211,7 @@ interface CompareContext {
   readonly mergeAmbiguous: boolean;
   readonly relaysListings: (sourceId: string) => boolean;
   readonly operatorOf: (sourceId: string) => string | null;
+  readonly photoIdentifies: (key: string) => boolean | null;
 }
 
 /**
@@ -175,7 +228,7 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
   const right = ctx.byId.get(rightId);
   if (left === undefined || right === undefined) return 0;
 
-  const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf);
+  const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf, ctx.photoIdentifies);
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
     ctx.links.push({ leftId, rightId, score: result.score });
   } else if (result.verdict === 'ambiguous') {
@@ -247,14 +300,17 @@ export function dedupe(
     }
   }
 
+  const relaysListings = options.relaysListings ?? ((): boolean => false);
+  const catalog = catalogPhotos(listings, relaysListings);
   const ctx: CompareContext = {
     byId,
     comparedPairs: new Set<string>(),
     links: [],
     ambiguous: [],
     mergeAmbiguous: options.mergeAmbiguous ?? false,
-    relaysListings: options.relaysListings ?? ((): boolean => false),
+    relaysListings,
     operatorOf: options.operatorOf ?? ((): string | null => null),
+    photoIdentifies: (key) => !catalog.has(key),
   };
   let comparisonCount = 0;
   for (const bucket of buckets.values()) {

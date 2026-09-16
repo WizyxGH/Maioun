@@ -645,3 +645,229 @@ describe('photos : le jeu entier ou une seule', () => {
     expect(similarity(deux('agence:3'), deux('agence:4')).verdict).toBe('duplicate');
   });
 });
+
+/**
+ * LE FICHIER IMAGE DÉSIGNE UN BIEN, PAS UNE ANNONCE.
+ *
+ * Un agrégateur décode l'adresse d'origine de ses vignettes : il sert donc le
+ * fichier de l'hébergeur de la source, exactement celui que la source publie
+ * elle-même. Ce repère traversait le dédoublonnage sans rien décider, pour deux
+ * raisons cumulées relevées le 2026-09-16 sur l'inventaire : la source
+ * d'origine ne publie que trois photos quand l'agrégateur en montre six — le
+ * « jeu identique » ne pouvait donc pas se former —, et l'agrégateur annonce le
+ * loyer HORS CHARGES là où la source l'annonce charges comprises, ce qui
+ * bloquait la comparaison avant de la commencer. Vingt-sept paires étaient
+ * ainsi séparées, six seulement regroupées.
+ */
+describe('photos : le fichier qui désigne un bien', () => {
+  const HEBERGEUR = 'https://medias.invalid/img';
+  const PROPRE = `${HEBERGEUR}/6a84bb03973e96025cedff03.jpg`;
+  const designe = (): boolean => true;
+
+  /** L'agrégateur : loyer hors charges, ni titre, ni pièces, ni code postal. */
+  const agregateur = (id: string): NormalizedListing =>
+    listing({
+      id,
+      sourceId: 'agregateur',
+      title: null,
+      rooms: null,
+      postalCode: null,
+      price: 1010,
+      area: 58,
+      chargesIncluded: false,
+      imageUrls: [PROPRE, `${HEBERGEUR}/6a84bb03973e96025cedff11.jpg`],
+    });
+
+  /** La source d'origine : loyer charges comprises, et d'autres photos. */
+  const origine = (id: string): NormalizedListing =>
+    listing({
+      id,
+      sourceId: 'origine',
+      title: 'Appartement 2 pièces 58m² NICE 06000',
+      price: 1260,
+      area: 58,
+      rooms: 2,
+      imageUrls: [PROPRE, `${HEBERGEUR}/6a84bb03973e96025cedff29.jpg`],
+    });
+
+  it('réunit l’agrégateur et la source malgré l’écart de charges', () => {
+    const a = agregateur('agregateur:1');
+    const b = origine('origine:1');
+    expect(similarity(a, b, undefined, undefined, designe).verdict).toBe('duplicate');
+    // Sans lecture du lot, le loyer sépare encore : c'est la photo reconnue
+    // comme propre à ces deux annonces qui lève le blocage.
+    expect(similarity(a, b).blocker).toContain('loyers');
+  });
+
+  it('laisse la surface séparer, elle, photo propre ou non', () => {
+    const a = agregateur('agregateur:2');
+    const b = { ...origine('origine:2'), area: 92, rooms: 4 };
+    expect(similarity(a, b, undefined, undefined, designe).blocker).toContain('surfaces');
+  });
+
+  it('ne tranche pas sur un cliché de catalogue, et le loyer bloque alors', () => {
+    const catalogue = (): boolean => false;
+    const a = agregateur('agregateur:3');
+    const b = origine('origine:3');
+    expect(similarity(a, b, undefined, undefined, catalogue).blocker).toContain('loyers');
+  });
+
+  it('rattrape un hôte et une taille différents par le nom du fichier', () => {
+    // La même photo, servie en « original » par l'agence et redimensionnée par
+    // le portail : ni l'hôte ni le chemin ne concordent, le nom si.
+    const noms = ['photo_20260916_4821', 'photo_20260916_4822'];
+    const agence = listing({
+      id: 'agence:n1',
+      sourceId: 'agence',
+      title: 'Deux pièces avenue du Parc',
+      price: 900,
+      area: 40,
+      imageUrls: noms.map((n) => `https://medias.invalid/original/${n}.jpg`),
+    });
+    const portail = listing({
+      id: 'portail:n1',
+      sourceId: 'portail',
+      title: 'Location T2 lumineux',
+      price: 900,
+      area: 40,
+      imageUrls: noms.map((n) => `https://cdn.portail.invalid/1600xauto/${n}.webp`),
+    });
+    expect(similarity(agence, portail, undefined, undefined, designe).verdict).toBe('duplicate');
+  });
+
+  it('exige DEUX noms communs : un seul peut être une façade', () => {
+    const commun = 'photo_20260916_4821';
+    const agence = listing({
+      id: 'agence:n2',
+      sourceId: 'agence',
+      title: 'Deux pièces avenue du Parc',
+      price: 900,
+      area: 40,
+      imageUrls: [
+        `https://medias.invalid/original/${commun}.jpg`,
+        'https://medias.invalid/original/photo_20260916_7777.jpg',
+      ],
+    });
+    const portail = listing({
+      id: 'portail:n2',
+      sourceId: 'portail',
+      title: 'Location T2 lumineux',
+      price: 900,
+      area: 40,
+      imageUrls: [
+        `https://cdn.portail.invalid/1600xauto/${commun}.webp`,
+        'https://cdn.portail.invalid/1600xauto/photo_20260916_9999.webp',
+      ],
+    });
+    expect(similarity(agence, portail, undefined, undefined, designe).verdict).not.toBe(
+      'duplicate',
+    );
+  });
+
+  it('ignore les noms passe-partout, qui portent des centaines d’annonces', () => {
+    const passePartout = (hote: string): string[] => [
+      `${hote}/1.jpg`,
+      `${hote}/2.jpg`,
+      `${hote}/lg.jpeg`,
+      `${hote}/photo.webp`,
+    ];
+    const a = listing({
+      id: 'a:g1',
+      sourceId: 'a',
+      imageUrls: passePartout('https://un.invalid/biens/111'),
+    });
+    const b = listing({
+      id: 'b:g1',
+      sourceId: 'b',
+      imageUrls: passePartout('https://deux.invalid/biens/222'),
+    });
+    const codes = similarity(a, b, undefined, undefined, designe).signals.map((s) => s.code);
+    expect(codes).not.toContain('image');
+  });
+});
+
+/**
+ * LE FONDS DE CATALOGUE SE RECONNAÎT SUR LE LOT, PAS SUR LA PAIRE.
+ *
+ * Une photo qu'une même source pose sur trois de ses biens est une façade, un
+ * hall ou un cliché tamponné : elle ne désigne personne. Deux occurrences, en
+ * revanche, c'est le compte d'une annonce republiée sous une seconde référence
+ * — l'écarter ferait perdre le seul indice qui les rapproche.
+ */
+describe('dedupe — les clichés de catalogue', () => {
+  const FACADE = 'https://agence.invalid/fonds/facade-immeuble-2026.jpg';
+  const PROPRE = 'https://agence.invalid/biens/6a84bb03973e96025cedff03.jpg';
+
+  const duFonds = (id: string, price: number, area: number, rooms: number, title: string) =>
+    listing({ id, sourceId: 'agence', price, area, rooms, title, imageUrls: [FACADE] });
+
+  it('refuse de fusionner sur une façade que l’agence pose sur trois biens', () => {
+    const { groups } = dedupe([
+      duFonds('agence:c1', 700, 30, 1, 'Studio rue des Lilas'),
+      duFonds('agence:c2', 900, 40, 2, 'Deux pièces avenue du Parc'),
+      duFonds('agence:c3', 1100, 50, 3, 'Trois pièces place Centrale'),
+      listing({
+        id: 'portail:c1',
+        sourceId: 'portail',
+        price: 700,
+        area: 30,
+        rooms: 1,
+        title: 'Studio à louer',
+        imageUrls: [FACADE],
+      }),
+    ]);
+    const ensemble = groups.find((g) => g.occurrences.some((o) => o.id === 'portail:c1'));
+    expect(ensemble?.occurrences).toHaveLength(1);
+  });
+
+  it('mais fusionne sur une photo que l’agence ne pose que sur ce bien', () => {
+    const { groups } = dedupe([
+      duFonds('agence:c4', 900, 40, 2, 'Deux pièces avenue du Parc'),
+      duFonds('agence:c5', 1100, 50, 3, 'Trois pièces place Centrale'),
+      listing({
+        id: 'agence:c6',
+        sourceId: 'agence',
+        price: 700,
+        area: 30,
+        rooms: 1,
+        title: 'Studio rue des Lilas',
+        imageUrls: [FACADE, PROPRE],
+      }),
+      listing({
+        id: 'portail:c2',
+        sourceId: 'portail',
+        price: 700,
+        area: 30,
+        rooms: 1,
+        title: 'Studio à louer',
+        imageUrls: [PROPRE],
+      }),
+    ]);
+    const ensemble = groups.find((g) => g.occurrences.some((o) => o.id === 'portail:c2'));
+    expect(ensemble?.occurrences.map((o) => o.id).sort()).toEqual(['agence:c6', 'portail:c2']);
+  });
+
+  it('compare deux annonces que seule la photo relie', () => {
+    // L'agrégateur ne donne ni commune ni code postal, et son loyer hors
+    // charges tombe dans une autre tranche : aucune autre clé commune.
+    const photo = 'https://medias.invalid/img/6a84bb03973e96025cedff03.jpg';
+    const sansRepere = listing({
+      id: 'agregateur:b1',
+      sourceId: 'agregateur',
+      city: null,
+      postalCode: null,
+      price: 1010,
+      area: 58,
+      imageUrls: [photo],
+    });
+    const localisee = listing({
+      id: 'origine:b1',
+      sourceId: 'origine',
+      price: 1260,
+      area: 58,
+      imageUrls: [photo],
+    });
+    const communes = blockingKeys(sansRepere).filter((k) => blockingKeys(localisee).includes(k));
+    expect(communes).toContain('photo:medias.invalid/img/6a84bb03973e96025cedff03.jpg');
+  });
+});

@@ -151,9 +151,21 @@ export function sameSourceConflict(
 
 /**
  * Recherche un désaccord rédhibitoire.
+ *
+ * @param photosProuvent dit qu'une photo propre aux deux annonces les a déjà
+ *   identifiées. LE LOYER CESSE ALORS DE POUVOIR LES SÉPARER : les portails ne
+ *   l'annoncent pas sur la même base — Rentumo publie le loyer hors charges là
+ *   où les autres le publient charges comprises, et l'écart atteint un tiers
+ *   sur un petit meublé. Dix-neuf des vingt-six rapprochements Rentumo/FNAIM
+ *   mesurés le 2026-09-16 mouraient là. Surface, pièces, commune et position
+ *   continuent de trancher, elles.
  * @returns la raison du blocage, ou `null` si rien n'interdit la fusion.
  */
-function findBlocker(a: NormalizedListing, b: NormalizedListing): string | null {
+function findBlocker(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  photosProuvent: boolean,
+): string | null {
   if (a.city !== null && b.city !== null && a.city !== b.city) {
     return `villes différentes (${a.city} / ${b.city})`;
   }
@@ -167,6 +179,7 @@ function findBlocker(a: NormalizedListing, b: NormalizedListing): string | null 
   }
 
   if (
+    !photosProuvent &&
     a.price !== null &&
     b.price !== null &&
     !withinTolerance(a.price, b.price, PRICE_TOLERANCE_EUR, PRICE_TOLERANCE_RATIO)
@@ -208,51 +221,121 @@ function imageIdentity(url: string): string | null {
 }
 
 /**
- * Ce que les photos de deux annonces ont en commun.
+ * Le NOM DE FICHIER d'une photo, quand il suffit à la désigner.
  *
- * DEUX SIGNAUX, ET NON UN, parce qu’ils ne valent pas la même chose. Mesuré
- * sur l’inventaire du 2026-09-09, à surface et pièces égales et prix à 15 %
- * près :
+ * L'hôte et le chemin changent d'un site à l'autre pour un MÊME cliché :
+ * l'agence sert `/original/…`, le portail `/1600xauto/…`, un autre encore
+ * redimensionne dans le chemin. Le nom de fichier, lui, vient de l'export de
+ * l'agence et voyage intact — c'est par lui que l'annonce d'un portail rejoint
+ * celle du site de l'agence.
  *
- *   partager AU MOINS une photo  : 331 paires, 45 plausibles — 14 %
- *   partager TOUT le jeu         :  30 paires, 27 plausibles — 90 %
- *
- * L’écart s’explique : une agence illustre volontiers dix biens avec la même
- * façade ou le même hall. Ce cliché-là se retrouve partout et ne désigne rien.
- * Un JEU ENTIER identique, en revanche, ne s’explique pas par un fonds de
- * catalogue — c’est la même annonce, reprise ailleurs ou republiée.
- *
- * D’où un partage partiel qui ne peut plus, à lui seul, emporter la décision :
- * ajouté à la concordance prix/surface/pièces il reste sous le seuil de fusion,
- * là où le jeu entier le franchit.
+ * ENCORE FAUT-IL QU'IL DÉSIGNE QUELQUE CHOSE. `1.jpg` est porté par 98
+ * annonces d'un même portail, `lg.jpeg` par 24, et un haché de huit caractères
+ * revient d'un bien à l'autre chez une agence. On n'accepte donc qu'un nom
+ * long et chiffré — horodatage, identifiant de cliché —, et il en faut DEUX
+ * en commun : relevé du 2026-09-16 sur l'inventaire, deux noms communs entre
+ * sources donnent 125 paires dont aucune n'oppose des surfaces incompatibles,
+ * là où un seul nom en donne 235 dont 70 le font.
  */
-type PhotoOverlap = 'none' | 'partial' | 'identical';
+const NAMED_PHOTO_MIN_LENGTH = 12;
 
-function photoOverlap(
+function photoName(url: string): string | null {
+  try {
+    const path = new URL(url).pathname;
+    const base = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
+    const stem = base.replace(/\.[a-z0-9]{2,5}$/, '');
+    return stem.length >= NAMED_PHOTO_MIN_LENGTH && /\d/.test(stem) ? stem : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Les repères par lesquels une photo peut être reconnue ailleurs.
+ *
+ * UNE SEULE FABRIQUE, parce que trois lecteurs s'en servent et doivent voir
+ * les mêmes clés : la comparaison de paires, l'index des clichés de catalogue
+ * et le blocage qui décide quelles paires sont seulement comparées.
+ */
+export function photoKeys(listing: NormalizedListing): string[] {
+  const keys = new Set<string>();
+  for (const url of listing.imageUrls) {
+    const identity = imageIdentity(url);
+    if (identity !== null) keys.add(identity);
+    const name = photoName(url);
+    if (name !== null) keys.add(name);
+  }
+  return [...keys];
+}
+
+/**
+ * Ce que les photos de deux annonces prouvent.
+ *
+ * UNE PHOTO QUI N'APPARTIENT QU'À DEUX ANNONCES LES IDENTIFIE. Le fichier
+ * publié par l'hébergeur de la source est propre à un bien : deux annonces qui
+ * le servent décrivent le même logement, qu'elles viennent de l'agence, d'un
+ * portail ou d'un agrégateur qui décode l'adresse d'origine. Relevé du
+ * 2026-09-16 : 61 paires inter-sources partagent ainsi une photo, aucune
+ * n'oppose des surfaces ni des nombres de pièces incompatibles.
+ *
+ * ENCORE FAUT-IL QUE LE CLICHÉ DÉSIGNE UN BIEN, ce que dit `photoIdentifies` :
+ * une agence illustre volontiers dix logements avec la même façade, et ce
+ * cliché-là n'appartient à personne. Le verdict a trois états, et c'est
+ * nécessaire : « je ne sais pas » ne vaut ni « photo propre » — on fusionnerait
+ * sur un filigrane — ni « catalogue » — on perdrait le jeu identique, seul
+ * indice de bien des annonces.
+ *
+ * AU SEIN D'UNE SOURCE QUI NE RELAIE PAS, rien de tout cela ne vaut : la même
+ * agence publie ses propres photos sur ses propres annonces. Seul le JEU
+ * ENTIER, à deux photos au moins, reste parlant — c'est une annonce republiée.
+ */
+type PhotoAgreement = 'none' | 'partial' | 'shared' | 'identical';
+
+function photoAgreement(
   a: NormalizedListing,
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean,
-): PhotoOverlap {
-  // AU SEIN D’UNE SOURCE QUI NE RELAIE PAS, le partage partiel ne dit rien :
-  // Citya réutilise un cliché sur quatorze biens, Saint-Roch sur cinq. Le jeu
-  // ENTIER, lui, reste parlant — c’est une annonce republiée.
-  const memeSource = a.sourceId === b.sourceId && !relaysListings(a.sourceId);
-
+  photoIdentifies: (key: string) => boolean | null,
+): PhotoAgreement {
   const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
   const right = new Set(b.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
   if (left.size === 0 || right.size === 0) return 'none';
 
   let communes = 0;
-  for (const identity of left) if (right.has(identity)) communes += 1;
-  if (communes === 0) return 'none';
+  let propres = 0;
+  let catalogue = 0;
+  for (const identity of left) {
+    if (!right.has(identity)) continue;
+    communes += 1;
+    const verdict = photoIdentifies(identity);
+    if (verdict === true) propres += 1;
+    else if (verdict === false) catalogue += 1;
+  }
 
-  const memeJeu = communes === left.size && communes === right.size;
-  // AU SEIN D'UNE SOURCE, IL EN FAUT DEUX. Un cliché tamponné suffit à faire
-  // « jeu identique » quand les deux annonces n'en publient qu'un — et une
-  // agence pose volontiers la même façade sur dix biens. Deux photos communes
-  // et rien d'autre, en revanche, ne s'explique plus par un fonds de catalogue.
-  if (memeJeu) return !memeSource || communes >= 2 ? 'identical' : 'none';
-  return memeSource ? 'none' : 'partial';
+  // Un jeu entier fait de clichés de catalogue n'est pas un jeu : c'est le
+  // fonds de l'agence, posé à l'identique sur deux biens différents.
+  const memeJeu = communes > catalogue && communes === left.size && communes === right.size;
+  if (a.sourceId === b.sourceId && !relaysListings(a.sourceId)) {
+    // AU SEIN D'UNE SOURCE, IL EN FAUT DEUX. Un cliché tamponné suffit à faire
+    // « jeu identique » quand les deux annonces n'en publient qu'un — et une
+    // agence pose volontiers la même façade sur dix biens.
+    return memeJeu && communes >= 2 ? 'identical' : 'none';
+  }
+
+  const leftNames = new Set(a.imageUrls.map(photoName).filter((x): x is string => x !== null));
+  const rightNames = new Set(b.imageUrls.map(photoName).filter((x): x is string => x !== null));
+  let nommees = 0;
+  for (const name of leftNames) {
+    if (rightNames.has(name) && photoIdentifies(name) === true) nommees += 1;
+  }
+  if (propres >= 1 || nommees >= 2) return 'shared';
+
+  // LE JEU ENTIER, À DÉFAUT DE SAVOIR CE QUE VAUT CHAQUE CLICHÉ : deux annonces
+  // qui ne publient rien d'autre que les mêmes photos se ressemblent, même
+  // sans lecture du lot. Quarante-cinq points, pas le seuil : il faut que le
+  // reste concorde.
+  if (memeJeu) return 'identical';
+  return communes >= 1 || nommees >= 1 ? 'partial' : 'none';
 }
 
 /** Le numéro en tête d'une adresse (« 49 », « 22 bis »), ou `null`. */
@@ -387,7 +470,7 @@ function collectStrongSignals(
   a: NormalizedListing,
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
-  relaysListings: (sourceId: string) => boolean,
+  photos: PhotoAgreement,
 ): void {
   // Suffit à fusionner, sous réserve des garde-fous.
   if (sameListingPage(a, b)) {
@@ -395,15 +478,20 @@ function collectStrongSignals(
   }
 
   // Gratuit : on compare des URL déjà collectées, sans télécharger d'image.
-  const photos = photoOverlap(a, b, relaysListings);
-  if (photos === 'identical') {
+  if (photos === 'shared') {
+    // AUTANT QUE LA MÊME PAGE D'ANNONCE, et pour la même raison : le fichier
+    // désigne un bien et un seul. Les annonces d'agrégateur n'ont souvent rien
+    // d'autre à offrir — ni titre, ni nombre de pièces, ni code postal —, et
+    // les garde-fous (commune, surface, pièces, position) restent en travers.
+    push({ code: 'image', label: 'photo propre à ces deux annonces', points: DUPLICATE_THRESHOLD });
+  } else if (photos === 'identical') {
     push({ code: 'image', label: 'mêmes photos', points: 45 });
   } else if (photos === 'partial') {
-    // HUIT POINTS, ET C’EST VOULU. Une photo commune parmi d’autres n’a que
-    // 14 % de justesse : elle appuie une ressemblance déjà établie par ailleurs,
-    // elle ne doit plus pouvoir en décider. Même ajoutée à une concordance
-    // complète de prix, surface, pièces, code postal et titre, elle reste sous
-    // le seuil de fusion.
+    // HUIT POINTS, ET C’EST VOULU. Une photo commune qui appartient aussi au
+    // fonds de catalogue d’une agence, ou un seul nom de fichier partagé,
+    // appuie une ressemblance déjà établie par ailleurs sans pouvoir en
+    // décider. Même ajoutée à une concordance complète de prix, surface,
+    // pièces, code postal et titre, elle reste sous le seuil de fusion.
     push({ code: 'image', label: 'une photo commune', points: 8 });
   }
 
@@ -594,12 +682,18 @@ function collectMediumSignals(
  *   (`SourceDescriptor.relaysListings`). Par défaut « non » : sans registre
  *   sous la main — dans un test unitaire, par exemple — on retient l'hypothèse
  *   prudente, celle qui fusionne le moins (§14).
+ * @param photoIdentifies dit si un repère de photo désigne UN bien (`true`),
+ *   s'il appartient au fonds de catalogue d'une source (`false`), ou si l'on
+ *   n'en sait rien (`null`). Seul `dedupe` peut trancher, lui qui voit tout le
+ *   lot ; sans lui on répond « je ne sais pas », l'hypothèse prudente, celle
+ *   qui fusionne le moins.
  */
 export function similarity(
   a: NormalizedListing,
   b: NormalizedListing,
   relaysListings: (sourceId: string) => boolean = () => false,
   operatorOf: (sourceId: string) => string | null = () => null,
+  photoIdentifies: (key: string) => boolean | null = () => null,
 ): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
@@ -611,7 +705,9 @@ export function similarity(
     };
   }
 
-  const blocker = findBlocker(a, b) ?? sameSourceConflict(a, b, relaysListings);
+  const photos = photoAgreement(a, b, relaysListings, photoIdentifies);
+  const blocker =
+    findBlocker(a, b, photos === 'shared') ?? sameSourceConflict(a, b, relaysListings);
   if (blocker !== null) {
     return { score: 0, verdict: 'distinct', signals: [], blocker };
   }
@@ -621,7 +717,7 @@ export function similarity(
     signals.push(signal);
   };
 
-  collectStrongSignals(a, b, push, relaysListings);
+  collectStrongSignals(a, b, push, photos);
   collectMediumSignals(a, b, push);
 
   /**
