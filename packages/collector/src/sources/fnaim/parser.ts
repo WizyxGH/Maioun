@@ -9,12 +9,12 @@
  * beaucoup de ces agences n'ont pas de site scrapable. C'est la seule source
  * étudiée qui atteigne les petites agences en une requête.
  *
- * LA CARTE PORTE L'ESSENTIEL : titre (type, pièces, surface, ville, CP), loyer,
- * agence, téléphone, photos. Mais elle COUPE la description vers 250
- * caractères, et ce qu'elle coupe contient souvent l'adresse en toutes lettres.
- * Les fiches NOUVELLES sont donc visitées, vingt par passage au plus (§30) —
- * l'en-tête a longtemps prétendu le contraire, et cette phrase périmée a fait
- * conclure à tort qu'enrichir FNAIM coûterait soixante-seize requêtes.
+ * LA CARTE PORTE L'ESSENTIEL : titre (type, pièces, meublé, surface), loyer,
+ * commune et code postal, agence, téléphone, photos. Mais elle COUPE la
+ * description vers 250 caractères, et ce qu'elle coupe contient souvent
+ * l'adresse en toutes lettres. Les fiches ne sont PAS lues — le robots.txt les
+ * interdit ; charges, honoraires, dépôt, DPE et disponibilité restent donc hors
+ * de portée, aucun n'étant publié sur la carte.
  *
  * ANCRAGE : classes sémantiques du gabarit (`li.item`, `.price`,
  * `.description`, `.agence .nom`, `.telNumber`), et l'attribut `data-title`
@@ -30,7 +30,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { cleanText } from '../../normalization/text.js';
+import { cleanText, comparable } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 
@@ -39,31 +39,136 @@ const ORIGIN = 'https://www.fnaim.fr';
 /** `/annonce-immobiliere/53157237/18-location-appartement-nice-06200.htm`. */
 const LISTING_HREF = /^\/annonce-immobiliere\/(\d+)\//;
 
-/** Le titre canonique : « Appartement 1 pièce 23m² NICE 06200 ». */
-const TITLE_PARTS = /^(.+?)\s+(\d+\s*pi[eè]ces?)\s+([\d.,]+\s*m)²?\s+(.+?)\s+(\d{5})$/i;
+/**
+ * Le titre canonique : « Appartement 1 pièce Meublé 23m² NICE 06200 ».
+ * Tout y est facultatif sauf le type — voir `splitTitle`.
+ */
+const TITLE_PARTS =
+  /^(?<type>.+?)(?:\s+(?<rooms>\d+\s*pi[eè]ces?))?(?:\s+(?<furnished>meubl[ée]e?))?(?:\s+(?<area>[\d.,]+\s*m)²?)?(?:\s+(?<city>[^\d]+?))?(?:\s+(?<postalCode>\d{5}))?$/i;
+
+/**
+ * Les communes suivies, ÉCRITES COMME LE PORTAIL LES ÉCRIT.
+ *
+ * Le portail abrège : « st-laurent-du-var », « st-andre ». Avec notre
+ * orthographe, il répond 200 et sert sa page d'accueil — aucune erreur, aucune
+ * annonce. Les huit annonces de Saint-Laurent-du-Var ont manqué ainsi. Chaque
+ * slug ci-dessous a été vérifié sur le titre que rend la page (relevé du
+ * 2026-09-16) ; `parseListPage` signale celles qui retomberaient sur l'accueil.
+ */
+const COMMUNE_SLUGS = [
+  'nice-06000',
+  'cagnes-sur-mer-06800',
+  'st-laurent-du-var-06700',
+  'villefranche-sur-mer-06230',
+  'villeneuve-loubet-06270',
+  'cap-d-ail-06320',
+  'carros-06510',
+  'beaulieu-sur-mer-06310',
+  'la-trinite-06340',
+  'colomars-06670',
+  'st-andre-06730',
+  'drap-06340',
+  'contes-06390',
+] as const;
+
+/** Les mêmes communes, dans la forme que portent les cartes. */
+const TARGET_CITIES: ReadonlySet<string> = new Set(
+  COMMUNE_SLUGS.map((slug) => comparable(slug.replace(/-\d{5}$/, ''))),
+);
+
+/** Une recherche du portail : un slug d'URL, et de quoi la borner. */
+export interface FnaimSearch {
+  readonly slug: string;
+  /** `true` si la recherche déborde le périmètre et doit être filtrée. */
+  readonly beyondPerimeter?: boolean;
+}
+
+/**
+ * Ce qu'on lit à chaque passage.
+ *
+ * UNE RECHERCHE PAR COMMUNE POUR LES APPARTEMENTS. La recherche
+ * départementale existe et tiendrait en neuf pages, mais elle est TRONQUÉE :
+ * 225 annonces pour tout le 06, alors que Nice seule en a 173 et que 67
+ * annonces niçoises n'y figurent pas. Commune par commune, le compte est
+ * complet.
+ *
+ * UNE SEULE RECHERCHE POUR LES MAISONS, à l'échelle du département : vingt-neuf
+ * en tout, deux pages, et les six niçoises y sont. Treize recherches de commune
+ * coûteraient treize requêtes pour le même résultat.
+ */
+export const SEARCHES: readonly FnaimSearch[] = [
+  ...COMMUNE_SLUGS.map((slug) => ({ slug: `18-location-appartement-${slug}` })),
+  { slug: '18-location-maison-alpes-maritimes-06', beyondPerimeter: true },
+];
 
 export interface FnaimPage extends ParsedList {
   /** `true` si le gabarit annonce une page suivante. */
   readonly hasNext: boolean;
+  /**
+   * `false` si la page servie n'est pas une page de résultats — c'est ce que
+   * rend le portail pour une recherche qu'il ne connaît pas.
+   */
+  readonly recognized: boolean;
 }
 
-/** Décompose le titre canonique. Rien n'est deviné : sans forme, rien (§17). */
+/**
+ * Décompose le titre canonique. Rien n'est deviné : sans forme, rien (§17).
+ *
+ * CHAQUE MORCEAU EST FACULTATIF, et c'est ce qui a changé. Exiger les cinq d'un
+ * coup faisait tout perdre — type, pièces, surface, commune — dès qu'il en
+ * manquait un seul : « Appartement 1 pièce Meublé 16m² NICE 06000 » (le
+ * meublé s'intercale), « Maison 4 pièces NICE 06300 » (pas de surface),
+ * « Appartement 3 pièces 72m² » (pas de commune). Huit cartes niçoises sur
+ * 179 au relevé du 2026-09-16, dont quatre meublés que le filtre « non
+ * meublé » laissait passer faute de le savoir.
+ */
 export function splitTitle(title: string): {
   propertyType?: string;
   rooms?: string;
   area?: string;
+  furnished?: string;
   city?: string;
   postalCode?: string;
 } {
   const match = TITLE_PARTS.exec(cleanText(title));
   if (match === null) return {};
-  const [, propertyType, rooms, area, city, postalCode] = match;
+  const { type, rooms, furnished, area, city, postalCode } = match.groups ?? {};
+
+  // Sans un seul morceau canonique, ce n'est pas ce titre-là : on ne prend pas
+  // la phrase entière pour un type de bien.
+  if ([rooms, area, postalCode].every((part) => part === undefined)) return {};
+  const propertyType = type !== undefined && type !== '' ? type : undefined;
+
   return {
     ...(propertyType !== undefined ? { propertyType } : {}),
     ...(rooms !== undefined ? { rooms } : {}),
     ...(area !== undefined ? { area: `${area}²` } : {}),
+    ...(furnished !== undefined ? { furnished } : {}),
     ...(city !== undefined ? { city } : {}),
     ...(postalCode !== undefined ? { postalCode } : {}),
+  };
+}
+
+/**
+ * La commune et son code postal, lus sous la carte plutôt que dans le titre.
+ *
+ * Le portail les y met toujours — « 06100 · NICE · ALPES-MARITIMES · … », un
+ * niveau par icône — alors que le titre les omet parfois.
+ */
+function placeOf(card: cheerio.Cheerio<never>): { city?: string; postalCode?: string } {
+  const lieu = card.find('.picto.lieu').first().clone();
+  if (lieu.length === 0) return {};
+  lieu.find('i').replaceWith('\n');
+  const parts = lieu
+    .text()
+    .split('\n')
+    .map((part) => cleanText(part))
+    .filter((part) => part !== '');
+  const [postalCode, city] = parts;
+  if (postalCode === undefined || !/^\d{5}$/.test(postalCode)) return {};
+  return {
+    postalCode,
+    ...(city !== undefined && city !== '' ? { city } : {}),
   };
 }
 
@@ -90,8 +195,13 @@ function collectImages($: cheerio.CheerioAPI, card: cheerio.Cheerio<never>): str
   return urls;
 }
 
-/** Extrait les annonces d'une page de résultats FNAIM. */
-export function parseListPage(html: string, pageUrl: string): FnaimPage {
+/**
+ * Extrait les annonces d'une page de résultats FNAIM.
+ *
+ * `search.beyondPerimeter` écarte les communes que nous ne suivons pas : la
+ * recherche des maisons porte sur tout le département.
+ */
+export function parseListPage(html: string, pageUrl: string, search?: FnaimSearch): FnaimPage {
   const $ = cheerio.load(html);
   const listings: RawListing[] = [];
   const warnings: string[] = [];
@@ -115,6 +225,12 @@ export function parseListPage(html: string, pageUrl: string): FnaimPage {
     // le gabarit glisse dans le texte du lien.
     const title = cleanText(link.attr('data-title') ?? link.text());
     const parts = splitTitle(title);
+    // Le lieu publié sous la carte prime sur celui du titre, qui manque parfois.
+    const place = placeOf(card as cheerio.Cheerio<never>);
+    const city = place.city ?? parts.city;
+    const postalCode = place.postalCode ?? parts.postalCode;
+
+    if (search?.beyondPerimeter === true && !TARGET_CITIES.has(comparable(city))) return;
 
     const agencyName = cleanText(card.find('.agence .nom').first().text());
     const phone = cleanText(card.find('.telNumber').first().text());
@@ -132,8 +248,9 @@ export function parseListPage(html: string, pageUrl: string): FnaimPage {
         areaText: parts.area,
         roomsText: parts.rooms,
         propertyTypeText: parts.propertyType,
-        cityText: parts.city,
-        postalCodeText: parts.postalCode,
+        furnishedText: parts.furnished,
+        cityText: city,
+        postalCodeText: postalCode,
         agencyName: agencyName !== '' ? agencyName : undefined,
         phoneText: phone !== '' ? phone : undefined,
         // §23 : le contact passe par l'onglet « contacter l'agence » de la fiche.
@@ -144,13 +261,19 @@ export function parseListPage(html: string, pageUrl: string): FnaimPage {
     );
   });
 
-  const hasNext = $('a[href*="-page-"]').length > 0;
-  return { listings, warnings, hasNext };
+  // LE LIEN DE LA PAGE SUIVANTE, PAS N'IMPORTE QUEL LIEN DE PAGE. Compter les
+  // `-page-` rendait `hasNext` toujours vrai : la dernière page garde les liens
+  // vers les précédentes. On demandait donc chaque fois une page vide de plus.
+  const hasNext = $('a[title="Page suivante"]').length > 0;
+  // Une recherche que le portail ne connaît pas reçoit sa page d'accueil, en
+  // 200 et sans annonce : seule l'absence de ce titre les distingue.
+  const recognized = $('h1.titre_primaire').length > 0;
+  return { listings, warnings, hasNext, recognized };
 }
 
-/** URL de la page N de la recherche « location appartement, Nice ». */
-export function listUrl(page: number): string {
-  const base = `${ORIGIN}/liste-annonces-immobilieres/18-location-appartement-nice-06000`;
+/** URL de la page N d'une recherche. */
+export function listUrl(search: FnaimSearch, page: number): string {
+  const base = `${ORIGIN}/liste-annonces-immobilieres/${search.slug}`;
   return page <= 1 ? `${base}.htm` : `${base}-page-${page}.htm`;
 }
 
