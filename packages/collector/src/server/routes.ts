@@ -749,13 +749,51 @@ async function listListingsJson(
   return `{"listings":[${items.join(',')}],"total":${total},"limit":${query.limit},"offset":${query.offset}}`;
 }
 
-async function getListing(db: Client, id: string, userId: string): Promise<unknown | null> {
+/**
+ * LA FICHE QUI A REPRIS UNE ANNONCE ABSORBÉE, ou `null`.
+ *
+ * Quand deux fiches n'en font plus qu'une, le groupe survivant porte
+ * l'identifiant de l'occurrence la plus anciennement connue et l'autre ligne
+ * est supprimée (voir la purge des orphelines). Tout ce qui désignait
+ * l'ancienne — une liste déjà affichée, un lien collé, une notification —
+ * tombait alors sur « annonce introuvable » alors que le logement est toujours
+ * là, sous un autre identifiant.
+ *
+ * LA TRACE EST DANS LES OCCURRENCES : l'ancien identifiant y reste celui d'une
+ * occurrence, et son `group_id` nomme la fiche qui la porte aujourd'hui. Rien
+ * à écrire ni à garder en plus : la table de renvoi existait déjà.
+ */
+async function absorbedInto(db: Client, id: string): Promise<string | null> {
   const result = await db.execute({
-    sql: `SELECT ${listingColumns(userId)} FROM listings ${USER_STATE_JOIN} WHERE listings.id = ?`,
-    args: [userId, userId, id],
+    sql: `SELECT o.group_id AS id FROM occurrences AS o
+          JOIN listings ON listings.id = o.group_id
+          WHERE o.id = ? AND o.group_id != o.id`,
+    args: [id],
   });
-  const row = result.rows[0];
-  if (row === undefined) return null;
+  const heir = result.rows[0]?.['id'];
+  return typeof heir === 'string' ? heir : null;
+}
+
+async function getListing(db: Client, id: string, userId: string): Promise<unknown | null> {
+  const readRow = async (key: string): Promise<Record<string, unknown> | undefined> => {
+    const result = await db.execute({
+      sql: `SELECT ${listingColumns(userId)} FROM listings ${USER_STATE_JOIN} WHERE listings.id = ?`,
+      args: [userId, userId, key],
+    });
+    return result.rows[0] as Record<string, unknown> | undefined;
+  };
+
+  let listingId = id;
+  let row = await readRow(listingId);
+  // Identifiant inconnu : peut-être celui d'une fiche absorbée par une autre.
+  // La fiche rendue porte alors SON identifiant — l'écran corrige son adresse.
+  if (row === undefined) {
+    const heir = await absorbedInto(db, id);
+    if (heir === null) return null;
+    listingId = heir;
+    row = await readRow(listingId);
+    if (row === undefined) return null;
+  }
 
   // LE JOURNAL EST PERSONNEL. Sans le filtre par compte, la fiche montrait les
   // démarches de TOUS les comptes : qui avait écrit, quand, et le texte du
@@ -763,7 +801,7 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
   // s'en servait ici.
   const attempts = await db.execute({
     sql: 'SELECT * FROM contact_attempts WHERE listing_id = ? AND user_id = ? ORDER BY sent_at DESC',
-    args: [id, userId],
+    args: [listingId, userId],
   });
 
   /** Relit la liste JSON des pièces jointes, tolérante aux valeurs anciennes. */
@@ -778,7 +816,7 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
   }
 
   return {
-    ...rowToListing(row as Record<string, unknown>),
+    ...rowToListing(row),
     contactAttempts: attempts.rows.map((attempt) => ({
       id: attempt['id'],
       channel: attempt['channel'],
@@ -1165,9 +1203,19 @@ async function updateListing(
   const patch = userStatePatch(body);
   if (Object.keys(patch).length === 0) return jsonError(400, 'Aucun champ à mettre à jour');
 
-  const written = await writeUserState(db, id, userId, patch);
+  // Même renvoi qu'à la lecture : un favori posé depuis une liste d'avant une
+  // fusion doit se ranger sur la fiche qui a repris l'annonce, pas se perdre.
+  let listingId = id;
+  let written = await writeUserState(db, listingId, userId, patch);
+  if (written === 0) {
+    const heir = await absorbedInto(db, id);
+    if (heir !== null) {
+      listingId = heir;
+      written = await writeUserState(db, listingId, userId, patch);
+    }
+  }
   if (written === 0) return jsonError(404, 'Annonce introuvable');
-  return { id, ...body };
+  return { id: listingId, ...body };
 }
 
 /** Les champs du corps qui sont des décisions personnelles, en colonnes SQL. */

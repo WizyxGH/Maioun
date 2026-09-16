@@ -335,7 +335,8 @@ export async function fetchListing(id: string): Promise<ListingView> {
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();
     const found = MOCK_LISTINGS.find((listing) => listing.id === id);
-    if (found === undefined) throw new Error('Annonce introuvable');
+    // Le même refus que l'API : l'écran distingue « partie » de « réseau coupé ».
+    if (found === undefined) throw new ApiError('Annonce introuvable', 404);
     return found;
   }
   return request<ListingView>(`/api/listings/${encodeURIComponent(id)}`);

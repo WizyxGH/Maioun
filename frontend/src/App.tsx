@@ -93,6 +93,7 @@ import {
   type QuickFilterValues,
 } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';
+import { forgetListing, replaceListing } from './listing-store.js';
 import { loadInStages } from './progressive-load.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { useAlertsSeen } from './use-alerts-seen.js';
@@ -897,20 +898,25 @@ function AppView(): React.JSX.Element {
     void fetchListing(selectedId)
       .then((full) => {
         if (cancelled) return;
-        // REMPLACER, et non ajouter : la version allégée est déjà là quand la
-        // liste est arrivée la première. Deux entrées de même identifiant, et
-        // c'est la plus pauvre — la première trouvée — qui s'affiche.
-        setListings((current) =>
-          current.some((listing) => listing.id === full.id)
-            ? current.map((listing) => (listing.id === full.id ? full : listing))
-            : [...current, full],
-        );
+        setListings((current) => replaceListing(current, selectedId, full));
+        // Annonce absorbée par une fusion : l'API la sert sous l'identifiant du
+        // groupe survivant, et l'adresse doit suivre — sans quoi l'écran
+        // redemanderait l'ancien indéfiniment.
+        if (full.id !== selectedId) go({ view: 'detail', id: full.id });
       })
-      .catch(() => {
-        // Annonce introuvable ou réseau coupé : on retourne à la liste plutôt
-        // que de laisser un squelette tourner indéfiniment.
+      .catch((cause: unknown) => {
+        // Annonce partie ou réseau coupé : on retourne à la liste plutôt que de
+        // laisser un squelette tourner indéfiniment.
         if (cancelled) return;
-        setError('Cette annonce est introuvable.');
+        const gone = cause instanceof ApiError && cause.status === 404;
+        // Partie pour de bon : elle quitte la liste, faute de quoi les
+        // décomptes continueraient d'annoncer une fiche que rien n'ouvre.
+        if (gone) setListings((current) => forgetListing(current, selectedId));
+        setError(
+          gone
+            ? 'Cette annonce n’est plus en ligne : elle vient d’être retirée de la liste. Les autres résultats restent affichés.'
+            : 'Cette annonce n’a pas pu être chargée. Vérifiez votre connexion et réessayez.',
+        );
         go({ view: 'list', favoritesOnly });
       });
     return () => {
@@ -1325,15 +1331,18 @@ function AppView(): React.JSX.Element {
     // au moment où elles servent (§30). L'échec n'est pas bloquant : la fiche
     // s'affiche avec ce que la liste en savait.
     void fetchListing(id)
-      .then((full) =>
+      .then((full) => {
         setListings((current) =>
-          current.map((listing) =>
-            listing.id === id ? { ...full, viewed: true, ...userState(listing) } : listing,
-          ),
-        ),
-      )
+          replaceListing(current, id, full, (previous) => ({
+            viewed: true,
+            ...(previous === undefined ? {} : userState(previous)),
+          })),
+        );
+        // Fiche absorbée par une fusion : l'adresse suit le nouvel identifiant.
+        if (full.id !== id) setSelectedId(full.id);
+      })
       .catch(() => {
-        /* fiche non rechargée : celle de la liste reste affichée */
+        /* fiche non rechargée : l'écran de fiche dira ce qu'il en est */
       });
   }, []);
 
