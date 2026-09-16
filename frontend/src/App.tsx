@@ -66,6 +66,7 @@ import { LoginScreen } from './components/LoginScreen.js';
 import { AccountRequired } from './components/AccountRequired.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
 import {
+  describeSearch,
   newSearchId,
   suggestName,
   toQuickFilters,
@@ -96,6 +97,12 @@ import { loadInStages } from './progressive-load.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { useAlertsSeen } from './use-alerts-seen.js';
 import { readViewState, writeViewState } from './view-state.js';
+import {
+  readPendingSharedToken,
+  readVisitorSearch,
+  writePendingSharedToken,
+  writeVisitorSearch,
+} from './visitor-search.js';
 import type { View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
@@ -416,6 +423,33 @@ export function anyClientFilter(view: {
     view.selectedSources.size > 0 ||
     view.search.trim() !== '' ||
     view.hideUncertain
+  );
+}
+
+/**
+ * Le bandeau d'une recherche reçue par lien, chez un visiteur.
+ *
+ * IL DIT CE QUI FILTRE LA LISTE, et comment l'enlever : sans lui, une liste
+ * plus courte qu'attendu n'aurait eu aucune explication à l'écran.
+ */
+function VisitorSearchBanner({
+  search,
+  onClear,
+}: {
+  /** `null` : rien à annoncer — un compte, ou aucun lien suivi. */
+  readonly search: SavedSearch | null;
+  readonly onClear: () => void;
+}): React.JSX.Element {
+  if (search === null) return <></>;
+  return (
+    <Alert className="my-2">
+      <AlertDescription className="flex flex-wrap items-center gap-2">
+        <span>Recherche partagée : {describeSearch(search)}</span>
+        <Button variant="ghost" size="sm" className="ml-auto" onClick={onClear}>
+          Retirer
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -779,6 +813,10 @@ function AppView(): React.JSX.Element {
    * pas un réglage.
    */
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  /** La recherche partagée qu'un visiteur regarde ; ignorée une fois connecté. */
+  const [visitorSearch, setVisitorSearch] = useState<SavedSearch | null>(readVisitorSearch);
+  const shownVisitorSearch = currentUser === null ? visitorSearch : null;
+  const visitorCriteria = shownVisitorSearch?.criteria;
   // Filtre par source : ensemble vide = toutes les sources affichées. Une
   // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(
@@ -1060,7 +1098,7 @@ function AppView(): React.JSX.Element {
     async (restart = false): Promise<void> => {
       const generation = ++loadGeneration.current;
       const current = (): boolean => generation === loadGeneration.current;
-      const params = JSON.stringify([sort, showArchived, favoritesOnly]);
+      const params = JSON.stringify([sort, showArchived, favoritesOnly, visitorCriteria]);
       const quick = restart || shownParams.current !== params;
       if (quick) setLoading(true);
       setError(null);
@@ -1071,6 +1109,7 @@ function AppView(): React.JSX.Element {
               sort,
               includeArchived: showArchived,
               favoritesOnly,
+              ...(visitorCriteria === undefined ? {} : { criteria: visitorCriteria }),
               ...(limit === undefined ? {} : { limit }),
             }),
           (response) => {
@@ -1104,7 +1143,7 @@ function AppView(): React.JSX.Element {
         if (current()) setLoading(false);
       }
     },
-    [sort, showArchived, favoritesOnly],
+    [sort, showArchived, favoritesOnly, visitorCriteria],
   );
   // Au retour sur l'application, la liste se recharge — sans squelette ni
   // retour à cinquante lignes : vues et alertes lues ailleurs y apparaissent.
@@ -1141,9 +1180,9 @@ function AppView(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    // Rien à charger tant qu'on ne sait pas qui regarde : la requête partirait
-    // sans cookie et reviendrait « connexion requise ».
-    if (currentUser === undefined || currentUser === null) return;
+    // Rien à charger tant qu'on ne sait pas qui regarde. Un visiteur, lui, est
+    // une réponse : le catalogue se lit sans compte.
+    if (currentUser === undefined) return;
     void load();
   }, [load, currentUser]);
 
@@ -1506,13 +1545,30 @@ function AppView(): React.JSX.Element {
     setView('list');
   };
 
-  /** Rappelle une recherche enregistrée : critères, affinage et tri. */
-  const applySavedSearch = async (saved: SavedSearch): Promise<void> => {
+  /** L'affinage d'une recherche : ce qui se règle dans le navigateur. */
+  const applySearchView = (saved: SavedSearch): void => {
     setQuickFilters(toQuickFilters(saved.view));
     setSelectedSources(new Set(saved.view.sources ?? []));
     setSort(saved.view.sort ?? 'priority');
     setSearch(saved.view.search ?? '');
     setFavoritesOnly(false);
+  };
+
+  /** Pour un visiteur : la liste filtrée le temps de la session, rien d'écrit. */
+  const browseSharedSearch = (shared: SavedSearch): void => {
+    applySearchView(shared);
+    setVisitorSearch(shared);
+    writeVisitorSearch(shared);
+  };
+
+  const clearVisitorSearch = (): void => {
+    setVisitorSearch(null);
+    writeVisitorSearch(null);
+  };
+
+  /** Rappelle une recherche enregistrée : critères, affinage et tri. */
+  const applySavedSearch = async (saved: SavedSearch): Promise<void> => {
+    applySearchView(saved);
     setView('list');
     try {
       // Les critères repartent en base : ils décident de ce que la PROCHAINE
@@ -1692,6 +1748,14 @@ function AppView(): React.JSX.Element {
     // Le motif qui a mené ici a été servi : sans cela, il resurgirait à la
     // prochaine déconnexion, pour un geste oublié depuis longtemps.
     setPendingAction(null);
+    clearVisitorSearch();
+    // Un lien partagé suivi avant l'inscription : on y revient, cette fois pour
+    // l'appliquer ou l'enregistrer.
+    const sharedToken = readPendingSharedToken();
+    if (sharedToken !== null) {
+      writePendingSharedToken(null);
+      replace({ view: 'shared', id: sharedToken });
+    }
     setCurrentUser('inconnu');
     void fetchCurrentUser()
       .then(setCurrentUser)
@@ -1726,8 +1790,7 @@ function AppView(): React.JSX.Element {
      * UNE RECHERCHE PARTAGÉE PASSE APRÈS LA SESSION, contrairement aux deux
      * écrans ci-dessus. Ceux-là existent précisément pour qui ne peut pas se
      * connecter ; celle-ci, au contraire, ÉCRIT dans un compte — il faut donc
-     * savoir lequel. Reçue déconnecté, on voit d'abord l'écran de connexion,
-     * et l'adresse est retrouvée ensuite : le lien n'est pas perdu.
+     * savoir lequel. Un visiteur en reçoit une version sans écriture, plus bas.
      */
     if (view === 'shared' && currentUser !== null && currentUser !== undefined) {
       return (
@@ -1752,6 +1815,27 @@ function AppView(): React.JSX.Element {
     if (currentUser === undefined) return <SessionPending />;
 
     if (currentUser === null) {
+      if (view === 'shared') {
+        const token = route.id ?? '';
+        return (
+          <SharedSearch
+            token={token}
+            onApply={() => undefined}
+            onSave={() => undefined}
+            onCancel={() => replace({ view: 'home' })}
+            visitor={{
+              onBrowse: (shared) => {
+                browseSharedSearch(shared);
+                replace({ view: 'list' });
+              },
+              onSignup: () => {
+                writePendingSharedToken(token);
+                go({ view: 'signup' });
+              },
+            }}
+          />
+        );
+      }
       if (view === 'forgot') {
         return <ForgotPassword onBack={() => replace({ view: 'home' })} />;
       }
@@ -2399,6 +2483,14 @@ function AppView(): React.JSX.Element {
           <QuickFilters values={quickFilters} onChange={setQuickFilters} />
         </div>
       )}
+
+      <VisitorSearchBanner
+        search={shownVisitorSearch}
+        onClear={() => {
+          clearVisitorSearch();
+          resetSortAndFilters();
+        }}
+      />
 
       {error !== null && (
         <Alert variant="destructive">
