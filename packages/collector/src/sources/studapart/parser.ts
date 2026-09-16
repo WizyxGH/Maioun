@@ -111,7 +111,11 @@ export function chargesFromRooms(source: StudapartSource): number | null {
   return Math.abs(sum(rents) + sum(expenses) - total) <= rents.length ? sum(expenses) : null;
 }
 
-/** Type français attendu par la normalisation (elle lit surtout le titre). */
+/**
+ * Les types que le portail publie, en clair. La normalisation lit aussi
+ * l'anglais ; cette table ne traduit donc pas pour elle, elle ÉCARTE ce qui
+ * n'est pas un logement — un type absent d'ici ne rejoint pas le titre.
+ */
 const TYPE_FR: Readonly<Record<string, string>> = {
   apartment: 'appartement',
   studio: 'studio',

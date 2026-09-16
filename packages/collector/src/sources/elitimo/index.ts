@@ -6,7 +6,7 @@
  * relevé (Nice ×3, Villeneuve-Loubet).
  */
 
-import type { Scraper, SourceDescriptor } from '@maioun/shared';
+import type { Scraper } from '@maioun/shared';
 import { makeTwimmoScraper } from '../twimmo/scraper.js';
 
 export const elitimoScraper: Scraper = makeTwimmoScraper({
@@ -23,5 +23,3 @@ export const elitimoScraper: Scraper = makeTwimmoScraper({
     'interdit. Liste /toutes-locations.html (une page), fiches …-{réf}.html aux ' +
     'montants en phrases engendrées.',
 });
-
-export const ELITIMO_DESCRIPTOR: SourceDescriptor = elitimoScraper.descriptor;

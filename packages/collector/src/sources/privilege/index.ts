@@ -11,5 +11,3 @@ export const privilegeScraper = makeApimoListScraper({
   domain: 'agenceprivilege.com',
   listUrls: ['https://www.agenceprivilege.com/fr/locations'],
 });
-
-export const PRIVILEGE_DESCRIPTOR = privilegeScraper.descriptor;

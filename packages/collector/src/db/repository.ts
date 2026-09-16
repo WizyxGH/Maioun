@@ -1260,11 +1260,11 @@ export function createRepository(db: Database): Repository {
             INSERT INTO listings (
               id, title, price, area, rooms, property_type, city, postal_code,
               latitude, longitude, published_at, first_seen_at, last_seen_at,
-              lifecycle, tracking, match_score, opportunity_score, visit_score,
+              lifecycle, match_score, opportunity_score, visit_score,
               risk_score, action_priority, matches_criteria, payload, content_hash, updated_at,
               flat_share, student_only, furnished, landlord_kind, commute_minutes,
               available_at, district, list_payload, list_scores, list_hash
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title, price = excluded.price, area = excluded.area,
               rooms = excluded.rooms, property_type = excluded.property_type,
@@ -1314,7 +1314,6 @@ export function createRepository(db: Database): Repository {
             listing.firstSeenAt,
             listing.lastSeenAt,
             listing.lifecycle,
-            listing.tracking,
             listing.scores.match.value,
             listing.scores.opportunity.value,
             listing.scores.visitProbability.value,
@@ -1873,7 +1872,7 @@ export function createRepository(db: Database): Repository {
       // constituent les biens « directs » de référence.
       const result = await db.execute(
         `SELECT price, area, city, rooms FROM listings
-         WHERE lifecycle != 'inactive' AND rented = 0 AND archived = 0
+         WHERE lifecycle != 'inactive' AND rented = 0
            AND price IS NOT NULL AND area IS NOT NULL
            AND id NOT IN (SELECT group_id FROM occurrences WHERE source_id = 'email-alerts')`,
       );

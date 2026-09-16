@@ -7,7 +7,7 @@
  * les autres communes sont écartées au scoring.
  */
 
-import type { Scraper, SourceDescriptor } from '@maioun/shared';
+import type { Scraper } from '@maioun/shared';
 import { makeTwimmoScraper } from '../twimmo/scraper.js';
 
 export const mkImmoScraper: Scraper = makeTwimmoScraper({
@@ -19,5 +19,3 @@ export const mkImmoScraper: Scraper = makeTwimmoScraper({
     'règle. Liste /toutes-locations.html (une page), fiches …-{réf}.html dont ' +
     'les montants sont des phrases engendrées (loyer CC, provision, honoraires, dépôt).',
 });
-
-export const MK_IMMO_DESCRIPTOR: SourceDescriptor = mkImmoScraper.descriptor;

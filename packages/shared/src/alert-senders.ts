@@ -1,18 +1,14 @@
 /**
  * Les portails dont on sait lire les alertes par e-mail (§6, §10).
  *
- * Ce module vit dans `shared` parce que DEUX composants en ont besoin, et qu'ils
- * doivent dire la même chose :
- *   - le COLLECTEUR, dont la recherche IMAP ne remonte que les messages venus
- *     de ces expéditeurs — c'est ce qui garantit que les messages personnels de
- *     l'utilisateur ne sont jamais lus (§26) ;
- *   - le SITE, qui affiche la liste à l'écran des réglages : c'est exactement
- *     elle qu'il faut recopier dans la règle de transfert de sa boîte.
+ * La recherche IMAP du collecteur ne remonte QUE les messages venus de ces
+ * expéditeurs : c'est ce qui garantit que les messages personnels de
+ * l'utilisateur ne sont jamais lus (§26).
  *
- * Les dupliquer garantirait qu'elles divergent (§75), et la divergence serait
- * silencieuse : l'écran conseillerait de transférer un expéditeur que le
- * collecteur ignore, et l'utilisateur attendrait des annonces qui ne
- * viendraient jamais.
+ * La liste vit dans `shared` pour que le site puisse l'afficher telle quelle à
+ * l'écran des réglages le jour où il le fera — la recopier garantirait qu'elle
+ * diverge (§75), et l'écran conseillerait alors de transférer un expéditeur que
+ * le collecteur ignore.
  */
 
 export interface AlertSender {
@@ -36,8 +32,3 @@ export const ALERT_SENDERS: readonly AlertSender[] = [
 
 /** Les fragments seuls, pour la recherche IMAP. */
 export const ALERT_SENDER_MATCHES: readonly string[] = ALERT_SENDERS.map((sender) => sender.match);
-
-/** Les noms de portails, sans doublon, dans l'ordre d'affichage. */
-export const ALERT_SENDER_LABELS: readonly string[] = [
-  ...new Set(ALERT_SENDERS.map((sender) => sender.label)),
-];

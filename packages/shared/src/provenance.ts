@@ -48,14 +48,6 @@ export function merged<T>(value: T, sourceId: SourceId, observedAt: IsoDateTime)
 }
 
 /**
- * Indique si un champ fusionné porte au moins une valeur divergente.
- * L'interface s'en sert pour afficher un avertissement discret (§15).
- */
-export function hasConflict<T>(field: MergedField<T>): boolean {
-  return field.conflicts.length > 0;
-}
-
-/**
  * `null` signifie explicitement « la source ne fournit pas cette information ».
  *
  * §17 : ne jamais inventer une donnée. Un nombre de favoris absent vaut `null`,

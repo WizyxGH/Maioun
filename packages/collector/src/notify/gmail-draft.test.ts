@@ -64,8 +64,8 @@ describe('buildDraftMime', () => {
   const mime = buildDraftMime('moi@example.invalid', {
     listingId: 'x1',
     to: 'agence@example.invalid',
-    subject: 'Demande de visite - Florian GERTNER KILIAN',
-    body: 'Bonjour,\n\nVotre annonce m’intéresse.\nCordialement,\nFlorian',
+    subject: 'Demande de visite - Alex DUPONT',
+    body: 'Bonjour,\n\nVotre annonce m’intéresse.\nCordialement,\nAlex',
     sourceUrl: 'https://exemple.invalid/annonce/1',
   });
 
@@ -79,7 +79,7 @@ describe('buildDraftMime', () => {
     const body = mime.split('\r\n\r\n')[1] ?? '';
     const decoded = Buffer.from(body.replace(/\r\n/g, ''), 'base64').toString('utf8');
     expect(decoded).toContain('<a href="https://exemple.invalid/annonce/1">Votre annonce</a>');
-    expect(decoded).toContain('Florian');
+    expect(decoded).toContain('Alex');
   });
 });
 

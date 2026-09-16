@@ -8,7 +8,7 @@
  * jour-là ; gardée pour les locations à venir.
  */
 
-import type { Scraper, SourceDescriptor } from '@maioun/shared';
+import type { Scraper } from '@maioun/shared';
 import { makeTwimmoScraper } from '../twimmo/scraper.js';
 
 export const bbiiScraper: Scraper = makeTwimmoScraper({
@@ -20,5 +20,3 @@ export const bbiiScraper: Scraper = makeTwimmoScraper({
     'règle pour notre robot. Liste /toutes-locations.html (une page, vide au ' +
     'relevé), fiches …-{réf}.html aux montants en phrases engendrées.',
 });
-
-export const BBII_DESCRIPTOR: SourceDescriptor = bbiiScraper.descriptor;

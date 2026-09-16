@@ -803,16 +803,17 @@ peut-on reprendre ? Revue de l'open source français et des API commerciales.
 
 Deux constats.
 
-**Ils visent tous les trois portails que ce projet s'interdit.** Leboncoin,
-SeLoger et Bien'ici sont protégés par DataDome et interdisent explicitement
-l'accès automatisé. Ces dépôts contournent — en rejouant les requêtes des
-applications mobiles, pour la plupart. C'est précisément ce que nous ne faisons
-pas, et cela suffit à écarter la totalité du catalogue.
+**Ils visent les portails que ce projet s'interdit.** Leboncoin et SeLoger sont
+protégés par DataDome et interdisent explicitement l'accès automatisé. Ces
+dépôts contournent — en rejouant les requêtes des applications mobiles, pour la
+plupart. C'est précisément ce que nous ne faisons pas, et cela suffit à écarter
+la totalité du catalogue. (Bien'ici figurait ici : son verdict a été levé, voir
+sa fiche plus haut — son API de recherche est publique.)
 
 **Ils meurent tous, et c'est la conséquence directe.** Un scraper qui contourne
 une protection vit jusqu'à la prochaine mise à jour de cette protection.
 Six des huit dépôts trouvés n'ont plus bougé depuis 2020-2023. Notre stratégie
-inverse — cinquante-sept petites sources qui nous autorisent — coûte plus cher
+inverse — deux cent dix petites sources qui nous autorisent — coûte plus cher
 à écrire et ne casse pas toute seule.
 
 ### Les API commerciales : elles vendent ce que nous ne payons pas
@@ -865,7 +866,7 @@ Trois usages, par ordre d'intérêt :
 Les adaptateurs de LOGICIELS D'AGENCE. Apimo, La Boîte Immo/Hektor, Ubiflow
 équipent des milliers d'agences avec le même gabarit : un parser sert des
 dizaines de sites. C'est le vrai levier, et le projet l'exploite déjà — c'est ce
-qui explique la moitié des cinquante-sept sources.
+qui explique une bonne part des deux cent dix sources.
 
 **Piste non explorée** : les flux XML que ces logiciels exposent pour les
 portails (format Poliris/Ubiflow, `poliris-bundle` en donne le schéma). Une

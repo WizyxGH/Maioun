@@ -80,7 +80,7 @@ function nettyHtml(
     </ul></div>
     <div data-author="Netty.fr"><h2 class="textblock">Informations juridiques &amp; financières</h2></div>
     <div data-author="Netty.fr"><span class="_kf37h1 textblock">${mentions}</span></div>
-    <a href="tel:+33667301873">Appeler</a>
+    <a href="tel:+33600000001">Appeler</a>
     </body></html>`;
 }
 
@@ -210,7 +210,7 @@ describe('parseDetailPage', () => {
 
   it('lit le téléphone du lien tel:, jamais deviné (§17)', () => {
     const { listing } = parseDetailPage(nettyHtml(), URL, AGENCY);
-    expect(listing?.phoneText).toBe('+33667301873');
+    expect(listing?.phoneText).toBe('+33600000001');
     const withoutPhone = nettyHtml().replace(/<a href="tel:[^"]*">[^<]*<\/a>/, '');
     expect(parseDetailPage(withoutPhone, URL, AGENCY).listing?.phoneText).toBeUndefined();
   });

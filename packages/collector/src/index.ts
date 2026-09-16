@@ -58,4 +58,4 @@ export {
 export { migrate, loadMigrations, splitStatements } from './db/migrate.js';
 export { createRepository, occurrenceHash, listingHash, type Repository } from './db/repository.js';
 
-export { ALL_SCRAPERS, laforetScraper, LAFORET_DESCRIPTOR } from './sources/index.js';
+export { ALL_SCRAPERS, laforetScraper } from './sources/index.js';

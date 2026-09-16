@@ -32,5 +32,3 @@ export const gestionCassiniScraper = makeApimoScraper({
     'contes',
   ],
 });
-
-export const GESTION_CASSINI_DESCRIPTOR = gestionCassiniScraper.descriptor;

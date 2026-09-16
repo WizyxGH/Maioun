@@ -24,5 +24,3 @@ export const dazurScraper = makeApimoScraper({
     'la-trinite',
   ],
 });
-
-export const DAZUR_DESCRIPTOR = dazurScraper.descriptor;

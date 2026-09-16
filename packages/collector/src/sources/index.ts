@@ -449,13 +449,6 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   immoRivieraTransactionsScraper,
 ];
 
+// Laforêt sert de source de référence aux tests d'intégration, qui passent par
+// `@maioun/collector`. Les autres scrapers n'entrent que par `ALL_SCRAPERS`.
 export { laforetScraper } from './laforet/index.js';
-export { LAFORET_DESCRIPTOR } from './laforet/index.js';
-export { orpiScraper } from './orpi/index.js';
-export { ORPI_DESCRIPTOR } from './orpi/index.js';
-export { bepScraper } from './bep/index.js';
-export { BEP_DESCRIPTOR } from './bep/index.js';
-export { bepAbonnesScraper, BEP_ABONNES_DESCRIPTOR } from './bep-abonnes/index.js';
-export { dazurScraper } from './dazur/index.js';
-export { DAZUR_DESCRIPTOR } from './dazur/index.js';
-export { gestionCassiniScraper, GESTION_CASSINI_DESCRIPTOR } from './gestion-cassini/index.js';

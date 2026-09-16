@@ -63,12 +63,12 @@ describe('similarity — signaux forts', () => {
     const a = listing({
       id: 'lbc:1',
       sourceId: 'leboncoin',
-      contact: { ...EMPTY_CONTACT, phone: '+33612345678' },
+      contact: { ...EMPTY_CONTACT, phone: '+33600000001' },
     });
     const b = listing({
       id: 'sel:1',
       sourceId: 'seloger',
-      contact: { ...EMPTY_CONTACT, phone: '+33612345678' },
+      contact: { ...EMPTY_CONTACT, phone: '+33600000001' },
     });
 
     const result = similarity(a, b);
@@ -109,7 +109,7 @@ describe('similarity — bruit de niveau AGENCE, au sein d’une même source', 
   // 85 pour un seuil de 70, et l'un des deux disparaissait de la liste.
   it('ne fusionne pas deux studios d’une même agence sur photo et standard partagés', () => {
     const photo = 'https://citya.invalid/filigrane-sejour.webp';
-    const contact = { ...EMPTY_CONTACT, phone: '+33493000000' };
+    const contact = { ...EMPTY_CONTACT, phone: '+33400000002' };
     const a = listing({
       id: 'citya:1',
       sourceId: 'citya',
@@ -205,7 +205,7 @@ describe('similarity — désaccords rédhibitoires', () => {
   it('le blocage prime sur un téléphone identique', () => {
     // Une même agence loue deux studios différents dans le même immeuble :
     // même téléphone, mais surfaces distinctes. Ne pas les fusionner.
-    const phone = '+33612345678';
+    const phone = '+33600000001';
     const a = listing({
       id: 'a:8',
       sourceId: 'a',
@@ -252,7 +252,7 @@ describe('similarity — tolérances', () => {
 
 describe('dedupe', () => {
   it('regroupe les occurrences d’un même logement en un seul groupe', () => {
-    const phone = '+33612345678';
+    const phone = '+33600000001';
     const occurrences = [
       listing({ id: 'leboncoin:1', sourceId: 'leboncoin', contact: { ...EMPTY_CONTACT, phone } }),
       listing({ id: 'seloger:1', sourceId: 'seloger', contact: { ...EMPTY_CONTACT, phone } }),
@@ -344,7 +344,7 @@ describe('au sein d’une source, le même bien porte les mêmes chiffres', () =
   it('ne les réunit pas non plus par une troisième source', () => {
     // Chacun ressemble assez au relais pour fusionner avec lui : l'union-find,
     // transitif, réunissait les deux studios par son intermédiaire.
-    const phone = '+33493000000';
+    const phone = '+33400000002';
     const a = { ...bellet, contact: { ...agence, phone } };
     const b = { ...bornala, contact: { ...agence, phone } };
     const relais = listing({
@@ -368,7 +368,7 @@ describe('mergeGroup — fusion des informations (§15)', () => {
       listing({
         id: 'leboncoin:5',
         sourceId: 'leboncoin',
-        contact: { ...EMPTY_CONTACT, phone: '+33612345678', providedBy: ['leboncoin'] },
+        contact: { ...EMPTY_CONTACT, phone: '+33600000001', providedBy: ['leboncoin'] },
       }),
       listing({
         id: 'agencex:5',
@@ -384,7 +384,7 @@ describe('mergeGroup — fusion des informations (§15)', () => {
     ];
 
     const merged = mergeGroup(occurrences);
-    expect(merged.contact.phone).toBe('+33612345678');
+    expect(merged.contact.phone).toBe('+33600000001');
     expect(merged.contact.agencyName).toBe('Agence X');
     expect(merged.contact.name).toBe('Camille Martin');
     expect(merged.contact.reference).toBe('REF-99');

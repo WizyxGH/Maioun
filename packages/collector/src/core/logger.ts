@@ -170,16 +170,6 @@ export function formatPretty(event: LogEvent, color: boolean): string {
   return `${DIM}${time}${RESET} ${c}${label}${RESET} ${event.event}${sep}`;
 }
 
-/**
- * Sink lisible pour le terminal. Couleurs activées si la sortie est un TTY.
- * Les erreurs partent sur stderr.
- */
-export function prettySink(event: LogEvent): void {
-  const line = formatPretty(event, process.stdout.isTTY === true);
-  if (event.level === 'error') console.error(line);
-  else console.log(line);
-}
-
 // ---------------------------------------------------------------------------
 // Narration humaine de la collecte (`pnpm collect`)
 // ---------------------------------------------------------------------------

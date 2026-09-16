@@ -31,5 +31,3 @@ export const bepScraper = makeApimoScraper({
     'falicon',
   ],
 });
-
-export const BEP_DESCRIPTOR = bepScraper.descriptor;

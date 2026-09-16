@@ -38,6 +38,9 @@ const SKIP_DIRS = new Set([
   // committées, mais contiennent de vraies coordonnées d'annonces. Rien à y
   // scanner puisqu'elles ne peuvent pas fuiter dans le dépôt (§26).
   'data',
+  // Copies de travail des agents : un clone complet du dépôt, gitignoré comme
+  // `data`. Le scanner y signalait chaque fichier deux fois.
+  '.claude',
 ]);
 
 /** Extensions analysées. Le binaire n'a pas à être scanné. */
@@ -139,7 +142,12 @@ const RULES = [
     id: 'french-phone',
     label: 'Numéro de téléphone français',
     // La plage 06 00 00 00 xx est réservée aux exemples du projet.
-    pattern: /\b(?:\+33|0033|0)\s?[1-9](?:[\s.-]?\d{2}){4}\b/g,
+    //
+    // PAS DE `\b` EN TÊTE : devant le « + » de `+33`, il exigeait un caractère
+    // de mot juste avant, si bien que `tel:+33…` et `">+33…` — la forme même
+    // des numéros dans les fixtures HTML — n'étaient jamais examinés. Deux
+    // mobiles réels ont passé le contrôle ainsi.
+    pattern: /(?<![\w+])(?:\+33|0033|0)\s?[1-9](?:[\s.-]?\d{2}){4}\b/g,
     severity: 'error',
   },
 ];
@@ -152,7 +160,9 @@ const RULES = [
  * aucune chance de commencer par six zéros consécutifs.
  */
 const ALLOWED_VALUES = [
-  /^(?:\+33|0033|0)6?0{5,}/,
+  // `06 00 00 00 xx`, et son équivalent sur un fixe : ce qui compte est la
+  // salve de zéros après l'indicatif, pas le chiffre de tête.
+  /^(?:\+33|0033|0)\d?0{5,}/,
   /remplacer/i,
   /example/i,
   /fictif|fictive/i,
