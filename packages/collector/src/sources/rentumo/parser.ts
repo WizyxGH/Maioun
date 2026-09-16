@@ -89,14 +89,41 @@ function originHost(imageUrls: readonly string[]): string | undefined {
  * Mais certaines sources ouvrent sur le loyer (« Loyer : / 1 490 € / par mois »)
  * — en faire un titre donnerait « Loyer : ». Mieux vaut alors aucun titre
  * qu'un titre absurde (§17).
+ *
+ * UNE PHRASE COUPÉE PAR LE SITE N'EST PAS UN TITRE NON PLUS. La carte tronque
+ * l'extrait à une soixantaine de caractères, points de suspension compris :
+ * quarante-deux annonces de l'inventaire s'intitulaient « Antoine BIERLAIRE du
+ * cabinet Gestion Cassini vous propose... ». La fiche porte le vrai titre —
+ * « 4 pièces Vide - 15 Rue de Rivoli - Nice Centre », qui nomme même la voie.
  */
 function headline(description: string): string | undefined {
   const first = description.split('\n')[0]?.trim() ?? '';
   if (first.length < 12) return undefined;
+  if (/(\.\.\.|…)$/.test(first)) return undefined;
   // Une ligne qui commence par une étiquette ou un montant n'est pas un titre.
   if (/^(loyer|prix|charges|montant|à partir)\b/i.test(first)) return undefined;
   if (/^[\d\s€.,]+$/.test(first)) return undefined;
   return first;
+}
+
+/**
+ * Le loyer de Rentumo est HORS CHARGES, et le dire est ce qui le rend
+ * comparable au reste de l'inventaire.
+ *
+ * Rentumo affiche « Monthly rent » et « Utilities » sur deux lignes ; le nombre
+ * repris ici est le premier, quand les annonces d'origine — et les sources
+ * directes du projet — annoncent le plus souvent un loyer charges comprises.
+ * Vérifié le 2026-09-16 : là où le texte d'origine écrit « Loyer : X € par mois
+ * charges comprises », Rentumo est en dessous quarante-six fois sur
+ * quarante-neuf, de la valeur exacte des charges ; sur les biens que le projet
+ * tient aussi d'une source directe, quinze fois sur seize (Citya 1 565 € dont
+ * 65 → Rentumo 1 500 €).
+ *
+ * Sans la mention, la copie ne se regroupait pas avec l'originale et ressortait
+ * comme une bonne affaire qui n'existe pas.
+ */
+function rentExcludingCharges(priceText: string): string {
+  return `${priceText} hors charges`;
 }
 
 /** Ce qu'une page de résultats rend : ses annonces, et s'il en reste. */
@@ -166,7 +193,7 @@ export function parseListPage(html: string, pageUrl: string): RentumoList {
         sourceUrl,
         title: headline(description),
         description: description !== '' ? description : undefined,
-        priceText: priceText !== '' ? priceText : undefined,
+        priceText: priceText !== '' ? rentExcludingCharges(priceText) : undefined,
         areaText,
         // « 1 Bedroom » compte les CHAMBRES, pas les pièces : le confondre
         // gonflerait la typologie d'une unité sur tout l'inventaire (§17).

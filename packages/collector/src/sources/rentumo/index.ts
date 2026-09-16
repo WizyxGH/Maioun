@@ -45,9 +45,17 @@ const RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
 const LIST_URL = `${ORIGIN}/rent-apartment/nice`;
 
 /**
- * Pages parcourues par exécution. Le stock niçois tourne autour de 500
- * annonces toutes gammes confondues, mais elles sont triées par fraîcheur :
- * les premières pages portent l'essentiel de ce qui est nouveau (§30).
+ * Pages parcourues par exécution, TOUTES lues, même déjà connues.
+ *
+ * La liste n'est PAS classée par fraîcheur : relevé le 2026-09-16, la première
+ * carte datait d'un an et la deuxième de six mois. S'arrêter sur une page
+ * entièrement connue reposait donc sur une règle fausse, et gelait
+ * l'inventaire : quatre-vingt-trois annonces sur cent vingt-cinq n'étaient plus
+ * revues depuis six jours, et soixante-six fiches déjà téléchargées gardaient
+ * leur texte en mémoire sans jamais l'appliquer.
+ *
+ * Trois requêtes de plus par passage, sur une source qui pèse un demi-pour-cent
+ * du trafic.
  */
 const MAX_PAGES = 4;
 
@@ -89,10 +97,24 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
     'IA » — on ne retient donc que ce que la carte affiche tel quel, et, sur ' +
     'la fiche, le titre et le texte d’origine recopiés dans le JSON-LD, et la ' +
     'localisation affichée (#address ; le code postal du JSON-LD vaut 06000 ' +
-    'par défaut et n’est pas repris). Les ' +
+    'par défaut et n’est pas repris). Le loyer affiché est HORS CHARGES : il ' +
+    'part avec la mention, sans quoi la copie passe pour moins chère que ' +
+    'l’originale. Les ' +
     'photos passent par un proxy dont l’URL encode en base64 l’adresse ' +
     'D’ORIGINE : on la décode, ce qui donne la photo en pleine qualité et ' +
-    'révèle l’hébergeur du site source (FNAIM, La Boîte Immo, Orpi…).',
+    'révèle l’hébergeur du site source (FNAIM, La Boîte Immo, Orpi…). ' +
+    'CE QU’ON LAISSE, ET POURQUOI (relevé du 2026-09-16) : la fiche affiche ' +
+    'un bloc « Property features / About the rental » dont le site marque ' +
+    'lui-même les champs devinés (data-popover-target=llm-extraction-popup-*), ' +
+    'mais ceux qu’il ne marque PAS se trompent aussi — « Furnished: No » sur ' +
+    'un studio dont le titre dit « LOCATION MEUBLÉE », « Utilities: 234 € » ' +
+    'sur un 18 m² à 510 € dont le texte d’origine n’annonce aucun montant. ' +
+    'La carte porte aussi les coordonnées du bien, dans l’image de repli du ' +
+    'carrousel (osm-maps.rentumo.com/get_map?lat=…) : elles sont fausses — ' +
+    '2,4 km d’écart pour une annonce rue Saint-François-de-Paule — et une ' +
+    'même position sert de défaut à plusieurs annonces. La fiche, enfin, ' +
+    'n’expose qu’UNE photo du bien, les autres étant derrière l’inscription : ' +
+    'la carte, qui en donne jusqu’à six, reste la meilleure source d’images.',
 };
 
 /** Âge de la mémoire d'une fiche ; illisible ou absente, elle passe en premier. */
@@ -186,12 +208,9 @@ export const rentumoScraper: Scraper = {
         if (parsed.listings.length === 0) break;
         for (const listing of parsed.listings) byRef.set(listing.sourceRef, listing);
 
-        // Arrêt anticipé : la liste est classée par fraîcheur, donc une page
-        // entièrement déjà connue signifie qu'on est sorti des nouveautés (§9).
-        if (parsed.listings.every((listing) => context.isKnown(listing.sourceRef))) {
-          stopReason = 'knownTerritory';
-          break;
-        }
+        // Pas d'arrêt sur une page déjà connue : voir `MAX_PAGES`. Une annonce
+        // revue est une annonce dont on rafraîchit la date et à qui on
+        // réapplique sa fiche mémorisée, sans une requête de plus.
         if (!parsed.hasNext) break;
       } catch (error) {
         // §69 : échec propre, les autres sources continuent.

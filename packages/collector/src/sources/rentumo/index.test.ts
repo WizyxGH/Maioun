@@ -69,15 +69,16 @@ const recent = (draft: DetailMemoryEntry['draft']): DetailMemoryEntry => ({
 describe('annonce désactivée (Rentumo)', () => {
   it('ne ramène pas une carte encore listée dont la fiche est retirée', async () => {
     const { ctx } = contexte({
-      known: ['6536139', '13559275'],
+      known: ['6536139', '13559275', '19160932'],
       memoire: new Map([
         ['6536139', recent(WITHDRAWN_DRAFT)],
         ['13559275', recent({})],
+        ['19160932', recent({})],
       ]),
       fiches: {},
     });
     const result = await rentumoScraper.run(ctx);
-    expect(result.listings.map((l) => l.sourceRef)).toEqual(['13559275']);
+    expect(result.listings.map((l) => l.sourceRef)).toEqual(['13559275', '19160932']);
     expect(result.withdrawnRefs).toEqual(['6536139']);
   });
 
@@ -88,7 +89,7 @@ describe('annonce désactivée (Rentumo)', () => {
     });
     const result = await rentumoScraper.run(ctx);
     expect(result.withdrawnRefs).toEqual(['6536139']);
-    expect(result.listings.map((l) => l.sourceRef)).toEqual(['13559275']);
+    expect(result.listings.map((l) => l.sourceRef)).toEqual(['13559275', '19160932']);
     // La redirection n'est pas suivie : c'est elle, le signe.
     expect(
       vues.filter((v) => v.url.includes('/listings/')).every((v) => v.redirect === 'manual'),
@@ -97,10 +98,11 @@ describe('annonce désactivée (Rentumo)', () => {
 
   it('vérifie les connues absentes de la liste, et ne conclut que sur un retrait', async () => {
     const { ctx, vues, enregistrees } = contexte({
-      known: ['6536139', '13559275', '900001', '900002'],
+      known: ['6536139', '13559275', '19160932', '900001', '900002'],
       memoire: new Map([
         ['6536139', recent({})],
         ['13559275', recent({})],
+        ['19160932', recent({})],
       ]),
       fiches: {
         '900001': page(302, '', { location: 'https://rentumo.com/rentals/nice' }),
@@ -116,16 +118,66 @@ describe('annonce désactivée (Rentumo)', () => {
 
   it('ne revérifie pas dans la journée, ni une annonce déjà retirée', async () => {
     const { ctx, vues } = contexte({
-      known: ['6536139', '13559275', '900001', '900002'],
+      known: ['6536139', '13559275', '19160932', '900001', '900002'],
       memoire: new Map([
         ['6536139', recent({})],
         ['13559275', recent({})],
+        ['19160932', recent({})],
         ['900001', { draft: WITHDRAWN_DRAFT, fetchedAt: '2026-01-01T00:00:00Z' }],
         ['900002', recent({})],
       ]),
       fiches: {},
     });
     await rentumoScraper.run(ctx);
+    expect(vues.filter((v) => v.url.includes('/listings/'))).toEqual([]);
+  });
+});
+
+describe('pagination (Rentumo)', () => {
+  /**
+   * La liste n'est pas classée par fraîcheur : s'arrêter sur une page déjà
+   * connue gelait l'inventaire. Quatre-vingt-trois annonces sur cent
+   * vingt-cinq n'étaient plus revues, et les fiches déjà téléchargées pour
+   * elles ne servaient à rien.
+   */
+  it('lit toutes les pages, même quand la première est entièrement connue', async () => {
+    const { ctx, vues } = contexte({
+      known: ['6536139', '13559275', '19160932'],
+      memoire: new Map([
+        ['6536139', recent({})],
+        ['13559275', recent({})],
+        ['19160932', recent({})],
+      ]),
+      fiches: {},
+    });
+    const result = await rentumoScraper.run(ctx);
+    const pages = vues.filter((v) => v.url.includes('/rent-apartment/'));
+    expect(pages).toHaveLength(4);
+    expect(pages.map((v) => v.url)).toEqual([
+      'https://rentumo.com/rent-apartment/nice',
+      'https://rentumo.com/rent-apartment/nice?page=2',
+      'https://rentumo.com/rent-apartment/nice?page=3',
+      'https://rentumo.com/rent-apartment/nice?page=4',
+    ]);
+    expect(result.stopReason).toBe('completed');
+  });
+
+  it('réapplique sans requête la fiche mémorisée d’une annonce déjà connue', async () => {
+    // C'est ce que l'arrêt anticipé faisait perdre : soixante-six textes
+    // complets, déjà payés, que l'occurrence n'a jamais reçus.
+    const { ctx, vues } = contexte({
+      known: ['6536139', '13559275', '19160932'],
+      memoire: new Map([
+        ['6536139', recent({ description: 'Texte entier de l’annonce.', title: 'Studio vide' })],
+        ['13559275', recent({})],
+        ['19160932', recent({})],
+      ]),
+      fiches: {},
+    });
+    const result = await rentumoScraper.run(ctx);
+    const reprise = result.listings.find((l) => l.sourceRef === '6536139');
+    expect(reprise?.description).toBe('Texte entier de l’annonce.');
+    expect(reprise?.title).toBe('Studio vide');
     expect(vues.filter((v) => v.url.includes('/listings/'))).toEqual([]);
   });
 });

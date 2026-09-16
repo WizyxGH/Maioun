@@ -38,7 +38,7 @@ describe('parseListPage (Rentumo)', () => {
   const { listings, warnings, hasNext } = parseListPage(HTML, PAGE);
 
   it('lit chaque carte sans avertissement', () => {
-    expect(listings).toHaveLength(2);
+    expect(listings).toHaveLength(3);
     expect(warnings).toEqual([]);
   });
 
@@ -46,11 +46,18 @@ describe('parseListPage (Rentumo)', () => {
     const first = listings[0];
     expect(first?.sourceRef).toBe('6536139');
     expect(first?.sourceUrl).toBe('https://rentumo.com/listings/nice-nord-studio-vide-6536139');
-    expect(first?.priceText).toBe('€ 510');
     expect(first?.areaText).toBe('18 m²');
     expect(first?.cityText).toBe('Nice');
     // Le vocabulaire anglais part tel quel : `parsePropertyType` le comprend.
     expect(first?.propertyTypeText).toMatch(/Apartment/);
+  });
+
+  it('annonce le loyer HORS CHARGES, faute de quoi la copie paraît moins chère', () => {
+    // Rentumo sépare « Monthly rent » et « Utilities » ; les sources directes
+    // du projet publient, elles, un loyer charges comprises. Sans la mention,
+    // les deux ne se regroupaient pas et la copie ressortait en bonne affaire.
+    expect(listings[0]?.priceText).toBe('€ 510 hors charges');
+    expect(listings[1]?.priceText).toBe('€ 1,460 hors charges');
   });
 
   it('compte les CHAMBRES, jamais les pièces', () => {
@@ -69,9 +76,19 @@ describe('parseListPage (Rentumo)', () => {
   it('n’invente pas de titre quand l’annonce ouvre sur le loyer (§17)', () => {
     // La carte ne porte pas de titre : seulement un extrait de description.
     // « Loyer : » n'en est pas un.
-    expect(listings[0]?.title).toMatch(/^NICE NORD/);
     expect(listings[1]?.title).toBeUndefined();
     expect(listings[1]?.description).toMatch(/Loyer/);
+  });
+
+  it('ne fait pas un titre d’une accroche que le site a coupée', () => {
+    // La carte tronque à une soixantaine de caractères ; la fiche porte le
+    // vrai titre et le remplacera. Une amorce de phrase n'en est pas un.
+    expect(listings[0]?.description).toMatch(/\.\.\.$/);
+    expect(listings[0]?.title).toBeUndefined();
+  });
+
+  it('garde le titre quand l’accroche tient entière', () => {
+    expect(listings[2]?.title).toBe('STUDIO MEUBLÉ - QUARTIER GAMBETTA - BALCON');
   });
 
   it('suit la pagination déclarée par le site', () => {
