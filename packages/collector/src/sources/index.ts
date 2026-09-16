@@ -227,6 +227,9 @@ import { rivieraSudImmobilierScraper } from './riviera-sud-immobilier/index.js';
 import { immoRivieraTransactionsScraper } from './immo-riviera-transactions/index.js';
 import { oqoroScraper } from './oqoro/index.js';
 import { cotOuestScraper } from './cot-ouest/index.js';
+import { immojeuneScraper } from './immojeune/index.js';
+import { morningcroissantScraper } from './morningcroissant/index.js';
+import { appartagerScraper } from './appartager/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -451,6 +454,9 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   immoRivieraTransactionsScraper,
   oqoroScraper,
   cotOuestScraper,
+  morningcroissantScraper,
+  appartagerScraper,
+  immojeuneScraper,
 ];
 
 // Laforêt sert de source de référence aux tests d'intégration, qui passent par

@@ -223,6 +223,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 rue Bavastro', postalCode: '06300', city: 'Nice' },
   },
+  appartager: { name: 'Appartager', domain: null, logo: null, paidContact: true, address: null },
   arthurimmo: {
     name: 'Arthurimmo.com Nice',
     domain: null,
@@ -800,6 +801,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  immojeune: { name: 'ImmoJeune', domain: null, logo: null, paidContact: false, address: null },
   imodirect: {
     name: 'Imodirect',
     domain: 'annonces.imodirect.com',
@@ -1053,6 +1055,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
   'mk-immo': {
     name: 'MK Immo',
     domain: 'mk-immo.fr',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
+  morningcroissant: {
+    name: 'MorningCroissant',
+    domain: null,
     logo: null,
     paidContact: false,
     address: null,

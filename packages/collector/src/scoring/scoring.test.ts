@@ -165,6 +165,25 @@ describe('scoreMatch (§16)', () => {
     expect(isStudentHousing(listing)).toBe(true);
   });
 
+  it('ne prend PAS la rubrique d’un portail étudiant pour une condition du bien', () => {
+    // Chez ImmoJeune, `/location-etudiant/` est la case par laquelle passent
+    // TOUTES les locations du site : un deux-pièces ordinaire, sans condition
+    // d'étudiant, y porte le même mot dans son adresse. La source entière
+    // s'excluait d'elle-même.
+    const listing = makeAggregated({
+      description: 'Deux pièces de 40 m² avec cuisine équipée.',
+      occurrences: [
+        makeOccurrence({
+          id: 'immojeune:1',
+          sourceId: 'immojeune',
+          sourceUrl:
+            'https://www.immojeune.com/location-etudiant/nice-06/deux-pieces-proche-du-marche_4052756.html',
+        }),
+      ],
+    });
+    expect(isStudentHousing(listing)).toBe(false);
+  });
+
   it('exclut un stationnement de la liste principale', () => {
     // Structurel, et non préférentiel : un parking n'est pas un logement, quel
     // que soit le réglage. Celui-là reste éliminatoire au scoring.

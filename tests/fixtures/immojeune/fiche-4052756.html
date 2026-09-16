@@ -1,0 +1,139 @@
+<!doctype html>
+<!--
+  Fiche réelle du 2026-09-16, allégée et anonymisée : titre, adresse, texte et
+  images réécrits. Les blocs conservés sont ceux que le parseur lit — badges,
+  titre, adresse, description, équipements, diagnostics, pavé de droite.
+-->
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Appartement 2 pièces 40m² à 610€ Nice (06000)</title>
+  </head>
+  <body>
+    <section class="flex flex-space-between wrap" id="content">
+      <article class="flex flex-column">
+        <div class="flex flex-space-between flex-vertical-center">
+          <div class="flex flex-vertical-center">
+            <span class="badge badge-light"> PARTICULIER </span>
+            <span class="bull"></span>
+            <span class="badge badge-light"> T2 </span>
+          </div>
+          <a class="flex flex-vertical-center favorite" href="/login">Ajouter aux favoris</a>
+        </div>
+
+        <div class="flex flex-column item title">
+          <h1>Deux pièces proche du marché</h1>
+          <div class="flex flex-wrap">
+            <p class="flex grey">
+              <img src="/img/icon-location.svg" alt="Localisation" />
+              12 Rue des Lauriers - 06000 Nice
+            </p>
+            <p class="flex grey">
+              <img src="/img/icon-time.svg" alt="Date publication" />
+              Publiée il y a 1 jour
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-column item description">
+          <h2>Description du logement</h2>
+          <div>
+            <p>
+              Cet appartement de 40 m² comprend deux pièces, une cuisine équipée et une salle de
+              bain.<span class="etc">...</span
+              ><span class="hidden-sec hide">
+                Situé au troisième étage d'un immeuble de quatre étages, il bénéficie de grandes
+                fenêtres. Une place de parking est incluse.</span
+              >
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-column item services">
+          <h2>Equipements et services du logement</h2>
+          <div class="flex flex-wrap">
+            <div class="service col">
+              <img src="/img/services/service-furnished.png" alt="Meublé" />
+              <span>Meublé</span>
+            </div>
+            <div class="service col">
+              <img src="/img/services/service-heating.png" alt="Chauffage" />
+              <span>Chauffage</span>
+            </div>
+            <div class="service col">
+              <img src="/img/services/service-washing-machine.png" alt="Machine à laver" />
+              <span>Machine à laver</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex item diagnostics">
+          <div class="flex col-50">
+            <div class="tooltip">
+              <div class="svg-container">
+                <img src="/img/diagnostics/dpe-c.svg" alt="diagnostic" class="tooltip-image" />
+              </div>
+            </div>
+            <span class="letter"><img src="/img/icon-ce-c.svg" alt="diagnostic" /></span>
+            <div class="flex flex-column">
+              <p><strong>Classe énergie</strong></p>
+              <p class="small">
+                Logement avec une consommation annuelle d’énergie comprise entre 91 et 150 kw/m²/h
+              </p>
+            </div>
+          </div>
+          <div class="flex col-50">
+            <div class="tooltip">
+              <div class="svg-container">
+                <img src="/img/diagnostics/ges-b.svg" alt="diagnostic" class="tooltip-image" />
+              </div>
+            </div>
+            <span class="letter"><img src="/img/icon-ges-b.svg" alt="diagnostic" /></span>
+            <div class="flex flex-column">
+              <p><strong>Emissions de gaz à effet de serre</strong></p>
+              <p class="small">
+                Logement avec une emission annuelle de GES comprise entre 6 et 10 kg/m²/an
+              </p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="flex flex-column">
+        <div class="flex flex-column form">
+          <div id="partial-advert-price">
+            <h2>
+              40 m²<br />
+              <span class="price">610 €<sup>CC</sup></span>
+            </h2>
+          </div>
+          <h3>Disponible à partir du 17/09/2026</h3>
+          <div id="partial-advert-description">
+            <span class="grey">Charges</span>
+            <strong>60 €</strong>
+            <br />
+            <span class="grey">Frais de dossier à partir de</span>
+            Aucun
+            <br />
+            <span class="grey">Dépôt de garantie à partir de</span>
+            <strong>550 €</strong>
+          </div>
+
+          <div class="flex flex-column candidate">
+            <h3 class="cyan">Déposer ma candidature</h3>
+            <form name="candidate" method="post" action="/candidate/4052756/process">
+              <select name="candidate[candidateinformation][statut]">
+                <option value="Étudiant avec garant">Étudiant avec garant</option>
+                <option value="Étudiant sans garant">Étudiant sans garant</option>
+                <option value="Stagiaire">Stagiaire</option>
+                <option value="Salarié">Salarié</option>
+                <option value="Apprenti">Apprenti</option>
+                <option value="Autres">Autres</option>
+              </select>
+            </form>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </body>
+</html>

@@ -1252,18 +1252,18 @@ refusent de porter. C'est exactement l'obstacle que rencontre l'utilisateur.
 
 ### Appartager (appartager.com) — retenue, marquée colocation
 
-| Point        | Mesure du 2026-09-16                                                                                                                                                                                                                                                                                                                                              |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Éditeur      | **Roomgo Limited** (ex-SpareRoom) ; les photos sont servies par `photos.spareroom.fr`.                                                                                                                                                                                                                                                                            |
-| `robots.txt` | 30 882 octets. Le groupe `User-agent: *` interdit **toutes les URL de recherche paramétrées** : `/colocations/*min_rent=`, `*max_rent=`, `*sort_by=`, `*filter=showall`, `*KW=`, `*lookup=`, `*user_id=`, `*gender_req=` et une soixantaine d'autres, plus `/pro/*`, `/location/search.pl?*action=search`, `/location/shortlist.pl` et `/location/savesearch.pl`. |
-| Voie suivie  | La page de ville **nue** `/colocations/nice` et les fiches `/colocations/{dept}/{ville}/{id}` — **aucune règle ne les vise**, et aucun paramètre n'est ajouté.                                                                                                                                                                                                    |
-| Accès        | HTTP **200**, rendu **serveur** (82 009 octets).                                                                                                                                                                                                                                                                                                                  |
-| Volume       | **22 annonces** à Nice, toutes sur une page. Loyers mensuels : 600, 600, 635, 697 € pour les moins chères.                                                                                                                                                                                                                                                        |
-| Colocation   | **100 %.** Chaque annonce est une chambre dans un logement partagé — « Chambre simple », « Chambre double », « Appartement à 3 lit(s) ». `flatShare` est déclaré vrai pour toutes, sans faire relire le texte.                                                                                                                                                    |
-| Contact      | **Payant selon l'annonceur**, et la source le dit sur sa propre carte : « Contacter gratuitement » quand l'annonceur a pris l'abonnement Premium, sinon « Upgrade to Premium membership for unlimited contact access ». D'où **`paidContact: true`** sur le descripteur, et le libellé conservé annonce par annonce dans `extra.contactStatus`.                   |
-| Durée        | **Mêlée.** La carte n'en dit rien ; la fiche révèle « Locations à court terme acceptées » et « Durée maximum : 3 mois maximum » — trois mois n'est pas un logement. Ces mentions sont reprises **en tête de description**, là où l'utilisateur les lit et où la normalisation reconnaît les baux qui s'arrêtent.                                                  |
-| Non publié   | **Ni surface, ni charges, ni dépôt de garantie** — vérifié sur la carte et sur la fiche (zéro occurrence de « m² », « charges », « caution », « dépôt »). Ces champs restent **absents** (§17), jamais reconstitués.                                                                                                                                              |
-| Bailleur     | **Non déclaré.** « Membre Premium » est un niveau d'abonnement, pas une qualité professionnelle, et le site prévoit un signalement « L'annonceur n'est pas une agence » — des agences y publient donc. `landlordKind` reste `unknown` : on ne suppose pas.                                                                                                        |
+| Point        | Mesure du 2026-09-16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Éditeur      | **Roomgo Limited** (ex-SpareRoom) ; les photos sont servies par `photos.spareroom.fr`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `robots.txt` | 30 882 octets. Le groupe `User-agent: *` interdit **toutes les URL de recherche paramétrées** : `/colocations/*min_rent=`, `*max_rent=`, `*sort_by=`, `*filter=showall`, `*KW=`, `*lookup=`, `*user_id=`, `*gender_req=` et une soixantaine d'autres, plus `/pro/*`, `/location/search.pl?*action=search`, `/location/shortlist.pl` et `/location/savesearch.pl`.                                                                                                                                                                                                                                                                                                                                    |
+| Voie suivie  | La page de ville **nue** `/colocations/nice`, sa **pagination par CHEMIN** (`/colocations/nice/page2`, `page3`) et les fiches `/colocations/{dept}/{ville}/{id}` — **aucune règle ne les vise** : les Disallow portent tous sur un paramètre, donc sur un `=`, qu'aucune de ces adresses ne contient.                                                                                                                                                                                                                                                                                                                                                                                                |
+| Accès        | HTTP **200**, rendu **serveur** (82 009 octets).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Volume       | **22 annonces**, réparties **10 + 10 + 2 sur trois pages** — la première n'en montre que dix, et s'y arrêter aurait perdu la moitié du stock sans rien signaler. Loyers mensuels de **400 à 850 €**, parfois donnés en **fourchette** (« €450 - €470 ») quand l'annonce propose plusieurs chambres.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Colocation   | **100 %.** Chaque annonce est une chambre dans un logement partagé. `flatShare` est déclaré vrai pour les 22, sans faire relire le texte. **Le libellé de la carte piège** : il nomme tantôt la chambre (« Chambre simple »), tantôt le logement d'accueil (« Appartement à 3 lit(s) »), tantôt le lot proposé (« 2 simples + double », « 4 doubles »). Pris pour le type du bien, il classait 4 annonces sur 22 en « appartement » ou « autre » — dont un 88 m² à 635 € alors que sa fiche répartit ce loyer entre **trois** chambres et signale « 3 jeunes actifs en place déjà ». Le parseur ne retient le libellé comme type que s'il nomme une chambre ; sinon il le range dans la description. |
+| Contact      | **Payant selon l'annonceur**, et la source le dit sur sa propre carte : « Contacter gratuitement » quand l'annonceur a pris l'abonnement Premium, sinon « Upgrade to Premium membership for unlimited contact access ». D'où **`paidContact: true`** sur le descripteur, et le libellé conservé annonce par annonce dans `extra.contactStatus`.                                                                                                                                                                                                                                                                                                                                                      |
+| Durée        | **Mêlée.** La carte n'en dit rien ; la fiche révèle « Locations à court terme acceptées » et « Durée maximum : 3 mois maximum » — trois mois n'est pas un logement. Ces mentions sont reprises **en tête de description**, là où l'utilisateur les lit et où la normalisation reconnaît les baux qui s'arrêtent.                                                                                                                                                                                                                                                                                                                                                                                     |
+| Non publié   | **Ni surface, ni charges, ni dépôt de garantie** — vérifié sur la carte et sur la fiche (zéro occurrence de « m² », « charges », « caution », « dépôt »). Ces champs restent **absents**, jamais reconstitués. **Réserve à connaître** : faute de champ dédié, la surface éventuellement affichée est lue dans le TITRE, et le titre d'une colocation décrit souvent le **logement d'accueil** (« Super appartement 88m2 ») et non la chambre. Le type de bien, lui, reste « chambre ».                                                                                                                                                                                                              |
+| Bailleur     | **Non déclaré.** « Membre Premium » est un niveau d'abonnement, pas une qualité professionnelle, et le site prévoit un signalement « L'annonceur n'est pas une agence » — des agences y publient donc. `landlordKind` reste `unknown` : on ne suppose pas.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Les douze écartées
 
@@ -1294,3 +1294,304 @@ partagée ») et qu'Appartager ne publie **que** des colocations. Deviner ce qui
 est écrit n'aurait pas été prudent mais négligent — et l'enjeu est une
 **exclusion** : une chambre partagée qui ressort `null` passe le filtre
 `excludeFlatShare` et part en alerte.
+
+## Portails de particuliers et portails étudiants (étude du 2026-09-16)
+
+Douze candidats examinés un par un, avec le user-agent du collecteur
+(`MaiounBot/0.1 (+…)`), trois secondes entre deux requêtes, et le `robots.txt`
+lu avant toute autre page. Aucun captcha, aucun mur d'inscription, aucun
+paywall n'a été franchi : quand c'est fermé, la réponse est « on ne la prend
+pas », avec la preuve.
+
+Le besoin qui commande ce tri : sur 5 248 annonces, 647 sont de particuliers,
+mais 629 chez **LocService**, dont le contact est payant — soit une vingtaine
+de bailleurs particuliers réellement joignables.
+
+### Verdicts
+
+| Candidat               | Verdict                   | Preuve du 2026-09-16                                                                    |
+| ---------------------- | ------------------------- | --------------------------------------------------------------------------------------- |
+| **ImmoJeune**          | **retenue, implémentée**  | robots ouvert, listes lisibles, badge PARTICULIER/AGENCE, contact gratuit               |
+| PAP                    | fermée (reste désactivée) | HTTP 403 + défi JavaScript Cloudflare, pour `curl` comme pour `fetch`                   |
+| Entreparticuliers      | fermée                    | HTTP 403 Cloudflare « Sorry, you have been blocked » sur toutes les pages               |
+| Leboncoin              | fermée                    | `robots.txt` : accès automatisé interdit, aucun groupe `User-agent: *`                  |
+| Gens de Confiance      | fermée                    | `robots.txt` interdit `*/annonce/*/*` ; défi Cloudflare ; plateforme sur parrainage     |
+| Lokaviz (CROUS)        | fermée                    | contact derrière un compte MesServices.etudiant.gouv.fr ; robots ferme la recherche     |
+| TopAnnonces            | écartée — doublon         | mêmes identifiants d'annonce que ParuVendu, déjà collecté                               |
+| Vivastreet             | écartée — volume nul      | **7** annonces pour TOUT le 06, dont deux demandes de logement                          |
+| France-Troc            | écartée — hors sujet      | rubrique IMMOBILIER = « troc immobilier » + « location de vacances », rien à l'année    |
+| Immo-Particulier       | écartée — n'existe pas    | WordPress de démonstration ; les variantes `.fr` ne résolvent pas                       |
+| Vendre-Louer.fr        | écartée — n'existe pas    | page de parking de domaine LWS, certificat invalide                                     |
+| Location-Etudiant.fr   | écartée — pas d'annonces  | les 15 « annonces » de Nice sont des résidences ; une adresse « nice » a servi du Nîmes |
+| DossierFacile / Visale | hors périmètre            | outils de dossier, pas des sources d'annonces — voir plus bas                           |
+
+### ImmoJeune (immojeune.com) — retenue
+
+```
+Source            : ImmoJeune
+URL               : https://www.immojeune.com
+Type              : portal
+robots.txt vérifié le : 2026-09-16
+Chemins autorisés utilisés : /location-particulier/*, /location-etudiant/*, /colocation/*
+Méthode           : html
+Volume mesuré (périmètre) : 38 cartes lisibles, dont 35 à Nice
+Contact           : GRATUIT (formulaire de candidature)
+Difficulté technique : faible
+Risque de blocage : faible
+Priorité          : 1
+```
+
+**`robots.txt` intégralement cité** (126 octets, le fichier entier) :
+
+```
+User-agent: *
+Disallow: /user/*
+Disallow: /cdn-cgi/l/email-protection
+Sitemap: https://www.immojeune.com/sitemaps/sitemap.xml
+```
+
+Rien de ce que nous lisons n'est interdit, et le sitemap déclare les fiches.
+Les listes répondent 200 au user-agent du collecteur, sans défi ni cookie.
+
+**La question qui décide : l'utilisateur n'est pas étudiant.** Le portail l'est,
+ses annonces ne le sont pas. Les fiches relevées sont des studios et des
+deux-pièces ordinaires, décrits sans aucune condition d'étudiant, et le
+formulaire de candidature propose **« Salarié »** et **« Autres »** à côté des
+statuts étudiants. On ne pose donc aucun drapeau « réservé aux étudiants »
+depuis la source : la détection par le texte tranche annonce par annonce,
+comme partout — elle sait déjà séparer « bail étudiant » de « idéal étudiant ».
+
+**Un piège, qui aurait rendu la source inutile sans qu'on le voie.** Les
+adresses des fiches sont de la forme `…/location-etudiant/nice-06/…`, et
+`isStudentHousing` excluait toute annonce dont l'URL contenait ce mot. La
+source entière se serait exclue d'elle-même, silencieusement. Le même mot dit
+pourtant deux choses selon sa place : chez **Dazur**, il est glissé dans le
+slug du bien (`…/location+appartement+nice+location-etudiants+86`) et qualifie
+CE bien ; chez ImmoJeune, c'est la **première case du chemin**, la rubrique par
+laquelle passent toutes les locations du site. La règle ne regarde donc plus la
+première case. Le texte, lui, continue de trancher dans les deux cas.
+
+**Ce que la source déclare elle-même, et qu'on ne devine donc pas :**
+
+| Drapeau       | D'où il vient                                                           |
+| ------------- | ----------------------------------------------------------------------- |
+| `landlord`    | premier badge de la carte ET de la fiche : `PARTICULIER` ou `AGENCE`    |
+| `flatShare`   | rubrique `/colocation/` de l'adresse, ou badge `COLOCATION`             |
+| type de bien  | second badge : `STUDIO`, `T2`, `CHAMBRE`, `APPARTEMENT`, `MAISON`       |
+| meublé        | équipement déclaré « Meublé », pas une lecture du titre                 |
+| charges       | le `<sup>CC</sup>` collé au loyer, plus le montant du poste « Charges » |
+| commune et CP | ligne `.geo` de la carte, puis l'adresse de la fiche — jamais l'agence  |
+| DPE et GES    | nom du dessin servi : `dpe-c.svg`, `ges-b.svg`                          |
+
+**Ce qui est écarté à la lecture** : les `residence-etudiante` (un exploitant,
+un loyer « à partir de » qui ne désigne aucun logement, accès réservé aux
+étudiants — six d'entre elles occupent à elles seules les deux premières pages
+de la liste niçoise) et les `location-courte-duree`, qui ne sont pas des
+locations à l'année.
+
+**Les liens obfusqués ne sont pas décodés.** Une partie des cartes remplace son
+`<a href>` par `<span class="obflink" data-encoded-link="…">`, l'adresse en
+base64. Le site signale par là qu'il ne veut pas voir ces liens suivis
+automatiquement : les décoder serait passer outre. Le coût est mesuré et il est
+acceptable — **38 cartes lisibles sur 46** dans la rubrique particuliers de
+Nice, contre **1 sur 12** dans la liste des agences. C'est aussi pourquoi la
+collecte passe par `/location-particulier/` : c'est là que les liens sont en
+clair, et là que se trouve ce que ce compte cherche.
+
+**Le sitemap ne sert pas de point d'entrée**, bien qu'il déclare 137 annonces du
+périmètre. Il garde les annonces parties : sur 28 tirées au sort et demandées,
+**5 seulement répondaient encore** (18 %). Une annonce disparue ne rend pas 404
+— le site **redirige vers son accueil en 200**. Les listes, elles, ne montrent
+que ce qui est en ligne : ce sont elles qu'on lit, et l'extinction se fait par
+absence. Le parseur refuse en outre de lire une page d'accueil comme une
+annonce.
+
+**Cap-d'Ail répond 404** là où les douze autres communes du périmètre rendent
+une page, fût-elle vide : elle n'est pas demandée.
+
+### PAP — recontrôlée, toujours fermée, et plus qu'avant
+
+Vérification du 2026-09-16, au user-agent du collecteur :
+
+| Adresse                                                           | Code | Corps                             |
+| ----------------------------------------------------------------- | ---- | --------------------------------- |
+| `https://www.pap.fr/robots.txt`                                   | 200  | 15 315 octets                     |
+| `https://www.pap.fr/annonce/locations-nice-06-g8979` (fetch Node) | 403  | `<title>Just a moment...</title>` |
+| la même, en `curl`                                                | 403  | idem                              |
+
+Le `robots.txt` **n'a pas changé de politique** : son groupe `User-agent: *`
+interdit `/*?*`, `/annonce/liste/`, `/recherche/detail/`, `/proximite/`,
+`/pagination/` et une liste de facettes `/annonce/*-coloc*`, `*-jardin*`… mais
+**pas** `/annonce/locations-{ville}-g{id}`, que le sitemap
+`liste_annonces.xml` déclare toujours.
+
+Ce qui a changé, c'est le pare-feu. En août, le filtrage portait sur
+l'empreinte du client : même UA, même IP, `curl` passait quand `fetch` Node
+recevait 403. **Aujourd'hui les deux reçoivent 403**, et la page servie est le
+défi JavaScript de Cloudflare. Le franchir demanderait d'exécuter ce défi :
+c'est exactement le contournement que le projet s'interdit. La source reste
+désactivée, son code et ses tests prêts ; la revérification tient en deux
+requêtes.
+
+### Entreparticuliers.com — fermée
+
+Le `robots.txt` (200) est pourtant accueillant : son groupe `User-agent: *` ne
+ferme que `/api/`, `/tools/`, `/espace-perso/` et `/mot-de-passe-oublie`, et
+déclare `https://www.entreparticuliers.com/sitemap.xml`. Le long bloc qui suit
+ne nomme que des aspirateurs de sites, dont notre user-agent ne fait pas partie.
+
+Mais **aucune page ne répond**. L'accueil comme le sitemap rendent **403**, avec
+le corps Cloudflare `<title>Attention Required!</title>` et « **Sorry, you have
+been blocked** » — un blocage ferme, pas un défi que le site attendrait de nous
+voir résoudre. Il n'y a rien à tenter qui ne soit un contournement.
+
+### Leboncoin — fermée, et écrit en toutes lettres
+
+Le `robots.txt` s'ouvre sur deux lignes qui suffisent :
+
+```
+## It's forbidden to use search robots or other automatic methods to access Leboncoin.fr.
+## Access is only permitted with special permission from Leboncoin.fr.
+```
+
+Le fichier ne contient **aucun groupe `User-agent: *`** : il n'énumère que des
+robots nommés — Googlebot, bingbot, les agents d'IA, `facebookexternalhit` — et
+`Disallow: /annonce*` s'applique même à ceux-là. Un client non nommé n'a donc
+aucune permission. **Aucune page d'annonce n'a été demandée** : une page
+interdite ne se demande pas, fût-ce pour constater qu'elle répond.
+
+Le canal légitime reste **l'alerte e-mail**, déjà branchée et productive.
+
+### Gens de Confiance — fermée, trois fois
+
+1. `robots.txt` : `disallow: */annonce/*/*` — les fiches d'annonces, précisément.
+2. `https://gensdeconfiance.com/fr` répond **403** avec le défi Cloudflare
+   « Just a moment... ».
+3. La plateforme fonctionne **sur parrainage** : il n'existe pas de partie
+   publique où les annonces seraient consultables sans compte.
+
+Aucune des trois ne se lève sans franchir quelque chose.
+
+### Lokaviz (CROUS) — fermée, et sans objet pour ce compte
+
+Le `robots.txt` ferme la recherche presque entièrement :
+
+```
+Disallow: /recherche/
+Disallow: /rechercher-un-logement/page:*
+Disallow: /rechercher-un-logement/fiche-logement/*
+Disallow: /rechercher-un-logement/liste-des-logements?
+```
+
+Et surtout, l'accueil (200, lu) dit comment on obtient un contact :
+« **Connectez vous sur Mes services étudiant pour accéder aux coordonnées des
+propriétaires** ». Les coordonnées sont derrière un compte
+`MesServices.etudiant.gouv.fr`, qui suppose un numéro d'étudiant. L'utilisateur
+n'est pas étudiant : même ouverte, la source ne lui donnerait aucun contact.
+
+### TopAnnonces — ouverte, mais c'est ParuVendu
+
+Le `robots.txt` est court et permissif (`Disallow: /compte/`, `Disallow: /*?*`),
+et les listes répondent 200. La page de Nice annonce **28 annonces** — 18
+appartements, 6 parkings, 3 colocations, 1 « autres » (une licence IV) — sous
+la bannière « 100 % annonces de particuliers ».
+
+**C'est le même stock que ParuVendu, déjà collecté.** Le pied de page l'annonce
+(« Les sites du groupe ParuVendu »), les gabarits viennent de
+`static.paruvendu-dev.fr`, et la preuve est dans les identifiants : la page
+ParuVendu `/immobilier/recherche/location/appartement/nice/` publie dans sa
+couche de mesure `gtm_idpa1: '1295342904'`, `gtm_idpa2: '1295382412'`,
+`gtm_idpa3: '1295199212'` — **exactement** les identifiants des annonces
+niçoises de TopAnnonces.
+
+L'ajouter ne donnerait aucune annonce nouvelle et en ferait entrer dix-huit en
+double, là où ParuVendu est déjà réglé finement (bandes de loyer, treize
+communes, détection des demandes). ParuVendu lit d'ailleurs déjà, carte par
+carte, le « Particulier » que TopAnnonces met en bannière.
+
+À noter au passage : la même **demande** de logement (« Homme senior retraité
+CHERCHE une location ») se retrouve sur TopAnnonces et sur Vivastreet. Le
+drapeau `hostsWantedAds` de ParuVendu la couvre déjà.
+
+### Vivastreet — ouverte, et vide
+
+`robots.txt` : `Disallow: /search/*` et quelques facettes — dont, notablement,
+`*/particulier$` et `*/particulier+*`, si bien qu'on ne pourrait pas filtrer
+sur le type d'annonceur par l'adresse. Les pages de commune, elles, sont
+ouvertes et déclarées dans `sitemapindex-locations.xml`.
+
+Le compte est sans appel : `/immobilier-location/nice` annonce **7 résultats**
+« dans un rayon de … », et `/immobilier-location/alpes-maritimes` en annonce
+**7** aussi — sept annonces pour tout le département. Sur les sept : deux sont
+des **demandes** de logement, quatre sont hors périmètre (Cannes, Mougins,
+Mandelieu, Vallauris), il reste **un** studio meublé à Nice. Il n'y a pas de
+source là.
+
+### France-Troc — hors sujet
+
+`robots.txt` : `Disallow:/gerer_admin/`, rien d'autre. Site entièrement ouvert.
+
+Mais sa rubrique IMMOBILIER ne contient que deux sous-rubriques : **« Troc
+immobilier »** (échange de biens) et **« Location de vacances »**. Il n'existe
+aucune rubrique de location à l'année. Le site est un site de troc, et il ne
+prétend pas être autre chose.
+
+### Immo-Particulier — le site n'existe pas
+
+`www.immo-particulier.com` sert un certificat au nom de `gparm7.siteground.biz`.
+L'apex `immo-particulier.com` répond, et son `robots.txt` est celui d'un
+WordPress standard. Mais son sitemap de pages dit ce qu'il est vraiment :
+`sample-page`, `boutique`, `panier`, `commander`, `restaurants`, `spa`,
+`rooms`, `booking-calendar-…` — un **WordPress de démonstration** avec un thème
+d'hôtellerie et WooCommerce, jamais configuré. Aucune annonce.
+
+Les variantes ont été essayées : `immo-particulier.fr`,
+`www.immo-particulier.fr`, `immoparticulier.com`,
+`www.immobilier-particulier.com` — aucune ne résout.
+
+### Vendre-Louer.fr — domaine garé
+
+Ni `vendre-louer.fr` ni `www.vendre-louer.fr` n'ont de certificat valide
+(`self-signed certificate`). En clair, les deux répondent 200 — avec la page de
+parking de l'hébergeur : « **Bravo ! Votre domaine vendre-louer.fr a bien été
+créé avec LWS** ». Le `robots.txt` (`Crawl-delay : 60`) est celui du parking.
+Il n'y a pas de site.
+
+### Location-Etudiant.fr — ouverte, mais rien à prendre à Nice
+
+`robots.txt` permissif (`/mce/`, `/acheter-louer/`, `/digischool/`,
+`/paris-etudiant/`, `*&loyer*`), sitemap déclaré.
+
+La page « Particuliers et professionnels » de Nice
+(`/logement-etudiant/Nice-6088.html`) titre « **482 annonces** ». Le titre
+trompe : elle ne porte que 15 liens d'annonce, et les trois qui ont été
+demandées mènent toutes à des **résidences étudiantes** — Twenty Campus Nice
+Angely, Appart'City — c'est-à-dire un exploitant, un loyer « à partir de », un
+accès étudiant. Aucun bailleur particulier joignable.
+
+Pire, la source **ment sur ses adresses** :
+`/annonce-logement-etudiant/location-t1-nice-06100/1427081777.php` a servi la
+fiche d'une résidence **Appart'City de Nîmes**, écoles nîmoises et CAF du Gard
+comprises. Une source qui rend un bien d'une autre ville sous l'adresse de Nice
+ne peut pas alimenter un inventaire : la collecter ferait entrer des annonces
+fausses. Le site est de surcroît lent (19 à 23 secondes par page).
+
+### DossierFacile et Visale — pas des sources, mais utiles au profil
+
+Ni l'un ni l'autre ne publie d'annonces : ce sont des outils de **dossier de
+location**, et ils n'ont donc rien à faire dans le registre des sources.
+
+Ils ont en revanche un usage côté **profil locataire**, que l'application gère
+déjà (profil et garanties) :
+
+- **DossierFacile** (service public) certifie un dossier et en donne un lien
+  partageable. Le porter dans le profil, à côté des garanties, permettrait de
+  le joindre aux messages de contact — un bailleur particulier qui reçoit un
+  dossier déjà vérifié répond plus volontiers qu'à une candidature nue.
+- **Visale** (Action Logement) est une caution gratuite. Elle vise justement le
+  point qui bloque ici : une période d'essai. La mentionner dans le message
+  répond d'avance à l'objection, et les annonces qui l'acceptent le disent
+  parfois — ImmoJeune affiche d'ailleurs un bandeau « Cette annonce accepte ».
+
+Rien de tout cela n'est implémenté ici : c'est une piste pour le profil, pas
+pour la collecte, et elle sort du périmètre de cette étude.
