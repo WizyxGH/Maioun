@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_QUICK_FILTERS } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';
 import { MOCK_LISTINGS } from './api/mock-data.js';
+import { ALL_SOURCES } from './source-selection.js';
 
 describe('filterListings', () => {
   const base = {
-    sources: new Set<string>(),
+    sources: ALL_SOURCES,
     quick: DEFAULT_QUICK_FILTERS,
     search: '',
     hideUncertain: false,
+  };
+
+  /** Une annonce venue d'une source apparue APRÈS le réglage du filtre. */
+  const nouvelle = {
+    ...MOCK_LISTINGS[0]!,
+    id: 'nouvelle',
+    occurrences: [{ ...MOCK_LISTINGS[0]!.occurrences[0]!, sourceId: 'agence-toute-neuve' }],
   };
 
   it('garde les annonces « à vérifier » tant qu’on ne les masque pas', () => {
@@ -20,5 +28,18 @@ describe('filterListings', () => {
 
   it('applique le mot cherché', () => {
     expect(filterListings(MOCK_LISTINGS, { ...base, search: 'zzzzzzzz' })).toEqual([]);
+  });
+
+  // LE DÉFAUT QUI A MOTIVÉ LES MODES : une source ajoutée après coup se
+  // retrouvait exclue sans que personne l'ait demandé, le filtre ne gardant
+  // qu'une liste de sources cochées un jour donné.
+  it('en mode « sauf », une source apparue depuis reste affichée', () => {
+    const filter = { ...base, sources: { mode: 'except' as const, ids: new Set(['locservice']) } };
+    expect(filterListings([nouvelle], filter)).toHaveLength(1);
+  });
+
+  it('en mode « seulement », une source apparue depuis reste écartée', () => {
+    const filter = { ...base, sources: { mode: 'only' as const, ids: new Set(['locservice']) } };
+    expect(filterListings([nouvelle], filter)).toEqual([]);
   });
 });

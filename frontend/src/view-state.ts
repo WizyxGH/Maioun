@@ -19,6 +19,7 @@
 import type { PropertyType } from '@maioun/shared';
 import type { SortMode } from './types.js';
 import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
+import { ALL_SOURCES, readSourceSelection, type SourceSelection } from './source-selection.js';
 
 const KEY = 'maioun.viewState';
 
@@ -26,7 +27,8 @@ const KEY = 'maioun.viewState';
 export interface ViewState {
   readonly sort: SortMode;
   readonly quickFilters: QuickFilterValues;
-  readonly selectedSources: ReadonlySet<string>;
+  /** Le filtre par source, mode compris — voir `source-selection.ts`. */
+  readonly sources: SourceSelection;
   readonly search: string;
   readonly hideUncertain: boolean;
   readonly showArchived: boolean;
@@ -37,7 +39,7 @@ export interface ViewState {
 export const DEFAULT_VIEW_STATE: ViewState = {
   sort: 'priority',
   quickFilters: DEFAULT_QUICK_FILTERS,
-  selectedSources: new Set(),
+  sources: ALL_SOURCES,
   search: '',
   hideUncertain: false,
   showArchived: false,
@@ -56,7 +58,10 @@ interface StoredViewState {
     minOccupants?: unknown;
     types?: unknown;
   };
+  /** Les sources NOMMÉES. Le champ garde son nom : d'anciens réglages le portent. */
   selectedSources?: unknown;
+  /** Ce qu'on en fait. Absent d'un réglage d'avant les modes, d'où la relecture. */
+  sourceMode?: unknown;
   search?: unknown;
   hideUncertain?: unknown;
   showArchived?: unknown;
@@ -106,7 +111,7 @@ export function readViewState(): ViewState {
       minOccupants: numberOrNull(quick.minOccupants, defaults.minOccupants),
       types: new Set(strings(quick.types) as PropertyType[]),
     },
-    selectedSources: new Set(strings(stored.selectedSources)),
+    sources: readSourceSelection(stored.selectedSources, stored.sourceMode),
     search: typeof stored.search === 'string' ? stored.search : '',
     hideUncertain: stored.hideUncertain === true,
     showArchived: stored.showArchived === true,
@@ -123,7 +128,11 @@ export function writeViewState(state: ViewState): void {
       JSON.stringify({
         ...state,
         quickFilters: { ...state.quickFilters, types: [...state.quickFilters.types] },
-        selectedSources: [...state.selectedSources],
+        // Le filtre par source s'écrit à plat, et son ensemble en tableau : une
+        // version plus ancienne du site y relira au moins les sources nommées.
+        sources: undefined,
+        selectedSources: [...state.sources.ids],
+        sourceMode: state.sources.mode,
       }),
     );
   } catch {

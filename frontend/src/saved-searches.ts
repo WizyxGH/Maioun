@@ -28,7 +28,13 @@ import {
 } from '@maioun/shared';
 import type { FilterConfig, SortMode } from './types.js';
 import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
-import { formatSourceName } from './format.js';
+import {
+  describeSourceSelection,
+  readSourceSelection,
+  restrictsSources,
+  type SourceMode,
+  type SourceSelection,
+} from './source-selection.js';
 
 /** L'affinage d'affichage, sous une forme qui passe par JSON. */
 export interface SavedView {
@@ -39,9 +45,22 @@ export interface SavedView {
   readonly minOccupants: number | null;
   /** Types de bien retenus. Un tableau, `Set` ne survivant pas à JSON. */
   readonly types: readonly PropertyType[];
+  /** Les sources NOMMÉES par le filtre. Un tableau, `Set` ne survivant pas à JSON. */
   readonly sources: readonly string[];
+  /**
+   * Ce qu'on en fait : les garder seules, ou garder tout le reste.
+   *
+   * Absent des recherches enregistrées avant les modes — elles ne portaient
+   * qu'une liste de sources retenues, relue par `readSourceSelection`.
+   */
+  readonly sourceMode?: SourceMode;
   readonly sort: SortMode;
   readonly search: string;
+}
+
+/** Le filtre par source d'une recherche enregistrée, anciennes comprises. */
+export function savedSourceSelection(view: Partial<SavedView> | undefined): SourceSelection {
+  return readSourceSelection(view?.sources, view?.sourceMode);
 }
 
 export interface SavedSearch {
@@ -57,7 +76,7 @@ export interface SavedSearch {
 /** `QuickFilterValues` → forme enregistrable. */
 export function toSavedView(
   quick: QuickFilterValues,
-  extra: { sources: ReadonlySet<string>; sort: SortMode; search: string },
+  extra: { sources: SourceSelection; sort: SortMode; search: string },
 ): SavedView {
   return {
     minPrice: quick.minPrice,
@@ -66,7 +85,8 @@ export function toSavedView(
     minRooms: quick.minRooms,
     minOccupants: quick.minOccupants,
     types: [...quick.types],
-    sources: [...extra.sources],
+    sources: [...extra.sources.ids],
+    sourceMode: extra.sources.mode,
     sort: extra.sort,
     search: extra.search,
   };
@@ -134,23 +154,6 @@ export function formatDistricts(slugs: readonly string[]): string {
   return rest > 0 ? `${shown} +${rest}` : shown;
 }
 
-/** Au-delà, la carte dit combien d'autres plutôt que de tout énumérer. */
-const MAX_SOURCES_SHOWN = 2;
-
-/**
- * « Seulement Orpi, FNAIM +17 » : QUELLES sources, pas seulement combien.
- *
- * « 19 sources » ne disait pas qu'une recherche était restreinte : rappelée, elle
- * écartait en silence toutes les autres, y compris les agences ajoutées depuis
- * (relevé du 2026-09-15).
- */
-export function formatSources(ids: readonly string[]): string {
-  const names = ids.map(formatSourceName).sort((a, b) => a.localeCompare(b));
-  const shown = names.slice(0, MAX_SOURCES_SHOWN).join(', ');
-  const rest = names.length - MAX_SOURCES_SHOWN;
-  return `Seulement ${shown}${rest > 0 ? ` +${rest}` : ''}`;
-}
-
 /** Les critères d'une recherche, un par un, dans l'ordre où on les lit. */
 export function searchParts(search: SavedSearch): readonly SearchPart[] {
   const parts: SearchPart[] = [];
@@ -187,7 +190,11 @@ export function searchParts(search: SavedSearch): readonly SearchPart[] {
   if (criteria.landlordFilter === 'agency') add('landlord', 'agences');
   if (criteria.furnishedFilter === 'furnished') add('furnished', 'meublé');
   if (criteria.furnishedFilter === 'unfurnished') add('furnished', 'non meublé');
-  if (view.sources.length > 0) add('sources', formatSources(view.sources));
+  // « Sauf LocService » ou « Seulement Orpi +3 » : le mot dit le SENS du
+  // filtre. « 19 sources » cachait qu'une recherche rappelée écartait tout ce
+  // qu'elle ne nommait pas, agences ajoutées depuis comprises.
+  const sources = savedSourceSelection(view);
+  if (restrictsSources(sources)) add('sources', describeSourceSelection(sources));
   if (view.search !== '') add('text', `« ${view.search} »`);
   return parts;
 }

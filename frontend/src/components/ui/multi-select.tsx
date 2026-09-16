@@ -59,6 +59,19 @@ export interface MultiSelectProps {
   readonly emptyLabel: string;
   /** Ce qu'affiche le déclencheur pour n éléments. Défaut : « n sélectionnés ». */
   readonly summarize?: (count: number) => string;
+  /**
+   * Résumé imposé par l'appelant, quand les cases ne disent pas tout.
+   *
+   * Les sources ont un MODE : cocher les mêmes cases veut dire « seulement
+   * celles-ci » ou « toutes sauf les autres », et le résumé déduit d'ici
+   * annonçait l'un pour l'autre.
+   */
+  readonly summary?: string;
+  /**
+   * État de la ligne « tout », quand il ne se déduit pas des cases cochées —
+   * en mode « seulement », aucune case cochée ne vaut pas « toutes ».
+   */
+  readonly allSelected?: boolean;
 }
 
 /** Compare sans accents ni casse : « Bien'ici » se trouve en tapant « bienici ». */
@@ -76,6 +89,8 @@ export function MultiSelect({
   searchable = false,
   emptyLabel,
   summarize,
+  summary: imposedSummary,
+  allSelected,
 }: MultiSelectProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -115,6 +130,8 @@ export function MultiSelect({
         );
 
   const count = selected.size;
+  /** Rien de restreint. Sans indication de l'appelant, aucune case cochée. */
+  const allChecked = allSelected ?? count === 0;
   // EXCLURE SE LIT COMME EXCLURE. Quand presque tout est coché, « 18 sources »
   // ne dit pas ce qu'on a retiré : on nomme les absents, qui sont le choix réel.
   const missing = options.filter((option) => !selected.has(option.value));
@@ -124,13 +141,14 @@ export function MultiSelect({
     else onToggle(value);
   };
   const summary =
-    count === 0
+    imposedSummary ??
+    (count === 0
       ? emptyLabel
       : count === 1
         ? (options.find((option) => selected.has(option.value))?.label ?? emptyLabel)
         : missing.length > 0 && missing.length <= 3
           ? `Sauf ${missing.map((option) => option.label).join(', ')}`
-          : (summarize?.(count) ?? `${count} sélectionnés`);
+          : (summarize?.(count) ?? `${count} sélectionnés`));
 
   return (
     <div ref={root} className="relative">
@@ -179,12 +197,12 @@ export function MultiSelect({
             <label className="border-border mb-1 flex cursor-pointer items-center gap-2 rounded-md border-b px-2 py-1.5 text-sm font-medium hover:bg-muted">
               <input
                 ref={(input) => {
-                  if (input !== null) input.indeterminate = count > 0;
+                  if (input !== null) input.indeterminate = !allChecked && count > 0;
                 }}
                 type="checkbox"
-                checked={count === 0}
+                checked={allChecked}
                 onChange={() => {
-                  if (count > 0 || onSelectMany === undefined) onClear();
+                  if (!allChecked || onSelectMany === undefined) onClear();
                   else
                     onSelectMany(
                       options.map((option) => option.value),

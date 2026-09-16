@@ -3,10 +3,10 @@ import {
   describeSearch,
   formatCriteriaCity,
   formatDistricts,
-  formatSources,
   searchParts,
   suggestName,
   type SavedSearch,
+  type SearchPart,
 } from './saved-searches.js';
 import { DEFAULT_QUICK_FILTERS } from './components/QuickFilters.js';
 import type { FilterConfig } from './types.js';
@@ -77,11 +77,38 @@ describe('suggestName', () => {
   });
 });
 
-describe('formatSources', () => {
+/**
+ * LE RÉSUMÉ D'UNE RECHERCHE DIT LE SENS DU FILTRE. « 19 sources » cachait
+ * qu'une recherche rappelée écartait tout ce qu'elle ne nommait pas, agences
+ * ajoutées depuis comprises.
+ */
+describe('les sources d’une recherche', () => {
+  const avecSources = (view: Partial<SavedSearch['view']>): SearchPart | undefined =>
+    searchParts({
+      ...search({ cities: [], maxPrice: 700, minArea: 0 }),
+      view: { ...VIEW, ...view },
+    }).find((part) => part.kind === 'sources');
+
   it('nomme les sources retenues, puis combien d’autres', () => {
-    expect(formatSources(['orpi', 'fnaim'])).toMatch(/^Seulement .+, .+$/);
-    const many = formatSources(['orpi', 'fnaim', 'foncia', 'bienici']);
+    expect(avecSources({ sources: ['orpi', 'fnaim'], sourceMode: 'only' })?.label).toMatch(
+      /^Seulement .+, .+$/,
+    );
+    const many = avecSources({
+      sources: ['orpi', 'fnaim', 'foncia', 'locservice'],
+      sourceMode: 'only',
+    })?.label;
     expect(many).toMatch(/^Seulement .+, .+ \+2$/);
     expect(many).not.toContain('orpi');
+  });
+
+  it('dit « sauf » quand la recherche exclut', () => {
+    expect(avecSources({ sources: ['locservice'], sourceMode: 'except' })?.label).toBe(
+      'Sauf LocService',
+    );
+  });
+
+  it('une recherche d’avant les modes garde son sens', () => {
+    expect(avecSources({ sources: ['orpi'] })?.label).toBe('Seulement Orpi');
+    expect(avecSources({ sources: [] })).toBeUndefined();
   });
 });

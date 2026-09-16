@@ -77,6 +77,18 @@ describe('menu à choix multiples', () => {
     expect(tout.indeterminate).toBe(true);
   });
 
+  // Les sources ont un MODE : les mêmes cases cochées veulent dire « seulement
+  // celles-ci » ou « toutes sauf les autres ». Le résumé déduit d'ici annonçait
+  // l'un pour l'autre, et la ligne « tout » se cochait alors qu'aucune source
+  // n'était retenue.
+  it('laisse l’appelant imposer le résumé et l’état de « tout »', () => {
+    ouvrir([], { summary: 'Aucune source', allSelected: false });
+    expect(screen.getByRole('button', { name: /Sources/ }).textContent).toContain('Aucune source');
+    const tout = screen.getByRole<HTMLInputElement>('checkbox', { name: 'Toutes' });
+    expect(tout.checked).toBe(false);
+    expect(tout.indeterminate).toBe(false);
+  });
+
   it('tout recocher revient à « toutes », sans liste à rallonge', () => {
     const props = ouvrir(['foncia', 'orpi']);
     fireEvent.click(screen.getByLabelText('LocService'));

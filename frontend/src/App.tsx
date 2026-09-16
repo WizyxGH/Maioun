@@ -55,6 +55,7 @@ import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { archiveReasonOf, isUncertain } from './availability.js';
 import { formatSourceName } from './format.js';
+import { SOURCES } from './sources.generated.js';
 import { useDocumentMeta } from './document-title.js';
 import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
@@ -68,11 +69,18 @@ import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.j
 import {
   describeSearch,
   newSearchId,
+  savedSourceSelection,
   suggestName,
   toQuickFilters,
   toSavedView,
   type SavedSearch,
 } from './saved-searches.js';
+import {
+  ALL_SOURCES,
+  describeSourceSelection,
+  restrictsSources,
+  type SourceSelection,
+} from './source-selection.js';
 import { ArrowLeft, Bell, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { SearchBox } from './components/SearchBox.js';
@@ -90,6 +98,7 @@ import {
   QuickFilters,
   DEFAULT_QUICK_FILTERS,
   EMPTY_QUICK_FILTERS,
+  appliedQuickFilterCount,
   hasActiveQuickFilters,
   type ExtraChip,
   type QuickFilterValues,
@@ -384,14 +393,15 @@ function Shell({
 function viewDiffersFromDefault(view: {
   readonly sort: SortMode;
   readonly quickFilters: QuickFilterValues;
-  readonly sourceCount: number;
+  /** `true` si le filtre par source écarte quoi que ce soit. */
+  readonly sourcesRestricted: boolean;
   readonly search: string;
   readonly toggles: readonly boolean[];
 }): boolean {
   return (
     view.sort !== 'priority' ||
     hasActiveQuickFilters(view.quickFilters) ||
-    view.sourceCount > 0 ||
+    view.sourcesRestricted ||
     view.search !== '' ||
     view.toggles.some(Boolean)
   );
@@ -412,13 +422,13 @@ function viewDiffersFromDefault(view: {
  */
 export function anyClientFilter(view: {
   readonly quickFilters: QuickFilterValues;
-  readonly selectedSources: ReadonlySet<string>;
+  readonly sources: SourceSelection;
   readonly search: string;
   readonly hideUncertain: boolean;
 }): boolean {
   return (
     hasActiveQuickFilters(view.quickFilters) ||
-    view.selectedSources.size > 0 ||
+    restrictsSources(view.sources) ||
     view.search.trim() !== '' ||
     view.hideUncertain
   );
@@ -483,20 +493,25 @@ function SessionPending(): React.JSX.Element {
 }
 
 /**
- * Nombre de réglages qui écartent l'affichage de son état d'ouverture — c'est
- * la pastille du bouton « Filtres ». Hors du composant : ce n'est qu'un
- * décompte, et l'y laisser alourdissait `App` sans rien apprendre.
+ * Nombre de filtres POSÉS — c'est la pastille du bouton « Filtres ».
+ *
+ * IL EN OUBLIAIT LA MOITIÉ. On ne comptait que le tri, les sources et les trois
+ * bascules : un budget, une surface et un mot cherché donnaient « 1 », et la
+ * pastille contredisait la barre de puces juste en dessous.
+ *
+ * LA RÈGLE EST CELLE DE LA BARRE : une puce affichée, un filtre compté. Le
+ * budget vaut donc un — sa fourchette n'a qu'une puce —, et le TRI ne compte
+ * pas : il ordonne la liste, il n'en retire rien.
+ *
+ * Hors du composant : ce n'est qu'un décompte, et l'y laisser alourdissait
+ * `App` sans rien apprendre.
  */
-function countActiveSettings(view: {
-  readonly sort: SortMode;
-  readonly sourceCount: number;
-  readonly toggles: readonly boolean[];
+export function countActiveSettings(view: {
+  readonly quickFilters: QuickFilterValues;
+  /** Ce qui restreint hors filtres rapides : recherche, sources, bascules. */
+  readonly extras: readonly ExtraChip[];
 }): number {
-  return (
-    view.toggles.filter(Boolean).length +
-    (view.sort === 'priority' ? 0 : 1) +
-    (view.sourceCount === 0 ? 0 : 1)
-  );
+  return appliedQuickFilterCount(view.quickFilters) + view.extras.length;
 }
 
 /**
@@ -823,11 +838,10 @@ function AppView(): React.JSX.Element {
   const [visitorSearch, setVisitorSearch] = useState<SavedSearch | null>(readVisitorSearch);
   const shownVisitorSearch = currentUser === null ? visitorSearch : null;
   const visitorCriteria = shownVisitorSearch?.criteria;
-  // Filtre par source : ensemble vide = toutes les sources affichées. Une
-  // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
-  const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(
-    restored.selectedSources,
-  );
+  // Filtre par source : un MODE et une liste — « seulement celles-ci » ou
+  // « toutes sauf celles-ci ». Une annonce passe si l'une de ses occurrences
+  // vient d'une source retenue. Voir `source-selection.ts`.
+  const [sourceFilter, setSourceFilter] = useState<SourceSelection>(restored.sources);
   // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
   // liste déjà chargée, sans toucher aux critères de collecte (§66).
   const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(restored.quickFilters);
@@ -1004,7 +1018,7 @@ function AppView(): React.JSX.Element {
       writeViewState({
         sort,
         quickFilters,
-        selectedSources,
+        sources: sourceFilter,
         search,
         hideUncertain,
         showArchived,
@@ -1016,7 +1030,7 @@ function AppView(): React.JSX.Element {
   }, [
     sort,
     quickFilters,
-    selectedSources,
+    sourceFilter,
     search,
     hideUncertain,
     showArchived,
@@ -1032,18 +1046,6 @@ function AppView(): React.JSX.Element {
   // d'annonces. Sans mémoïsation, tout serait recalculé à chaque rendu — donc à
   // chaque frappe dans un filtre. Placées avant tout return conditionnel (règle
   // des hooks). Chacune ne se recalcule que si ses entrées changent.
-  // LES SOURCES SÉLECTIONNÉES Y FIGURENT TOUJOURS, même sans annonce chargée :
-  // absentes du menu, elles filtraient sans qu'on puisse les voir ni les retirer.
-  const availableSources = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...listings.flatMap((l) => l.occurrences.map((o) => o.sourceId)),
-          ...selectedSources,
-        ]),
-      ].sort((a, b) => formatSourceName(a).localeCompare(formatSourceName(b))),
-    [listings, selectedSources],
-  );
   const sourceCounts = useMemo(() => {
     const counts = new globalThis.Map<string, number>();
     for (const listing of listings) {
@@ -1053,6 +1055,23 @@ function AppView(): React.JSX.Element {
     }
     return counts;
   }, [listings]);
+  // TOUTES LES SOURCES CONNUES, et non les seules qui ont une annonce
+  // aujourd'hui. Le menu n'en proposait qu'une vingtaine sur deux cents : on ne
+  // pouvait pas écarter d'avance une agence qui n'a rien en ligne ce matin mais
+  // en aura demain — son exclusion n'aurait donc pas tenu.
+  // Celles que le filtre NOMME y figurent aussi, même disparues de la table :
+  // absentes du menu, elles filtraient sans qu'on puisse les voir ni les retirer.
+  // L'ordre met en tête celles qui pèsent : les autres se retrouvent par la
+  // recherche du menu, qu'une liste alphabétique de deux cents noms n'aide pas.
+  const availableSources = useMemo(
+    () =>
+      [...new Set([...Object.keys(SOURCES), ...sourceCounts.keys(), ...sourceFilter.ids])].sort(
+        (a, b) =>
+          (sourceCounts.get(b) ?? 0) - (sourceCounts.get(a) ?? 0) ||
+          formatSourceName(a).localeCompare(formatSourceName(b)),
+      ),
+    [sourceCounts, sourceFilter],
+  );
   const availableTypes = useMemo(
     () =>
       [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
@@ -1061,12 +1080,12 @@ function AppView(): React.JSX.Element {
   const filtered = useMemo(
     () =>
       filterListings(listings, {
-        sources: selectedSources,
+        sources: sourceFilter,
         quick: quickFilters,
         search,
         hideUncertain,
       }),
-    [listings, selectedSources, quickFilters, search, hideUncertain],
+    [listings, sourceFilter, quickFilters, search, hideUncertain],
   );
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
@@ -1562,7 +1581,7 @@ function AppView(): React.JSX.Element {
   /** L'affinage d'une recherche : ce qui se règle dans le navigateur. */
   const applySearchView = (saved: SavedSearch): void => {
     setQuickFilters(toQuickFilters(saved.view));
-    setSelectedSources(new Set(saved.view.sources ?? []));
+    setSourceFilter(savedSourceSelection(saved.view));
     setSort(saved.view.sort ?? 'priority');
     setSearch(saved.view.search ?? '');
     setFavoritesOnly(false);
@@ -1619,7 +1638,7 @@ function AppView(): React.JSX.Element {
         name,
         createdAt: new Date().toISOString(),
         criteria,
-        view: toSavedView(quickFilters, { sources: selectedSources, sort, search }),
+        view: toSavedView(quickFilters, { sources: sourceFilter, sort, search }),
       };
       const next = [entry, ...savedSearches];
       await saveSavedSearches(next);
@@ -1662,7 +1681,7 @@ function AppView(): React.JSX.Element {
           ? {
               ...saved,
               criteria,
-              view: toSavedView(quickFilters, { sources: selectedSources, sort, search }),
+              view: toSavedView(quickFilters, { sources: sourceFilter, sort, search }),
             }
           : saved,
       );
@@ -1714,7 +1733,7 @@ function AppView(): React.JSX.Element {
   const countForSearch = (saved: SavedSearch): number =>
     // Le même filtre que la liste : le chiffre annoncé est celui qu'on verra.
     filterListings(listings, {
-      sources: new Set(saved.view.sources ?? []),
+      sources: savedSourceSelection(saved.view),
       quick: toQuickFilters(saved.view),
       search: saved.view.search ?? '',
       hideUncertain,
@@ -1993,7 +2012,7 @@ function AppView(): React.JSX.Element {
     if (view === 'documents') {
       return (
         <Shell {...shell}>
-          <BackToSettings onBack={() => setView('profile')} />
+          <BackToSettings onBack={() => back({ view: 'profile' })} />
           <DocumentsSection profile={profile} />
         </Shell>
       );
@@ -2001,7 +2020,7 @@ function AppView(): React.JSX.Element {
     if (view === 'access') {
       return (
         <Shell {...shell}>
-          <BackToSettings onBack={() => setView('profile')} />
+          <BackToSettings onBack={() => back({ view: 'profile' })} />
           <AccessPanel />
         </Shell>
       );
@@ -2009,21 +2028,21 @@ function AppView(): React.JSX.Element {
     if (view === 'notifications') {
       return (
         <Shell {...shell}>
-          <NotificationSettingsPanel onBack={() => setView('profile')} />
+          <NotificationSettingsPanel onBack={() => back({ view: 'profile' })} />
         </Shell>
       );
     }
     if (view === 'plan') {
       return (
         <Shell {...shell}>
-          <PlanPanel onBack={() => setView('profile')} />
+          <PlanPanel onBack={() => back({ view: 'profile' })} />
         </Shell>
       );
     }
     if (view === 'theme') {
       return (
         <Shell {...shell}>
-          <ThemePanel onBack={() => setView('profile')} />
+          <ThemePanel onBack={() => back({ view: 'profile' })} />
         </Shell>
       );
     }
@@ -2067,7 +2086,7 @@ function AppView(): React.JSX.Element {
     if (view === 'alerts') {
       return (
         <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
-          <Button variant="ghost" className="mb-2" onClick={() => setView('home')}>
+          <Button variant="ghost" className="mb-2" onClick={() => back({ view: 'home' })}>
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
           <NotificationsPanel
@@ -2092,7 +2111,7 @@ function AppView(): React.JSX.Element {
           ) : (
             <AgenciesPanel
               agencies={agencies}
-              onBack={() => setView('profile')}
+              onBack={() => back({ view: 'profile' })}
               onOpen={(name) => go({ view: 'agency', id: name })}
             />
           )}
@@ -2109,7 +2128,7 @@ function AppView(): React.JSX.Element {
               agency={agencyDetail.agency}
               listings={agencyDetail.listings}
               nowMs={nowMs}
-              onBack={() => setView('agencies')}
+              onBack={() => back({ view: 'agencies' })}
               onOpenListing={(id) => setSelectedId(id)}
               onFavorite={(id, favorite) => void handleFavorite(id, favorite)}
             />
@@ -2120,7 +2139,7 @@ function AppView(): React.JSX.Element {
     if (view === 'reference') {
       return (
         <Shell {...shell}>
-          <BackToSettings onBack={() => setView('profile')} />
+          <BackToSettings onBack={() => back({ view: 'profile' })} />
           <ReferencePointsSection />
         </Shell>
       );
@@ -2133,7 +2152,7 @@ function AppView(): React.JSX.Element {
             nowMs={nowMs}
             available={savedSearchesAvailable()}
             countFor={countForSearch}
-            onBack={() => setView('profile')}
+            onBack={() => back({ view: 'profile' })}
             onApply={(saved) => void applySavedSearch(saved)}
             onDelete={(id) => void deleteSavedSearch(id)}
             onRename={(id, name) => void renameSavedSearch(id, name)}
@@ -2158,13 +2177,14 @@ function AppView(): React.JSX.Element {
         <Shell {...shell}>
           {/* `back` et non « aller aux paramètres » : on arrive ici depuis les
             paramètres OU depuis une annonce qu'on s'apprêtait à contacter, et
-            c'est l'historique qui sait laquelle des deux. */}
+            c'est l'historique qui sait laquelle des deux. Les paramètres ne
+            servent que d'issue à qui arrive par le lien direct. */}
           <Button
             variant="ghost"
             className="mb-2"
             onClick={() => {
               setEditingProfile(false);
-              back();
+              back({ view: 'profile' });
             }}
           >
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
@@ -2183,11 +2203,11 @@ function AppView(): React.JSX.Element {
                 setEditingProfile(false);
                 // On revient d'où l'on venait : le profil n'est presque jamais
                 // une fin en soi, il sert à écrire un message.
-                back();
+                back({ view: 'profile' });
               }}
               onCancel={() => {
                 setEditingProfile(false);
-                back();
+                back({ view: 'profile' });
               }}
               onClear={() => {
                 forgetProfile();
@@ -2206,7 +2226,7 @@ function AppView(): React.JSX.Element {
           <SourcesPanel
             sources={sources}
             nowMs={nowMs}
-            onBack={() => setView('profile')}
+            onBack={() => back({ view: 'profile' })}
             onOpenSource={(sourceId) => void openSource(sourceId)}
           />
         </Shell>
@@ -2220,7 +2240,7 @@ function AppView(): React.JSX.Element {
             state={sources.find((one) => one.sourceId === selectedSourceId) ?? null}
             listings={listings}
             nowMs={nowMs}
-            onBack={() => setView('sources')}
+            onBack={() => back({ view: 'sources' })}
             onSelect={openListing}
             onFavorite={(id, favorite) => void handleFavorite(id, favorite)}
           />
@@ -2233,7 +2253,7 @@ function AppView(): React.JSX.Element {
           {/* SEUL ÉCRAN DES PARAMÈTRES SANS RETOUR : on y entrait par la liste
             des réglages et l'on ne pouvait en ressortir que par la barre
             d'onglets du bas, qui n'y ramène pas. */}
-          <BackToSettings onBack={() => setView('profile')} />
+          <BackToSettings onBack={() => back({ view: 'profile' })} />
           <StatsPanel />
         </Shell>
       );
@@ -2248,7 +2268,7 @@ function AppView(): React.JSX.Element {
               listing={selected}
               profile={profile}
               nowMs={nowMs}
-              onBack={() => setView('list')}
+              onBack={() => back({ view: 'list', favoritesOnly })}
               onArchive={(archived) => void handleArchive(selected.id, archived)}
               onFavorite={(favorite) => void handleFavorite(selected.id, favorite)}
               onTrackingChange={(status) => void handleTrackingChange(status)}
@@ -2290,7 +2310,7 @@ function AppView(): React.JSX.Element {
   const somethingChanged = viewDiffersFromDefault({
     sort,
     quickFilters,
-    sourceCount: selectedSources.size,
+    sourcesRestricted: restrictsSources(sourceFilter),
     search,
     toggles: [favoritesOnly, showArchived, hideUncertain],
   });
@@ -2298,21 +2318,19 @@ function AppView(): React.JSX.Element {
   /**
    * Les restrictions qui ne sont pas des filtres rapides, en puces retirables.
    *
-   * Le résumé des sources reprend les mots du menu : nommer les exclues quand
-   * elles sont peu nombreuses dit le choix réel, là où « 18 sources » le cache.
+   * Le résumé des sources est CELUI DU MENU, mot pour mot : « Sauf LocService »
+   * ou « Seulement Orpi +3 » selon le mode réel. La puce le devinait de son côté
+   * — elle annonçait « Sauf … » d'après les sources chargées du moment, y
+   * compris quand le filtre voulait dire l'inverse.
    */
   const otherRestrictions: ExtraChip[] = [];
   if (search.trim() !== '') {
     otherRestrictions.push({ label: `« ${search.trim()} »`, onRemove: () => setSearch('') });
   }
-  if (selectedSources.size > 0) {
-    const absentes = availableSources.filter((id) => !selectedSources.has(id));
+  if (restrictsSources(sourceFilter)) {
     otherRestrictions.push({
-      label:
-        absentes.length > 0 && absentes.length <= 3
-          ? `Sauf ${absentes.map(formatSourceName).join(', ')}`
-          : `${selectedSources.size} source${selectedSources.size > 1 ? 's' : ''}`,
-      onRemove: () => setSelectedSources(new Set()),
+      label: describeSourceSelection(sourceFilter),
+      onRemove: () => setSourceFilter(ALL_SOURCES),
     });
   }
   if (favoritesOnly) {
@@ -2334,7 +2352,7 @@ function AppView(): React.JSX.Element {
   /** « Effacer tout » : tout ce qui restreint, y compris ce qui vient d'ailleurs. */
   const clearEveryFilter = (): void => {
     setQuickFilters(EMPTY_QUICK_FILTERS);
-    setSelectedSources(new Set());
+    setSourceFilter(ALL_SOURCES);
     setSearch('');
     setFavoritesOnly(false);
     setShowArchived(false);
@@ -2344,26 +2362,14 @@ function AppView(): React.JSX.Element {
   const resetSortAndFilters = (): void => {
     setSort('priority');
     setQuickFilters(DEFAULT_QUICK_FILTERS);
-    setSelectedSources(new Set());
+    setSourceFilter(ALL_SOURCES);
     setSearch('');
     setFavoritesOnly(false);
     setShowArchived(false);
     setHideUncertain(false);
   };
 
-  const toolbarBadge = countActiveSettings({
-    sort,
-    sourceCount: selectedSources.size,
-    toggles: [favoritesOnly, showArchived, hideUncertain],
-  });
-
-  const toggleSource = (sourceId: string): void =>
-    setSelectedSources((current) => {
-      const next = new Set(current);
-      if (next.has(sourceId)) next.delete(sourceId);
-      else next.add(sourceId);
-      return next;
-    });
+  const toolbarBadge = countActiveSettings({ quickFilters, extras: otherRestrictions });
 
   return (
     <Shell
@@ -2530,19 +2536,8 @@ function AppView(): React.JSX.Element {
             availableTypes={availableTypes}
             sources={availableSources}
             sourceCounts={sourceCounts}
-            selectedSources={selectedSources}
-            onToggleSource={toggleSource}
-            onClearSources={() => setSelectedSources(new Set())}
-            onSelectManySources={(ids, select) =>
-              setSelectedSources((current) => {
-                const next = new Set(current);
-                for (const id of ids) {
-                  if (select) next.add(id);
-                  else next.delete(id);
-                }
-                return next;
-              })
-            }
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
@@ -2586,7 +2581,7 @@ function AppView(): React.JSX.Element {
         favoritesOnly={favoritesOnly}
         emptyBecauseFiltered={anyClientFilter({
           quickFilters,
-          selectedSources,
+          sources: sourceFilter,
           search,
           hideUncertain,
         })}

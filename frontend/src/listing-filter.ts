@@ -15,9 +15,11 @@ import {
   type QuickFilterValues,
 } from './components/QuickFilters.js';
 import { matchesSearch } from './search.js';
+import { restrictsSources, sourceAllowed, type SourceSelection } from './source-selection.js';
 
 export interface ListingFilter {
-  readonly sources: ReadonlySet<string>;
+  /** Le filtre par source : « seulement celles-ci » ou « toutes sauf celles-ci ». */
+  readonly sources: SourceSelection;
   readonly quick: QuickFilterValues;
   readonly search: string;
   /** Masquer les annonces disparues de leur source depuis plusieurs collectes. */
@@ -34,8 +36,12 @@ export function filterListings(
   const quick = hasActiveQuickFilters(filter.quick) ? filter.quick : null;
   return listings.filter(
     (listing) =>
-      (filter.sources.size === 0 ||
-        listing.occurrences.some((occurrence) => filter.sources.has(occurrence.sourceId))) &&
+      // Une annonce reste dès qu'UNE de ses sources passe : la même annonce est
+      // souvent publiée par plusieurs.
+      (!restrictsSources(filter.sources) ||
+        listing.occurrences.some((occurrence) =>
+          sourceAllowed(filter.sources, occurrence.sourceId),
+        )) &&
       (quick === null || matchesQuickFilters(listing, quick)) &&
       matchesSearch(listing, filter.search) &&
       !(filter.hideUncertain && isUncertain(listing)),

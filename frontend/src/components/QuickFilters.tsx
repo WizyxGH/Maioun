@@ -95,13 +95,25 @@ export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
  *   rien ne bouge.
  */
 export function hasAppliedQuickFilters(v: QuickFilterValues): boolean {
+  return appliedQuickFilterCount(v) > 0;
+}
+
+/**
+ * COMBIEN de filtres rapides sont posés — c'est-à-dire combien de puces la
+ * barre affiche. La pastille du bouton « Filtres » s'en sert : elle ne comptait
+ * que le tri, les sources et les bascules, et annonçait « 1 » alors qu'un
+ * budget, une surface et un type restreignaient la liste.
+ *
+ * LE BUDGET COMPTE POUR UN : `minPrice` et `maxPrice` sont une fourchette, et
+ * n'ont qu'une puce — deux la feraient compter deux fois.
+ */
+export function appliedQuickFilterCount(v: QuickFilterValues): number {
   return (
-    v.minPrice !== null ||
-    v.maxPrice !== null ||
-    v.minArea !== null ||
-    v.minRooms !== null ||
-    v.minOccupants !== null ||
-    v.types.size > 0
+    (v.minPrice !== null || v.maxPrice !== null ? 1 : 0) +
+    (v.minArea !== null ? 1 : 0) +
+    (v.minOccupants !== null ? 1 : 0) +
+    (v.minRooms !== null ? 1 : 0) +
+    v.types.size
   );
 }
 

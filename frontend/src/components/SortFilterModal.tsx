@@ -46,6 +46,15 @@ import {
   type QuickFilterValues,
 } from './QuickFilters.js';
 import { FiltersPanel } from './FiltersPanel.js';
+import {
+  ALL_SOURCES,
+  describeSourceSelection,
+  includeSources,
+  restrictsSources,
+  sourceAllowed,
+  withSourceMode,
+  type SourceSelection,
+} from '../source-selection.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
@@ -77,11 +86,9 @@ export interface SortFilterModalProps {
   readonly sources: readonly string[];
   /** Annonces par source, affichées à côté du nom. */
   readonly sourceCounts?: ReadonlyMap<string, number>;
-  readonly selectedSources: ReadonlySet<string>;
-  readonly onToggleSource: (sourceId: string) => void;
-  readonly onClearSources: () => void;
-  /** Coche ou décoche plusieurs sources d'un geste — c'est ainsi qu'on en EXCLUT une. */
-  readonly onSelectManySources: (sourceIds: readonly string[], select: boolean) => void;
+  /** Le filtre par source : son mode, et les sources qu'il nomme. */
+  readonly sourceFilter: SourceSelection;
+  readonly onSourceFilterChange: (next: SourceSelection) => void;
 
   /**
    * Nombre d'annonces que les réglages courants laissent passer.
@@ -134,10 +141,8 @@ export function SortFilterModal({
   availableTypes,
   sources,
   sourceCounts,
-  selectedSources,
-  onToggleSource,
-  onClearSources,
-  onSelectManySources,
+  sourceFilter,
+  onSourceFilterChange,
   resultCount,
   onReset,
   onCriteriaSaved,
@@ -162,15 +167,27 @@ export function SortFilterModal({
     };
   }, [open, histogram]);
 
-  // Les sources sont une cinquantaine : `MultiSelect` porte la recherche.
+  // Les sources sont deux cents : `MultiSelect` porte la recherche. Le « (0) »
+  // d'une source sans annonce du jour se lit comme tel — on voit d'un coup
+  // d'œil lesquelles pèsent, sans avoir à cacher les autres.
   const sourceOptions = useMemo(
     () =>
       sources.map((id) => {
-        const count = sourceCounts?.get(id);
         const name = formatSourceName(id);
-        return { value: id, label: count === undefined ? name : `${name} (${count})` };
+        return {
+          value: id,
+          label: sourceCounts === undefined ? name : `${name} (${sourceCounts.get(id) ?? 0})`,
+        };
       }),
     [sources, sourceCounts],
+  );
+
+  // LES CASES DISENT CE QUI S'AFFICHE, pas ce que le filtre a mémorisé : en
+  // mode « sauf », une source nommée est une source ÉCARTÉE, et une source
+  // inconnue du filtre — celles ajoutées depuis — reste cochée.
+  const checkedSources = useMemo(
+    () => new Set(sources.filter((id) => sourceAllowed(sourceFilter, id))),
+    [sources, sourceFilter],
   );
 
   // Les bascules d'affichage deviennent une sélection multiple : ce sont des
@@ -389,17 +406,52 @@ export function SortFilterModal({
             {sources.length > 1 && (
               <fieldset className="mb-4">
                 <FieldLabel>Sources</FieldLabel>
+                {/* LE MODE EST UN CHOIX, PAS UNE DÉDUCTION. On ne gardait que la
+                  liste des sources cochées : exclure LocService revenait à
+                  cocher les 211 autres, et les sources ajoutées ensuite — il en
+                  arrive plusieurs par jour — se retrouvaient exclues sans que
+                  personne l'ait demandé. Dire « toutes sauf » ou « seulement »
+                  règle le sort des suivantes une fois pour toutes. */}
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  <PillButton
+                    selected={sourceFilter.mode === 'except'}
+                    onClick={() => onSourceFilterChange(withSourceMode(sourceFilter, 'except'))}
+                  >
+                    Toutes sauf…
+                  </PillButton>
+                  <PillButton
+                    selected={sourceFilter.mode === 'only'}
+                    onClick={() => onSourceFilterChange(withSourceMode(sourceFilter, 'only'))}
+                  >
+                    Seulement…
+                  </PillButton>
+                </div>
                 <MultiSelect
                   label="Sources"
                   options={sourceOptions}
-                  selected={selectedSources}
-                  onToggle={onToggleSource}
-                  onClear={onClearSources}
-                  onSelectMany={onSelectManySources}
+                  selected={checkedSources}
+                  onToggle={(id) =>
+                    onSourceFilterChange(
+                      includeSources(sourceFilter, [id], !checkedSources.has(id)),
+                    )
+                  }
+                  onClear={() => onSourceFilterChange(ALL_SOURCES)}
+                  onSelectMany={(ids, select) =>
+                    onSourceFilterChange(includeSources(sourceFilter, ids, select))
+                  }
                   searchable
                   emptyLabel="Toutes"
                   summarize={(count) => `${count} sources`}
+                  summary={describeSourceSelection(sourceFilter)}
+                  allSelected={!restrictsSources(sourceFilter)}
                 />
+                {/* Le sort des sources à venir, écrit noir sur blanc : c'est
+                  précisément ce que l'ancien réglage taisait. */}
+                <p className="mt-1.5 text-[0.8rem] text-muted-foreground">
+                  {sourceFilter.mode === 'except'
+                    ? 'Les sources ajoutées plus tard s’afficheront aussi.'
+                    : 'Les sources ajoutées plus tard ne s’afficheront pas.'}
+                </p>
               </fieldset>
             )}
 
