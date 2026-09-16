@@ -57,12 +57,40 @@ describe('effectiveInterval', () => {
     expect(interval).toBeGreaterThanOrEqual(descriptor().schedule.minIntervalMinutes);
   });
 
-  it('espace l’intervalle pour une source qui ne produit plus rien', () => {
+  it('espace l’intervalle pour une source qui n’a jamais rien montré', () => {
     const interval = effectiveInterval(
       descriptor(),
       state({ averageNewListingCount: 0, lastSuccessAt: minutesAgo(120) }),
     );
-    expect(interval).toBe(40);
+    expect(interval).toBe(60);
+  });
+
+  it('adapte l’intervalle SANS marche, entre l’immobilité et l’abondance', () => {
+    // Le milieu du parc — une annonce par passage — ne recevait aucune
+    // adaptation : il restait à l'intervalle de base, comme une source morte.
+    const par = (averageNewListingCount: number): number =>
+      effectiveInterval(descriptor(), state({ averageNewListingCount }));
+
+    expect(par(1)).toBeLessThan(par(0.2));
+    expect(par(0.2)).toBeLessThan(descriptor().schedule.baseIntervalMinutes);
+    // Décroissance stricte tant que le plancher n'est pas atteint.
+    for (const [moins, plus] of [
+      [0.5, 1],
+      [1, 2],
+      [2, 3],
+    ] as const) {
+      expect(par(plus)).toBeLessThan(par(moins));
+    }
+    // Le repère historique est conservé : à trois annonces par passage,
+    // l'intervalle vaut toujours la moitié de l'intervalle de base.
+    expect(par(3)).toBe(descriptor().schedule.baseIntervalMinutes / 2);
+  });
+
+  it('ne descend jamais sous le plancher, si productive soit-elle', () => {
+    const { minIntervalMinutes } = descriptor().schedule;
+    expect(effectiveInterval(descriptor(), state({ averageNewListingCount: 5_000 }))).toBe(
+      minIntervalMinutes,
+    );
   });
 
   it('espace exponentiellement en cas d’erreurs consécutives', () => {
@@ -78,7 +106,19 @@ describe('effectiveInterval', () => {
 
   it('respecte les fréquences plus lentes des agences locales (§7)', () => {
     const local = descriptor({ kind: 'localAgency', schedule: scheduleFor('localAgency') });
-    expect(effectiveInterval(local, state())).toBe(120);
+    expect(effectiveInterval(local, state())).toBe(75);
+    // Plus lentes que les portails, et bornées par le plancher de leur famille.
+    const portal = effectiveInterval(descriptor(), state());
+    expect(effectiveInterval(local, state())).toBeGreaterThan(portal);
+  });
+
+  it('laisse une agence locale productive gagner de la fréquence', () => {
+    // L'intervalle de base doit rester au-dessus du plancher : égaux, aucune
+    // agence ne pourrait plus être vue plus souvent qu'une autre.
+    const local = descriptor({ kind: 'localAgency', schedule: scheduleFor('localAgency') });
+    const { minIntervalMinutes, baseIntervalMinutes } = local.schedule;
+    expect(baseIntervalMinutes).toBeGreaterThan(minIntervalMinutes);
+    expect(effectiveInterval(local, state({ averageNewListingCount: 3 }))).toBe(minIntervalMinutes);
   });
 });
 
@@ -199,18 +239,19 @@ describe('planRun', () => {
  * huit jours, une autre jamais exécutée de sa vie.
  */
 describe('planRun — aucune source ne doit mourir de faim', () => {
-  /** Une source qui a dépassé `n` fois son intervalle (20 min pour un portail). */
-  const overdue = (id: string, priority: number, intervals: number) => ({
-    descriptor: descriptor({ id, priority }),
-    state: state({
-      sourceId: id,
-      lastRunAt: new Date(NOW - intervals * 40 * 60_000).toISOString(),
-      // Un intervalle effectif de 40 min : le portail dort (aucune nouveauté),
-      // donc son intervalle de base est doublé.
-      lastSuccessAt: new Date(NOW - intervals * 40 * 60_000).toISOString(),
-      averageNewListingCount: 0,
-    }),
-  });
+  /** Une source qui a dépassé `n` fois SON intervalle — celui que le scheduler lui donne. */
+  const overdue = (id: string, priority: number, intervals: number) => {
+    const source = descriptor({ id, priority });
+    // Le portail dort (aucune nouveauté) : son intervalle est celui d'une
+    // source au repos. On le DEMANDE plutôt que de le recopier, pour que le
+    // test continue de dire ce qu'il veut dire si le facteur change.
+    const dormant = state({ sourceId: id, lastSuccessAt: '2026-01-01T00:00:00.000Z' });
+    const since = new Date(NOW - intervals * effectiveInterval(source, dormant) * 60_000);
+    return {
+      descriptor: source,
+      state: { ...dormant, lastRunAt: since.toISOString(), lastSuccessAt: since.toISOString() },
+    };
+  };
 
   it('fait passer une source affamée devant les prioritaires', () => {
     const entries = [

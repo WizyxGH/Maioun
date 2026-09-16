@@ -26,10 +26,32 @@ export interface ScheduleDecision {
 }
 
 /**
- * Seuil au-delà duquel une source est considérée comme « active » et mérite
- * d'être interrogée plus souvent.
+ * Production à laquelle une source mérite d'être vue deux fois plus souvent.
+ *
+ * C'ÉTAIT UN SEUIL, C'EST UNE ÉCHELLE. Un seuil ne distingue que deux
+ * mondes : relevé du 2026-09-16, quarante-huit sources sur deux cent dix
+ * le franchissaient, vingt-neuf touchaient la branche opposée, et les cent
+ * trente-trois du milieu ne recevaient aucune adaptation — elles restaient à
+ * leur intervalle de base quoi qu'elles publient.
+ *
+ * Le milieu est pourtant l'essentiel du parc : une agence qui sort une annonce
+ * tous les deux jours n'a rien d'une source endormie, et c'est elle qu'on veut
+ * voir arriver. La valeur garde exactement le même sens qu'avant — à
+ * `ACTIVE_THRESHOLD` annonces par passage, l'intervalle est toujours divisé par
+ * deux — mais elle vaut désormais des deux côtés, sans marche.
  */
 const ACTIVE_THRESHOLD = 3;
+
+/**
+ * Espacement d'une source qui n'a JAMAIS rien montré depuis qu'on la relève.
+ *
+ * Vérifié le 2026-09-16 : les vingt-neuf sources concernées affichent toutes
+ * zéro annonce active et s'arrêtent sur `empty` — ce sont des agences sans
+ * aucune location en ligne, pas des collectes cassées. Les espacer davantage ne
+ * coûte donc aucune annonce, et paie les passages plus fréquents accordés
+ * ailleurs.
+ */
+const DORMANT_FACTOR = 3;
 
 /** Facteur d'espacement appliqué à chaque erreur consécutive. */
 const ERROR_BACKOFF_FACTOR = 2;
@@ -42,14 +64,15 @@ const ERROR_BACKOFF_FACTOR = 2;
  */
 export function effectiveInterval(descriptor: SourceDescriptor, state: SourceRuntimeState): number {
   const { baseIntervalMinutes, minIntervalMinutes, maxIntervalMinutes } = descriptor.schedule;
-  let interval = baseIntervalMinutes;
 
-  // Source productive : on se rapproche du plancher.
-  if (state.averageNewListingCount >= ACTIVE_THRESHOLD) {
-    interval = Math.max(minIntervalMinutes, interval / 2);
-  } else if (state.averageNewListingCount === 0 && state.lastSuccessAt !== null) {
-    // Source qui ne sort plus rien : on l'espace progressivement.
-    interval = Math.min(maxIntervalMinutes, interval * 2);
+  // Continu et décroissant : `ACTIVE_THRESHOLD` annonces par passage valent la
+  // moitié de l'intervalle, deux fois plus le tiers, et ainsi de suite. Le
+  // plancher de la source reste la seule limite basse.
+  let interval = baseIntervalMinutes / (1 + state.averageNewListingCount / ACTIVE_THRESHOLD);
+
+  // Source qui n'a rien montré une seule fois : on l'espace franchement.
+  if (state.averageNewListingCount === 0 && state.lastSuccessAt !== null) {
+    interval = baseIntervalMinutes * DORMANT_FACTOR;
   }
 
   // Erreurs consécutives : espacement exponentiel, plafonné.

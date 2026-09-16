@@ -36,8 +36,28 @@ export const SCHEDULE_BY_KIND: Record<SourceKind, SourceSchedule> = {
   portal: { baseIntervalMinutes: 20, minIntervalMinutes: 10, maxIntervalMinutes: 180 },
   // Réseaux d'agences : renouvellement plus lent, volume moyen.
   agencyNetwork: { baseIntervalMinutes: 45, minIntervalMinutes: 30, maxIntervalMinutes: 360 },
-  // Agences locales : peu d'annonces, mais souvent exclusives (§3).
-  localAgency: { baseIntervalMinutes: 120, minIntervalMinutes: 60, maxIntervalMinutes: 1_440 },
+  /**
+   * Agences locales : peu d'annonces, mais souvent exclusives (§3).
+   *
+   * DEUX HEURES ÉTAIENT PAYÉES POUR RIEN. Relevé du 2026-09-16 : un passage
+   * d'agence locale qui ne rapporte aucune annonce coûte UNE requête (médiane ;
+   * quatre au neuvième décile), les cycles de collecte se succèdent toutes les
+   * neuf minutes, et le plafond de cinquante sources par cycle n'est atteint
+   * que douze fois sur cent cinquante-sept. La lenteur ne protégeait donc ni le
+   * site d'en face, ni notre budget : elle ne faisait qu'attendre.
+   *
+   * Ce qu'elle coûtait, en revanche, se mesure : l'annonce paraissait en
+   * moyenne une heure avant qu'on la voie, et une annonce retirée restait six
+   * heures à l'affiche (trois passages manqués). À soixante-quinze minutes, ces
+   * deux chiffres tombent à trente-sept minutes et trois heures et demie, pour
+   * un quart de requêtes en plus sur l'ensemble de la collecte.
+   *
+   * Pas plus bas, et c'est délibéré : le plancher vaut soixante minutes, et un
+   * intervalle de base égal au plancher supprimerait toute adaptation — une
+   * agence qui publie beaucoup ne pourrait plus être vue plus souvent qu'une
+   * agence qui dort.
+   */
+  localAgency: { baseIntervalMinutes: 75, minIntervalMinutes: 60, maxIntervalMinutes: 1_440 },
   // Agrégateurs : redondants avec les portails, donc peu prioritaires.
   aggregator: { baseIntervalMinutes: 60, minIntervalMinutes: 30, maxIntervalMinutes: 720 },
 };
