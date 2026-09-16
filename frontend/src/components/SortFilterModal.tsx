@@ -80,6 +80,8 @@ export interface SortFilterModalProps {
   readonly selectedSources: ReadonlySet<string>;
   readonly onToggleSource: (sourceId: string) => void;
   readonly onClearSources: () => void;
+  /** Coche ou décoche plusieurs sources d'un geste — c'est ainsi qu'on en EXCLUT une. */
+  readonly onSelectManySources: (sourceIds: readonly string[], select: boolean) => void;
 
   /**
    * Nombre d'annonces que les réglages courants laissent passer.
@@ -135,6 +137,7 @@ export function SortFilterModal({
   selectedSources,
   onToggleSource,
   onClearSources,
+  onSelectManySources,
   resultCount,
   onReset,
   onCriteriaSaved,
@@ -392,6 +395,7 @@ export function SortFilterModal({
                   selected={selectedSources}
                   onToggle={onToggleSource}
                   onClear={onClearSources}
+                  onSelectMany={onSelectManySources}
                   searchable
                   emptyLabel="Toutes"
                   summarize={(count) => `${count} sources`}

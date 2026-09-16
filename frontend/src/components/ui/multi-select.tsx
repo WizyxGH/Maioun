@@ -115,12 +115,22 @@ export function MultiSelect({
         );
 
   const count = selected.size;
+  // EXCLURE SE LIT COMME EXCLURE. Quand presque tout est coché, « 18 sources »
+  // ne dit pas ce qu'on a retiré : on nomme les absents, qui sont le choix réel.
+  const missing = options.filter((option) => !selected.has(option.value));
+  /** Tout cocher revient à ne rien restreindre : on repasse à « tout », plus clair à relire. */
+  const toggle = (value: string): void => {
+    if (onClear !== undefined && missing.length === 1 && missing[0]?.value === value) onClear();
+    else onToggle(value);
+  };
   const summary =
     count === 0
       ? emptyLabel
       : count === 1
         ? (options.find((option) => selected.has(option.value))?.label ?? emptyLabel)
-        : (summarize?.(count) ?? `${count} sélectionnés`);
+        : missing.length > 0 && missing.length <= 3
+          ? `Sauf ${missing.map((option) => option.label).join(', ')}`
+          : (summarize?.(count) ?? `${count} sélectionnés`);
 
   return (
     <div ref={root} className="relative">
@@ -160,7 +170,11 @@ export function MultiSelect({
 
           {/* « TOUT », EN TÊTE ET NON EN BAS : une sélection vide vaut tout, et
             rien ne le disait — on cochait un quartier en croyant en retirer un.
-            À moitié cochée dès qu'une sélection restreint la liste. */}
+            À moitié cochée dès qu'une sélection restreint la liste.
+            LE DÉCOCHER COCHE TOUT LE RESTE plutôt que de ne rien laisser : c'est
+            ainsi qu'on RETIRE une source, geste qu'une liste d'inclusion seule
+            rendait impossible — cocher LocService donnait « seulement
+            LocService », l'inverse de ce qu'on voulait. */}
           {onClear !== undefined && needle === '' && (
             <label className="border-border mb-1 flex cursor-pointer items-center gap-2 rounded-md border-b px-2 py-1.5 text-sm font-medium hover:bg-muted">
               <input
@@ -169,7 +183,14 @@ export function MultiSelect({
                 }}
                 type="checkbox"
                 checked={count === 0}
-                onChange={onClear}
+                onChange={() => {
+                  if (count > 0 || onSelectMany === undefined) onClear();
+                  else
+                    onSelectMany(
+                      options.map((option) => option.value),
+                      true,
+                    );
+                }}
                 className="size-4 shrink-0"
               />
               <span className="min-w-0 flex-1 truncate">{emptyLabel}</span>
@@ -206,7 +227,7 @@ export function MultiSelect({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => onToggle(option.value)}
+                      onChange={() => toggle(option.value)}
                       className="size-4 shrink-0"
                     />
                     <span className="min-w-0 flex-1 truncate">{option.label}</span>

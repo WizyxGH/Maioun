@@ -2482,6 +2482,16 @@ function AppView(): React.JSX.Element {
             selectedSources={selectedSources}
             onToggleSource={toggleSource}
             onClearSources={() => setSelectedSources(new Set())}
+            onSelectManySources={(ids, select) =>
+              setSelectedSources((current) => {
+                const next = new Set(current);
+                for (const id of ids) {
+                  if (select) next.add(id);
+                  else next.delete(id);
+                }
+                return next;
+              })
+            }
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
