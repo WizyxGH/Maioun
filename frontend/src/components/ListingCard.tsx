@@ -91,7 +91,11 @@ function priorityLabel(priority: number): string {
  * Une barre plutôt qu'un nombre : deux cartes se comparent d'un coup d'œil,
  * sans lire, ce qu'un anneau de 48 px ne permettait pas.
  */
-function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Element {
+function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Element | null {
+  // SANS COMPTE, IL N'Y A PAS DE PRIORITÉ : elle se calcule sur des critères qui
+  // appartiennent à quelqu'un. L'API rend alors zéro, et « 0/100 · à étudier »
+  // s'affichait sur toutes les cartes comme un verdict.
+  if (priority <= 0) return null;
   return (
     <div className="mt-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
