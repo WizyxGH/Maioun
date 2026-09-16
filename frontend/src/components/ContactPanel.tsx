@@ -31,6 +31,7 @@ import { Check, Mail, PhoneCall, X } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { dossierSlots, slotOf } from '../dossier.js';
 import { hrefOf } from '../router.js';
+import { nextHistoryState } from '../use-route.js';
 import { cn } from '@/lib/utils.js';
 import { AgencyFormSend } from './AgencyFormSend.js';
 
@@ -317,7 +318,9 @@ function ContactDetails({
 /** Ouvre un écran de l'application sans recharger la page : le routeur suit l'historique. */
 function openInApp(event: React.MouseEvent<HTMLAnchorElement>): void {
   event.preventDefault();
-  window.history.pushState(null, '', event.currentTarget.href);
+  // `nextHistoryState` et non `null` : sans lui, le « Retour » de l'écran
+  // ouvert ici croirait qu'on y est arrivé par un lien direct.
+  window.history.pushState(nextHistoryState(), '', event.currentTarget.href);
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
@@ -560,14 +563,17 @@ export function ContactPanel({
 }
 
 /**
- * La rangée de gestes : modifier, copier, ouvrir, déclarer envoyé.
+ * La rangée de gestes : modifier, copier, ouvrir.
  *
  * Sortie de `ContactPanel`, qui portait déjà l'état du brouillon, celui des
- * pièces et la préparation du message : quatre boutons de plus le poussaient
- * au-dessus du seuil de complexité toléré, et ils forment un tout.
+ * pièces et la préparation du message.
  *
- * RIEN NE PART TOUT SEUL (§22) : « Ouvrir » ouvre, « J'ai envoyé » consigne.
- * Le dernier n'envoie rien — il enregistre que VOUS l'avez fait.
+ * RIEN NE PART TOUT SEUL (§22) : « Ouvrir » ouvre le courrier, le téléphone ou
+ * le formulaire, avec le message prêt. C'EST CE GESTE QUI CONSIGNE LA DÉMARCHE.
+ * Un bouton « J'ai envoyé » le demandait une seconde fois, après coup, alors
+ * qu'on avait déjà quitté la page — et il fallait y penser pour que le suivi
+ * soit juste. Comme pour « Appeler » et « Écrire », on enregistre le geste, pas
+ * l'envoi : le navigateur ne sait pas ce qu'on a fait dans le client mail.
  */
 function MessageActions({
   editing,
@@ -613,13 +619,14 @@ function MessageActions({
           // collé à la main. On le met donc au presse-papiers AU MOMENT
           // d'ouvrir, pour qu'il soit prêt quand le formulaire s'affiche —
           // sinon il fallait penser à « Copier » d'abord, et revenir.
-          onClick={channel === 'form' ? onCopy : undefined}
+          onClick={() => {
+            if (channel === 'form') onCopy();
+            onSent();
+          }}
         >
           {openLabel}
         </ButtonLink>
       )}
-
-      <Button onClick={onSent}>J’ai envoyé</Button>
     </div>
   );
 }

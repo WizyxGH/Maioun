@@ -11,9 +11,10 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { App, anyClientFilter } from './App.js';
-import { DEFAULT_QUICK_FILTERS } from './components/QuickFilters.js';
+import { App, anyClientFilter, countActiveSettings } from './App.js';
+import { DEFAULT_QUICK_FILTERS, EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
 import { MOCK_LISTINGS } from './api/mock-data.js';
+import { ALL_SOURCES } from './source-selection.js';
 
 /**
  * Instant figé : sans cela, les libellés « il y a X min » changeraient à chaque
@@ -299,7 +300,10 @@ describe('préparation du contact (§22)', () => {
     expect(
       screen.getAllByRole('link', { name: /Ouvrir|Appeler|Contacter via/ }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'J’ai envoyé' })).toBeInTheDocument();
+    // PLUS DE « J'ai envoyé » : ouvrir le message consigne la démarche, comme
+    // le font « Appeler » et « Écrire ». Le demander une seconde fois, après
+    // coup, obligeait à y penser une fois la page quittée.
+    expect(screen.queryByRole('button', { name: /envoyé/i })).toBeNull();
   });
 
   it('n’expose aucune coordonnée inventée quand la source n’en publie pas (§17)', async () => {
@@ -378,10 +382,42 @@ describe('confidentialité (§26)', () => {
  * page annonce « aucune annonce ne correspond à vos critères » pour un mot
  * resté dans la barre de recherche — et ce mot SURVIT au rechargement.
  */
+/**
+ * LA PASTILLE DU BOUTON « FILTRES » COMPTE CE QUI RESTREINT.
+ *
+ * Elle ne regardait que le tri, les sources et les bascules : on posait un
+ * budget, une surface et un mot cherché, et elle affichait « 1 ».
+ */
+describe('countActiveSettings', () => {
+  it('compte une puce pour un filtre, budget compris une seule fois', () => {
+    expect(
+      countActiveSettings({
+        quickFilters: {
+          minPrice: 250,
+          maxPrice: 700,
+          minArea: 20,
+          minRooms: 2,
+          minOccupants: null,
+          types: new Set(['apartment']),
+        },
+        // Ce que la barre montre à côté : un mot cherché, et les sources.
+        extras: [
+          { label: '« fabron »', onRemove: () => undefined },
+          { label: 'Sauf LocService', onRemove: () => undefined },
+        ],
+      }),
+    ).toBe(6);
+  });
+
+  it('ne compte rien quand rien ne restreint', () => {
+    expect(countActiveSettings({ quickFilters: EMPTY_QUICK_FILTERS, extras: [] })).toBe(0);
+  });
+});
+
 describe('anyClientFilter', () => {
   const base = {
     quickFilters: DEFAULT_QUICK_FILTERS,
-    selectedSources: new Set<string>(),
+    sources: ALL_SOURCES,
     search: '',
     hideUncertain: false,
   };
@@ -401,7 +437,9 @@ describe('anyClientFilter', () => {
   });
 
   it('compte les sources et les filtres rapides', () => {
-    expect(anyClientFilter({ ...base, selectedSources: new Set(['fnaim']) })).toBe(true);
+    expect(anyClientFilter({ ...base, sources: { mode: 'except', ids: new Set(['fnaim']) } })).toBe(
+      true,
+    );
     expect(
       anyClientFilter({ ...base, quickFilters: { ...DEFAULT_QUICK_FILTERS, minRooms: 3 } }),
     ).toBe(true);
