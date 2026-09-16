@@ -459,6 +459,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  'cot-ouest': {
+    name: "Cot'Ouest Immobilier",
+    domain: 'cotouest-immobilier.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '203 avenue de la Californie', postalCode: '06200', city: 'Nice' },
+  },
   'cote-dazur-properties': {
     name: "Côte d'Azur Properties",
     domain: 'immobilierniceouest.com',

@@ -1014,6 +1014,67 @@ portails (format Poliris/Ubiflow, `poliris-bundle` en donne le schéma). Une
 agence peut ouvrir le sien sur demande. Zéro parsing, zéro casse, mais une
 démarche humaine par agence — à tenter sur les trois ou quatre qui comptent.
 
+## Cot'Ouest Immobilier (étude du 2026-09-16) — implémentée
+
+```
+Source            : Cot'Ouest Immobilier
+URL               : https://www.cotouest-immobilier.com
+Type              : localAgency
+robots.txt vérifié le : 2026-09-16
+Chemins autorisés utilisés : /toutes-locations.html, /*.html
+Méthode           : html
+Volume estimé (annonces pertinentes Nice) : 2
+Fraîcheur         : non datée par le site
+Difficulté technique : faible (plateforme Twimmo déjà outillée)
+Risque de blocage : faible
+Priorité          : 2
+```
+
+Groupe de trois agences de Nice ouest — Californie / Promenade des Anglais,
+Napoléon III / Fabron, Cagnes-sur-Mer — qui publient leur parc sur un seul site,
+au 203 avenue de la Californie. À ne pas confondre avec **Agence Californie**
+(`agencecalifornie.fr`), voisine d'adresse et déjà collectée, ni avec le
+**Groupe Cot'Ouest** tel que les annuaires (FNAIM, SeLoger, Bien'ici) le
+republient : le site de l'agence fait foi.
+
+**Le robots.txt n'interdit rien à notre collecteur.** Il n'a aucune règle
+`User-agent: *` ; il ne nomme que des aspirateurs de sites, chacun avec son
+`Disallow: /` — `HTTrack`, `WebZIP`, `Teleport`, `TeleportPro`, `WebCopier`,
+`WebStripper`, `SiteSnagger`, `Offline Explorer`, `Xenu`, `wget`, `libwww`,
+`Scrapy`, `Nutch`, `larbin`, `WebReaper`… — et autorise explicitement Googlebot
+et les robots publicitaires. Le sitemap y est déclaré. Notre user-agent n'est
+aucun de ceux-là, et la collecte reste à une page de liste plus les fiches
+nouvelles, espacées comme partout ailleurs.
+
+**Plateforme : Twimmo**, reconnue à `medias.twimmopro.com` dès le `<head>`, et
+signée en pied de page. Aucun parseur à écrire pour la liste : `/toutes-locations.html`
+et la référence en fin d'adresse de fiche sont celles de la famille.
+
+**Mais l'habillage n'est pas celui de MK Immo ni d'Elitimo.** Twimmo sert
+plusieurs gabarits, et celui-ci (`_templateC`) déplace trois choses :
+
+| Ce que le parseur de famille cherche | Où templateC le met                                    |
+| ------------------------------------ | ------------------------------------------------------ |
+| `.detail-header-titre` (ville + CP)  | nulle part — le CP ne vit que dans la méta description |
+| `.detail-offre-texte` (description)  | `.offer-description-description`                       |
+| « Classe climat (ges) »              | « Emission de gaz à effet de serre (ges) »             |
+
+Les montants, eux, sont aux mêmes phrases engendrées, et le négociateur au même
+encadré : `parseTwimmoDetail` est donc APPELÉ, pas recopié, et
+`sources/cot-ouest/parser.ts` ne remplit que les trois manques. Ces compléments
+valent pour tout site en templateC et ont vocation à rejoindre `twimmo/parser.ts`.
+
+**La liste en dit plus que la fiche.** Chaque carte porte en attributs `data-*`
+la commune, le quartier et la position GPS saisie par l'agence — que la fiche ne
+publie nulle part, sans JSON-LD ni microdonnées. On les prend là. Son loyer,
+en revanche, est laissé de côté à dessein : `runListAndDetails` rend toute
+annonce qui en porte un, et la carte en affiche un pour les saisonnières.
+
+**3 locations publiées, 2 dans le périmètre** (Nice 06200 : un 2 pièces bail
+étudiant 9 mois, un 3 pièces meublé Corniche Fleurie). La troisième est une
+location à la semaine à Lecci (Corse) : sa fiche n'a pas de « Loyer mensuel »,
+le parseur la refuse, et la carte l'annonçait « Prix sur demande ».
+
 ## Fiche à remplir pour toute nouvelle source
 
 ```

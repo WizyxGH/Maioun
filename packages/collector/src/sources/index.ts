@@ -226,6 +226,7 @@ import { kellerWilliamsScraper } from './keller-williams/index.js';
 import { rivieraSudImmobilierScraper } from './riviera-sud-immobilier/index.js';
 import { immoRivieraTransactionsScraper } from './immo-riviera-transactions/index.js';
 import { oqoroScraper } from './oqoro/index.js';
+import { cotOuestScraper } from './cot-ouest/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -449,6 +450,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   rivieraSudImmobilierScraper,
   immoRivieraTransactionsScraper,
   oqoroScraper,
+  cotOuestScraper,
 ];
 
 // Laforêt sert de source de référence aux tests d'intégration, qui passent par
