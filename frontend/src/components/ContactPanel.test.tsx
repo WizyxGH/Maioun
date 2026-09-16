@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ListingView } from '../types.js';
 import { MOCK_LISTINGS } from '../api/mock-data.js';
 import { ContactPanel } from './ContactPanel.js';
@@ -91,5 +91,46 @@ describe('ContactPanel — fiche', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: /voir toutes les annonces/i })).toBeNull();
+  });
+});
+
+/**
+ * APPELER EST UNE DÉMARCHE. Le suivi ne connaissait que le brouillon : on
+ * appelait, l'annonce restait « nouvelle », et le rappel « pas encore
+ * candidaté » revenait le lendemain.
+ */
+describe('bouton Appeler', () => {
+  const avecNumero = (tracking: ListingView['tracking']): ListingView => ({
+    ...base,
+    tracking,
+    contact: { ...base.contact, phone: '0600000001' },
+  });
+
+  it('consigne la démarche au clic', () => {
+    const onRecorded = vi.fn();
+    render(
+      <ContactPanel
+        listing={avecNumero('new')}
+        profile={null}
+        onRecorded={onRecorded}
+        onConfigureProfile={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Appeler/ }));
+    expect(onRecorded).toHaveBeenCalledWith('phone', '', []);
+  });
+
+  it('ne compte pas une relance à chaque clic', () => {
+    const onRecorded = vi.fn();
+    render(
+      <ContactPanel
+        listing={avecNumero('contacted')}
+        profile={null}
+        onRecorded={onRecorded}
+        onConfigureProfile={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Appeler/ }));
+    expect(onRecorded).not.toHaveBeenCalled();
   });
 });

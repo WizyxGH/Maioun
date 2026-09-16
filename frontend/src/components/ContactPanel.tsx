@@ -139,10 +139,13 @@ function SourceRow({
 function ContactDetails({
   listing,
   hasAnyContact,
+  onCalled,
   onOpenSource,
 }: {
   readonly listing: ListingView;
   readonly hasAnyContact: boolean;
+  /** Appelé au clic sur « Appeler » : le suivi passe à « contactée ». */
+  readonly onCalled: () => void;
   readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
   const { name, agencyName, phone, email, formUrl, reference, providedBy } = listing.contact;
@@ -259,9 +262,16 @@ function ContactDetails({
         IL A REMPLACÉ LA LIGNE « Téléphone », il ne s'y ajoute pas : le numéro
         écrit deux fois à trois centimètres d'intervalle n'apprend rien la
         seconde, et l'œil doit alors choisir entre deux choses identiques. */}
+      {/* L'APPEL COMPTE COMME UNE DÉMARCHE. Le suivi ne connaissait que ce qui
+        passe par un brouillon : on appelait, puis l'annonce restait « nouvelle »
+        et le rappel « pas encore candidaté » revenait. On enregistre le GESTE,
+        pas l'appel — le navigateur ne sait pas si la communication a eu lieu —,
+        et seulement la première fois pour ne pas compter une relance à chaque
+        clic. Le statut reste modifiable à la main juste au-dessus. */}
       {phone !== null && (
         <a
           href={telHref(phone)}
+          onClick={onCalled}
           className={buttonVariants({ className: 'mb-4 w-full gap-2 no-underline' })}
         >
           <PhoneCall aria-hidden="true" className="size-4" />
@@ -459,7 +469,14 @@ export function ContactPanel({
         Contact
       </h2>
 
-      <ContactDetails listing={listing} hasAnyContact={hasAnyContact} onOpenSource={onOpenSource} />
+      <ContactDetails
+        listing={listing}
+        hasAnyContact={hasAnyContact}
+        onCalled={() => {
+          if (listing.tracking === 'new') onRecorded('phone', '', []);
+        }}
+        onOpenSource={onOpenSource}
+      />
 
       {profile === null ? (
         <MissingProfile onConfigure={onConfigureProfile} />
