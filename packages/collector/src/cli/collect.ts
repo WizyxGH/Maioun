@@ -305,7 +305,7 @@ async function notifyOne(deps: {
     // revenait dans la liste sans un mot. Les réouvertures d'abord, puis les
     // fermetures de ce passage, pour qu'une annonce ne ferme et rouvre pas au
     // même instant.
-    const reopened = await repository.reopenedApplications(userId);
+    const reopened = await repository.reopenedApplications(userId, criteria);
     const reopenReport = await sendListingAlerts(
       { ...common, listings: reopened },
       reopenedContentFor,
@@ -318,12 +318,21 @@ async function notifyOne(deps: {
 
   // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :
   // c'est un élargissement de la recherche, pas un canal de plus.
+  //
+  // L'ÉLARGISSEMENT PORTE SUR LE BUDGET ET LA SURFACE, PAS SUR LES EXCLUSIONS.
+  // Ce canal ne passait pas les préférences : il proposait donc des colocations
+  // et des locations étudiantes que la liste écarte — on sonnait pour ce qu'on
+  // n'affiche pas.
   if (preferences.nearMatches) {
-    const near = await repository.nearMatches(userId, {
-      cities: [...criteria.cities],
-      maxPrice: criteria.maxPrice,
-      minArea: criteria.minArea,
-    });
+    const near = await repository.nearMatches(
+      userId,
+      {
+        cities: [...criteria.cities],
+        maxPrice: criteria.maxPrice,
+        minArea: criteria.minArea,
+      },
+      criteria,
+    );
     const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
       nearMatchContentFor(listing as NearMatch, url),
     );

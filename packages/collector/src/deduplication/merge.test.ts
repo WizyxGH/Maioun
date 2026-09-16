@@ -121,6 +121,54 @@ describe('description', () => {
   });
 });
 
+/**
+ * LE DÉSACCORD SUR LA COLOCATION NE DOIT PAS SE RÉSOUDRE EN « NON ».
+ *
+ * `listings.flat_share` sort de ce champ, et c'est lui que « exclure les
+ * colocations » interroge — dans la liste comme dans les alertes. Tant que le
+ * « oui » d'une source partait en simple conflit, la colonne tombait à 0 et
+ * l'exclusion cessait de s'appliquer : on affichait ET on signalait exactement
+ * ce qui avait été refusé.
+ */
+describe('colocation : le « oui » d’une source l’emporte', () => {
+  /** La plus complète, donc la principale : c'est elle qui donnait le ton. */
+  const principale = (flatShare: boolean | null): NormalizedListing => ({
+    ...occurrence('seloger:1'),
+    flatShare,
+    contact: { ...EMPTY_CONTACT, phone: '+33600000012', email: 'contact@example.invalid' },
+  });
+
+  it('retient « colocation » contre une principale qui dit le contraire', () => {
+    const merged = mergeGroup([principale(false), { ...occurrence('bienici:1'), flatShare: true }]);
+    expect(merged.flatShare.value).toBe(true);
+    expect(merged.flatShare.sourceId).toBe('bienici');
+    // Rien n'est perdu : le désaccord reste lisible, avec sa provenance.
+    expect(merged.flatShare.conflicts).toEqual([
+      expect.objectContaining({ value: false, sourceId: 'seloger' }),
+    ]);
+  });
+
+  it('retient « colocation » quand la principale se tait', () => {
+    const merged = mergeGroup([principale(null), { ...occurrence('bienici:1'), flatShare: true }]);
+    expect(merged.flatShare.value).toBe(true);
+  });
+
+  it('ne se laisse pas devancer par un « non » placé avant le « oui »', () => {
+    const merged = mergeGroup([
+      principale(null),
+      { ...occurrence('pap:1'), flatShare: false },
+      { ...occurrence('bienici:1'), flatShare: true },
+    ]);
+    expect(merged.flatShare.value).toBe(true);
+    expect(merged.flatShare.sourceId).toBe('bienici');
+  });
+
+  it('laisse « non » et « inconnu » là où personne ne parle de colocation', () => {
+    expect(mergeGroup([principale(false), occurrence('bienici:1')]).flatShare.value).toBe(false);
+    expect(mergeGroup([principale(null), occurrence('bienici:1')]).flatShare.value).toBeNull();
+  });
+});
+
 describe('occurrenceHash et état de candidature', () => {
   it('change quand l’état change, dans les deux sens', () => {
     const full = occurrenceHash(occurrence('foncia:1', 'full'));

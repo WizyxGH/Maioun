@@ -512,8 +512,17 @@ export interface Repository {
    * l'annonce disparaît. Or c'est précisément la fourchette où l'on hésite. Le
    * dépassement est renvoyé avec chaque annonce : une notification qui ne dirait
    * pas EN QUOI l'annonce sort des critères ferait croire à une erreur.
+   *
+   * @param traits Les mêmes préférences que la liste, pour la même raison que
+   *   dans `pendingNotifications` : élargir le budget de cinq pour cent n'est
+   *   pas rouvrir ce qu'on a exclu. Sans elles, ce canal proposait des
+   *   colocations et des locations étudiantes que l'écran n'affiche pas.
    */
-  nearMatches(userId: string, criteria: NearMatchCriteria): Promise<NearMatch[]>;
+  nearMatches(
+    userId: string,
+    criteria: NearMatchCriteria,
+    traits?: TraitFilters,
+  ): Promise<NearMatch[]>;
 
   /**
    * Favoris qui ont DISPARU de leur source, et qu'on n'a pas encore signalés.
@@ -521,6 +530,10 @@ export interface Repository {
    * C'est l'alerte qui manquait le plus : une annonce mise de côté quittait la
    * liste sans un mot, et l'on continuait d'attendre une réponse pour un bien
    * déjà loué.
+   *
+   * PAS DE PRÉFÉRENCES ICI, ni dans `staleFavorites`, et c'est voulu : un
+   * favori a été mis de côté à la main. Le taire parce qu'il ressemble à une
+   * colocation reviendrait à corriger l'utilisateur sur son propre choix.
    */
   goneFavorites(userId: string): Promise<NotifiableListing[]>;
   markGoneNotified(userId: string, ids: readonly string[]): Promise<void>;
@@ -538,9 +551,13 @@ export interface Repository {
    * déjà signalées à ce compte dont la source vient de fermer les candidatures ;
    * `reopenedApplications` rend celles qui ont rouvert depuis, dans les critères ;
    * `markReopenNotified` efface la trace une fois l'alerte partie.
+   *
+   * `traits` pour la même raison qu'ailleurs : une annonce signalée avant que
+   * l'on coche « exclure les colocations » resterait marquée, et sa réouverture
+   * sonnerait pour un logement que la liste ne montre plus.
    */
   noteClosedApplications(userId: string): Promise<void>;
-  reopenedApplications(userId: string): Promise<NotifiableListing[]>;
+  reopenedApplications(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
   markReopenNotified(userId: string, ids: readonly string[]): Promise<void>;
   /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
@@ -1971,12 +1988,16 @@ export function createRepository(db: Database): Repository {
       return result.reduce((total, one) => total + one.rowsAffected, 0);
     },
 
-    async nearMatches(userId, criteria) {
+    async nearMatches(userId, criteria, traits = {}) {
       const cities = criteria.cities.filter((city) => city !== '');
       if (cities.length === 0) return [];
       const maxPrice = criteria.maxPrice * (1 + NEAR_MATCH_MARGIN);
       const minArea = criteria.minArea * (1 - NEAR_MATCH_MARGIN);
       const placeholders = cities.map(() => '?').join(',');
+      // Les mêmes exclusions que la liste : élargir le budget n'est pas rouvrir
+      // ce qu'on a écarté.
+      const preferences = traitConditions(traits);
+      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
 
       const result = await db.execute({
         // LA VILLE RESTE ÉLIMINATOIRE. Un logement dans une autre commune n'est
@@ -1998,6 +2019,7 @@ export function createRepository(db: Database): Repository {
                 AND listings.price IS NOT NULL AND listings.price <= ?
                 AND (listings.area IS NULL OR listings.area >= ?)
                 AND (listings.price > ? OR (listings.area IS NOT NULL AND listings.area < ?))
+                ${extra}
               ORDER BY sc.action_priority DESC`,
         args: [
           userId,
@@ -2007,6 +2029,7 @@ export function createRepository(db: Database): Repository {
           minArea,
           criteria.maxPrice,
           criteria.minArea,
+          ...preferences.args,
         ],
       });
 
@@ -2091,7 +2114,9 @@ export function createRepository(db: Database): Repository {
       });
     },
 
-    async reopenedApplications(userId) {
+    async reopenedApplications(userId, traits = {}) {
+      const preferences = traitConditions(traits);
+      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
       const result = await db.execute({
         sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
                      listings.city, listings.postal_code, sc.action_priority, listings.payload
@@ -2106,8 +2131,9 @@ export function createRepository(db: Database): Repository {
                 AND ${OPEN_TO_APPLICATIONS_SQL}
                 AND listings.lifecycle = 'active'
                 AND listings.rented = 0
+                ${extra}
               ORDER BY sc.action_priority DESC`,
-        args: [userId, userId],
+        args: [userId, userId, ...preferences.args],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },

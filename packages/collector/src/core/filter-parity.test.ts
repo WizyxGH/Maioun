@@ -20,6 +20,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { withStoredCriteria } from '../config.js';
+import { parseLiveFilters } from '../server/routes.js';
 import { traitConditions, type TraitFilters } from './trait-filters.js';
 import { MVP_CRITERIA } from '@maioun/shared';
 
@@ -77,5 +78,44 @@ describe('parité entre les filtres de la liste et ceux des alertes', () => {
       JSON.stringify({ ...TOUT_REGLE, availableBy: 'demain' }),
     );
     expect((config.criteria as TraitFilters).availableBy).toBeUndefined();
+  });
+});
+
+/**
+ * UNE CLÉ MANQUANTE NE DOIT PAS ÉTEINDRE LE FILTRAGE DE LA LISTE.
+ *
+ * Les deux chemins ne traitaient pas l'absence de la même façon : les alertes
+ * comblent chaque trou avec les défauts du projet, la liste rendait
+ * `undefined` dès que le loyer ou la surface manquait — et `undefined` veut
+ * dire « aucun filtre », quartiers et exclusions compris. Une ligne de
+ * réglages incomplète affichait donc les colocations que les alertes, elles,
+ * continuaient d'écarter.
+ */
+describe('parité quand des clés manquent', () => {
+  /** Des préférences réglées, sans le loyer ni la surface. */
+  const SANS_MONTANTS = { excludeFlatShare: true, districts: ['riquier'] };
+
+  it('applique les mêmes conditions que les alertes', () => {
+    const alertes = traitConditions(
+      withStoredCriteria(CONFIG, JSON.stringify(SANS_MONTANTS)).criteria as TraitFilters,
+    );
+    const liste = parseLiveFilters(SANS_MONTANTS, true);
+    expect(liste).toBeDefined();
+    expect(traitConditions(liste as TraitFilters).sql).toEqual(alertes.sql);
+    expect(traitConditions(liste as TraitFilters).args).toEqual(alertes.args);
+  });
+
+  it('retombe sur le loyer et la surface du projet', () => {
+    expect(parseLiveFilters(SANS_MONTANTS, true)).toMatchObject({
+      maxPrice: MVP_CRITERIA.maxPrice,
+      minArea: MVP_CRITERIA.minArea,
+    });
+  });
+
+  it('mais un lien partagé, lui, reste refusé', () => {
+    // Il vient d'une adresse : un montant illisible y signale un lien abîmé,
+    // pas une préférence absente.
+    expect(parseLiveFilters(SANS_MONTANTS)).toBeUndefined();
+    expect(parseLiveFilters({ maxPrice: 'beaucoup', minArea: 20 })).toBeUndefined();
   });
 });

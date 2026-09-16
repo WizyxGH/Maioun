@@ -96,6 +96,34 @@ function addressAnchor(
 }
 
 /**
+ * L'OCCURRENCE QUI DIT « COLOCATION », quand une seule le dit.
+ *
+ * La principale est la plus COMPLÈTE, pas la mieux renseignée sur ce point-là.
+ * Quand elle se taisait — ou qu'elle déduisait « logement entier » d'un
+ * « colocation possible » — et qu'une autre source écrivait « chambre en
+ * colocation », le désaccord partait en conflit et la valeur retenue restait
+ * « non ». `listings.flat_share` tombait donc à 0, et « exclure les
+ * colocations » cessait de s'appliquer à cette fiche : elle restait dans la
+ * liste ET partait en alerte.
+ *
+ * LE « OUI » L'EMPORTE, parce que les deux erreurs ne coûtent pas la même
+ * chose. Aucune source ne publie un champ « colocation » : le trait se lit dans
+ * le texte, et le texte ne dit « en colocation » que quand c'en est une, tandis
+ * que le « non » n'est jamais qu'une absence de mention ou une déduction. Se
+ * tromper vers le « oui » masque un logement à qui a coché la case ; se tromper
+ * vers le « non » envoie une alerte pour exactement ce qu'on a refusé.
+ *
+ * Rien n'est perdu : le « non » de l'autre source reste dans les conflits, avec
+ * sa provenance.
+ */
+function flatShareAnchor(
+  occurrences: readonly NormalizedListing[],
+  primary: NormalizedListing,
+): NormalizedListing {
+  return occurrences.find((occurrence) => occurrence.flatShare === true) ?? primary;
+}
+
+/**
  * Fusionne un champ à travers toutes les occurrences.
  *
  * @param select accesseur du champ
@@ -314,7 +342,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     rooms: mergeField(occurrences, primary, (l) => l.rooms),
     propertyType: mergeField<PropertyType>(occurrences, primary, (l) => l.propertyType),
     furnished: mergeField(occurrences, primary, (l) => l.furnished),
-    flatShare: mergeField(occurrences, primary, (l) => l.flatShare),
+    flatShare: mergeField(occurrences, flatShareAnchor(occurrences, primary), (l) => l.flatShare),
     dpe: mergeField(occurrences, primary, (l) => l.dpe),
     ges: mergeField(occurrences, primary, (l) => l.ges),
     maxOccupants: mergeField(occurrences, primary, (l) => l.maxOccupants),

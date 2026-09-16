@@ -1514,8 +1514,9 @@ const DEFAULT_FILTERS = {
 /**
  * Budget et surface tels que CET utilisateur les a réglés, appliqués en direct
  * à la liste : resserrer son budget doit se voir tout de suite, sans attendre
- * la collecte suivante. Les exclusions (colocation, étudiant) restent figées à
- * la collecte — elles demandent le texte de l'annonce, pas un nombre.
+ * la collecte suivante. Les exclusions (colocation, étudiant, bailleur,
+ * ameublement, quartier, disponibilité) suivent le même chemin depuis qu'elles
+ * ont quitté le score : voir `core/trait-filters`.
  */
 async function liveFilters(db: Client, userId: string): Promise<LiveFilters | undefined> {
   const stored = await db.execute({
@@ -1525,7 +1526,9 @@ async function liveFilters(db: Client, userId: string): Promise<LiveFilters | un
   const raw = stored.rows[0]?.['value'];
   if (typeof raw !== 'string') return undefined;
   try {
-    return parseLiveFilters(JSON.parse(raw));
+    // Les défauts du projet comblent les clés manquantes, exactement comme
+    // `withStoredCriteria` le fait pour les alertes.
+    return parseLiveFilters(JSON.parse(raw), true);
   } catch {
     return undefined;
   }
@@ -1537,19 +1540,52 @@ function finite(value: unknown): value is number {
 }
 
 /**
+ * Le loyer plancher du projet, quand on comble les clés absentes.
+ *
+ * IL S'EFFACE SOUS UN PLAFOND PLUS BAS. Un plancher qu'on n'a pas choisi ne
+ * doit pas vider la liste de quelqu'un qui cherche à 200 € ; la valeur
+ * explicitement transmise, elle, est respectée telle quelle.
+ */
+function plancherDuProjet(defauts: boolean, maxPrice: number): number | undefined {
+  if (!defauts || MVP_CRITERIA.minPrice === undefined) return undefined;
+  return MVP_CRITERIA.minPrice <= maxPrice ? MVP_CRITERIA.minPrice : undefined;
+}
+
+/**
  * Des critères enregistrés ou reçus → ce que la liste sait appliquer.
  *
  * UNE SEULE LECTURE pour le compte et pour le visiteur : un lien partagé filtre
  * exactement comme les mêmes critères posés dans un compte.
+ *
+ * @param defauts combler les clés manquantes avec celles du projet, au lieu de
+ *   rendre `undefined`.
+ *
+ *   UNE LIGNE DE RÉGLAGES SANS LOYER NI SURFACE FAISAIT CESSER TOUT FILTRAGE :
+ *   la liste retombait sur « aucun filtre », quartiers et exclusions compris,
+ *   pendant que les alertes, elles, continuaient d'appliquer les défauts —
+ *   `withStoredCriteria` les comble champ par champ. Les deux se
+ *   contredisaient, et c'est la liste qui montrait ce qu'on avait exclu.
+ *
+ *   Un LIEN PARTAGÉ ne les comble pas : il vient d'une adresse, pas d'un
+ *   réglage enregistré, et un budget illisible y signale une adresse abîmée
+ *   plutôt qu'une préférence absente. Mieux vaut le dire que filtrer sur des
+ *   valeurs que personne n'a choisies.
  */
-function parseLiveFilters(value: unknown): LiveFilters | undefined {
+export function parseLiveFilters(value: unknown, defauts = false): LiveFilters | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const parsed = value as Partial<Record<keyof LiveFilters, unknown>>;
-  if (!finite(parsed.maxPrice) || !finite(parsed.minArea)) return undefined;
+  if (!defauts && (!finite(parsed.maxPrice) || !finite(parsed.minArea))) return undefined;
+  /** La valeur lue, ou celle du projet quand on comble. */
+  const nombre = (lu: unknown, defaut: number | undefined): number | undefined =>
+    finite(lu) ? lu : defauts ? defaut : undefined;
+  const maxPrice = nombre(parsed.maxPrice, MVP_CRITERIA.maxPrice) ?? MVP_CRITERIA.maxPrice;
+  const minPrice = finite(parsed.minPrice) ? parsed.minPrice : plancherDuProjet(defauts, maxPrice);
+  const maxCommuteMinutes = nombre(parsed.maxCommuteMinutes, MVP_CRITERIA.maxCommuteMinutes);
   return {
-    maxPrice: parsed.maxPrice,
-    minArea: parsed.minArea,
-    ...(finite(parsed.minPrice) ? { minPrice: parsed.minPrice } : {}),
+    maxPrice,
+    minArea: nombre(parsed.minArea, MVP_CRITERIA.minArea) ?? MVP_CRITERIA.minArea,
+    ...(minPrice !== undefined ? { minPrice } : {}),
+    ...(maxCommuteMinutes !== undefined ? { maxCommuteMinutes } : {}),
     ...(parsed.excludeFlatShare === true ? { excludeFlatShare: true } : {}),
     ...(parsed.excludeStudent === true ? { excludeStudent: true } : {}),
     ...(parsed.landlordFilter === 'private' || parsed.landlordFilter === 'agency'
@@ -1558,7 +1594,6 @@ function parseLiveFilters(value: unknown): LiveFilters | undefined {
     ...(parsed.furnishedFilter === 'furnished' || parsed.furnishedFilter === 'unfurnished'
       ? { furnishedFilter: parsed.furnishedFilter }
       : {}),
-    ...(finite(parsed.maxCommuteMinutes) ? { maxCommuteMinutes: parsed.maxCommuteMinutes } : {}),
     // LA FORME EST VERIFIEE ICI, et il le faut : cette valeur part dans une
     // comparaison SQL. Elle est parametree, donc rien ne s'injecte, mais une
     // chaine quelconque produirait un filtre silencieusement faux — refuser
