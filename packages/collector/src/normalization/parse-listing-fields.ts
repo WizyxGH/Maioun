@@ -360,13 +360,34 @@ export function parseFlatShare(
   const lower = comparable(text);
   const heading = comparable(title);
   if (lower === '' && heading === '') return null;
-  if (/colocation (possible|acceptee|envisageable)|possibilite (de )?colocation/.test(lower)) {
+  if (
+    /col{1,2}ocation (possible|acceptee|envisageable)|possibilite (de )?col{1,2}ocation/.test(lower)
+  ) {
     return false;
   }
-  if (/\bcolocation\b|\bcoloc\b/.test(lower)) return true;
+  // « Collocation » : la faute est courante, et elle faisait passer l'annonce
+  // pour muette là où elle dit la chose.
+  if (/\bcol{1,2}ocation\b|\bcoloc\b/.test(lower)) return true;
   if (/^chambre\b/.test(heading)) return true;
+  if (RENT_PER_PERSON.test(lower)) return true;
   return SHARED_DWELLING.test(lower) ? true : null;
 }
+
+/**
+ * UN LOYER PAR TÊTE EST UN LOYER DE COLOCATION.
+ *
+ * « Le loyer est de 700 € CC par étudiant et par mois » : un logement entier ne
+ * se loue jamais ainsi, et l'annonce qui l'écrit ne dit parfois rien d'autre —
+ * celle qui a déclenché la vérification est un « T3 » dont ni le titre ni la
+ * description ne portent le mot « colocation ». Le montant lui-même trahit le
+ * partage.
+ *
+ * LE MOT « LOYER » (ou le mois, ou le prix) DOIT ÊTRE À CÔTÉ, sans quoi « une
+ * salle d'eau par personne » suffirait. Relevé du 2026-09-16 sur les 3 704
+ * annonces actives : quatre annonces en tout, toutes des colocations avérées.
+ */
+const RENT_PER_PERSON =
+  /\b(?:loyer|charges comprises|cc|mois|mensuel\w*|prix)\b.{0,40}\bpar (?:etudiant|personne|colocataire|chambre)\b/;
 
 /**
  * Logement partagé qui ne dit jamais le mot « colocation ».

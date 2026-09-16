@@ -1,0 +1,43 @@
+{
+  "id": "hektor-cabinet_agir-2784",
+  "reference": "155",
+  "title": "A LOUER STUDIO BORRIGLIONE-NICE",
+  "price": 631.76,
+  "surfaceArea": 30.28,
+  "roomsQuantity": 1,
+  "city": "Nice",
+  "postalCode": "06100",
+  "publicationDate": "2026-09-15T14:45:14.050Z",
+  "modificationDate": "2026-09-15T16:23:49.148Z",
+  "closingDate": "2026-09-15T16:23:48.979Z",
+  "status": {
+    "onTheMarket": false,
+    "closedByUser": false,
+    "autoImported": true,
+    "isLeading": false,
+    "highlighted": false,
+    "is3dHighlighted": false
+  },
+  "district": {
+    "id_polygone": 300089,
+    "id_type": 1,
+    "name": "Nice - Borriglione",
+    "libelle": "Borriglione",
+    "cp": "06100",
+    "postal_code": "06100",
+    "type_id": 1
+  },
+  "contactRelativeData": {
+    "agencyNameToDisplay": "CABINET FICTIF",
+    "contactNameToDisplay": "CABINET FICTIF",
+    "phoneToDisplay": "0600000021",
+    "hasEmailToDisplay": true,
+    "contactIsAgency": true,
+    "contactIsPro": true,
+    "agencyId": "hektor-cabinet_fictif",
+    "accountType": "agency"
+  },
+  "addressKnown": true,
+  "adType": "rent",
+  "transactionType": "rent"
+}

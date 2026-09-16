@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDetailUrl,
   buildSearchUrl,
+  isWithdrawnDraft,
   NICE_ZONE_ID,
   parseAdDetail,
   parseSearchResponse,
@@ -29,6 +30,11 @@ const body0914 = readFileSync(
 /** Fiche JSON de la même annonce Twimmo ; le numéro y est remplacé par un fictif. */
 const detail = readFileSync(
   resolve(here, '../../../../../tests/fixtures/bienici/detail-twimmo-2125653.json'),
+  'utf8',
+);
+/** Fiche d'une annonce que le portail a retirée ; agence et numéro fictifs. */
+const detailRetiree = readFileSync(
+  resolve(here, '../../../../../tests/fixtures/bienici/detail-retiree.json'),
   'utf8',
 );
 
@@ -137,8 +143,26 @@ describe('parseSearchResponse', () => {
     const listing = parseSearchResponse(body).listings.find(
       (one) => one.sourceRef === 'netty-company56146lrb-appt-6822',
     );
-    expect(listing?.extra?.['quartier']).toBe('Nice - Carabacel');
+    // Le quartier seul, comme l'écrivent les autres sources : « Nice - Carabacel »
+    // est le libellé du portail, pas un nom de quartier.
+    expect(listing?.extra?.['quartier']).toBe('Carabacel');
     expect(listing?.extra?.['dpe']).toMatch(/^[A-G]$/);
+  });
+
+  it('ne prend pas la commune pour un quartier (§17)', () => {
+    const listing = parseSearchResponse(body).listings.find(
+      (one) => one.sourceRef === 'apimo-87323089',
+    );
+    // `district` y vaut le polygone de la ville entière : « Nice » n'apprend rien.
+    expect(listing?.extra?.['quartier']).toBeUndefined();
+  });
+
+  it('prend le code postal du QUARTIER, plus précis que celui de l’annonce', () => {
+    const parsed = parseSearchResponse(body).listings;
+    // Rimiez est en 06100, là où l'annonce annonce le 06000 de la commune.
+    expect(parsed.find((one) => one.sourceRef === 'apimo-87305863')?.postalCodeText).toBe('06100');
+    // Faute de quartier, celui de l'annonce reste le meilleur qu'on ait.
+    expect(parsed.find((one) => one.sourceRef === 'apimo-87323089')?.postalCodeText).toBe('06300');
   });
 
   it('déclare le bailleur, et nomme l’agence quand c’en est une', () => {
@@ -241,5 +265,19 @@ describe('parseAdDetail', () => {
     expect(parseAdDetail(JSON.stringify(prive))).toBeNull();
     expect(parseAdDetail('{}')).toBeNull();
     expect(parseAdDetail('<html>')).toBeNull();
+  });
+
+  it('marque retirée l’annonce que le portail dit hors marché', () => {
+    const draft = parseAdDetail(detailRetiree);
+    expect(isWithdrawnDraft(draft ?? undefined)).toBe(true);
+    // Le retrait prime : on ne rapporte pas l'agence d'une annonce qui n'existe plus.
+    expect(draft?.phoneText).toBeUndefined();
+  });
+
+  it('ne retire QUE sur un « hors marché » explicite', () => {
+    // Une fiche en ligne, une fiche muette : ni l'une ni l'autre n'est retirée.
+    expect(isWithdrawnDraft(parseAdDetail(detail) ?? undefined)).toBe(false);
+    expect(isWithdrawnDraft(parseAdDetail('{"status":{}}') ?? undefined)).toBe(false);
+    expect(isWithdrawnDraft(parseAdDetail('{}') ?? undefined)).toBe(false);
   });
 });

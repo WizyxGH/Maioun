@@ -23,6 +23,7 @@ import type {
   TenancyRequirements,
 } from '@maioun/shared';
 import { hasRequirements, NO_REQUIREMENTS, ONE_SHOT_SOURCES } from '@maioun/shared';
+import { addressGrade } from '../normalization/parse-listing-fields.js';
 import { parseRequirements } from '../normalization/parse-requirements.js';
 
 /** Champs pris en compte pour mesurer la complétude d'une occurrence. */
@@ -63,6 +64,35 @@ export function pickPrimary(occurrences: readonly NormalizedListing[]): Normaliz
     if (candidateScore !== bestScore) return candidateScore > bestScore ? candidate : best;
     return Date.parse(candidate.firstSeenAt) < Date.parse(best.firstSeenAt) ? candidate : best;
   }, first);
+}
+
+/**
+ * L'OCCURRENCE QUI SITUE LE MIEUX LE LOGEMENT, pour la seule adresse.
+ *
+ * La principale est la plus COMPLÈTE, ce qui ne veut pas dire la plus précise :
+ * deux annonces du même bien y écrivent « rue Vincent Bermond » et « 4 rue
+ * Vincent Bermond ». La première gagnait, et le numéro — ce qui place le point
+ * sur la carte plutôt qu'au milieu de la voie — disparaissait sans même laisser
+ * un conflit, les deux venant de la même source.
+ *
+ * Même barème que la normalisation, qui arbitre déjà entre le champ d'une
+ * source et la voie lue dans sa description : voie numérotée, puis voie nue,
+ * puis ce qui n'est qu'un quartier. À égalité, la principale garde la main.
+ */
+function addressAnchor(
+  occurrences: readonly NormalizedListing[],
+  primary: NormalizedListing,
+): NormalizedListing {
+  let best = primary;
+  for (const candidate of occurrences) {
+    if (candidate.address === null) continue;
+    if (best.address === null) {
+      best = candidate;
+      continue;
+    }
+    if (addressGrade(candidate.address) > addressGrade(best.address)) best = candidate;
+  }
+  return best;
 }
 
 /**
@@ -299,7 +329,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
      */
     requirements: firstRequirements(occurrences),
 
-    address: mergeField(occurrences, primary, (l) => l.address),
+    address: mergeField(occurrences, addressAnchor(occurrences, primary), (l) => l.address),
     district: mergeField(occurrences, primary, (l) => l.district),
     city: mergeField(occurrences, primary, (l) => l.city),
     postalCode: mergeField(occurrences, primary, (l) => l.postalCode),

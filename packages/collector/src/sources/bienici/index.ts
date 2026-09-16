@@ -14,10 +14,12 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { enrichNewListings } from '../shared/enrich.js';
+import { enrichNewListings, REJECTED_DRAFT } from '../shared/enrich.js';
+import type { RawDraft } from '../shared/raw-listing.js';
 import {
   buildDetailUrl,
   buildSearchUrl,
+  isWithdrawnDraft,
   NICE_ZONE_ID,
   PAGE_SIZE,
   parseAdDetail,
@@ -34,6 +36,13 @@ const MAX_PAGES = 8;
  */
 const MAX_DETAILS = 30;
 
+/**
+ * Fiches de vérification par passage : les annonces que la liste portait au
+ * passage précédent et ne porte plus. Une dizaine de départs par jour, donc
+ * la marge est large.
+ */
+const MAX_WITHDRAWN_CHECKS = 8;
+
 export const BIENICI_DESCRIPTOR: SourceDescriptor = {
   id: 'bienici',
   name: 'Bien’ici',
@@ -45,7 +54,7 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
   priority: 1,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_PAGES + MAX_DETAILS,
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS + MAX_WITHDRAWN_CHECKS,
     maxListingsPerRun: 1000,
     delayBetweenRequestsMs: 2_000,
   }),
@@ -65,8 +74,78 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
     'comprises. Position publiée seulement quand blurInfo la déclare exacte ou ' +
     'floutée à 100 m au plus — au-delà, le site ne situe que la commune. ' +
     'Fiche JSON realEstateAd.json?id=… (robots.txt relu le 2026-09-14, chemin ' +
-    'non listé, aucune protection) : agence et téléphone des comptes pro.',
+    'non listé, aucune protection) : agence et téléphone des comptes pro, et ' +
+    '`status.onTheMarket: false` pour une annonce retirée — la page HTML, elle, ' +
+    'est la même coquille en ligne ou retirée. Code postal pris sur le quartier ' +
+    'quand le portail en nomme un : `postalCode` vaut souvent celui de la commune.',
 };
+
+/**
+ * Va DEMANDER au portail ce que sont devenues les annonces qui viennent de
+ * quitter la liste.
+ *
+ * POURQUOI LA DEMANDE VAUT LE DÉTOUR. La recherche ne rend que ce qui est en
+ * vente (`onTheMarket`) : une annonce retirée n'en disparaît pas autrement
+ * qu'une annonce poussée en page suivante. Sans vérification, elle attend le
+ * seuil d'absences avant de s'éteindre, et reste affichée entre-temps — c'est
+ * ce qu'on nous a signalé, fiche Bien'ici barrée d'un « n'est plus disponible »
+ * et toujours visible chez nous. La fiche JSON, elle, tranche en une requête.
+ *
+ * QUI VÉRIFIER : celles que les pages lues portaient LA FOIS PRÉCÉDENTE et ne
+ * portent plus. Ce voisinage vaut mieux que l'inventaire complet de la base —
+ * il ne contient que des départs du jour, là où les références connues traînent
+ * des centaines d'annonces éteintes depuis longtemps. Celles déjà notées
+ * retirées ne se revérifient jamais.
+ */
+async function checkVanished(
+  context: ScrapeContext,
+  previousRefs: ReadonlySet<string>,
+  seen: ReadonlySet<string>,
+): Promise<{ withdrawn: string[]; requestCount: number; pagesFetched: number }> {
+  const due = [...previousRefs]
+    .filter((reference) => !seen.has(reference))
+    .filter((reference) => !isWithdrawnDraft(context.detailMemory.get(reference)?.draft))
+    .slice(0, MAX_WITHDRAWN_CHECKS);
+
+  const withdrawn: string[] = [];
+  const learned: { sourceRef: string; draft: RawDraft }[] = [];
+  let requestCount = 0;
+  let pagesFetched = 0;
+  for (const reference of due) {
+    if (context.shouldStop()) break;
+    const previous = context.detailMemory.get(reference)?.draft;
+    try {
+      const page = await context.fetch(buildDetailUrl(reference), {
+        headers: { accept: 'application/json' },
+      });
+      requestCount += 1;
+      if (page.notModified) {
+        // Fiche inchangée : ce que la mémoire en garde reste vrai, et rajeunit.
+        if (previous !== undefined) learned.push({ sourceRef: reference, draft: previous });
+        continue;
+      }
+      pagesFetched += 1;
+      const draft = parseAdDetail(page.body);
+      if (draft !== null && isWithdrawnDraft(draft)) withdrawn.push(reference);
+      learned.push({ sourceRef: reference, draft: draft ?? previous ?? REJECTED_DRAFT });
+    } catch (error) {
+      // Une fiche injoignable ne prouve rien : l'annonce reste en l'état.
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('withdrawn.check_failed', { reference, error: message });
+      if (message.includes('429')) break;
+    }
+  }
+
+  if (learned.length > 0) {
+    try {
+      await context.detailMemory.save(learned);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('detail.memory_failed', { count: learned.length, error: message });
+    }
+  }
+  return { withdrawn, requestCount, pagesFetched };
+}
 
 export const bieniciScraper: Scraper = {
   descriptor: BIENICI_DESCRIPTOR,
@@ -81,6 +160,8 @@ export const bieniciScraper: Scraper = {
     let stopReason: StopReason = 'completed';
     /** Une page 304 dont on ne sait pas ce qu'elle portait : l'inventaire est incomplet. */
     let pageInconnue = false;
+    /** Ce que les pages lues portaient au passage précédent : les partantes s'y lisent. */
+    const previousRefs = new Set<string>();
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       if (context.shouldStop()) {
@@ -121,6 +202,9 @@ export const bieniciScraper: Scraper = {
         const parsed = parseSearchResponse(response.body);
         warnings.push(...parsed.warnings);
         listings.push(...parsed.listings);
+        // Avant de l'écraser : ce que cette page portait la fois d'avant.
+        for (const reference of (await context.pageRefs.get(url)) ?? [])
+          previousRefs.add(reference);
         await context.pageRefs.set(
           url,
           parsed.listings.map((listing) => listing.sourceRef),
@@ -161,10 +245,29 @@ export const bieniciScraper: Scraper = {
     // ses annonces comme disparues.
     if (pageInconnue && stopReason === 'completed') stopReason = 'notModified';
 
+    // Les partantes se lisent sur un inventaire complet : sans lui, une annonce
+    // d'une page qu'on n'a pas lue passerait pour disparue.
+    const seen = new Set([...confirmedRefs, ...listings.map((listing) => listing.sourceRef)]);
+    const checked =
+      pageInconnue || stopReason === 'rateLimited'
+        ? { withdrawn: [], requestCount: 0, pagesFetched: 0 }
+        : await checkVanished(context, previousRefs, seen);
+    requestCount += checked.requestCount;
+    pagesFetched += checked.pagesFetched;
+
+    // Retirée d'après sa fiche — lue à l'instant ou mémorisée : la liste ne la
+    // ramène pas, et le pipeline l'éteint dès cette collecte.
+    const withdrawnRefs = [
+      ...enriched.listings.filter((listing) => isWithdrawnDraft(listing)).map((l) => l.sourceRef),
+      ...checked.withdrawn,
+    ];
+    if (withdrawnRefs.length > 0) context.log('withdrawn', { count: withdrawnRefs.length });
+
     return {
       sourceId: BIENICI_DESCRIPTOR.id,
-      listings: enriched.listings,
+      listings: enriched.listings.filter((listing) => !isWithdrawnDraft(listing)),
       confirmedRefs,
+      withdrawnRefs,
       requestCount,
       pagesFetched,
       stopReason,

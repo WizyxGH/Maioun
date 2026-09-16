@@ -812,6 +812,29 @@ describe('parseFlatShare — logement partagé sans le mot « colocation »', ()
     expect(parseFlatShare('Appartement 3 pièces : séjour, 2 chambres, cuisine')).toBeNull();
     expect(parseFlatShare('Studio avec coin chambre séparé')).toBeNull();
   });
+
+  it('reconnaît un loyer annoncé PAR TÊTE', () => {
+    // Relevé le 2026-09-16 sur Bien'ici : un « T3 » dont ni le titre ni la
+    // description ne portent le mot, et que le loyer trahit.
+    expect(
+      parseFlatShare(
+        'Agréable maison dans un domaine privé, 2 chambres chacune avec placard. ' +
+          'Le Loyer est de 700€ CC par étudiant et par mois.',
+        'T3',
+      ),
+    ).toBe(true);
+    expect(parseFlatShare('Loyer mensuel de 570 € par colocataire')).toBe(true);
+  });
+
+  it('ne prend pas n’importe quel « par personne » pour un loyer', () => {
+    expect(parseFlatShare('Une salle d’eau par chambre et un dressing par personne')).toBeNull();
+  });
+
+  it('lit « collocation » comme « colocation », la faute étant courante', () => {
+    expect(parseFlatShare('Appartement en Collocation meublé et équipé de 67 m²')).toBe(true);
+    // La distinction tient aussi sur la faute : le logement entier reste entier.
+    expect(parseFlatShare('Grand T4, collocation possible')).toBe(false);
+  });
 });
 
 describe('isStudentOnlyHousing', () => {

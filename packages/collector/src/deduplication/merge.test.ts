@@ -178,3 +178,35 @@ describe('mergeLifecycle', () => {
     ).toBe('possiblyInactive');
   });
 });
+
+describe('adresse la plus précise', () => {
+  /**
+   * Relevé le 2026-09-16 : le même logement publié deux fois par la même
+   * agence, « rue Vincent Bermond » d'un côté, « 4 rue Vincent Bermond » de
+   * l'autre. La principale, choisie sur la complétude, écrasait le numéro.
+   */
+  it('garde le numéro de voie même s’il vient d’une autre occurrence', () => {
+    const merged = mergeGroup([
+      { ...occurrence('bienici:1'), address: 'rue Vincent Bermond' },
+      { ...occurrence('bienici:2'), address: '4 rue Vincent Bermond' },
+    ]);
+    expect(merged.address.value).toBe('4 rue Vincent Bermond');
+  });
+
+  it('préfère une vraie voie à ce qui n’est qu’un quartier', () => {
+    const merged = mergeGroup([
+      { ...occurrence('orpi:1'), address: 'Californie, Nice' },
+      { ...occurrence('seloger:1'), address: 'avenue Sainte Colette' },
+    ]);
+    expect(merged.address.value).toBe('avenue Sainte Colette');
+    expect(merged.address.sourceId).toBe('seloger');
+  });
+
+  it('à précision égale, la principale garde la main', () => {
+    const merged = mergeGroup([
+      { ...occurrence('orpi:1'), address: '12 rue Fictive', description: 'texte plus complet' },
+      { ...occurrence('seloger:1'), address: '12 rue Inventée' },
+    ]);
+    expect(merged.address.value).toBe('12 rue Fictive');
+  });
+});

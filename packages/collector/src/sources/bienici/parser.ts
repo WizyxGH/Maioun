@@ -84,6 +84,27 @@ interface Photo {
   readonly url?: string;
 }
 
+/**
+ * Le polygone sous lequel le portail range l'annonce.
+ *
+ * Il n'est PAS toujours un quartier : 58 annonces sur 533 le 2026-09-16 sont
+ * rangées sous la commune entière, `name` et `libelle` valant alors la ville.
+ * D'où les deux lectures ci-dessous, qui refusent l'une et l'autre de prendre
+ * « Nice » pour un quartier de Nice.
+ */
+interface District {
+  readonly name?: string;
+  /** Le quartier seul — « Caucade » là où `name` écrit « Nice - Caucade ». */
+  readonly libelle?: string;
+  readonly postal_code?: string;
+}
+
+/** Ce que le portail dit de la vie de l'annonce. */
+interface AdStatus {
+  /** `false` : le portail affiche « cette annonce n'est plus disponible ». */
+  readonly onTheMarket?: boolean;
+}
+
 export interface BieniciAd {
   readonly id?: string;
   readonly reference?: string;
@@ -98,7 +119,8 @@ export interface BieniciAd {
   readonly isFurnished?: boolean;
   readonly city?: string;
   readonly postalCode?: string;
-  readonly district?: { readonly name?: string };
+  readonly district?: District;
+  readonly status?: AdStatus;
   readonly blurInfo?: BlurInfo;
   readonly accountType?: string;
   readonly accountDisplayName?: string;
@@ -193,6 +215,46 @@ function photoUrls(photos: readonly Photo[] | undefined): readonly string[] | un
   return urls.length > 0 ? urls : undefined;
 }
 
+/**
+ * LE QUARTIER, quand le portail en nomme un.
+ *
+ * Deux corrections d'un coup, mesurées sur les 533 locations niçoises du
+ * 2026-09-16.
+ *
+ * On reprenait `district.name`, qui préfixe la ville — « Nice - Caucade » —
+ * quand les quarante autres sources du projet écrivent « Caucade ». Le
+ * `libelle` dit le quartier seul.
+ *
+ * Surtout, on le reprenait AUSSI quand le portail ne situe que la commune :
+ * 58 annonces portaient alors « Nice » en guise de quartier, ce qui n'apprend
+ * rien et donne la précision d'une adresse qu'on n'a pas (§17).
+ */
+function districtOf(ad: BieniciAd): string | undefined {
+  const label = ad.district?.libelle?.trim();
+  if (label === undefined || label === '') return undefined;
+  const city = ad.city?.trim();
+  // Le polygone de la commune porte le nom de la commune : ce n'en est pas un
+  // quartier.
+  if (city !== undefined && label.toLowerCase() === city.toLowerCase()) return undefined;
+  return label;
+}
+
+/**
+ * LE CODE POSTAL DU QUARTIER, plus précis que celui de l'annonce.
+ *
+ * `postalCode` vaut souvent celui du bureau central de la commune là où le
+ * quartier a le sien : 06000 pour une annonce de Caucade, qui est en 06200.
+ * Relevé du 2026-09-16 : 75 annonces sur 533, et la description de celle qui a
+ * déclenché la vérification écrit bien « 4 rue Vincent Bermond, 06200 Nice ».
+ *
+ * Le polygone de la commune, lui, ne sait rien de plus que l'annonce : on garde
+ * alors ce qu'elle dit.
+ */
+function postalCodeOf(ad: BieniciAd): string | undefined {
+  const district = districtOf(ad) === undefined ? undefined : ad.district?.postal_code?.trim();
+  return district !== undefined && district !== '' ? district : ad.postalCode;
+}
+
 /** Les atouts que l'annonce déclare par un booléen, en toutes lettres. */
 function featuresOf(ad: BieniciAd): string | undefined {
   const parts: string[] = [];
@@ -241,7 +303,7 @@ function toRawListing(ad: BieniciAd): RawListing | null {
     propertyTypeText: `${typeText} ${ad.title ?? ''}`.trim(),
     furnishedText: ad.isFurnished === true ? 'meublé' : undefined,
     cityText: ad.city,
-    postalCodeText: ad.postalCode,
+    postalCodeText: postalCodeOf(ad),
     latitude: position?.lat,
     longitude: position?.lon,
     // Le nom du compte n'est repris comme agence que s'il EST une agence : un
@@ -253,7 +315,7 @@ function toRawListing(ad: BieniciAd): RawListing | null {
     imageUrls: photoUrls(ad.photos),
     extra: compactExtra({
       reference: ad.reference ?? id,
-      quartier: ad.district?.name,
+      quartier: districtOf(ad),
       dpe: ad.energyClassification,
       features: featuresOf(ad),
       landlord: ad.accountType === undefined ? undefined : isPro ? 'agency' : 'private',
@@ -286,7 +348,24 @@ interface ContactRelativeData {
 }
 
 /**
- * Ce que la fiche JSON ajoute à la liste : l'agence et son téléphone.
+ * Marque d'une annonce que le portail dit retirée : elle l'emporte sur la
+ * liste, et se garde en mémoire pour ne pas revérifier la même fiche.
+ */
+export const WITHDRAWN_DRAFT: RawDraft = { extra: { retiree: 'oui' } };
+
+export function isWithdrawnDraft(draft: Partial<RawListing> | undefined): boolean {
+  return draft?.extra?.['retiree'] === 'oui';
+}
+
+/**
+ * Ce que la fiche JSON ajoute à la liste : le retrait, l'agence et son numéro.
+ *
+ * LE RETRAIT SE LIT DANS LE JSON, PAS DANS LA PAGE. `/annonce/…` sert la même
+ * coquille de 15 Ko pour une annonce en ligne et pour une annonce retirée —
+ * vérifié le 2026-09-16, les deux réponses font exactement la même taille :
+ * la phrase « cette annonce n'est plus disponible » vit dans le script de
+ * l'application, sur toutes les pages, et n'y chercher un marqueur retirerait
+ * tout le stock. `status.onTheMarket` le DIT, et lui seul.
  *
  * `realEstateAds.json` tait le nom du compte pour plus de la moitié des
  * annonces (271 sur 520 le 2026-09-14) et ne donne jamais de numéro
@@ -301,6 +380,11 @@ export function parseAdDetail(body: string): RawDraft | null {
   } catch {
     return null;
   }
+  // Seul un `false` explicite retire l'annonce : un champ absent ne dit rien.
+  if ((parsed as { status?: AdStatus } | null)?.status?.onTheMarket === false) {
+    return WITHDRAWN_DRAFT;
+  }
+
   const contact = (parsed as { contactRelativeData?: ContactRelativeData } | null)
     ?.contactRelativeData;
   if (contact?.contactIsPro !== true) return null;

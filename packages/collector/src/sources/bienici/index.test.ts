@@ -140,6 +140,50 @@ describe('fiches JSON', () => {
     expect(resultat.listings[0]).toMatchObject({ phoneText: '+33600000012' });
   });
 
+  const RETIREE = readFileSync(
+    resolve(here, '../../../../../tests/fixtures/bienici/detail-retiree.json'),
+    'utf8',
+  );
+
+  /**
+   * Une annonce que la liste portait au passage précédent et ne porte plus :
+   * le portail dit si elle est retirée, et la collecte l'éteint sans attendre
+   * le seuil d'absences.
+   */
+  async function passageAvecPartante(ficheDeLaPartante: string) {
+    const page = buildSearchUrl(NICE_ZONE_ID, 1);
+    const dejaVues = JSON.parse(PLEINE).realEstateAds.map((ad: { id: string }) => ad.id);
+    const memoire = new Map<string, readonly string[]>([[page, [...dejaVues, 'partie-1']]]);
+    const urls: string[] = [];
+    const { ctx } = contexte([], memoire);
+    const resultat = await bieniciScraper.run({
+      ...ctx,
+      fetch: (url) => {
+        urls.push(url);
+        const body = url.includes('id=partie-1')
+          ? ficheDeLaPartante
+          : url.includes('/realEstateAd.json')
+            ? DETAIL
+            : PLEINE;
+        return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
+      },
+    });
+    return { resultat, urls };
+  }
+
+  it('signale RETIRÉE l’annonce que le portail dit hors marché', async () => {
+    const { resultat, urls } = await passageAvecPartante(RETIREE);
+    expect(urls.some((url) => url.includes('id=partie-1'))).toBe(true);
+    expect(resultat.withdrawnRefs).toEqual(['partie-1']);
+  });
+
+  it('ne retire pas une annonce que sa fiche montre toujours en ligne', async () => {
+    // Même disparition de la liste, mais la fiche ne dit rien de tel : seul le
+    // cycle de vie ordinaire s'appliquera.
+    const { resultat } = await passageAvecPartante(DETAIL);
+    expect(resultat.withdrawnRefs).toEqual([]);
+  });
+
   it('réapplique la mémoire des fiches sans requête', async () => {
     const urls: string[] = [];
     const { ctx } = contexte([], new Map());
