@@ -17,6 +17,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseDetailPage, parseSearchPage } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 const ENTRY_URL = 'https://www.nousgerons.com/location/nice';
 
@@ -168,11 +169,7 @@ export const nousgeronsScraper: Scraper = {
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec sur ${ENTRY_URL} : ${message}`);
       context.log('page.failed', { url: ENTRY_URL, error: message });
-      stopReason = message.includes('429')
-        ? 'rateLimited'
-        : message.includes('refusé')
-          ? 'blocked'
-          : 'tooManyErrors';
+      stopReason = stopReasonFromError(message);
     }
 
     return {

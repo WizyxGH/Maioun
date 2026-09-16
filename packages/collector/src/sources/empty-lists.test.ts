@@ -7,29 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { ScrapeContext } from '@maioun/shared';
-import { MVP_CRITERIA } from '@maioun/shared';
 import { makeApimoScraper } from './apimo/scraper.js';
 import { makeHektorScraper } from './hektor/scraper.js';
 import { makeIcsScraper } from './ics/scraper.js';
 import { makeNettyScraper } from './netty/scraper.js';
-
-function context(pages: Record<string, string>): ScrapeContext {
-  return {
-    criteria: MVP_CRITERIA,
-    mode: 'live',
-    fetch: (url) =>
-      Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
-    isKnown: () => false,
-    knownRefs: new Set(),
-    lastFullPassAt: null,
-    detailMemory: { get: () => null, save: () => Promise.resolve() },
-    pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
-    log: () => undefined,
-    credentials: null,
-    shouldStop: () => false,
-  };
-}
+import { contextServing } from '../../../../tests/helpers/scrape-context.js';
 
 const base = { name: 'Agence Test', domain: 'agence.invalid' };
 
@@ -42,7 +24,7 @@ describe('La Boîte Immo (Hektor)', () => {
       <button data-text="Aucune annonce trouvée"><span>Aucune annonce trouvée</span></button>
       <h2 class="title"><span class="title_content_1 block">Désolé,<br> Aucun bien ne correspond à vos critères de recherche</span></h2>
       <script>var t = { searchText: 'Aucun résultat' };</script></body></html>`;
-    const result = await scraper.run(context({ [LIST]: html }));
+    const result = await scraper.run(contextServing({ [LIST]: html }));
     expect(result).toMatchObject({ stopReason: 'empty', warnings: [] });
   });
 
@@ -52,7 +34,7 @@ describe('La Boîte Immo (Hektor)', () => {
     const west = `<h2 class="title__content"><span class="title__content-1">Désolé,</span>
       <span class="title__content-2">aucune annonce trouvée selon vos critères</span></h2>`;
     for (const html of [api, west]) {
-      expect(await scraper.run(context({ [LIST]: html }))).toMatchObject({
+      expect(await scraper.run(contextServing({ [LIST]: html }))).toMatchObject({
         stopReason: 'empty',
         warnings: [],
       });
@@ -61,7 +43,7 @@ describe('La Boîte Immo (Hektor)', () => {
 
   it('ne s’y trompe pas : le bouton « Aucune annonce trouvée » est aussi sur les listes pleines', async () => {
     const html = '<button data-text="Aucune annonce trouvée">Voir</button><div class="new"></div>';
-    const result = await scraper.run(context({ [LIST]: html }));
+    const result = await scraper.run(contextServing({ [LIST]: html }));
     expect(result.stopReason).toBe('completed');
     expect(result.warnings.join(' ')).toMatch(/Aucune fiche/);
   });
@@ -75,14 +57,14 @@ describe('ICS', () => {
     const html = `<section class="pgl-properties"><div class="properties-full properties-listing">
       <p class="text-center">Votre recherche n&apos;a donn&eacute; aucun r&eacute;sultats.</p>
       </div></section>`;
-    expect(await scraper.run(context({ [LIST]: html }))).toMatchObject({
+    expect(await scraper.run(contextServing({ [LIST]: html }))).toMatchObject({
       stopReason: 'empty',
       warnings: [],
     });
   });
 
   it('garde l’avertissement sur une page sans annonces ni message', async () => {
-    const result = await scraper.run(context({ [LIST]: '<html><body></body></html>' }));
+    const result = await scraper.run(contextServing({ [LIST]: '<html><body></body></html>' }));
     expect(result.stopReason).toBe('completed');
     expect(result.warnings).toHaveLength(1);
   });
@@ -104,11 +86,11 @@ describe('sitemaps (Apimo, Netty)', () => {
       'https://agence.invalid/fr/',
       'https://agence.invalid/fr/propriete/vente+appartement+nice+t3+87000001',
     );
-    expect((await scraper.run(context({ [SITEMAP]: xml }))).stopReason).toBe('empty');
+    expect((await scraper.run(contextServing({ [SITEMAP]: xml }))).stopReason).toBe('empty');
     // Sitemap illisible : rien ne dit que l'agence est vide.
-    expect((await scraper.run(context({ [SITEMAP]: '<html>erreur</html>' }))).stopReason).toBe(
-      'completed',
-    );
+    expect(
+      (await scraper.run(contextServing({ [SITEMAP]: '<html>erreur</html>' }))).stopReason,
+    ).toBe('completed');
   });
 
   it('Netty : sitemap lu, aucune location dans les communes visées (sunimmobilia.fr)', async () => {
@@ -123,6 +105,6 @@ describe('sitemaps (Apimo, Netty)', () => {
       'https://www.agence.invalid',
       'https://www.agence.invalid/location/local-commercial-61-00-m2-cagnes-sur-mer-06800,LP067',
     );
-    expect((await scraper.run(context({ [SITEMAP]: xml }))).stopReason).toBe('empty');
+    expect((await scraper.run(contextServing({ [SITEMAP]: xml }))).stopReason).toBe('empty');
   });
 });

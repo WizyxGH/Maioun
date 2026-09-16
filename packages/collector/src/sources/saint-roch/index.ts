@@ -14,12 +14,32 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 import { isTargetListing, parseDetailPage, parseListPage } from './parser.js';
 
 const LIST_URL = 'https://www.saintrochimmobilier.com/location-immobilier-nice.asp';
 
-/** Communes cibles, en slug d'URL du site. */
-const CITY_SLUGS = ['nice', 'st-laurent-du-var', 'cagnes-sur-mer', 'la-trinite', 'drap'] as const;
+/**
+ * Communes cibles, en slug d'URL du site — qui abrège « saint » en « st ».
+ *
+ * L'agence ne publie que sur ce bout du périmètre ; les communes écartées le
+ * sont faute d'annonce observée, sans raison consignée à l'époque de la liste
+ * recopiée. Les nommer ici plutôt que de réécrire la liste fait qu'une commune
+ * ajoutée au périmètre entre d'elle-même.
+ */
+const CITY_SLUGS = portalCommuneSlugs({
+  abbreviateSaint: true,
+  omit: [
+    'villeneuve-loubet',
+    'beaulieu-sur-mer',
+    'cap-d-ail',
+    'villefranche-sur-mer',
+    'saint-andre-de-la-roche',
+    'carros',
+    'contes',
+    'colomars',
+  ],
+});
 
 const MAX_DETAILS_LIVE = 8;
 const MAX_DETAILS_BACKFILL = 20;

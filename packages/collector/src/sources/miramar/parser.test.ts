@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { isEmptyList, parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/miramar');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('miramar');
 
 const rental = (): string =>
   read('fiche-vente.html')

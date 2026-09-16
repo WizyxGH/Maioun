@@ -16,6 +16,7 @@ import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
+import { energyLabels } from '../shared/labels.js';
 
 export const AGENCY_NAME = 'Kapera Immobilier';
 export const LIST_URL = 'https://kapera-immobilier.com/location-appartement-nice/';
@@ -99,8 +100,7 @@ export function parseDetail(html: string): RawDraft | null {
     extra: {
       ...(reference !== undefined ? { reference } : {}),
       ...(district !== undefined ? { district } : {}),
-      ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
-      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
+      ...energyLabels(dpe, ges),
     },
   };
 }

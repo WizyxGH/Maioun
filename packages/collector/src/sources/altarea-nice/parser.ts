@@ -14,6 +14,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
+import { energyLabel } from '../shared/labels.js';
 
 export const AGENCY_NAME = 'Altarea Gestion Immobilière - Nice';
 export const SITE = 'https://altarea.flatbay.fr';
@@ -155,7 +156,8 @@ export function parseDetail(html: string): RawDraft | null {
 
   const extra: Record<string, string> = {};
   if (reference !== undefined) extra['reference'] = reference;
-  if (/^[A-G]$/.test(dpe)) extra['dpe'] = dpe;
+  const dpeLabel = energyLabel(dpe);
+  if (dpeLabel !== undefined) extra['dpe'] = dpeLabel;
   const lease = conditions.get('durée du bail');
   if (lease !== undefined) extra['bail'] = lease;
 

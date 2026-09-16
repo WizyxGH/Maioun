@@ -20,6 +20,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';
+import { energyLabels } from '../shared/labels.js';
 
 /** « Nice (06000) » — la commune et son code postal, d'un seul tenant. */
 const CITY_AND_CODE = /^(.+?)\s*\((\d{5})\)$/;
@@ -170,8 +171,7 @@ export function parseDetail(html: string): RawDraft | null {
   const bailleur = traits.find((trait) => /^(particulier|professionnel)$/i.test(trait));
 
   const extra: Record<string, string> = {};
-  if (/^[A-G]$/.test(dpe)) extra['dpe'] = dpe;
-  if (/^[A-G]$/.test(ges)) extra['ges'] = ges;
+  Object.assign(extra, energyLabels(dpe, ges));
   if (bailleur !== undefined) {
     extra['landlord'] = /^particulier$/i.test(bailleur) ? 'private' : 'agency';
   }

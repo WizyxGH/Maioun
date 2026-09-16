@@ -162,7 +162,6 @@ export function parseSearchPage(html: string, _pageUrl: string): ParsedPage {
           // §21 : la fiche (messagerie du site) est le canal de contact prévu.
           contactFormUrl: parsedUrl.canonicalUrl,
           ...(typeof image === 'string' && image.startsWith('http') ? { imageUrls: [image] } : {}),
-          extra: { reference: parsedUrl.reference },
         };
 
         byReference.set(parsedUrl.reference, listing);
@@ -272,7 +271,6 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
     ...(typeof postalCode === 'string' ? { postalCodeText: postalCode } : {}),
     agencyName: 'NousGérons',
     contactFormUrl: parsedUrl.canonicalUrl,
-    extra: { reference: parsedUrl.reference },
   };
 
   return { listing, warnings };

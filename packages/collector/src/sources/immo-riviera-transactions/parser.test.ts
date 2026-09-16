@@ -1,34 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { MVP_CRITERIA, type ScrapeContext } from '@maioun/shared';
 import { IMMO_RIVIERA_TRANSACTIONS, immoRivieraTransactionsScraper } from './index.js';
 import { isEmptyList, listUrl, parseDetail, parseList, placeOf, referenceOf } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
+import { contextServing } from '../../../../../tests/helpers/scrape-context.js';
 
 // Pages réelles du 2026-09-15, allégées : recherche de location vide, ventes du même gabarit.
-const FIXTURES = join(
-  import.meta.dirname,
-  '../../../../../tests/fixtures/immo-riviera-transactions',
-);
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('immo-riviera-transactions');
 const SITE = IMMO_RIVIERA_TRANSACTIONS;
-
-function context(pages: Record<string, string>): ScrapeContext {
-  return {
-    criteria: MVP_CRITERIA,
-    mode: 'live',
-    fetch: (url) =>
-      Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
-    isKnown: () => false,
-    knownRefs: new Set(),
-    lastFullPassAt: null,
-    detailMemory: { get: () => null, save: () => Promise.resolve() },
-    pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
-    log: () => undefined,
-    credentials: null,
-    shouldStop: () => false,
-  };
-}
 
 describe('Immo Riviera Transactions (Apimo free7)', () => {
   it('lit référence, commune et quartier', () => {
@@ -48,7 +26,9 @@ describe('Immo Riviera Transactions (Apimo free7)', () => {
     const html = read('location-vide.html');
     expect(parseList(html, SITE)).toEqual([]);
     expect(isEmptyList(html)).toBe(true);
-    const result = await immoRivieraTransactionsScraper.run(context({ [listUrl(SITE)]: html }));
+    const result = await immoRivieraTransactionsScraper.run(
+      contextServing({ [listUrl(SITE)]: html }),
+    );
     expect(result).toMatchObject({ stopReason: 'empty', warnings: [] });
   });
 

@@ -230,7 +230,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       // Le téléphone de la carte est posé plus bas ; le formulaire de la fiche
       // reste l'autre canal.
       contactFormUrl: parsed.canonicalUrl,
-      extra: { reference: parsed.reference, agencySlug: parsed.agencySlug },
+      // L'identifiant d'URL n'est pas la référence de l'agence (§17).
+      extra: { agencySlug: parsed.agencySlug },
     };
 
     byReference.set(parsed.reference, listing);

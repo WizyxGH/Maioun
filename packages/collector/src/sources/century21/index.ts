@@ -20,6 +20,7 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseSearchPage } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 /**
  * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.
@@ -122,11 +123,7 @@ export const century21Scraper: Scraper = {
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec sur ${ENTRY_URL} : ${message}`);
       context.log('page.failed', { url: ENTRY_URL, error: message });
-      stopReason = message.includes('429')
-        ? 'rateLimited'
-        : message.includes('refusé')
-          ? 'blocked'
-          : 'tooManyErrors';
+      stopReason = stopReasonFromError(message);
     }
 
     return {

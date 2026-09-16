@@ -83,7 +83,6 @@ function buildListing(fields: {
     agencyName,
     contactFormUrl: sourceUrl,
     imageUrls: image !== undefined && /^https?:/i.test(image) ? [image] : undefined,
-    extra: { reference },
   });
 }
 

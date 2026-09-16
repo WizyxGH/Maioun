@@ -34,6 +34,7 @@ import {
   parseSearchPage,
   parseWithdrawn,
 } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 /** Première page de la liste des appartements niçois. */
 const ENTRY_URL = 'https://fr.foncia.com/location/nice-06000/appartement';
@@ -235,12 +236,6 @@ async function fetchAgencies(context: ScrapeContext): Promise<{
   return { agencies, requestCount };
 }
 
-function stopReasonOf(message: string): StopReason {
-  if (message.includes('429')) return 'rateLimited';
-  if (message.includes('refusé')) return 'blocked';
-  return 'tooManyErrors';
-}
-
 /** Lit toutes les pages de la liste, en suivant `<link rel="next">`. */
 async function fetchListPages(context: ScrapeContext): Promise<{
   listings: RawListing[];
@@ -298,7 +293,7 @@ async function fetchListPages(context: ScrapeContext): Promise<{
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec sur ${url} : ${message}`);
       context.log('page.failed', { url, error: message });
-      stopReason = stopReasonOf(message);
+      stopReason = stopReasonFromError(message);
       break;
     }
   }

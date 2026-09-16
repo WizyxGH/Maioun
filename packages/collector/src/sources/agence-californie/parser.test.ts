@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Liste et fiche réelles du 2026-09-15, allégées.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/agence-californie');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('agence-californie');
 
 describe('parseList (Agence Californie)', () => {
   const listings = parseList(read('recherche-a-louer.html'));

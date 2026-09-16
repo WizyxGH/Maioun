@@ -10,6 +10,7 @@
  */
 
 import { makeApimoScraper } from '../apimo/scraper.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 
 export const bepScraper = makeApimoScraper({
   id: 'bep',
@@ -19,15 +20,14 @@ export const bepScraper = makeApimoScraper({
   // avec d'autres références et d'autres photos (§14).
   operator: 'bep-logement',
   sitemapUrl: 'https://bep-logement.com/sitemap.xml',
+  // Falicon déborde le périmètre : l'agence y publie, et une commune limitrophe
+  // de Nice vaut d'être lue. Les cinq écartées le sont par héritage de la liste
+  // recopiée, sans raison consignée — l'en-tête ci-dessus annonce pourtant le
+  // périmètre entier. Le filtre porte sur un sitemap déjà téléchargé.
   citySlugs: [
-    'nice',
-    'saint-laurent-du-var',
-    'cagnes-sur-mer',
-    'villefranche-sur-mer',
-    'beaulieu-sur-mer',
-    'la-trinite',
-    'saint-andre-de-la-roche',
-    'drap',
+    ...portalCommuneSlugs({
+      omit: ['villeneuve-loubet', 'cap-d-ail', 'carros', 'contes', 'colomars'],
+    }),
     'falicon',
   ],
 });

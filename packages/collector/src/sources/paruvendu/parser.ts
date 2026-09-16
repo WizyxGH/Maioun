@@ -284,7 +284,9 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       card.find('img.imgPart').attr('alt') ?? '',
     )?.[1];
 
-    const extra: Record<string, string> = { reference };
+    // La référence de l'ANNONCEUR est lue sur la fiche (« Réf. annonce ») ;
+    // `reference` n'est ici que l'identifiant Paru Vendu (§17).
+    const extra: Record<string, string> = {};
     if (/^[A-G]$/.test(dpe)) extra['dpe'] = dpe;
     if (isPrivate) extra['landlord'] = 'private';
     else if (agency !== undefined) extra['landlord'] = 'agency';

@@ -16,26 +16,30 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 import { AMOUNT, NUMBER, afterLabel } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const SITE = 'https://www.guy-hoquet.com';
 export const NETWORK_NAME = 'Guy Hoquet';
 
-/** Communes cibles, au slug et au code postal que le site emploie. */
-export const COMMUNES = [
-  'nice-06000',
-  'saint-laurent-du-var-06700',
-  'cagnes-sur-mer-06800',
-  'villeneuve-loubet-06270',
-  'villefranche-sur-mer-06230',
-  'beaulieu-sur-mer-06310',
+/**
+ * Communes cibles, au slug et au code postal que le site emploie.
+ *
+ * Èze et Vence débordent le périmètre : l'agence du réseau y publie, et leurs
+ * pages SEO existent. Les quatre communes écartées le sont par héritage de la
+ * liste recopiée, sans raison consignée — le site n'a pas de page pour elles à
+ * la dernière vérification. Les débordements passent EN DERNIER, pour que le
+ * périmètre soit lu avant eux si le budget venait à couper le passage.
+ */
+export const COMMUNES: readonly string[] = [
+  ...portalCommuneSlugs({
+    withPostalCode: true,
+    omit: ['cap-d-ail', 'drap', 'contes', 'colomars'],
+  }),
   'eze-06360',
-  'la-trinite-06340',
-  'saint-andre-de-la-roche-06730',
-  'carros-06510',
   'vence-06140',
-] as const;
+];
 
 export const LIST_URLS = COMMUNES.map((commune) => `${SITE}/location/annonces-${commune}`);
 

@@ -1,16 +1,13 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { ScrapeContext } from '@maioun/shared';
-import { MVP_CRITERIA } from '@maioun/shared';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { guyHoquetScraper } from './index.js';
 import { LIST_URLS, isEmptyList, parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
+import { contextServing } from '../../../../../tests/helpers/scrape-context.js';
 
 // Pages réelles du 2026-09-15, allégées et anonymisées ; une carte cannoise
 // ajoutée à la main pour le filtre de zone.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/guy-hoquet');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('guy-hoquet');
 const URL_1898127 = 'https://www.guy-hoquet.com/location/appartement-2-pieces-nice-06000-1898127';
 
 describe('parseList (Guy Hoquet)', () => {
@@ -82,27 +79,10 @@ describe('parseDetail (Guy Hoquet)', () => {
 });
 
 describe('guyHoquetScraper', () => {
-  function context(pages: Record<string, string>): ScrapeContext {
-    return {
-      criteria: MVP_CRITERIA,
-      mode: 'live',
-      fetch: (url) =>
-        Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
-      isKnown: () => false,
-      knownRefs: new Set(),
-      lastFullPassAt: null,
-      detailMemory: { get: () => null, save: () => Promise.resolve() },
-      pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
-      log: () => undefined,
-      credentials: null,
-      shouldStop: () => false,
-    };
-  }
-
   it('rend `empty` quand chaque commune affiche « Aucun résultat... »', async () => {
     const empty = read('annonces-cagnes-sur-mer-06800.html');
     const pages = Object.fromEntries(LIST_URLS.map((url) => [url, empty]));
-    expect(await guyHoquetScraper.run(context(pages))).toMatchObject({
+    expect(await guyHoquetScraper.run(contextServing(pages))).toMatchObject({
       stopReason: 'empty',
       warnings: [],
     });
@@ -113,7 +93,7 @@ describe('guyHoquetScraper', () => {
     const pages: Record<string, string> = Object.fromEntries(LIST_URLS.map((url) => [url, empty]));
     pages[LIST_URLS[0] ?? ''] = read('annonces-nice-06000.html');
     pages[URL_1898127] = read('fiche-1898127.html');
-    const result = await guyHoquetScraper.run(context(pages));
+    const result = await guyHoquetScraper.run(contextServing(pages));
     expect(result.stopReason).toBe('completed');
     expect(result.listings).toHaveLength(1);
     expect(result.listings[0]?.depositText).toBe('2700 €');

@@ -1,32 +1,13 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { MVP_CRITERIA, type ScrapeContext } from '@maioun/shared';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { agenceDumasScraper } from './index.js';
 import { isEmptyList, LIST_URL, parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
+import { contextServing } from '../../../../../tests/helpers/scrape-context.js';
 
 // Pages réelles du 2026-09-15, allégées : liste des locations annuelles, une
 // recherche sans résultat et une fiche à Villefranche-sur-Mer.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/agence-dumas');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
-
-function context(pages: Record<string, string>): ScrapeContext {
-  return {
-    criteria: MVP_CRITERIA,
-    mode: 'live',
-    fetch: (url) =>
-      Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
-    isKnown: () => false,
-    knownRefs: new Set(),
-    lastFullPassAt: null,
-    detailMemory: { get: () => null, save: () => Promise.resolve() },
-    pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
-    log: () => undefined,
-    credentials: null,
-    shouldStop: () => false,
-  };
-}
+const read = fixtureReader('agence-dumas');
 
 describe('parseList (Agence Dumas)', () => {
   const listings = parseList(read('locations-annuelles.html'));
@@ -112,13 +93,13 @@ describe('parseDetail (Agence Dumas)', () => {
 describe('agenceDumasScraper', () => {
   it('rend `empty` sur un conteneur de résultats sans carte', async () => {
     const result = await agenceDumasScraper.run(
-      context({ [LIST_URL]: read('recherche-vide.html') }),
+      contextServing({ [LIST_URL]: read('recherche-vide.html') }),
     );
     expect(result).toMatchObject({ stopReason: 'empty', warnings: [] });
   });
 
   it('garde l’avertissement sur une page sans conteneur', async () => {
-    const result = await agenceDumasScraper.run(context({ [LIST_URL]: '<html></html>' }));
+    const result = await agenceDumasScraper.run(contextServing({ [LIST_URL]: '<html></html>' }));
     expect(result.stopReason).toBe('completed');
     expect(result.warnings).toHaveLength(1);
   });

@@ -223,7 +223,9 @@ function listingOf(
     publishedAtText: estate.createdAt,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: {
-      reference: `${estate.customerId}/${estate.reference}`,
+      // Le champ `reference` de l'API, seul : le `customerId` préfixé devant
+      // était de notre fait, et l'agence ne reconnaît pas « 1397/726945 ».
+      reference: String(estate.reference),
       ...(dpe !== undefined ? { dpe } : {}),
     },
   });

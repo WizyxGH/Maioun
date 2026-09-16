@@ -141,7 +141,7 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
     ...(availability !== '' ? { availableAtText: availability } : {}),
     ...(imageUrls.length > 0 ? { imageUrls } : {}),
     extra: {
-      reference: parsedUrl.reference,
+      // L'identifiant d'URL n'est pas la référence de l'agence (§17).
       citySlug: parsedUrl.citySlug,
       ...(features.length > 0 ? { features: features.join(' · ') } : {}),
       ...(dpe !== undefined ? { dpe } : {}),

@@ -16,6 +16,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseListPage, saysNoResults } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 export interface IcsConfig {
   readonly id: string;
@@ -92,11 +93,7 @@ export function makeIcsScraper(config: IcsConfig): Scraper {
         const message = error instanceof Error ? error.message : String(error);
         warnings.push(`Échec de la liste : ${message}`);
         context.log('list.failed', { url: config.listUrl, error: message });
-        stopReason = message.includes('429')
-          ? 'rateLimited'
-          : message.includes('refusé')
-            ? 'blocked'
-            : 'tooManyErrors';
+        stopReason = stopReasonFromError(message);
         return {
           sourceId: config.id,
           listings: [],

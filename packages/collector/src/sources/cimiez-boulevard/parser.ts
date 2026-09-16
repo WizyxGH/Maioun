@@ -246,7 +246,7 @@ export function parseDetailPage(
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: images(html, parsedUrl.typeSlug),
     extra: {
-      reference: parsedUrl.reference,
+      // L'identifiant d'URL n'est pas la référence de l'agence (§17).
       citySlug: parsedUrl.citySlug,
       // Le quartier vient de l'ADRESSE, pas d'une déduction : c'est le site
       // qui le nomme. La clé est `quartier` — c'est celle que la normalisation

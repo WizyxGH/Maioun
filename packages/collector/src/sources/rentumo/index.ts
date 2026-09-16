@@ -26,6 +26,7 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings, REJECTED_DRAFT } from '../shared/enrich.js';
 import type { RawDraft } from '../shared/raw-listing.js';
 import { isWithdrawnDraft, parseDetailResponse, parseListPage } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 const ORIGIN = 'https://rentumo.com';
 
@@ -217,11 +218,7 @@ export const rentumoScraper: Scraper = {
         const message = error instanceof Error ? error.message : String(error);
         warnings.push(`Échec sur ${url} : ${message}`);
         context.log('page.failed', { url, error: message });
-        stopReason = message.includes('429')
-          ? 'rateLimited'
-          : message.includes('refusé')
-            ? 'blocked'
-            : 'tooManyErrors';
+        stopReason = stopReasonFromError(message);
         break;
       }
     }

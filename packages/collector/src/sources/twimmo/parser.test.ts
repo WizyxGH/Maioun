@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseTwimmoDetail, parseTwimmoList } from './parser.js';
 import { makeTwimmoDescriptor, twimmoListUrl } from './scraper.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Listes et fiches réelles (MK Immo le 2026-09-14, Elitimo le 2026-09-15), allégées.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/twimmo');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('twimmo');
 
 const MK_LIST = 'https://www.mk-immo.fr/toutes-locations.html';
 const ELITIMO_LIST = 'https://www.elitimo.com/toutes-locations.html';

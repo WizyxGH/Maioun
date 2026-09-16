@@ -12,7 +12,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { AMOUNT, NUMBER, flatText } from '../shared/labels.js';
+import { AMOUNT, NUMBER, firstMatch, flatText } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const LIST_PATH = '/toutes-locations.html';
@@ -49,9 +49,6 @@ export function parseTwimmoList(html: string, listUrl: string, agencyName: strin
   return [...byRef.values()];
 }
 
-const pick = (text: string, pattern: string): string | undefined =>
-  new RegExp(pattern, 'i').exec(text)?.[1]?.trim();
-
 const PHONE = String.raw`(\+?\d[\d .]{7,}\d)`;
 
 /**
@@ -67,8 +64,8 @@ function negotiator($: cheerio.CheerioAPI): { name?: string; phone?: string } {
   return {
     name: name === '' ? undefined : name,
     phone:
-      pick(lines, String.raw`(?:Mobile|Portable)\s*:?\s*${PHONE}`) ??
-      pick(lines, String.raw`Bureau\s*:?\s*${PHONE}`),
+      firstMatch(lines, String.raw`(?:Mobile|Portable)\s*:?\s*${PHONE}`) ??
+      firstMatch(lines, String.raw`Bureau\s*:?\s*${PHONE}`),
   };
 }
 
@@ -76,7 +73,7 @@ function negotiator($: cheerio.CheerioAPI): { name?: string; phone?: string } {
 export function parseTwimmoDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const text = flatText($);
-  const rent = pick(text, String.raw`Loyer mensuel (${AMOUNT}) charges comprises`);
+  const rent = firstMatch(text, String.raw`Loyer mensuel (${AMOUNT}) charges comprises`);
   if (rent === undefined) return null;
 
   // « Location rez-de-jardin - Nice (06100) - réf. 795L1111A »
@@ -91,19 +88,19 @@ export function parseTwimmoDetail(html: string): RawDraft | null {
       html.match(/https:\/\/medias\.twimmopro\.com\/visueloffre\/[\w/-]+-photo-hd\.webp/g),
     ),
   ];
-  const dpe = pick(text, String.raw`Classe énergie \(dpe\) ([A-G])\b`);
-  const ges = pick(text, String.raw`Classe climat \(ges\) ([A-G])\b`);
+  const dpe = firstMatch(text, String.raw`Classe énergie \(dpe\) ([A-G])\b`);
+  const ges = firstMatch(text, String.raw`Classe climat \(ges\) ([A-G])\b`);
   const contact = negotiator($);
 
   return {
     title: title === '' ? undefined : title,
     description: description === '' ? undefined : description,
     priceText: `${rent} CC par mois`,
-    chargesText: pick(text, String.raw`dont (${AMOUNT}) de provisions pour charges`),
-    feesText: pick(text, String.raw`(${AMOUNT}) TTC d'honoraires`),
-    depositText: pick(text, String.raw`(${AMOUNT}) de dépôt de garantie`),
-    areaText: pick(title, String.raw`(${NUMBER}) m²`)?.concat(' m²'),
-    roomsText: pick(title, String.raw`(\d+ pièces?)`),
+    chargesText: firstMatch(text, String.raw`dont (${AMOUNT}) de provisions pour charges`),
+    feesText: firstMatch(text, String.raw`(${AMOUNT}) TTC d'honoraires`),
+    depositText: firstMatch(text, String.raw`(${AMOUNT}) de dépôt de garantie`),
+    areaText: firstMatch(title, String.raw`(${NUMBER}) m²`)?.concat(' m²'),
+    roomsText: firstMatch(title, String.raw`(\d+ pièces?)`),
     propertyTypeText: title === '' ? header?.[1] : title,
     cityText: header?.[2],
     postalCodeText: header?.[3],

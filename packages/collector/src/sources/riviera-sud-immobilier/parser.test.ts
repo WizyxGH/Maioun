@@ -1,33 +1,14 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { MVP_CRITERIA, type ScrapeContext } from '@maioun/shared';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { rivieraSudImmobilierScraper } from './index.js';
 import { listingsOf, parseListPage } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
+import { contextServing } from '../../../../../tests/helpers/scrape-context.js';
 
 // Liste des locations du 2026-09-15, allégée : flux RSC réduit aux biens.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/riviera-sud-immobilier');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('riviera-sud-immobilier');
 const ORIGIN = 'https://www.rsi-immo.com';
 const LIST = `${ORIGIN}/biens-immobiliers/tous/location`;
-
-function context(pages: Record<string, string>): ScrapeContext {
-  return {
-    criteria: MVP_CRITERIA,
-    mode: 'live',
-    fetch: (url) =>
-      Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
-    isKnown: () => false,
-    knownRefs: new Set(),
-    lastFullPassAt: null,
-    detailMemory: { get: () => null, save: () => Promise.resolve() },
-    pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
-    log: () => undefined,
-    credentials: null,
-    shouldStop: () => false,
-  };
-}
 
 describe('Riviera Sud Immobilier (IWS, flux RSC)', () => {
   const html = read('location.html');
@@ -71,16 +52,18 @@ describe('Riviera Sud Immobilier (IWS, flux RSC)', () => {
 
   it('rend `empty` quand la plateforme annonce zéro bien', async () => {
     const result = await rivieraSudImmobilierScraper.run(
-      context({ [LIST]: read('location-vide.html') }),
+      contextServing({ [LIST]: read('location-vide.html') }),
     );
     expect(result).toMatchObject({ stopReason: 'empty', listings: [], warnings: [] });
   });
 
   it('collecte la page sans avertissement, et signale un flux disparu', async () => {
-    const full = await rivieraSudImmobilierScraper.run(context({ [LIST]: html }));
+    const full = await rivieraSudImmobilierScraper.run(contextServing({ [LIST]: html }));
     expect(full).toMatchObject({ stopReason: 'completed', requestCount: 1, warnings: [] });
     expect(full.listings).toHaveLength(3);
-    const broken = await rivieraSudImmobilierScraper.run(context({ [LIST]: '<html></html>' }));
+    const broken = await rivieraSudImmobilierScraper.run(
+      contextServing({ [LIST]: '<html></html>' }),
+    );
     expect(broken.stopReason).toBe('completed');
     expect(broken.warnings.join(' ')).toMatch(/Aucun bien lisible/);
   });

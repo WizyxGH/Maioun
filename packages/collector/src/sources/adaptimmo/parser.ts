@@ -159,7 +159,9 @@ export function toRawListing(
     cityText: city?.trim(),
     agencyName,
     contactFormUrl: card.sourceUrl,
-    extra: { reference: card.reference, ...(district !== undefined ? { quartier: district } : {}) },
+    // `card.reference` est la clé `cle=` de l'URL, pas une référence publiée :
+    // la version 2 de l'API lit le vrai numéro de mandat (§17).
+    extra: { ...(district !== undefined ? { quartier: district } : {}) },
     ...(card.priceText !== undefined ? { priceText: card.priceText } : {}),
     ...(card.imageUrl !== undefined ? { imageUrls: [card.imageUrl] } : {}),
     ...detail,

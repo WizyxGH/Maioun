@@ -448,7 +448,8 @@ export function parseDetailPage(
     contactFormUrl: parsedUrl.canonicalUrl,
     ...(jsonLd.imageUrls !== undefined ? { imageUrls: jsonLd.imageUrls } : {}),
     extra: {
-      reference: parsedUrl.reference,
+      // Pas de `reference` : Netty n'affiche pas de référence d'agence, et
+      // l'identifiant d'URL n'en est pas une (§17).
       // `features` est le champ que la normalisation FOUILLE : elle y cherche
       // l'étage, l'ascenseur, le balcon, les chambres, le DPE, le meublé. On y
       // verse les critères ET les mentions légales, seules porteuses des

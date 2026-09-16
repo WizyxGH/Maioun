@@ -13,7 +13,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { AMOUNT } from '../shared/labels.js';
+import { AMOUNT, firstMatch } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const AGENCY_NAME = 'Imodirect';
@@ -71,9 +71,6 @@ export function parseList(html: string): RawListing[] {
   return [...byRef.values()];
 }
 
-const pick = (text: string, pattern: string): string | undefined =>
-  new RegExp(pattern, 'i').exec(text)?.[1]?.trim();
-
 /** Ce que la fiche apprend ; `null` si elle n'a pas de loyer. */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
@@ -88,7 +85,10 @@ export function parseDetail(html: string): RawDraft | null {
   const features = cleanText(summary.text());
   const place = PLACE.exec(cleanText($('.degrade-rouge').first().text()));
   const district = cleanText(summary.nextAll('span.en-tete').first().text());
-  const available = pick(cleanText($('body').text()), String.raw`Dispo le (\d{2}/\d{2}/\d{2,4})`);
+  const available = firstMatch(
+    cleanText($('body').text()),
+    String.raw`Dispo le (\d{2}/\d{2}/\d{2,4})`,
+  );
 
   const panels = $('.annonce-description-div .shadow-panel');
   const describe = panels.first().clone();
@@ -112,7 +112,7 @@ export function parseDetail(html: string): RawDraft | null {
     ),
   ].filter((url) => url.startsWith('https://'));
   const title = cleanText($('title').first().text());
-  const dpe = pick(more, String.raw`Classe énergétique\s*:\s*([A-G])\b`);
+  const dpe = firstMatch(more, String.raw`Classe énergétique\s*:\s*([A-G])\b`);
   // Le GES n'est que dans l'échelle : la case retenue porte son identifiant.
   const ges = /^ges-([a-g])$/.exec($('.ges .selected').first().attr('id') ?? '')?.[1];
 
@@ -126,10 +126,10 @@ export function parseDetail(html: string): RawDraft | null {
     title: title === '' ? undefined : title,
     description: description === '' ? undefined : description,
     priceText: price,
-    chargesText: pick(figures, String.raw`Charges\s*:\s*(${AMOUNT})`),
-    feesText: pick(more, String.raw`frais d'agence sont de (${AMOUNT})`),
-    areaText: pick(features, String.raw`(\d+(?:[.,]\d+)?\s*m²)`),
-    roomsText: pick(features, String.raw`(\d+ pièces?)`),
+    chargesText: firstMatch(figures, String.raw`Charges\s*:\s*(${AMOUNT})`),
+    feesText: firstMatch(more, String.raw`frais d'agence sont de (${AMOUNT})`),
+    areaText: firstMatch(features, String.raw`(\d+(?:[.,]\d+)?\s*m²)`),
+    roomsText: firstMatch(features, String.raw`(\d+ pièces?)`),
     propertyTypeText: cleanText(header.find('span.en-tete').first().text()) || undefined,
     furnishedText: features,
     cityText: place?.[1],

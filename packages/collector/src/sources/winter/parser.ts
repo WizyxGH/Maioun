@@ -48,8 +48,9 @@ function buildListing(fields: {
     cityText: cleanText(city) || undefined,
     agencyName,
     contactFormUrl: sourceUrl,
+    // `reference` sert de `sourceRef` ; l'identifiant tiré du lien n'est pas
+    // une référence d'agence (§17).
     imageUrls: image !== undefined && /^https?:/i.test(image) ? [image] : undefined,
-    extra: { reference },
   });
 }
 

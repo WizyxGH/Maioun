@@ -15,23 +15,20 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 import { parseDetailPage, parseSitemap } from './parser.js';
 
 const SITEMAP_URL = 'https://www.lamy-immobilier.fr/sitemap.xml';
 
-/** Communes cibles (slug d'URL, sans le code postal). */
+/**
+ * Communes cibles (slug d'URL, sans le code postal).
+ *
+ * Antibes déborde le périmètre : le réseau y a une agence dont le sitemap
+ * mélange les annonces. Les deux communes écartées le sont par héritage de la
+ * liste recopiée, sans raison consignée.
+ */
 const TARGET_CITIES = new Set([
-  'nice',
-  'saint-laurent-du-var',
-  'cagnes-sur-mer',
-  'villeneuve-loubet',
-  'beaulieu-sur-mer',
-  'cap-d-ail',
-  'villefranche-sur-mer',
-  'la-trinite',
-  'drap',
-  'carros',
-  'contes',
+  ...portalCommuneSlugs({ omit: ['saint-andre-de-la-roche', 'colomars'] }),
   'antibes',
 ]);
 

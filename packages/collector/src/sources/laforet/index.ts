@@ -32,6 +32,7 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetailPage, parseDpeSvg, parseSearchPage } from './parser.js';
+import { KNOWN_RATIO_STOP, knownRatio } from '../shared/known-territory.js';
 
 /**
  * Codes postaux couverts. Nice s'étend sur quatre codes ; les interroger tous
@@ -80,14 +81,6 @@ export const LAFORET_DESCRIPTOR: SourceDescriptor = {
     'Les pages incluent les agences voisines (Cagnes, Beausoleil, Cannes) : le ' +
     'filtrage sur la ville est assuré par le scoring, pas par le scraper.',
 };
-
-/**
- * Nombre d'annonces déjà connues, au-delà duquel on cesse de paginer.
- *
- * §9 : quand une page ne contient presque que du déjà-vu, on est descendu assez
- * loin dans l'historique. Continuer coûterait des requêtes pour rien.
- */
-const KNOWN_RATIO_STOP = 0.8;
 
 export const laforetScraper: Scraper = {
   descriptor: LAFORET_DESCRIPTOR,
@@ -166,8 +159,8 @@ export const laforetScraper: Scraper = {
           break outer;
         }
 
-        // §9 : arrêt anticipé en terrain connu.
-        const ratio = parsed.listings.length === 0 ? 1 : knownOnPage / parsed.listings.length;
+        // Arrêt anticipé en terrain connu.
+        const ratio = knownRatio(parsed.listings.length, knownOnPage);
         if (ratio >= KNOWN_RATIO_STOP) {
           context.log('page.known_territory', { url, ratio: Math.round(ratio * 100) });
           stopReason = 'knownTerritory';

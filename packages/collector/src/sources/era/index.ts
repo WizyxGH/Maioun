@@ -21,6 +21,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseListPage } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 const ORIGIN = 'https://www.eraimmobilier.com';
 
@@ -99,11 +100,7 @@ export const eraScraper: Scraper = {
         const message = error instanceof Error ? error.message : String(error);
         warnings.push(`Échec sur ${url} : ${message}`);
         context.log('page.failed', { url, error: message });
-        stopReason = message.includes('429')
-          ? 'rateLimited'
-          : message.includes('refusé')
-            ? 'blocked'
-            : 'tooManyErrors';
+        stopReason = stopReasonFromError(message);
         break;
       }
     }

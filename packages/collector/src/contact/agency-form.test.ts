@@ -3,8 +3,6 @@
  * Gabarits anonymisés relevés le 2026-09-15 ; aucun accès réseau.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   agencyFormSupported,
@@ -15,9 +13,9 @@ import {
   type AgencyFormFields,
   type AgencyFormRequest,
 } from './agency-form.js';
+import { fixtureReader } from '../../../../tests/helpers/fixtures.js';
 
-const FIXTURES = join(import.meta.dirname, '../../../../tests/fixtures/contact');
-const fixture = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const fixture = fixtureReader('contact');
 
 const ORPI_PAGE = fixture('orpi-annonce.html');
 const PAGE_URL =

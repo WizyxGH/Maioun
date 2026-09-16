@@ -42,7 +42,6 @@ export function parseSitemap(xml: string): RawListing[] {
         postalCodeText: postalCode,
         agencyName: AGENCY_NAME,
         contactFormUrl: sourceUrl,
-        extra: { reference },
       }),
     );
   }

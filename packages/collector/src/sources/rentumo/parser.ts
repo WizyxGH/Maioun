@@ -203,7 +203,8 @@ export function parseListPage(html: string, pageUrl: string): RentumoList {
         cityText: cityText !== '' ? cityText : undefined,
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         extra: {
-          reference,
+          // `reference` est l'identifiant de la carte, celui de l'URL : il sert
+          // de `sourceRef`, pas de référence d'agence (§17).
           ...(host !== undefined ? { origine: host } : {}),
         },
       }),

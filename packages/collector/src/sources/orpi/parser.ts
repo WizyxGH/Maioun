@@ -243,8 +243,10 @@ function findCardUrl(
  * atouts). Le quartier n'est PAS une adresse : le placer dans `addressText`
  * ferait gagner à tort le bonus « même adresse » au dédoublonnage (§14).
  */
-function buildOrpiExtra(eulerian: EulerianData | null, reference: string): Record<string, string> {
-  const extra: Record<string, string> = { reference };
+function buildOrpiExtra(eulerian: EulerianData | null): Record<string, string> {
+  // Pas de `reference` : `data-reference` recopie le dernier segment de l'URL,
+  // et Orpi n'affiche aucune référence d'agence sur ses cartes (§17).
+  const extra: Record<string, string> = {};
   if (eulerian === null) return extra;
   if (eulerian.quartier !== undefined && eulerian.quartier !== '') {
     extra['quartier'] = eulerian.quartier;
@@ -367,7 +369,7 @@ function parseCard(
     // fiche est le canal prévu ; on ne force aucune requête pour plus.
     contactFormUrl: url.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-    extra: buildOrpiExtra(eulerian, reference),
+    extra: buildOrpiExtra(eulerian),
   });
 }
 

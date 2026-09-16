@@ -193,7 +193,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls.slice(0, 10) : undefined,
     extra: {
-      reference: parsedUrl.reference,
+      // L'identifiant d'URL n'est pas la référence de l'agence (§17).
       ...(dpe !== undefined ? { dpe } : {}),
       ...(ges !== undefined ? { ges } : {}),
     },

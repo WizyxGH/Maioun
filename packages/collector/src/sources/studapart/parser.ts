@@ -162,18 +162,30 @@ function epochToDate(epochSeconds: number | undefined): string | undefined {
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
 }
 
-/** Référence stable + URL de fiche d'une source API. `null` si non identifiable. */
-function resolveRefAndUrl(
-  source: StudapartSource,
-): { reference: string; sourceUrl: string } | null {
-  const reference =
-    source.reference !== undefined ? String(source.reference) : (source.distinctId ?? '');
+/**
+ * Référence stable + URL de fiche d'une source API. `null` si non identifiable.
+ *
+ * DEUX VALEURS À NE PAS CONFONDRE. `reference` identifie l'annonce pour nous et
+ * peut retomber sur le `distinctId`, un identifiant technique. Seul le champ
+ * `reference` de l'API est PUBLIÉ, et lui seul a le droit de remplir `extra`.
+ */
+function resolveRefAndUrl(source: StudapartSource): {
+  reference: string;
+  sourceUrl: string;
+  extra: Record<string, string> | undefined;
+} | null {
+  const published = source.reference !== undefined ? String(source.reference) : undefined;
+  const reference = published ?? source.distinctId ?? '';
   if (reference === '') return null;
   const path =
     source.canonicalUrls?.fr ??
     (source.distinctId !== undefined ? `/fr/property/${source.distinctId}` : null);
   if (path === null) return null;
-  return { reference, sourceUrl: `${SITE_BASE}${path}` };
+  return {
+    reference,
+    sourceUrl: `${SITE_BASE}${path}`,
+    extra: published !== undefined ? { reference: published } : undefined,
+  };
 }
 
 /** Transforme une fiche brute de l'API en `RawListing`. `null` si inexploitable. */
@@ -181,7 +193,7 @@ function toRawListing(source: StudapartSource): RawListing | null {
   const charges = chargesFromRooms(source);
   const identity = resolveRefAndUrl(source);
   if (identity === null) return null;
-  const { reference, sourceUrl } = identity;
+  const { reference, sourceUrl, extra } = identity;
 
   const typeText = source.propertyType !== undefined ? (TYPE_FR[source.propertyType] ?? '') : '';
   // §17 : une colocation est signalée explicitement, pour que le filtre perso
@@ -219,7 +231,7 @@ function toRawListing(source: StudapartSource): RawListing | null {
     agencyName: 'Studapart',
     contactFormUrl: sourceUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-    extra: { reference },
+    extra,
   });
 }
 

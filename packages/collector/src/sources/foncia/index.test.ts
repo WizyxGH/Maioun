@@ -1,14 +1,12 @@
 /** Le passage Foncia : pagination, retraits et état des candidatures. Aucun accès réseau. */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { FetchResult, ScrapeContext } from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
 import { fonciaScraper } from './index.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/foncia');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('foncia');
 
 const PAGE_2 = 'https://fr.foncia.com/location/nice-06/appartement/page-2';
 const fiche = (reference: string): string =>

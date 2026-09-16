@@ -20,6 +20,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { listUrl, parseListPage, SEARCHES, type FigaroSearch } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 /** Pages lues au plus par recherche : 12 pour les appartements aujourd'hui. */
 const MAX_PAGES = 16;
@@ -185,11 +186,7 @@ async function readSearch(
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec de ${url} : ${message}`);
       context.log('list.failed', { url, error: message });
-      stopReason = message.includes('429')
-        ? 'rateLimited'
-        : message.includes('refusé')
-          ? 'blocked'
-          : 'tooManyErrors';
+      stopReason = stopReasonFromError(message);
       break;
     }
   }

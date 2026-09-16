@@ -14,7 +14,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { AMOUNT } from '../shared/labels.js';
+import { AMOUNT, firstMatch } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const AGENCY_NAME = 'La Franco Suisse';
@@ -58,9 +58,6 @@ function details($: cheerio.CheerioAPI): Map<string, string> {
   return fields;
 }
 
-const pick = (text: string, pattern: string): string | undefined =>
-  new RegExp(pattern, 'i').exec(text)?.[1]?.trim();
-
 /** Ce que la fiche apprend ; `null` sans loyer mensuel. */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
@@ -89,11 +86,11 @@ export function parseDetail(html: string): RawDraft | null {
   );
   const area = fields.get('Surface');
   const bedrooms = fields.get('Chambres');
-  const reference = pick(
+  const reference = firstMatch(
     cleanText($('.ct-productID').first().text()),
     String.raw`Référence : (\d+)`,
   );
-  const dpe = pick(description, String.raw`\bDPE\s*:?\s*([A-G])\b`);
+  const dpe = firstMatch(description, String.raw`\bDPE\s*:?\s*([A-G])\b`);
   const imageUrls = [
     ...new Set(
       $('a[rel^="prettyPhoto"]')
@@ -109,11 +106,11 @@ export function parseDetail(html: string): RawDraft | null {
     description: description === '' ? undefined : description,
     priceText: `${amount} ${charges !== undefined ? 'hors charges ' : ''}par mois`,
     chargesText: charges,
-    depositText: pick(description, String.raw`Dépôt de garantie[^€\n]*?(${AMOUNT})`),
-    feesText: pick(description, String.raw`Honoraires[^\n]*?(${AMOUNT})(?![^\n]*€)`),
+    depositText: firstMatch(description, String.raw`Dépôt de garantie[^€\n]*?(${AMOUNT})`),
+    feesText: firstMatch(description, String.raw`Honoraires[^\n]*?(${AMOUNT})(?![^\n]*€)`),
     // Un garage affiche « 0,00 m² ».
     areaText: area !== undefined && !/^0+(?:,0+)?\s*m/.test(area) ? area : undefined,
-    roomsText: pick(title, String.raw`(\d+ Pièces?)`),
+    roomsText: firstMatch(title, String.raw`(\d+ Pièces?)`),
     propertyTypeText: fields.get('Type') ?? bold[0],
     furnishedText: /\bmeubl[ée]/i.test(description) ? 'meublé' : undefined,
     cityText: bold[1],

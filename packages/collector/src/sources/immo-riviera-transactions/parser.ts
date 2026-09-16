@@ -14,8 +14,9 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { dpeFromValues } from '../../normalization/parse-listing-fields.js';
 import { cleanText } from '../../normalization/text.js';
+import { dpeFromDiagnosticImages } from '../shared/apimo-diagnostic.js';
+import { fieldMatching } from '../shared/labels.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
@@ -120,23 +121,6 @@ function labelled($: cheerio.CheerioAPI, block: string): Map<string, string> {
   return fields;
 }
 
-const find = (fields: Map<string, string>, pattern: RegExp): string | undefined =>
-  [...fields].find(([label, value]) => pattern.test(label) && value !== '')?.[1];
-
-function dpeOf($: cheerio.CheerioAPI): string | undefined {
-  const value = (kind: 1 | 2): number | undefined => {
-    const src = $('article img[src*="/fr/diagnostic/"]')
-      .toArray()
-      .map((img) => $(img).attr('src') ?? '')
-      .find((path) => new RegExp(`/${kind}/\\d+(?:\\.\\d+)?$`).test(path));
-    const number = Number(src?.split('/').pop());
-    return src !== undefined && Number.isFinite(number) ? number : undefined;
-  };
-  const kwh = value(1);
-  const co2 = value(2);
-  return kwh !== undefined && co2 !== undefined ? dpeFromValues(kwh, co2) : undefined;
-}
-
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location à l'année. */
 export function parseDetail(
   html: string,
@@ -172,7 +156,7 @@ export function parseDetail(
         .filter((href) => href.startsWith('https://')),
     ),
   ];
-  const dpe = dpeOf($);
+  const dpe = dpeFromDiagnosticImages($, 'article img[src*="/fr/diagnostic/"]');
   const chargesIncluded =
     /\bCC\b|charges comprises/i.test(price) ||
     [...legal.keys()].some((label) => /charges comprises/.test(label));
@@ -187,16 +171,18 @@ export function parseDetail(
     title: title === '' ? undefined : title,
     description: description === '' ? undefined : description,
     priceText: chargesIncluded && !/\bCC\b/.test(price) ? `${price} CC` : price,
-    chargesText: find(legal, /provision|charges locatives|^charges$/),
-    depositText: find(legal, /dépôt de garantie/),
-    feesText: find(legal, /honoraires/),
-    areaText: find(summary, /^surface$/),
-    roomsText: [find(summary, /^pièces$/), find(summary, /^chambres$/)].filter(Boolean).join(', '),
+    chargesText: fieldMatching(legal, /provision|charges locatives|^charges$/),
+    depositText: fieldMatching(legal, /dépôt de garantie/),
+    feesText: fieldMatching(legal, /honoraires/),
+    areaText: fieldMatching(summary, /^surface$/),
+    roomsText: [fieldMatching(summary, /^pièces$/), fieldMatching(summary, /^chambres$/)]
+      .filter(Boolean)
+      .join(', '),
     propertyTypeText: type,
     furnishedText: services.some((s) => /^meublé$/i.test(s)) ? 'meublé' : `${title} ${description}`,
     cityText: city ?? listing.cityText,
     postalCodeText: /-(\d{5})(?:-\d+)?$/.exec(listing.sourceUrl)?.[1] ?? listing.postalCodeText,
-    availableAtText: find(summary, /^disponibilit/),
+    availableAtText: fieldMatching(summary, /^disponibilit/),
     agencyName: site.agencyName,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: Object.keys(extra).length > 0 ? extra : undefined,

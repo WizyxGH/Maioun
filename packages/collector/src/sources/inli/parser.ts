@@ -149,7 +149,8 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
     ...(imageUrls.length > 0 ? { imageUrls } : {}),
-    extra: { reference: parsedUrl.reference, priceControlled: 'Loyer à prix maîtrisé (In’li)' },
+    // L'identifiant d'URL n'est pas la référence du bailleur (§17).
+    extra: { priceControlled: 'Loyer à prix maîtrisé (In’li)' },
   };
 
   return { listing, warnings };

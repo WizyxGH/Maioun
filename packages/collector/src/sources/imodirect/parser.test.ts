@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Cartes et fiche réelles du 2026-09-15, allégées et anonymisées.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/imodirect');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('imodirect');
 const FICHE_URL =
   'https://annonces.imodirect.com/annonces/annonceview/6144/appartement-nice-06100-m2-2-pieces-meuble';
 

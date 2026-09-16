@@ -10,6 +10,7 @@
  */
 
 import { makeApimoScraper } from '../apimo/scraper.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 
 export const gestionCassiniScraper = makeApimoScraper({
   id: 'gestion-cassini',
@@ -19,16 +20,10 @@ export const gestionCassiniScraper = makeApimoScraper({
     address: { street: '12 rue François Guisol', postalCode: '06300', city: 'Nice' },
   },
   sitemapUrl: 'https://www.gestioncassini.com/sitemap.xml',
-  citySlugs: [
-    'nice',
-    'saint-laurent-du-var',
-    'cagnes-sur-mer',
-    'beaulieu-sur-mer',
-    'cap-d-ail',
-    'villefranche-sur-mer',
-    'la-trinite',
-    'drap',
-    'carros',
-    'contes',
-  ],
+  // Les trois communes écartées le sont par héritage de la liste recopiée,
+  // sans raison consignée. Le filtre porte sur un sitemap déjà téléchargé :
+  // les rouvrir ne coûterait aucune requête.
+  citySlugs: portalCommuneSlugs({
+    omit: ['villeneuve-loubet', 'saint-andre-de-la-roche', 'colomars'],
+  }),
 });

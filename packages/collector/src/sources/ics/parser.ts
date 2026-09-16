@@ -114,8 +114,9 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         cityText: parseCity(decode(field(entry, 'ville')), title, slug),
         agencyName,
         contactFormUrl: sourceUrl,
+        // `reference` reste la clé interne du flux : c'est `sourceRef`, pas une
+        // référence d'agence, et rien ne la publie (§17).
         imageUrls: image !== undefined ? [image] : undefined,
-        extra: { reference },
       }),
     );
   }

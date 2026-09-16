@@ -16,6 +16,7 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseListPage } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 const LIST_URL = 'https://www.agence-winter.com/louer';
 
@@ -74,11 +75,7 @@ export const winterScraper: Scraper = {
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec de la liste : ${message}`);
       context.log('list.failed', { url: LIST_URL, error: message });
-      stopReason = message.includes('429')
-        ? 'rateLimited'
-        : message.includes('refusé')
-          ? 'blocked'
-          : 'tooManyErrors';
+      stopReason = stopReasonFromError(message);
     }
 
     // La liste n'a aucune description : la fiche la donne en entier.

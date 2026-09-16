@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseDetail, parseList } from '../apimo/legacy-template.js';
 import { CDC_IMMOBILIER } from './index.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Pages réelles du 2026-09-15, allégées : recherche de location vide, fiche de vente.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/cdc-immobilier');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('cdc-immobilier');
 
 describe('CDC Immobilier (gabarit Apimo classique)', () => {
   it('rend une recherche vide sans erreur', () => {

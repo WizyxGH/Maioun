@@ -207,7 +207,7 @@ export function parseDetail(html: string, link: ArthurimmoLink): RawListing | nu
     contactFormUrl: link.url,
     imageUrls: photos.length > 0 ? photos : undefined,
     extra: {
-      reference: link.reference,
+      // L'identifiant d'URL n'est pas la référence de l'agence (§17).
       ...(dpe !== undefined ? { dpe } : {}),
     },
   });

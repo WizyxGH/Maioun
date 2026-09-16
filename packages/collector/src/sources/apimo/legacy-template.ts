@@ -15,8 +15,9 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { dpeFromValues } from '../../normalization/parse-listing-fields.js';
 import { cleanText } from '../../normalization/text.js';
+import { dpeFromDiagnosticImages } from '../shared/apimo-diagnostic.js';
+import { fieldMatching } from '../shared/labels.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
@@ -83,10 +84,6 @@ function labelled($: cheerio.CheerioAPI, block: string): Map<string, string> {
   return fields;
 }
 
-/** Première valeur dont le libellé correspond. */
-const find = (fields: Map<string, string>, pattern: RegExp): string | undefined =>
-  [...fields].find(([label, value]) => pattern.test(label) && value !== '')?.[1];
-
 /** « Appartement <br> Nice Le Port » : type, puis ville suivie du quartier. */
 function placeOf(
   $: cheerio.CheerioAPI,
@@ -105,21 +102,6 @@ function placeOf(
     ...(city !== undefined && city !== '' ? { city } : {}),
     ...(rest !== '' ? { district: rest } : {}),
   };
-}
-
-/** Classe DPE lue dans l'adresse des images, sans les charger (robots.txt l'interdit). */
-function dpeOf($: cheerio.CheerioAPI): string | undefined {
-  const value = (kind: 1 | 2): number | undefined => {
-    const src = $('.diagnostics img[src*="/fr/diagnostic/"]')
-      .toArray()
-      .map((img) => $(img).attr('src') ?? '')
-      .find((path) => new RegExp(`/${kind}/\\d+(?:\\.\\d+)?$`).test(path));
-    const number = Number(src?.split('/').pop());
-    return src !== undefined && Number.isFinite(number) ? number : undefined;
-  };
-  const kwh = value(1);
-  const co2 = value(2);
-  return kwh !== undefined && co2 !== undefined ? dpeFromValues(kwh, co2) : undefined;
 }
 
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location à l'année. */
@@ -155,8 +137,8 @@ export function parseDetail(
         .filter((href) => href.startsWith('https://')),
     ),
   ];
-  const dpe = dpeOf($);
-  const rooms = find(summary, /^pièces$/);
+  const dpe = dpeFromDiagnosticImages($, '.diagnostics img[src*="/fr/diagnostic/"]');
+  const rooms = fieldMatching(summary, /^pièces$/);
   const bedrooms = /(\d+)\s*chambre/.exec(head.text())?.[1];
   const reference = /Ref\.\s*(\S+)/.exec(head.text())?.[1];
 
@@ -170,11 +152,11 @@ export function parseDetail(
     title: title === '' ? undefined : title,
     description: description === '' ? undefined : description,
     // Le libellé des charges accompagne le loyer quand elles y sont comprises.
-    priceText: find(legal, /charges comprises/) !== undefined ? `${price} CC` : price,
-    chargesText: find(legal, /provision|charges locatives|^charges$/),
-    depositText: find(legal, /dépôt de garantie/),
-    feesText: find(legal, /honoraires.*locataire|honoraires de location/),
-    areaText: find(summary, /^surface$/),
+    priceText: fieldMatching(legal, /charges comprises/) !== undefined ? `${price} CC` : price,
+    chargesText: fieldMatching(legal, /provision|charges locatives|^charges$/),
+    depositText: fieldMatching(legal, /dépôt de garantie/),
+    feesText: fieldMatching(legal, /honoraires.*locataire|honoraires de location/),
+    areaText: fieldMatching(summary, /^surface$/),
     // Les chambres ne se lisent qu'avec les pièces (ou `extra.features`).
     roomsText: [rooms, bedrooms !== undefined ? `${bedrooms} chambres` : undefined]
       .filter(Boolean)
@@ -185,7 +167,7 @@ export function parseDetail(
       : `${title} ${description}`,
     cityText: city,
     postalCodeText: /-(\d{5})(?:-\d+)?$/.exec(listing.sourceUrl)?.[1],
-    availableAtText: find(summary, /^disponibilit/),
+    availableAtText: fieldMatching(summary, /^disponibilit/),
     agencyName: site.agencyName,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: Object.keys(extra).length > 0 ? extra : undefined,

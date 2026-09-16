@@ -24,6 +24,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseSearchPage } from './parser.js';
+import { KNOWN_RATIO_STOP, knownRatio } from '../shared/known-territory.js';
 
 /**
  * Points d'entrée, tous déclarés dans le sitemap officiel :
@@ -52,27 +53,30 @@ export const PAP_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   /**
-   * DÉSACTIVÉE le 2026-08-15 — voir docs/sources.md.
+   * DÉSACTIVÉE le 2026-08-15, RECONTRÔLÉE le 2026-09-16 — voir docs/sources.md.
    *
-   * Le robots.txt autorise ces pages et le sitemap les déclare, MAIS le WAF
-   * du site répond 403 aux clients HTTP non-navigateurs, y compris identifiés
-   * honnêtement (vérifié : même UA, même IP → curl 200, fetch Node 403 :
-   * filtrage sur l'empreinte du client). Imiter l'empreinte d'un navigateur
-   * serait un contournement (§10) : on n'insiste pas. Le scraper et ses tests
-   * restent prêts si la politique du site évolue.
+   * Le robots.txt autorise toujours ces pages et le sitemap les déclare
+   * toujours, MAIS le pare-feu s'est refermé davantage. En août, le filtrage
+   * portait sur l'empreinte du client : même UA, même IP, curl passait quand
+   * fetch Node recevait 403. Le 2026-09-16, LES DEUX reçoivent 403, et la page
+   * servie est le défi JavaScript de Cloudflare — « Just a moment... » —, que
+   * seul un navigateur peut résoudre.
+   *
+   * Le franchir demanderait d'exécuter ce défi : c'est exactement le
+   * contournement d'anti-bot que le projet s'interdit (§10). On n'insiste pas.
+   * Le scraper et ses tests restent prêts si la politique du site évolue ; la
+   * vérification se refait en deux requêtes.
    */
   enabled: false,
   allowedPaths: ['/annonce/locations-*'],
   notes:
-    'robots.txt vérifié le 2026-08-15 : /*?* et /recherche/* interdits, pages ' +
-    '/annonce/locations-{ville}-g{id} autorisées ET déclarées dans le sitemap ' +
-    'liste_annonces.xml — mais le WAF refuse les clients non-navigateurs ' +
-    '(403 sur fetch Node, 200 sur curl, même UA/IP). Source désactivée sans ' +
+    'robots.txt revérifié le 2026-09-16 : /*?*, /recherche/detail/ et ' +
+    '/annonce/liste/ interdits, pages /annonce/locations-{ville}-g{id} ' +
+    'toujours autorisées ET déclarées dans le sitemap liste_annonces.xml — ' +
+    'mais Cloudflare y répond 403 avec un défi JavaScript, pour curl comme ' +
+    'pour fetch Node (en août, curl passait encore). Source désactivée sans ' +
     'contournement (§10).',
 };
-
-/** §9 : au-delà de ce ratio de déjà-vu sur une page, on cesse de paginer. */
-const KNOWN_RATIO_STOP = 0.8;
 
 export const papScraper: Scraper = {
   descriptor: PAP_DESCRIPTOR,
@@ -149,8 +153,8 @@ export const papScraper: Scraper = {
           break outer;
         }
 
-        // §9 : arrêt anticipé en terrain connu.
-        const ratio = parsed.listings.length === 0 ? 1 : knownOnPage / parsed.listings.length;
+        // Arrêt anticipé en terrain connu.
+        const ratio = knownRatio(parsed.listings.length, knownOnPage);
         if (ratio >= KNOWN_RATIO_STOP) {
           context.log('page.known_territory', { url, ratio: Math.round(ratio * 100) });
           stopReason = 'knownTerritory';

@@ -316,7 +316,9 @@ function toRawListing(ad: BieniciAd): RawListing | null {
     availableAtText: ad.availableDate,
     imageUrls: photoUrls(ad.photos),
     extra: compactExtra({
-      reference: ad.reference ?? id,
+      // `ad.reference` est la référence du déposant. Sans elle, rien : l'`id`
+      // Bien'ici qui servait de repli n'est qu'un numéro de portail.
+      reference: ad.reference,
       quartier: districtOf(ad),
       dpe: ad.energyClassification,
       ges: ad.greenhouseGazClassification,

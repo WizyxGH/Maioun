@@ -554,9 +554,11 @@ function buildFromTitle(
     contactFormUrl: sourceUrl,
     ...(image !== undefined && /^https?:/i.test(image) ? { imageUrls: [image] } : {}),
     extra: {
-      // La référence de l'ANNONCEUR quand le digest la donne, sinon la nôtre :
-      // c'est elle qui s'affiche et qui sert à rapprocher d'une source directe.
-      reference: advertiserReference ?? reference,
+      // La référence de l'ANNONCEUR, quand le digest la donne. À défaut, RIEN :
+      // la nôtre est soit l'identifiant du portail, soit une empreinte
+      // titre+surface+prix que nous fabriquons — ni l'une ni l'autre ne se cite
+      // au téléphone (§17).
+      ...(advertiserReference !== null ? { reference: advertiserReference } : {}),
       portal: portal.id,
       ...(district !== undefined ? { quartier: district } : {}),
       // Le loyer PRECEDENT, quand le digest annonce lui-meme une baisse.

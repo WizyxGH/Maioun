@@ -65,7 +65,6 @@ export function parseList(html: string): RawListing[] {
         furnishedText: description,
         agencyName: AGENCY_NAME,
         contactFormUrl: sourceUrl,
-        extra: { reference },
       }),
     );
   });

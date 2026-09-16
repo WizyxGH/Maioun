@@ -100,7 +100,6 @@ export function parseList(html: string): RawListing[] {
         agencyName: AGENCY_NAME,
         contactFormUrl: `${sourceUrl}#contact`,
         imageUrls: image !== undefined ? [image] : undefined,
-        extra: { reference },
       }),
     );
   });

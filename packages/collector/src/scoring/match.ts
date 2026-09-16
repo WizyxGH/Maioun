@@ -63,10 +63,41 @@ export function isStudentHousing(listing: AggregatedListing): boolean {
   const raw = `${listing.title.value ?? ''} ${listing.description.value ?? ''}`;
   if (isStudentOnlyHousing(raw)) return true;
   if (isShortTermStudentLease(raw)) return true;
-  // Offre dédiée aux étudiants dans l'URL (ex. /…location-etudiants…/).
-  return listing.occurrences.some((occurrence) =>
-    /location-etudiant|logement-etudiant/i.test(occurrence.sourceUrl),
-  );
+  return listing.occurrences.some((occurrence) => dedicatedStudentUrl(occurrence.sourceUrl));
+}
+
+/** Le mot qui désigne une offre étudiante dans une adresse. */
+const STUDENT_URL_MARKER = /location-etudiants?|logement-etudiants?/i;
+
+/**
+ * `true` si l'adresse désigne une offre DÉDIÉE aux étudiants.
+ *
+ * LE MÊME MOT DIT DEUX CHOSES SELON OÙ IL SE TROUVE, et les confondre écartait
+ * un portail entier. Chez une agence, le marqueur est glissé dans le slug du
+ * bien lui-même — « …/location+appartement+nice+location-etudiants+86 » chez
+ * Dazur : il qualifie CE bien, que l'agence a rangé dans son offre étudiante.
+ * Sur un portail étudiant, c'est la PREMIÈRE case du chemin, la rubrique par
+ * laquelle passent toutes ses locations — « /location-etudiant/nice-06/… »
+ * chez ImmoJeune : elle qualifie le site, et ne dit rien du bien.
+ *
+ * La différence n'est pas une subtilité : les annonces d'ImmoJeune sont des
+ * studios et des deux-pièces ordinaires, sans condition d'étudiant, dont le
+ * formulaire de candidature propose « Salarié ». Toutes portaient ce mot dans
+ * leur adresse, et toutes se seraient donc exclues d'elles-mêmes.
+ *
+ * Le texte, lui, continue de trancher dans les deux cas : une annonce de
+ * portail étudiant qui dit « bail étudiant » est exclue comme les autres.
+ */
+function dedicatedStudentUrl(sourceUrl: string): boolean {
+  let pathname: string;
+  try {
+    pathname = new URL(sourceUrl).pathname;
+  } catch {
+    return STUDENT_URL_MARKER.test(sourceUrl);
+  }
+  const segments = pathname.split('/').filter((segment) => segment !== '');
+  // La rubrique d'un site n'est pas une qualité du bien : on saute la première.
+  return segments.slice(1).some((segment) => STUDENT_URL_MARKER.test(segment));
 }
 
 /** Évalue la correspondance d'un logement aux critères de recherche. */

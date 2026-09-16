@@ -13,7 +13,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { AMOUNT } from '../shared/labels.js';
+import { AMOUNT, firstMatch } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const AGENCY_NAME = 'Moss Immobilier';
@@ -53,9 +53,6 @@ function properties($: cheerio.CheerioAPI): Map<string, string> {
   return fields;
 }
 
-const pick = (text: string, pattern: string): string | undefined =>
-  new RegExp(pattern, 'i').exec(text)?.[1]?.trim();
-
 /** Ce que la fiche apprend ; `null` si ce n'est pas une location. */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
@@ -66,7 +63,7 @@ export function parseDetail(html: string): RawDraft | null {
   const title = cleanText($('h1.apimo_title').first().text());
   const description = htmlToText($, '.apimo_compagne_describe');
   // « Loyer : 1350 € (dont 113€ de charges…) » : le prix affiché est charges comprises.
-  const charges = pick(description, String.raw`dont (${AMOUNT}) de (?:charges|provisions)`);
+  const charges = firstMatch(description, String.raw`dont (${AMOUNT}) de (?:charges|provisions)`);
   const withCharges = charges !== undefined || /charges comprises/i.test(description);
   // « Nice - 06300 »
   const place = /^(.+?) - (\d{5})$/.exec(
@@ -91,9 +88,12 @@ export function parseDetail(html: string): RawDraft | null {
     description: description === '' ? undefined : description,
     priceText: `${amount} € ${withCharges ? 'CC ' : ''}par mois`,
     chargesText: charges,
-    depositText: pick(description, String.raw`(?:Caution|Dépôt de garantie)[^€\n]*?(${AMOUNT})`),
+    depositText: firstMatch(
+      description,
+      String.raw`(?:Caution|Dépôt de garantie)[^€\n]*?(${AMOUNT})`,
+    ),
     // « Honoraires 13€/M2 : (…) : 546€ » : le dernier montant de la ligne.
-    feesText: pick(description, String.raw`Honoraires[^\n]*?(${AMOUNT})(?![^\n]*€)`),
+    feesText: firstMatch(description, String.raw`Honoraires[^\n]*?(${AMOUNT})(?![^\n]*€)`),
     areaText: fields.get('Surfaces'),
     roomsText: rooms !== undefined && rooms !== '0' ? `${rooms} pièces` : undefined,
     // Le plugin type « Appartement » un local commercial : le titre le dit.

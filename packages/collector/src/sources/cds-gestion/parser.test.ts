@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { isEmptyList, parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Pages réelles du 2026-09-15, allégées : recherche de location vide, ventes,
 // et une location déjà « Loué! » rouverte pour le test.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/cds-gestion');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('cds-gestion');
 const open = (): string => read('fiche-louee.html').replace(' Loué! ', ' À Louer ');
 
 describe('parseList (CDS Gestion)', () => {

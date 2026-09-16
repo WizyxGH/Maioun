@@ -95,7 +95,6 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         agencyName,
         contactFormUrl: sourceUrl,
         ...(image !== undefined ? { imageUrls: [new URL(image, pageUrl).toString()] } : {}),
-        extra: { reference },
       }),
     );
   });

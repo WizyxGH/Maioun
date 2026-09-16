@@ -14,7 +14,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { AMOUNT, NUMBER, flatText } from '../shared/labels.js';
+import { AMOUNT, NUMBER, energyLabels, flatText } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const AGENCY_NAME = 'Cabinet Crouzet & Breil';
@@ -22,7 +22,17 @@ export const LIST_URL = 'https://crouzet-breil.com/type-offre/location/';
 
 const FICHE = /^https:\/\/crouzet-breil\.com\/l_immobilier\/([a-z0-9-]+)\/?$/;
 
-/** Communes de la zone qu'une description peut nommer en tête. */
+/**
+ * Communes de la zone qu'une description peut nommer en tête.
+ *
+ * ÉCRITE À LA MAIN, ET NON DÉRIVÉE DE `shared/communes.ts` : ce n'est pas une
+ * liste de slugs d'URL mais un motif de reconnaissance dans du texte libre
+ * (« NICE NORD – 36 BD GORBELLA »). Il lui faut les noms tels qu'un rédacteur
+ * les tape — « cap-d'ail » avec son apostrophe, « la trinité » avec son espace
+ * et son accent —, que le périmètre partagé ne connaît pas : il n'expose que
+ * des slugs sans accent ni apostrophe. Tant qu'il ne portera pas de nom
+ * affichable, la dériver produirait un motif qui ne reconnaît plus rien.
+ */
 const LEADING_CITY =
   /^(nice|saint-laurent-du-var|cagnes-sur-mer|villeneuve-loubet|beaulieu-sur-mer|cap-d'ail|villefranche-sur-mer|la trinité|drap|carros|contes)\b/i;
 
@@ -106,8 +116,7 @@ export function parseDetail(html: string): RawDraft | null {
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: {
       reference: reference ?? '',
-      ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
-      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
+      ...energyLabels(dpe, ges),
     },
   };
 }

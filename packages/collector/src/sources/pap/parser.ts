@@ -108,7 +108,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     // normalisation le traitera comme inconnu, jamais comme zéro.
     const hasNumericPrice = /\d/.test(priceText);
 
-    const extra: Record<string, string> = { reference: parsed.reference };
+    // L'identifiant d'URL n'est pas la référence du bailleur (§17).
+    const extra: Record<string, string> = {};
     if (dpe !== undefined) extra['dpe'] = dpe;
 
     const listing: RawListing = {

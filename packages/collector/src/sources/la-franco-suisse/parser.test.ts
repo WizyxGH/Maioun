@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseDetail, parseList } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Liste et fiches réelles du 2026-09-15, allégées.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/la-franco-suisse');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('la-franco-suisse');
 
 describe('parseList (La Franco Suisse)', () => {
   const listings = parseList(read('locations.html'));

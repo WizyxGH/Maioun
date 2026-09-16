@@ -8,19 +8,17 @@
  */
 
 import { makeApimoScraper } from '../apimo/scraper.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 
 export const dazurScraper = makeApimoScraper({
   id: 'dazur',
   name: "D'Azur Immobilier",
   domain: 'dazur.fr',
   sitemapUrl: 'https://dazur.fr/sitemap.xml',
-  citySlugs: [
-    'nice',
-    'saint-laurent-du-var',
-    'cagnes-sur-mer',
-    'villefranche-sur-mer',
-    'beaulieu-sur-mer',
-    'cap-d-ail',
-    'la-trinite',
-  ],
+  // Les communes écartées le sont par héritage de la liste recopiée, sans
+  // raison consignée. Le filtre porte sur un sitemap déjà téléchargé : les
+  // rouvrir ne coûterait aucune requête.
+  citySlugs: portalCommuneSlugs({
+    omit: ['villeneuve-loubet', 'saint-andre-de-la-roche', 'drap', 'carros', 'contes', 'colomars'],
+  }),
 });

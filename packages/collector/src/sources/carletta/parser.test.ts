@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseDetail, parseSitemap } from './parser.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Sitemap et fiche réels du 2026-09-14, allégés.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/carletta');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('carletta');
 
 describe('parseSitemap (Carletta)', () => {
   const listings = parseSitemap(read('sitemap-fr.xml'));

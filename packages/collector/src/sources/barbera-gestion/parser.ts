@@ -13,6 +13,7 @@ import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
+import { energyLabels } from '../shared/labels.js';
 
 export const AGENCY_NAME = 'Barbera Gestion & Patrimoine';
 export const LIST_URL = 'https://www.barbera-gestion.com/nos-biens-1';
@@ -121,8 +122,7 @@ export function parseDetail(html: string): RawDraft | null {
     extra: {
       ...(reference !== undefined ? { reference } : {}),
       ...(district !== undefined && district !== '' ? { quartier: district } : {}),
-      ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
-      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
+      ...energyLabels(dpe, ges),
     },
   };
 }

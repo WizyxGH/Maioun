@@ -21,6 +21,7 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetailPage, parseListPage } from './parser.js';
+import { stopReasonFromError } from '../shared/stop-reason.js';
 
 const LIST_URL = 'https://www.borne-delaunay.com/immobilier/louer-13';
 
@@ -93,11 +94,7 @@ export const borneDelaunayScraper: Scraper = {
       // §69 : échec propre, les autres sources continuent.
       const message = error instanceof Error ? error.message : String(error);
       context.log('list.failed', { url: LIST_URL, error: message });
-      const stopReason: StopReason = message.includes('429')
-        ? 'rateLimited'
-        : message.includes('refusé')
-          ? 'blocked'
-          : 'tooManyErrors';
+      const stopReason: StopReason = stopReasonFromError(message);
       return {
         sourceId: BORNE_DELAUNAY_DESCRIPTOR.id,
         listings: [],

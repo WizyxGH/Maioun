@@ -1,14 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { AGENCE_CASTEL } from '../agence-castel/index.js';
 import { isEmptyList, parseDetail, parseList } from './legacy-template.js';
+import { fixtureReader, readFixture } from '../../../../../tests/helpers/fixtures.js';
 
 // Pages réelles du 2026-09-15, allégées. Aucune location publiée : la fiche de
 // vente est convertie en location pour éprouver le parseur.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/agence-castel');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('agence-castel');
 
 const URL =
   'http://www.agencecastel.com/fr/recherche/location-appartement-2-pieces-nice-le-port-06300-4401705';
@@ -32,8 +30,7 @@ describe('parseList (Agence Castel)', () => {
 
   it('reconnaît le bloc « Aucun résultat » des deux agences, et lui seul', () => {
     expect(isEmptyList(read('location.html'))).toBe(true);
-    const cdc = join(FIXTURES, '../cdc-immobilier/location.html');
-    expect(isEmptyList(readFileSync(cdc, 'utf8'))).toBe(true);
+    expect(isEmptyList(readFixture('cdc-immobilier', 'location.html'))).toBe(true);
     expect(isEmptyList(read('vente.html'))).toBe(false);
     // Le même texte en attribut du sélecteur de ville ne compte pas.
     expect(isEmptyList('<select data-noResults="Aucun résultat"></select>')).toBe(false);

@@ -161,7 +161,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       .get()
       .filter((src): src is string => typeof src === 'string');
 
-    const extra: Record<string, string> = { reference: url.reference };
+    // L'identifiant d'URL n'est pas la référence de l'agence (§17).
+    const extra: Record<string, string> = {};
     if (dpe !== '') extra['dpe'] = dpe;
 
     const listing: RawListing = {
