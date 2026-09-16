@@ -38,6 +38,31 @@ describe('SEARCHES (FNAIM)', () => {
     expect(slugs).toContain('18-location-appartement-st-andre-06730');
     expect(slugs.filter((slug) => slug.includes('saint-'))).toEqual([]);
   });
+
+  /**
+   * LA LISTE ENTIÈRE, FIGÉE. Ces adresses sont celles que le portail honore ;
+   * une seule qu'il ne reconnaît pas et il sert son accueil, en 200 et sans
+   * annonce. Le test échoue donc si la fabrique change d'écriture — et il dit
+   * du même coup quelles communes sont demandées.
+   */
+  it('construit exactement ces adresses', () => {
+    expect(SEARCHES.map((search) => listUrl(search, 1))).toEqual([
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-nice-06000.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-st-laurent-du-var-06700.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-cagnes-sur-mer-06800.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-villeneuve-loubet-06270.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-beaulieu-sur-mer-06310.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-cap-d-ail-06320.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-villefranche-sur-mer-06230.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-la-trinite-06340.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-st-andre-06730.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-drap-06340.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-carros-06510.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-contes-06390.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-appartement-colomars-06670.htm',
+      'https://www.fnaim.fr/liste-annonces-immobilieres/18-location-maison-alpes-maritimes-06.htm',
+    ]);
+  });
 });
 
 describe('listUrl (FNAIM)', () => {

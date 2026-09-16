@@ -556,6 +556,8 @@ interface EstateData {
   readonly heatingCoolingFeatures?: readonly string[];
   readonly dpeDisplay?: boolean;
   readonly consumptionIndex?: number | null;
+  /** Étiquette climat, sur la même échelle 1–7 que `consumptionIndex`. */
+  readonly emissionIndex?: number | null;
   /** Mise en ligne réelle, la seule date de parution fiable d'Orpi. */
   readonly onMarketSince?: string | null;
   readonly zipCode?: string | null;
@@ -649,8 +651,13 @@ function estateFeatures(estate: EstateData): string | undefined {
  */
 function estateExtra(estate: EstateData): Record<string, string> | undefined {
   const extra: Record<string, string> = {};
-  const dpe = estate.dpeDisplay === false ? undefined : dpeLetterOfIndex(estate.consumptionIndex);
+  const affiche = estate.dpeDisplay !== false;
+  const dpe = affiche ? dpeLetterOfIndex(estate.consumptionIndex) : undefined;
   if (dpe !== undefined) extra['dpe'] = dpe;
+  // Le GES est indexé sur la même échelle, dans le même JSON, et le même
+  // interrupteur `dpeDisplay` décide de l'afficher ou non.
+  const ges = affiche ? dpeLetterOfIndex(estate.emissionIndex) : undefined;
+  if (ges !== undefined) extra['ges'] = ges;
   const quartier = nonEmpty(estate.district?.name);
   if (quartier !== undefined) extra['quartier'] = quartier;
   if (estate.storyLocation != null) extra['etage'] = String(estate.storyLocation);

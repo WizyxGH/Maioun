@@ -31,6 +31,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
+import { portalCommunes } from '../shared/communes.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 
@@ -52,28 +53,25 @@ const TITLE_PARTS =
  * Le portail abrège : « st-laurent-du-var », « st-andre ». Avec notre
  * orthographe, il répond 200 et sert sa page d'accueil — aucune erreur, aucune
  * annonce. Les huit annonces de Saint-Laurent-du-Var ont manqué ainsi. Chaque
- * slug ci-dessous a été vérifié sur le titre que rend la page (relevé du
+ * écriture a été vérifiée sur le titre que rend la page (relevé du
  * 2026-09-16) ; `parseListPage` signale celles qui retomberaient sur l'accueil.
+ *
+ * Le périmètre lui-même vit dans `shared/communes.ts` : ici, seule l'écriture
+ * du portail est décrite.
  */
-const COMMUNE_SLUGS = [
-  'nice-06000',
-  'cagnes-sur-mer-06800',
-  'st-laurent-du-var-06700',
-  'villefranche-sur-mer-06230',
-  'villeneuve-loubet-06270',
-  'cap-d-ail-06320',
-  'carros-06510',
-  'beaulieu-sur-mer-06310',
-  'la-trinite-06340',
-  'colomars-06670',
-  'st-andre-06730',
-  'drap-06340',
-  'contes-06390',
-] as const;
+const COMMUNES = portalCommunes({
+  abbreviateSaint: true,
+  withPostalCode: true,
+  exceptions: {
+    // Le portail ne connaît que « st-andre » : le déterminant complet renvoie
+    // sur l'accueil, alors que Saint-Laurent garde bien le sien.
+    'saint-andre-de-la-roche': 'st-andre',
+  },
+});
 
 /** Les mêmes communes, dans la forme que portent les cartes. */
 const TARGET_CITIES: ReadonlySet<string> = new Set(
-  COMMUNE_SLUGS.map((slug) => comparable(slug.replace(/-\d{5}$/, ''))),
+  COMMUNES.map((commune) => comparable(commune.name)),
 );
 
 /** Une recherche du portail : un slug d'URL, et de quoi la borner. */
@@ -97,7 +95,7 @@ export interface FnaimSearch {
  * coûteraient treize requêtes pour le même résultat.
  */
 export const SEARCHES: readonly FnaimSearch[] = [
-  ...COMMUNE_SLUGS.map((slug) => ({ slug: `18-location-appartement-${slug}` })),
+  ...COMMUNES.map((commune) => ({ slug: `18-location-appartement-${commune.slug}` })),
   { slug: '18-location-maison-alpes-maritimes-06', beyondPerimeter: true },
 ];
 

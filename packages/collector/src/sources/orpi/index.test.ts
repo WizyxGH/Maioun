@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { FetchResult, ScrapeContext } from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 import { orpiScraper } from './index.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/orpi');
@@ -73,6 +73,32 @@ describe('orpiScraper — couverture du périmètre', () => {
     for (const slug of NICE_AREA_SLUGS) {
       expect(listes(vues)).toContain(`https://www.orpi.com/location-immobiliere-${slug}/`);
     }
+  });
+
+  /**
+   * LA LISTE ENTIÈRE, FIGÉE. Orpi répond 200 et sert la page du département
+   * pour une commune qu'il ne connaît pas : une écriture fausse ne se
+   * distinguerait pas d'une commune sans annonce. Ici, ni code postal ni
+   * abréviation — le portail écrit les communes comme nous.
+   */
+  it('construit exactement ces adresses', async () => {
+    const { ctx, vues } = contexte({ pages: { nice: NICE_COMPLETE } });
+    await orpiScraper.run(ctx);
+    expect(listes(vues)).toEqual([
+      'https://www.orpi.com/location-immobiliere-nice/',
+      'https://www.orpi.com/location-immobiliere-saint-laurent-du-var/',
+      'https://www.orpi.com/location-immobiliere-cagnes-sur-mer/',
+      'https://www.orpi.com/location-immobiliere-villeneuve-loubet/',
+      'https://www.orpi.com/location-immobiliere-beaulieu-sur-mer/',
+      'https://www.orpi.com/location-immobiliere-cap-d-ail/',
+      'https://www.orpi.com/location-immobiliere-villefranche-sur-mer/',
+      'https://www.orpi.com/location-immobiliere-la-trinite/',
+      'https://www.orpi.com/location-immobiliere-saint-andre-de-la-roche/',
+      'https://www.orpi.com/location-immobiliere-drap/',
+      'https://www.orpi.com/location-immobiliere-carros/',
+      'https://www.orpi.com/location-immobiliere-contes/',
+      'https://www.orpi.com/location-immobiliere-colomars/',
+    ]);
   });
 
   it('ne prend pas pour local ce que le repli départemental lui sert', async () => {

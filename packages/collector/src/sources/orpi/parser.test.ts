@@ -300,6 +300,20 @@ describe('parseDetail — montants, DPE et agence du bien (data-estate)', () => 
     expect(draft?.extra?.['dpe']).toBe('D');
   });
 
+  it('lit le GES, publié à côté du DPE dans le même JSON', () => {
+    const draft = parseDetail(fiche);
+    expect(draft?.extra?.['ges']).toBe('B');
+  });
+
+  it('ne rend aucune étiquette quand la fiche n’en affiche pas', () => {
+    // `dpeDisplay: false` — le bien en est dispensé. Les indices peuvent
+    // rester dans le JSON : ils ne valent pas publication.
+    const muette = fiche.replace('dpeDisplay&quot;&#x3A;true', 'dpeDisplay&quot;&#x3A;false');
+    const draft = parseDetail(muette);
+    expect(draft?.extra?.['dpe']).toBeUndefined();
+    expect(draft?.extra?.['ges']).toBeUndefined();
+  });
+
   it('prend le contact de l’agence, jamais celui de l’agent', () => {
     const draft = parseDetail(fiche);
     expect(draft?.phoneText).toBe('06 00 00 00 31');
@@ -357,6 +371,7 @@ describe('parseDetail — montants, DPE et agence du bien (data-estate)', () => 
     expect(normalized?.charges).toBe(56);
     expect(normalized?.tenantFees).toBe(385);
     expect(normalized?.dpe).toBe('D');
+    expect(normalized?.ges).toBe('B');
     expect(normalized?.bedrooms).toBe(1);
     expect(normalized?.publishedAt).toBe('2026-07-07T22:00:00.000Z');
     expect(normalized?.contact.phone).not.toBeNull();

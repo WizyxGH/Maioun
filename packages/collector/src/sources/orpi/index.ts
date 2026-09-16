@@ -27,7 +27,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { portalCommuneSlugs } from '../shared/communes.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import { compactListing } from '../shared/raw-listing.js';
@@ -93,8 +93,10 @@ const BASE_URL = (slug: string): string => `https://www.orpi.com${COMMUNE_PATH(s
  * Les trois communes sans page (Cap-d'Ail, Drap, Contes) restent dans la
  * liste : elles coûtent une requête, et le jour où Orpi y publiera, la page
  * existera sans qu'on ait à y penser (§ agences vides suivies quand même).
+ *
+ * Orpi écrit les communes comme nous : ni code postal, ni abréviation.
  */
-const COMMUNES = NICE_AREA_SLUGS;
+const COMMUNES = portalCommuneSlugs();
 
 export const ORPI_DESCRIPTOR: SourceDescriptor = {
   id: 'orpi',

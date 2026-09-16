@@ -9,23 +9,14 @@
  */
 
 import { makeApimoScraper } from '../apimo/scraper.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 
-/** Communes cibles communes aux agences niçoises (§20 : Nice + continuité). */
-export const NICE_AREA_SLUGS = [
-  'nice',
-  'saint-laurent-du-var',
-  'cagnes-sur-mer',
-  'villeneuve-loubet',
-  'beaulieu-sur-mer',
-  'cap-d-ail',
-  'villefranche-sur-mer',
-  'la-trinite',
-  'saint-andre-de-la-roche',
-  'drap',
-  'carros',
-  'contes',
-  'colomars',
-] as const;
+/**
+ * Les communes cibles des agences niçoises vivent désormais dans
+ * `shared/communes.ts`, avec les orthographes que chaque portail attend.
+ * Réexporté ici parce que soixante-dix sources l'importent par ce chemin.
+ */
+export { NICE_AREA_SLUGS };
 
 export const agenceVictoireScraper = makeApimoScraper({
   id: 'agence-victoire',
