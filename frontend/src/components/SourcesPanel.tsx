@@ -30,6 +30,26 @@ const HEALTH_BORDER: Record<SourceStateView['health'], string> = {
   blocked: 'border-l-bad',
 };
 
+/**
+ * Ce que la dernière raison d'arrêt veut dire, en français.
+ *
+ * L'écran n'affichait que l'état de santé. « Dégradée » ne dit pas s'il faut
+ * réparer un parseur, attendre un déblocage, ou ne rien faire du tout parce que
+ * l'agence n'a plus rien à louer — et c'est pourtant toute la question.
+ */
+const STOP_LABELS: Record<string, string> = {
+  completed: 'inventaire lu en entier',
+  knownTerritory: 'arrêt sur territoire connu',
+  maxPages: 'budget de pages atteint',
+  maxListings: 'plafond d’annonces atteint',
+  rateLimited: 'trop de requêtes (429)',
+  tooManyErrors: 'trop d’erreurs',
+  blocked: 'accès refusé',
+  notModified: 'page inchangée',
+  incomplete: 'inventaire lu en partie',
+  empty: 'la source annonce n’avoir aucun bien',
+};
+
 /** Singulier, pluriel. */
 const SUMMARY_LABELS: Record<SourceStateView['health'], readonly [string, string]> = {
   healthy: ['OK', 'OK'],
@@ -124,7 +144,45 @@ export function SourcesPanel({
 
                 <dt className="text-muted-foreground">Erreurs consécutives</dt>
                 <dd>{source.consecutiveErrors}</dd>
+
+                {/* POURQUOI, et pas seulement l'état : comment le dernier
+                    passage s'est terminé, et ce qu'il a rapporté. */}
+                {source.lastStopReason != null && (
+                  <>
+                    <dt className="text-muted-foreground">Dernier passage</dt>
+                    <dd>
+                      {STOP_LABELS[source.lastStopReason] ?? source.lastStopReason}
+                      {source.lastListingsFound != null &&
+                        ` · ${source.lastListingsFound} annonce${source.lastListingsFound > 1 ? 's' : ''} rendue${source.lastListingsFound > 1 ? 's' : ''}`}
+                    </dd>
+                  </>
+                )}
+
+                {source.activeListings !== undefined && (
+                  <>
+                    <dt className="text-muted-foreground">Annonces en ligne</dt>
+                    <dd>{source.activeListings}</dd>
+                  </>
+                )}
+
+                {source.lastFullPassAt != null && (
+                  <>
+                    <dt className="text-muted-foreground">Dernier passage complet</dt>
+                    <dd>{formatAge(source.lastFullPassAt, nowMs)}</dd>
+                  </>
+                )}
               </dl>
+
+              {/* Une agence sans annonce n'est pas une agence en panne : trente
+                  sources sont dans ce cas et se portent très bien. Le dire
+                  évite de partir en réparation pour rien. */}
+              {source.health === 'healthy' &&
+                source.activeListings === 0 &&
+                source.lastStopReason === 'empty' && (
+                  <p className="text-muted-foreground mt-1 text-[0.85rem]">
+                    Cette agence n’a aucun bien à louer en ce moment. Rien à réparer.
+                  </p>
+                )}
 
               {/* §10 : expliquer une mise au repos plutôt que de la subir. */}
               {source.cooldownUntil !== null && (

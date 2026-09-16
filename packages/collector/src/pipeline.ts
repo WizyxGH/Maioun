@@ -158,6 +158,14 @@ export interface PipelineReport {
   readonly outcomes: readonly SourceOutcome[];
   /** Sources dont l'état de santé a changé ce run (pour alerter, §69). */
   readonly healthTransitions: readonly SourceHealthTransition[];
+  /**
+   * Sources dont le cycle de vie a été sauté, avec le motif.
+   *
+   * CE VERDICT ÉTAIT DÉJÀ CALCULÉ ET JETÉ. Il porte les deux symptômes les plus
+   * parlants d'un gabarit qui a changé — inventaire effondré, page rendue sans
+   * la moindre annonce — et n'existait que sous forme d'une ligne de journal.
+   */
+  readonly lifecycleSkips: readonly LifecycleSkip[];
   readonly listingsCollected: number;
   readonly groupsFormed: number;
   readonly comparisons: number;
@@ -458,6 +466,31 @@ async function resolveTransitMinutes(
   return byListing;
 }
 
+/**
+ * Pourquoi le cycle de vie a été sauté, en DEUX morceaux : un code, que la
+ * surveillance des sources trie, et une phrase, que le journal affiche.
+ *
+ * Le code existe parce qu'il y a deux natures de motifs derrière un même
+ * « on ne conclut pas » : ceux qui disent qu'on n'a pas REGARDÉ (passage
+ * interrompu, page inchangée) — anodins —, et ceux qui disent qu'on a regardé
+ * et que l'inventaire ne ressemble plus à rien. Seuls les seconds méritent
+ * qu'on réveille quelqu'un. Relire la phrase pour la trier reviendrait à
+ * refaire une décision déjà prise.
+ */
+export type LifecycleSkipCode =
+  /** L'inventaire a fondu : une fraction du stock connu est rendue. */
+  | 'collapse'
+  /** Rien rendu, sans que la source affiche une liste vide : gabarit changé. */
+  | 'emptyWithoutSign'
+  /** On n'a pas vu l'inventaire : le silence n'apprend rien sur la source. */
+  | 'blind';
+
+export interface LifecycleSkip {
+  readonly sourceId: string;
+  readonly code: LifecycleSkipCode;
+  readonly reason: string;
+}
+
 /** Exécute un cycle complet de collecte. */
 /**
  * Dit pourquoi il ne faut PAS conclure à l'absence, ou `null` si on le peut.
@@ -479,22 +512,32 @@ async function missingWouldBeUnfounded(
   seenCount: number,
   reason: StopReason | undefined,
   repository: Repository,
-): Promise<string | null> {
+): Promise<Omit<LifecycleSkip, 'sourceId'> | null> {
+  const blind = (why: string): Omit<LifecycleSkip, 'sourceId'> => ({ code: 'blind', reason: why });
+
   // Rien n'a été observé : aucune information sur ce qui existe encore.
-  if (reason === undefined) return 'aucun résultat';
-  if (reason === 'notModified') return 'page inchangée, rien de retéléchargé';
-  if (reason === 'incomplete') return 'inventaire lu en partie seulement';
+  if (reason === undefined) return blind('aucun résultat');
+  if (reason === 'notModified') return blind('page inchangée, rien de retéléchargé');
+  if (reason === 'incomplete') return blind('inventaire lu en partie seulement');
   if (reason === 'rateLimited' || reason === 'blocked' || reason === 'tooManyErrors') {
-    return `passage interrompu (${reason})`;
+    return blind(`passage interrompu (${reason})`);
   }
   // La source affiche elle-même une liste vide : tout le stock connu est parti.
   if (reason === 'empty') return null;
   // Rien rendu sans ce signe : gabarit changé plutôt qu'agence vidée.
-  if (seenCount === 0) return 'aucune annonce, sans liste vide affichée par la source';
+  if (seenCount === 0) {
+    return {
+      code: 'emptyWithoutSign',
+      reason: 'aucune annonce, sans liste vide affichée par la source',
+    };
+  }
 
   const known = await repository.activeOccurrenceCount(sourceId);
   if (known >= 10 && seenCount * 2 < known) {
-    return `chute suspecte : ${seenCount} annonces rendues pour ${known} connues`;
+    return {
+      code: 'collapse',
+      reason: `chute suspecte : ${seenCount} annonces rendues pour ${known} connues`,
+    };
   }
   return null;
 }
@@ -539,9 +582,10 @@ interface LifecycleDeps {
  * Les refs confirmées par la source sans re-téléchargement (sitemap) comptent
  * comme vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
  */
-async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
+async function applyLifecycle(deps: LifecycleDeps): Promise<LifecycleSkip[]> {
   const { rawBySource, confirmedBySource, outcomes, registry, repository, config, logger, nowIso } =
     deps;
+  const skipped: LifecycleSkip[] = [];
 
   for (const [sourceId, raws] of rawBySource) {
     // Source qui n'annonce qu'une fois : le temps remplace le décompte.
@@ -580,7 +624,8 @@ async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
     if (skip !== null) {
       // Conclure à l'absence sans avoir regardé ferait passer des annonces
       // bien vivantes pour douteuses (§17).
-      logger.warn('lifecycle.skipped', { sourceId, reason: skip });
+      logger.warn('lifecycle.skipped', { sourceId, reason: skip.reason });
+      skipped.push({ sourceId, ...skip });
       continue;
     }
 
@@ -589,6 +634,7 @@ async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
       inactiveAfter: config.missingRunsBeforeInactive,
     });
   }
+  return skipped;
 }
 
 /**
@@ -1111,7 +1157,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // Cycle de vie des annonces non revues, source par source (§32). Les refs
   // confirmées par la source sans re-téléchargement (sitemap) comptent comme
   // vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
-  await applyLifecycle({
+  const lifecycleSkips = await applyLifecycle({
     rawBySource,
     confirmedBySource,
     outcomes,
@@ -1156,6 +1202,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     })),
     outcomes,
     healthTransitions,
+    lifecycleSkips,
     listingsCollected: normalized.length,
     groupsFormed: groups.length,
     comparisons: comparisonCount,

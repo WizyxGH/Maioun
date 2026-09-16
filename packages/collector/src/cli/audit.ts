@@ -236,6 +236,116 @@ async function reportSourceCoverage(db: Database): Promise<void> {
 }
 
 /**
+ * LES SOURCES EN SOUFFRANCE — celles qu'il faut aller réparer.
+ *
+ * La couverture ci-dessus dit ce qui manque dans les annonces ; elle ne dit
+ * rien des sources qui n'en rapportent plus. Trois pannes ont été repérées par
+ * l'utilisateur et non par le système : une source à l'arrêt six jours, un
+ * quartier faux pendant des semaines, une couverture réduite à une commune sur
+ * treize. Ce tableau range les symptômes du plus parlant au plus discret.
+ *
+ * UNE AGENCE VIDE N'EST PAS UNE AGENCE EN PANNE : celles qui n'ont aucune
+ * annonce active ET dont le dernier passage l'a constaté (`empty`) sont
+ * comptées à part, sans être nommées.
+ *
+ * PLUS SENSIBLE QUE L'ALERTE, ET C'EST VOULU. La notification ne part qu'après
+ * trois passages interrompus d'affilée, parce qu'elle réveille quelqu'un ; ce
+ * tableau se lit quand on l'a demandé, et se trompe donc du bon côté.
+ */
+async function reportAilingSources(db: Database): Promise<void> {
+  /**
+   * Les sources qui n'annoncent qu'une fois — une boîte aux lettres, un
+   * bulletin — ne re-listent jamais leur stock : elles rendent zéro annonce
+   * dès qu'il n'est rien arrivé, et se portent parfaitement bien. Le cycle de
+   * vie les écarte déjà pour la même raison.
+   */
+  const oneShot = new Set(
+    ALL_SCRAPERS.filter((one) => one.descriptor.oneShotListings === true).map(
+      (one) => one.descriptor.id,
+    ),
+  );
+  const rows = await db.execute(`
+    SELECT s.source_id AS src, s.health, s.last_success_at AS succes,
+           s.consecutive_errors AS erreurs, s.last_full_pass_at AS complet,
+           r.stop_reason AS motif, r.listings_found AS rendues, r.started_at AS passage,
+           (SELECT COUNT(*) FROM occurrences o
+             WHERE o.source_id = s.source_id AND o.lifecycle != 'inactive') AS stock,
+           (SELECT MAX(started_at) FROM collection_runs c
+             WHERE c.source_id = s.source_id AND c.listings_new > 0) AS dernierNeuf
+      FROM source_state s
+      LEFT JOIN (
+        SELECT source_id, stop_reason, listings_found, started_at FROM (
+          SELECT source_id, stop_reason, listings_found, started_at,
+                 ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY started_at DESC) AS rang
+            FROM collection_runs
+        ) WHERE rang = 1
+      ) r ON r.source_id = s.source_id
+     ORDER BY s.source_id
+  `);
+
+  const now = Date.now();
+  const jours = (value: unknown): number =>
+    value == null ? Infinity : (now - Date.parse(String(value))) / 86_400_000;
+
+  const vides: string[] = [];
+  const souffrantes: { src: string; motif: string }[] = [];
+  for (const row of rows.rows) {
+    const src = String(row['src']);
+    const stock = Number(row['stock'] ?? 0);
+    const motif = row['motif'] == null ? null : String(row['motif']);
+
+    if (oneShot.has(src)) continue;
+    if (stock === 0 && motif === 'empty') {
+      vides.push(src);
+      continue;
+    }
+    if (row['health'] !== 'healthy') {
+      souffrantes.push({ src, motif: `santé « ${String(row['health'])} »` });
+      continue;
+    }
+    if (motif !== null && ['blocked', 'tooManyErrors', 'rateLimited'].includes(motif)) {
+      souffrantes.push({ src, motif: `dernier passage interrompu (${motif})` });
+      continue;
+    }
+    // Un stock qui vit sans qu'aucun passage ne le revoie : c'est le profil de
+    // la source cassée en silence — les annonces restent « actives » parce que
+    // le cycle de vie refuse de conclure, et plus rien n'entre.
+    if (stock >= 10 && Number(row['rendues'] ?? 0) === 0) {
+      souffrantes.push({ src, motif: `${stock} annonces en ligne, 0 rendue au dernier passage` });
+      continue;
+    }
+    const silence = jours(row['dernierNeuf']);
+    if (stock >= 10 && silence >= 3) {
+      souffrantes.push({
+        src,
+        motif:
+          silence === Infinity
+            ? `${stock} annonces en ligne, jamais rien de neuf`
+            : `rien de neuf depuis ${silence.toFixed(1)} j (${stock} annonces en ligne)`,
+      });
+      continue;
+    }
+    if (jours(row['succes']) >= 2) {
+      souffrantes.push({
+        src,
+        motif: `aucun passage réussi depuis ${jours(row['succes']).toFixed(1)} j`,
+      });
+    }
+  }
+
+  console.log('\n── Sources en souffrance ─────────────────────────────────────');
+  if (souffrantes.length === 0) {
+    console.log('   aucune. (Ce qui mérite d’être vérifié : la surveillance est-elle branchée ?)');
+  }
+  for (const one of souffrantes) {
+    console.log(`   ${one.src.padEnd(28)} ${one.motif}`);
+  }
+  console.log(
+    `\n   ${vides.length} source(s) sans annonce à louer, et qui le DISENT : ce n’est pas une panne.`,
+  );
+}
+
+/**
  * Les annonces de DEMANDE encore en base : quelqu'un qui cherche un logement,
  * pas qui en propose un.
  *
@@ -303,6 +413,7 @@ async function main(): Promise<void> {
     await reportFields(db, total);
     await reportFlatShare(db, total);
     await reportSourceCoverage(db);
+    await reportAilingSources(db);
     await reportWantedAds(db);
     await reportSettings(db);
     console.log('');

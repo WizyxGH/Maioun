@@ -33,6 +33,18 @@ export function listingPath(id: string): string {
  * dans les variables d'environnement, et une double barre casse le routage.
  */
 export function listingUrl(siteUrl: string, id: string): string {
-  const base = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
-  return `${base}${listingPath(id)}`;
+  return `${trimmed(siteUrl)}${listingPath(id)}`;
+}
+
+/**
+ * L'écran d'état des sources — où atterrit l'alerte d'exploitation qui dit
+ * qu'une source ne rapporte plus rien.
+ */
+export function sourcesUrl(siteUrl: string): string {
+  return `${trimmed(siteUrl)}/sources`;
+}
+
+/** Une barre finale de trop, et le routage casse ; les deux formes circulent. */
+function trimmed(siteUrl: string): string {
+  return siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
 }

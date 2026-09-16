@@ -44,10 +44,11 @@ import {
   parseNotificationPreferences,
   canNotifyNow,
   NOTIFICATIONS_SENT_AT_SETTING,
+  CURRENT_USER,
 } from '@maioun/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
-import type { Scraper } from '@maioun/shared';
+import type { Scraper, SearchCriteria } from '@maioun/shared';
 import type { NearMatch, NotifiableListing, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
@@ -60,6 +61,7 @@ import {
   sendListingAlerts,
   sendWebPush,
 } from '../notify/web-push.js';
+import { reportSourceHealth } from '../notify/source-health.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { sendEmailAlert } from '../notify/email-alerts.js';
 import { mailerConfigured } from '../notify/mailer.js';
@@ -146,6 +148,33 @@ async function notifyAll(deps: {
       });
     }
   }
+}
+
+/**
+ * Les bornes chiffrées que « proche de vos critères » sait relâcher.
+ *
+ * TOUTES, et pas seulement le loyer et la surface : c'est ce qui permet à
+ * l'alerte de dire « 52 min de trajet pour 45 » au lieu de « proche ». Chacune
+ * a sa marge dans `NEAR_MATCH_MARGINS` ; ce qui ne se relâche jamais —
+ * colocation, bail étudiant, bailleur, quartier — passe par `criteria`, comme
+ * pour la liste.
+ *
+ * Un critère absent le reste : on n'invente pas un plafond pour quelqu'un qui
+ * n'en a pas posé.
+ */
+function nearMatchCriteria(criteria: SearchCriteria): Parameters<Repository['nearMatches']>[1] {
+  return {
+    cities: [...criteria.cities],
+    maxPrice: criteria.maxPrice,
+    minArea: criteria.minArea,
+    ...(criteria.minPrice === undefined ? {} : { minPrice: criteria.minPrice }),
+    ...(criteria.minRooms === undefined ? {} : { minRooms: criteria.minRooms }),
+    ...(criteria.maxRooms === undefined ? {} : { maxRooms: criteria.maxRooms }),
+    ...(criteria.maxCommuteMinutes === undefined
+      ? {}
+      : { maxCommuteMinutes: criteria.maxCommuteMinutes }),
+    ...(criteria.availableBy === undefined ? {} : { availableBy: criteria.availableBy }),
+  };
 }
 
 /** Les alertes d'UN compte : ses critères, ses préférences, ses appareils. */
@@ -319,20 +348,13 @@ async function notifyOne(deps: {
   // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :
   // c'est un élargissement de la recherche, pas un canal de plus.
   //
-  // L'ÉLARGISSEMENT PORTE SUR LE BUDGET ET LA SURFACE, PAS SUR LES EXCLUSIONS.
+  // L'ÉLARGISSEMENT PORTE SUR LES QUANTITÉS, PAS SUR LES EXCLUSIONS : loyer,
+  // surface, trajet, pièces et date ont chacun leur marge (`NEAR_MATCH_MARGINS`).
   // Ce canal ne passait pas les préférences : il proposait donc des colocations
   // et des locations étudiantes que la liste écarte — on sonnait pour ce qu'on
   // n'affiche pas.
   if (preferences.nearMatches) {
-    const near = await repository.nearMatches(
-      userId,
-      {
-        cities: [...criteria.cities],
-        maxPrice: criteria.maxPrice,
-        minArea: criteria.minArea,
-      },
-      criteria,
-    );
+    const near = await repository.nearMatches(userId, nearMatchCriteria(criteria), criteria);
     const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
       nearMatchContentFor(listing as NearMatch, url),
     );
@@ -598,19 +620,6 @@ async function main(): Promise<void> {
       });
     }
 
-    // §69 : un changement d'état de santé d'une source (dégradée/bloquée/
-    // rétablie) est signalé dans le log de collecte — le panneau « Sources »
-    // du site en donne le détail. Pas d'alerte poussée : la santé des sources
-    // est une info d'exploitation, pas une nouveauté à signaler.
-    for (const t of report.healthTransitions) {
-      logger.warn('source.health_changed', {
-        source: t.sourceId,
-        from: t.from,
-        to: t.to,
-        listings: t.listingsFound,
-      });
-    }
-
     // §29 : alerte les nouvelles annonces par Web Push. Sans clés VAPID, le
     // canal est silencieusement désactivé (le collecteur et la CI tournent
     // sans). Les annonces parties sont marquées signalées dans la foulée :
@@ -620,6 +629,30 @@ async function main(): Promise<void> {
     if (vapid !== null) {
       await notifyAll({ repository, vapid, logger, config });
     }
+
+    /**
+     * LES SOURCES QUI CASSENT, SIGNALÉES À L'EXPLOITANT.
+     *
+     * Les changements d'état de santé finissaient dans le journal, que personne
+     * ne lit : trois pannes de suite ont été repérées par l'utilisateur, pas par
+     * le système. La surveillance ajoute aux transitions ce que le cycle de vie
+     * savait déjà (inventaire effondré, page sans la moindre annonce), le
+     * silence anormal d'une source et la disparition d'un champ clé.
+     *
+     * APRÈS les alertes d'annonces, et pas avant : si le quota du service de
+     * push devait manquer, il manquerait à l'avis d'exploitation, pas au
+     * logement qu'on peut encore visiter.
+     */
+    await reportSourceHealth({
+      repository,
+      transitions: report.healthTransitions,
+      lifecycleSkips: report.lifecycleSkips,
+      logger,
+      siteUrl: publicSiteUrl() ?? '',
+      vapid,
+      userId: CURRENT_USER,
+      nowMs: systemClock.now(),
+    });
 
     // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne
     // les effaçait. L'échec n'a aucune conséquence — on réessaiera au prochain

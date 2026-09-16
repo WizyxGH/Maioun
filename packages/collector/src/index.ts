@@ -59,3 +59,16 @@ export { migrate, loadMigrations, splitStatements } from './db/migrate.js';
 export { createRepository, occurrenceHash, listingHash, type Repository } from './db/repository.js';
 
 export { ALL_SCRAPERS, laforetScraper } from './sources/index.js';
+
+// La surveillance des sources qui cassent : détection pure, mémoire de ce
+// qui a déjà été signalé, et composition de l'avis d'exploitation.
+export {
+  detectSourceAlerts,
+  deduplicate,
+  parseReported,
+  reportSourceHealth,
+  sourceHealthPush,
+  SOURCE_HEALTH_SETTING,
+  type SourceAlert,
+  type SourceAlertKind,
+} from './notify/source-health.js';

@@ -956,17 +956,51 @@ async function listSources(db: Client): Promise<unknown> {
     FROM collection_runs ORDER BY started_at DESC LIMIT 50
   `);
 
+  /**
+   * POURQUOI, ET PAS SEULEMENT « DÉGRADÉE ».
+   *
+   * L'écran disait l'état sans jamais dire ce qui s'était passé : on lisait
+   * « Dégradée » et il fallait ouvrir les journaux de la forge pour savoir si la
+   * source était bloquée, si elle avait rendu une page vide, ou si elle n'avait
+   * simplement pas répondu. Deux faits suffisent à trancher — comment s'est
+   * terminé le dernier passage, et combien d'annonces il a rapportées.
+   */
+  const last = await db.execute(`
+    SELECT source_id, stop_reason, listings_found, started_at FROM (
+      SELECT source_id, stop_reason, listings_found, started_at,
+             ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY started_at DESC) AS rang
+        FROM collection_runs
+    ) WHERE rang = 1
+  `);
+  const lastBySource = new Map(last.rows.map((row) => [String(row['source_id']), row]));
+
+  /** Le stock vivant : c'est lui qui distingue l'agence en panne de l'agence vide. */
+  const stock = await db.execute(
+    "SELECT source_id, COUNT(*) AS n FROM occurrences WHERE lifecycle != 'inactive' GROUP BY source_id",
+  );
+  const stockBySource = new Map(
+    stock.rows.map((row) => [String(row['source_id']), Number(row['n'])]),
+  );
+
   return {
-    sources: states.rows.map((row) => ({
-      sourceId: row['source_id'],
-      health: row['health'],
-      lastRunAt: row['last_run_at'],
-      lastSuccessAt: row['last_success_at'],
-      last429At: row['last_429_at'],
-      cooldownUntil: row['cooldown_until'],
-      consecutiveErrors: Number(row['consecutive_errors']),
-      averageNewListingCount: Number(row['average_new_listing_count']),
-    })),
+    sources: states.rows.map((row) => {
+      const sourceId = String(row['source_id']);
+      const latest = lastBySource.get(sourceId);
+      return {
+        sourceId,
+        health: row['health'],
+        lastRunAt: row['last_run_at'],
+        lastSuccessAt: row['last_success_at'],
+        last429At: row['last_429_at'],
+        cooldownUntil: row['cooldown_until'],
+        consecutiveErrors: Number(row['consecutive_errors']),
+        averageNewListingCount: Number(row['average_new_listing_count']),
+        lastStopReason: latest === undefined ? null : String(latest['stop_reason']),
+        lastListingsFound: latest === undefined ? null : Number(latest['listings_found']),
+        lastFullPassAt: row['last_full_pass_at'] ?? null,
+        activeListings: stockBySource.get(sourceId) ?? 0,
+      };
+    }),
     recentRuns: runs.rows,
   };
 }

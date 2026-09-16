@@ -159,6 +159,19 @@ export interface SourceStateView {
   readonly cooldownUntil: string | null;
   readonly consecutiveErrors: number;
   readonly averageNewListingCount: number;
+  /**
+   * POURQUOI la source en est là : comment s'est terminé son dernier passage,
+   * ce qu'il a rapporté, et ce qu'elle a encore en ligne.
+   *
+   * L'écran affichait l'état sans le motif : « Dégradée » n'apprend rien, et il
+   * fallait ouvrir les journaux de la forge pour savoir s'il s'agissait d'un
+   * blocage, d'une page vide ou d'une agence qui n'a plus rien à louer.
+   * Facultatifs : une base plus ancienne que ce champ ne les porte pas.
+   */
+  readonly lastStopReason?: string | null;
+  readonly lastListingsFound?: number | null;
+  readonly lastFullPassAt?: string | null;
+  readonly activeListings?: number;
 }
 
 export type SortMode = 'priority' | 'recent' | 'price' | 'closest' | 'area';
