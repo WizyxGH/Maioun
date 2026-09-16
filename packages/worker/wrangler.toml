@@ -27,7 +27,14 @@ ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 # Laissée vide, l'écran des réglages dit que la fonctionnalité n'est pas
 # configurée au lieu d'afficher une adresse vers laquelle les alertes se
 # perdraient en silence (§17).
-ALERT_ADDRESS_TEMPLATE = "alertes+{token}@example.invalid"
+#
+# ELLE NE S'ÉCRIT PLUS ICI. Ce n'est pas un secret, mais c'est une adresse
+# personnelle en clair dans un dépôt public : les robots à spam moissonnent
+# exactement cela. Elle se pose une fois, hors du dépôt :
+#
+#     npx wrangler secret put ALERT_ADDRESS_TEMPLATE
+#
+# (côté collecte, c'est la variable ALERT_ADDRESS_TEMPLATE des Actions.)
 
 # --- Entrer avec un compte Google (§26) ---------------------------------------
 #

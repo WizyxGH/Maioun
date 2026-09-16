@@ -20,12 +20,14 @@ on:
     # longue.
     #
     # CE N'EST PLUS LA VOIE PRINCIPALE : le Cron Trigger du Worker réveille la
-    # collecte aux MÊMES minutes (`packages/worker/wrangler.toml`), en
-    # déclenchement manuel, qui lui part à l'heure. Ce `schedule` est le filet
-    # du jour où le Worker se tait. Les deux tombant ensemble, un réveil qui
-    # passe ici fait une seconde exécution — mise en file par `concurrency`, et
-    # sans requête vers les sources dont l'intervalle n'est pas écoulé.
-    - cron: '7,22,37,52 * * * *'
+    # collecte (`packages/worker/wrangler.toml`) en déclenchement manuel, et lui
+    # part à l'heure. Ce `schedule` est le filet du jour où le Worker se tait.
+    #
+    # D'OÙ DES MINUTES QUI NE SONT PAS LES SIENNES : aux mêmes minutes, un
+    # réveil qui passait ici ne faisait qu'une seconde exécution mise en file,
+    # sans rien collecter de plus. Sept minutes après, il rattrape un silence
+    # du Worker au lieu de le doubler.
+    - cron: '14,29,44,59 * * * *'
   workflow_dispatch:
     inputs:
       backfill:
