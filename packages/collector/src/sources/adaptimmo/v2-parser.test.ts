@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parseV2Detail, parseV2List, v2DetailApiUrl } from './v2-parser.js';
 import { makeAdaptImmoV2Descriptor } from './v2-scraper.js';
+import { fixtureReader } from '../../../../../tests/helpers/fixtures.js';
 
 // Liste et réponse d'API réelles (Marchal Immobilier) du 2026-09-15, allégées et anonymisées.
-const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/adaptimmo');
-const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+const read = fixtureReader('adaptimmo');
 const LIST_URL = 'https://www.marchal-immobilier.fr/fr/liste-location?perPage=48&tdp=4';
 const AGENCY = 'Marchal Immobilier';
 
@@ -52,13 +50,32 @@ describe('parseV2Detail (AdaptImmo, nouveau gabarit)', () => {
     expect(draft?.chargesText).toBe('100 €');
     expect(draft?.depositText).toBe('1780 €');
     expect(draft?.imageUrls).toHaveLength(10);
-    expect(draft?.extra).toEqual({
-      reference: '328',
-      quartier: 'LIBERATION',
-      dpe: 'D',
-      ges: 'D',
-    });
+    expect(draft?.extra).toEqual({ reference: '328', dpe: 'D', ges: 'D' });
     expect(draft?.description).not.toMatch(/Géorisques|<br/);
+  });
+
+  it('lit la voie du bien dans `adresse`, jamais celle de l’agence', () => {
+    const avec = parseV2Detail(
+      JSON.stringify({
+        ope: 2,
+        prix: '700',
+        adresse: '12 avenue Jean Médecin',
+        adr_agence: 'Res Toison D Or',
+      }),
+    );
+    expect(avec?.addressText).toBe('12 avenue Jean Médecin');
+    // `adresse` vide — le cas courant : on n'invente rien à partir de l'agence.
+    expect(
+      parseV2Detail(JSON.stringify({ ope: 2, prix: '700', adr_agence: 'Res Toison D Or' }))
+        ?.addressText,
+    ).toBeUndefined();
+  });
+
+  it('prend le quartier dans `quartier_lib`/`quartier`, et rien sinon', () => {
+    const nomme = parseV2Detail(
+      JSON.stringify({ ope: 2, prix: '700', quartier_lib: 'Carabacel', secteur: 'CENTRE' }),
+    );
+    expect(nomme?.extra).toMatchObject({ quartier: 'Carabacel' });
   });
 
   it('se normalise', () => {
@@ -82,6 +99,39 @@ describe('parseV2Detail (AdaptImmo, nouveau gabarit)', () => {
   it('refuse une réponse qui n’est pas une location', () => {
     expect(parseV2Detail('{"ope":1,"prix":"250000"}')).toBeNull();
     expect(parseV2Detail('pas du json')).toBeNull();
+  });
+});
+
+/**
+ * Le bien 06024461, signalé mal situé : l'agence le range dans son secteur
+ * « CENTRE », sa description l'annonce « NICE NORD - Av Jean Canavese ». La
+ * fiche s'affichait au centre-ville, à trois kilomètres de la voie citée.
+ */
+describe('parseV2Detail — le secteur de l’agence n’est pas le quartier du bien', () => {
+  const draft = parseV2Detail(read('v2-bien-secteur-faux.json'));
+  const normalized = normalizeListing(
+    {
+      sourceRef: '06024461',
+      sourceUrl: 'https://www.marchal-immobilier.fr/fr/detail-bien-06024461?idBien=06024461',
+      ...draft,
+    },
+    { sourceId: 'marchal-immobilier', nowMs: Date.parse('2026-09-16T12:00:00Z') },
+  );
+
+  it('n’annonce aucun quartier que la source ne publie pas', () => {
+    expect(draft?.extra).not.toHaveProperty('quartier');
+  });
+
+  it('situe le bien où sa description le situe, pas au centre', () => {
+    expect(normalized?.district).toBe('Nice Nord');
+    expect(normalized?.address).toBe('Av Jean Canavese');
+  });
+
+  it('ne pose pas de point sur la carte : les coordonnées sont celles du code postal', () => {
+    // 43.7276 / 7.2599 est le centre de 06100 — la réponse les sert à l'identique
+    // pour un bien de Libération et pour celui-ci, à l'autre bout du code postal.
+    expect(normalized?.latitude).toBeNull();
+    expect(normalized?.longitude).toBeNull();
   });
 });
 

@@ -431,15 +431,118 @@ const SHARED_DWELLING =
 const STUDENT_ONLY =
   /residence etudiante|logement etudiant|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2}(?: e)?(?: s)? uniquement|\bcrous\b|bail etudiant|bail (de )?mobilite|\bcoloc\w*\s+etudiant\w*/;
 
+/**
+ * LE MOT « UNIQUEMENT » N'EST PAS LA SEULE FAÇON DE RÉSERVER UN LOGEMENT.
+ *
+ * La détection était bâtie autour de lui, et laissait donc passer les formules
+ * les plus courantes du parc niçois : « Location étudiante 2 pièces », « Studio
+ * meublé pour étudiant », « bail meublé étudiant », « 2 pièces meublé étudiant
+ * Nice Ouest ». Relevé du 2026-09-16 sur les 5 252 occurrences en base : 248
+ * annonces portaient l'une de ces formes sans être signalées — le bailleur y
+ * dit exactement la même chose, souvent pour un bail qui s'arrête en juin.
+ *
+ * Six familles, et toutes NOMMENT le logement ou le contrat :
+ *
+ *   1. « location étudiante », « loc étudiante », « location meublée étudiante »
+ *      — sauf « location étudiante ACCEPTÉE », qui l'admet sans l'imposer,
+ *      exactement comme « colocation possible » dans `parseFlatShare` ;
+ *   2. « bail meublé étudiant », « bail meublé pour les étudiants » ;
+ *   3. le logement qualifié sans préposition — « studio étudiant », « chambre
+ *      étudiante », « 2 pièces meublé étudiant » : l'adjectif porte sur le bien ;
+ *   4. « studio meublé POUR étudiant », le logement puis sa destination ;
+ *   5. « période étudiants » ;
+ *   6. « exclusivement destinée aux étudiants », « acceptés seulement pour les
+ *      étudiants » — que le motif d'origine manquait dès qu'un mot s'intercalait.
+ *
+ * CE QU'ON REFUSE D'Y VOIR est aussi important : « idéal étudiant », « proche
+ * de la fac », « quartier étudiant » restent des arguments de vente, et deux
+ * cents annonces de l'inventaire les portent. Voir les deux gardes ci-dessous.
+ */
+const STUDENT_RESERVED = new RegExp(
+  [
+    String.raw`\bloc(?:ation)?s?\b(?:\s+meublees?)?\s+etudiant\w*\b(?!\s+(?:accept|bienven|admis))`,
+    String.raw`\bbail\w*\s+(?:meublees?\s+)?(?:pour\s+(?:les\s+)?)?etudiant`,
+    String.raw`\b(?:studios?|studettes?|appartements?|appart|chambres?|meublees?|meubles?|t\d|f\d|\d\s*pieces?)\s+etudiant`,
+    // Le mot qui vante ne peut pas s'intercaler : « 2 pièces lumineux PARFAIT
+    // pour étudiants » resterait sinon attrapé par le logement qui le précède,
+    // hors de portée de la garde d'amont, qui ne lit qu'avant la formule.
+    String.raw`\b(?:studios?|studettes?|appartements?|appart|logements?|chambres?|meublees?|meubles?|equipees?|loue|louer|t\d|f\d|\d\s*pieces?)\b(?:\s+(?!ideal|parfait|convien|adapte|approprie|recommande|destine)\w+){0,3}\s+pour\s+(?:les\s+|le\s+|un\s+|une\s+|l\s+|de\s+|des\s+)?etudiant`,
+    String.raw`\bperiodes?\s+etudiant`,
+    String.raw`\b(?:uniquement|seulement|exclusivement)\s+(?:destinees?\s+)?(?:pour\s+|aux\s+|a\s+|de\s+)?(?:les\s+|des\s+|la\s+)?etudiant`,
+  ].join('|'),
+);
+
+/**
+ * CE QUI PRÉCÈDE PEUT ANNULER LA MENTION, et c'est le faux positif à éviter
+ * avant tout autre : signaler « réservé aux étudiants » sur un logement ouvert
+ * à tous l'écarterait d'une recherche où il avait sa place.
+ *
+ * Deux cas, tous deux ANCRÉS juste avant la formule — un mot plus loin, il ne
+ * porte plus sur elle, et « Idéal étudiant ! Location étudiante de septembre à
+ * juin » doit rester signalée :
+ *
+ *   - l'ARGUMENT DE VENTE : « idéal pour étudiant », « parfait pour étudiants »,
+ *     « conviendra à un étudiant » — le bailleur vante, il n'exclut personne ;
+ *   - la CONDITION DE DOSSIER : « garants acceptés seulement pour les
+ *     étudiants » — c'est la phrase d'ERA Maresol, et elle dit exactement
+ *     l'inverse : le garant ne suffit QUE si l'on est étudiant, les autres
+ *     candidats se qualifiant sur leurs revenus. Neuf annonces la portent, et
+ *     aucune n'est réservée. Les participes (« acceptés », « exigés ») sont
+ *     donc franchis comme les articles.
+ */
+const STUDENT_PITCH_BEFORE =
+  /\b(?:ideal\w*|parfait\w*|convien\w+|adapte\w*|approprie\w*|recommande\w*|garants?|garanties?|profils?|situation|dossiers?)\b(?:\s+(?:pour|a|au|aux|le|la|les|un|une|des|de|l|en|seulement|sont|est|etre|seront|accept\w+|exige\w+|demande\w+|requis|admis))*\s*$/;
+
+/**
+ * CE QUI SUIT PEUT L'ANNULER AUSSI : « pour étudiants OU jeunes actifs »,
+ * « meublé pour étudiants ou bail civil ». Le logement s'adresse aussi à qui
+ * n'est pas étudiant — donc il n'est pas réservé, et l'utilisateur peut le
+ * louer. « ou mobilité » n'y est volontairement pas : ce bail-là s'arrête.
+ */
+// La marque du pluriel reste collée au mot (« etudiantS ou jeunes actifs ») et
+// les formes inclusives la détachent (« etudiant e s ») : les deux se franchissent.
+//
+// « ÉTUDIANTS ACCEPTÉS » est la seconde branche, et elle protège d'un faux
+// positif que la forme `comparable` fabrique toute seule : la ponctuation
+// disparue, un titre qui finit par « 2 pièces » et une description qui
+// commence par « Étudiants acceptés » se touchent, et le logement se retrouve
+// qualifié d'étudiant par un simple voisinage de phrases.
+const STUDENT_OPEN_AFTER =
+  /^(?:e|s|es|te|tes)?(?:\s+(?:e|s|es))*\s+(?:(?:ou|et)\s+(?:un\s+|une\s+|des\s+|les\s+|de\s+|au\s+|aux\s+)?(?:jeunes?\s+)?(?:actifs?|actives?|professionnels?|salaries?|travailleurs?|familles?|celibataires?|couples?|bail civil|baux civils)|(?:sont\s+|seront\s+)?(?:acceptees?|acceptes?|bienvenu\w*|admis\w*))\b/;
+
+/** Combien de caractères regarder autour d'une mention d'étudiant. */
+const STUDENT_WINDOW = 42;
+
+/**
+ * `true` si UNE des mentions réservantes tient dans son contexte.
+ *
+ * Chaque occurrence est examinée séparément : une annonce qui vante d'abord
+ * « idéal étudiant » puis annonce « bail meublé étudiant » doit être signalée.
+ */
+function reservedToStudents(lower: string): boolean {
+  for (const match of lower.matchAll(new RegExp(STUDENT_RESERVED.source, 'g'))) {
+    const at = match.index;
+    const end = at + match[0].length;
+    if (STUDENT_PITCH_BEFORE.test(lower.slice(Math.max(0, at - STUDENT_WINDOW), at))) continue;
+    if (STUDENT_OPEN_AFTER.test(lower.slice(end, end + STUDENT_WINDOW))) continue;
+    return true;
+  }
+  return false;
+}
+
 /** Mots par lesquels une mention « réservé aux étudiants » peut finir. */
 const STUDENT_ONLY_LAST_WORDS = ['uniquement', 'etudiant', 'etudiante', 'mobilite'];
 
 /** `true` si l'annonce réserve le logement aux étudiants ou à un bail qui s'arrête. */
 export function isStudentOnlyHousing(text: string | null | undefined): boolean {
   // Un aperçu tronqué (« ETUDIANT uniquemen... ») compte comme le texte entier.
+  const lower = comparable(text);
+  const completed = completeTruncatedWords(text, STUDENT_ONLY_LAST_WORDS);
   return (
-    STUDENT_ONLY.test(comparable(text)) ||
-    STUDENT_ONLY.test(completeTruncatedWords(text, STUDENT_ONLY_LAST_WORDS))
+    STUDENT_ONLY.test(lower) ||
+    STUDENT_ONLY.test(completed) ||
+    reservedToStudents(lower) ||
+    reservedToStudents(completed)
   );
 }
 
@@ -558,8 +661,38 @@ export function dpeFromValues(kwh: number, co2: number): string {
  * « location » ou « contrat » ne désigne rien d'autre qu'une durée de bail, et
  * « de 9 à 12 mois » ne correspond pas — la durée doit toucher « mois ».
  */
-const SHORT_TERM_LEASE =
-  /(?:de |du )?septembre (?:a|au) juin|(?:bail|location|contrat|louee?)\w*(?:\s+\w+){0,2}\s+(?:de\s+|du\s+)?(?:9|neuf)\s*mois|(?:9|neuf)\s*mois\s+(?:de\s+)?(?:septembre|octobre)|saisonnier\w* (?:en |de |sur )?(?:juillet|aout)|(?:juillet|aout) en saisonnier/;
+/**
+ * LES AGENCES ÉCRIVENT LA DATE, PAS LA DURÉE. « Septembre à juin » n'était
+ * reconnu qu'accolé, et c'est ce qui laissait passer la forme la plus répandue :
+ * « du 1er septembre 2026 au 30 juin 2027 », « de septembre à fin mai »,
+ * « d'octobre à juin », « bail meublé étudiant jusqu'au 31 mai ». Relevé du
+ * 2026-09-16 : 226 occurrences énonçaient ainsi une année scolaire sans que
+ * l'atout « Bail 9 mois » soit posé — donc sans que rien, sur la fiche, ne dise
+ * qu'il faut libérer les lieux pour l'été.
+ *
+ * DEUX FORMES, et l'une comme l'autre borne le bail :
+ *
+ *   - la rentrée d'un côté, la fin des cours de l'autre — septembre ou octobre,
+ *     puis mai ou juin, à quatre mots de distance au plus (ce qui laisse passer
+ *     les millésimes et les quantièmes, pas une phrase entière) ;
+ *   - « disponible jusqu'au 30 juin », où seule la fin est écrite : un mot de
+ *     location est alors EXIGÉ devant, sans quoi n'importe quelle date de juin
+ *     ferait l'affaire.
+ *
+ * La ponctuation ayant disparu de la forme `comparable`, la distance se compte
+ * en mots et non en caractères : c'est la seule borne qui reste.
+ */
+const SHORT_TERM_LEASE = new RegExp(
+  [
+    String.raw`\b(?:septembre|octobre)\b(?:\s+\w+){0,4}?\s+(?:mai|juin)\b`,
+    String.raw`\b(?:disponible|dispo|libre|louee?|location|bail|louer|periode|duree)\w*(?:\s+\w+){0,5}?\s+jusqu\s+(?:a|au|en)\b(?:\s+\w+){0,3}?\s+(?:mai|juin)\b`,
+    // « pour une période de 9 mois », « bail de neuf mois », « bail de 9mois ».
+    String.raw`(?:bail|location|contrat|louee?|periode|duree)\w*(?:\s+\w+){0,2}\s+(?:de\s+|du\s+)?(?:9|neuf)\s*mois`,
+    String.raw`(?:9|neuf)\s*mois\s+(?:de\s+)?(?:septembre|octobre)`,
+    String.raw`saisonnier\w* (?:en |de |sur )?(?:juillet|aout)`,
+    String.raw`(?:juillet|aout) en saisonnier`,
+  ].join('|'),
+);
 
 /** `true` si le texte annonce un bail de neuf mois interrompu par l'été. */
 export function isShortTermStudentLease(text: string | null | undefined): boolean {
@@ -1694,10 +1827,15 @@ const ADDRESS_HEAD = 120;
  *
  * La virgule ne suffisait pas : les agences niçoises composent leur accroche au
  * TIRET — « NICE CENTRE - RUE DE PARIS - 3 PIÈCES - PROCHE GARE » — ou en
- * phrases — « Pasteur - rue Raoul Lesueur. Au 5ème étage ». Le tiret n'est
- * reconnu qu'ENTOURÉ D'ESPACES, sans quoi « Rue Jean-Jaurès » se couperait en
- * deux ; les trois tirets typographiques sont acceptés, les sites mélangeant
- * les trois.
+ * phrases — « Pasteur - rue Raoul Lesueur. Au 5ème étage ». Les trois tirets
+ * typographiques sont acceptés, les sites mélangeant les trois.
+ *
+ * UN ESPACE D'UN SEUL CÔTÉ SUFFIT, et l'exiger des deux coûtait des voies : les
+ * agences tapent « NICE NORD - Av Jean Canavese -à proximité des commerces », où
+ * le second tiret colle au mot suivant. Le segment ne se fermait alors jamais,
+ * la voie s'y noyait avec la phrase entière, et l'annonce restait sans adresse.
+ * Le tiret INTERNE à un mot ne coupe toujours pas — « Rue Jean-Jaurès » n'a
+ * d'espace ni devant ni derrière.
  *
  * LE DEUX-POINTS EN FAIT PARTIE, et son absence coûtait cher : Citya annonce
  * ses biens « À LOUER : AVENUE JOSEPH RAYBAUD, 06300 NICE ». Sans lui, le
@@ -1709,7 +1847,7 @@ const ADDRESS_HEAD = 120;
  * Le point d'une abréviation ne coupe pas : « NICE NORD - AV. ST MAURICE »
  * perdait sa voie, réduite à « AV ».
  */
-const SEGMENT_BREAK = /[,;/:¶]|(?<!\b(?:av|bd|st|ste))\.|\s+[-–—]\s+/i;
+const SEGMENT_BREAK = /[,;/:¶]|(?<!\b(?:av|bd|st|ste))\.|(?<=\s)[-–—]|[-–—](?=\s)/i;
 
 /**
  * Marqueur de fin de ligne, posé avant le nettoyage.

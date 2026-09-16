@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RawListing } from '@maioun/shared';
-import { SHORT_TERM_LEASE_FEATURE } from '@maioun/shared';
+import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import {
   bestAddress,
   cleanAddress,
@@ -396,7 +396,14 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
         description: 'Etudiant de Septembre à juin au prix de 600 € cc',
       }),
     );
-    expect(corrected?.features).toEqual(['Ascenseur', '2e étage', SHORT_TERM_LEASE_FEATURE]);
+    // L'annonce dit « Étudiant de septembre à juin » : les deux atouts se
+    // lisent dans le texte conservé, et le rejeu pose donc les deux.
+    expect(corrected?.features).toEqual([
+      'Ascenseur',
+      '2e étage',
+      SHORT_TERM_LEASE_FEATURE,
+      STUDENT_HOUSING_FEATURE,
+    ]);
   });
 
   it('efface une adresse qui a mordu sur la phrase suivante', () => {

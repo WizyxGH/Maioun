@@ -13,6 +13,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
+import { energyLabels } from '../shared/labels.js';
 
 /** API qui alimente la fiche d'un bien, commune à toutes les agences. */
 export const V2_DETAIL_API = 'https://reach.adaptimmo.com/mywebsite/bien';
@@ -136,7 +137,12 @@ interface ApiBien {
   readonly ville?: string;
   readonly villeweb?: string;
   readonly cp?: string;
-  readonly secteur?: string;
+  /** Voie du bien, et son complément, quand l'agence les publie. */
+  readonly adresse?: string;
+  readonly adresse_suite?: string;
+  /** Quartier du bien : `quartier_lib` est le libellé, `quartier` la saisie libre. */
+  readonly quartier?: string;
+  readonly quartier_lib?: string;
   readonly mandat?: string | number;
   readonly dpe_lettre_consom_energ?: string;
   /** Étiquette climat, clé jumelle. */
@@ -175,9 +181,32 @@ export function parseV2Detail(body: string): RawDraft | null {
     .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
     .map((key) => bien[key])
     .filter((url): url is string => typeof url === 'string' && url.startsWith('https://'));
-  const secteur = cleanText(bien.secteur);
+
+  /**
+   * LE QUARTIER VIENT DE `quartier_lib`/`quartier`, JAMAIS DE `secteur`.
+   *
+   * `secteur` est la grille interne de l'agence — une poignée de cases
+   * (« CENTRE », « OUEST », « NORD »…) où elle range ses biens pour son propre
+   * classement. Le site ne l'affiche nulle part : la carte et la fiche ne
+   * montrent que la commune. En le prenant pour le quartier, on publiait une
+   * localisation que la source ne publie pas — et deux fois sur six, elle
+   * démentait la description : `06024461` et `06024378` disent « NICE NORD »
+   * en première ligne et se retrouvaient placés au centre-ville, à trois
+   * kilomètres de là. Faute de quartier, mieux vaut n'en annoncer aucun : la
+   * normalisation lit alors le texte, qui le nomme (§17).
+   *
+   * `latitude`/`longitude` sont dans la même réponse et paraissent précis. Ils
+   * ne le sont pas : c'est le centre du CODE POSTAL. Deux biens de 06100 —
+   * l'un à Libération, l'autre à Nice Nord — portent les mêmes coordonnées au
+   * dix-millionième près. On ne les lit pas.
+   */
+  const quartier = cleanText(bien.quartier_lib) || cleanText(bien.quartier);
+  const street = [cleanText(bien.adresse), cleanText(bien.adresse_suite)]
+    .filter((part) => part !== '')
+    .join(' ');
 
   return {
+    ...(street !== '' ? { addressText: street } : {}),
     description: description === '' ? undefined : description,
     priceText: `${rent} € hors charges`,
     chargesText: charges !== undefined ? `${charges} €` : undefined,
@@ -194,9 +223,8 @@ export function parseV2Detail(body: string): RawDraft | null {
       ...(bien.mandat !== undefined && String(bien.mandat) !== ''
         ? { reference: String(bien.mandat) }
         : {}),
-      ...(secteur !== '' ? { quartier: secteur } : {}),
-      ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
-      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
+      ...(quartier !== '' ? { quartier } : {}),
+      ...energyLabels(dpe, ges),
     },
   };
 }

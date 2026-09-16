@@ -476,6 +476,19 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
     expect(extractStreetAddress('Nice Est - Rue Jean-Jaurès - studio')).toBe('Rue Jean-Jaurès');
   });
 
+  it('accepte le tiret collé au mot suivant, comme les agences le tapent', () => {
+    // Relevé tel quel chez Marchal Immobilier : l'espace manque APRÈS le tiret,
+    // et le segment ne se fermait donc jamais — la voie était perdue alors
+    // qu'elle ouvre la description.
+    expect(
+      extractStreetAddress('NICE NORD - Av Jean Canavese -à proximité de tous les commerces'),
+    ).toBe('Av Jean Canavese');
+    // L'espace peut manquer de l'autre côté, avec le même effet.
+    expect(extractStreetAddress('NICE NORD- Av Jean Canavese - beau studio')).toBe(
+      'Av Jean Canavese',
+    );
+  });
+
   it('refuse une voie noyée dans une phrase — ce sont les alentours (§17)', () => {
     expect(
       extractStreetAddress('Studio calme, entre la porte fausse et la place Rossetti'),
@@ -588,6 +601,44 @@ describe('isShortTermStudentLease (§17 — bail de neuf mois)', () => {
     expect(isShortTermStudentLease('Studio idéal étudiant, libre de suite')).toBe(false);
     expect(isShortTermStudentLease('Disponible à partir de septembre')).toBe(false);
     expect(isShortTermStudentLease(null)).toBe(false);
+  });
+});
+
+describe('isShortTermStudentLease — l’année scolaire écrite en dates', () => {
+  // 226 occurrences bornaient ainsi leur bail sans que l'atout soit posé : le
+  // motif exigeait « septembre à juin » accolé, et les agences écrivent les
+  // quantièmes et les millésimes.
+  it('franchit millésimes, quantièmes et « fin »', () => {
+    expect(isShortTermStudentLease('Disponible du 1er septembre 2026 au 30 juin 2027')).toBe(true);
+    expect(isShortTermStudentLease('Location de septembre à fin juin')).toBe(true);
+    expect(isShortTermStudentLease('À partir du 15 septembre jusqu’à fin juin')).toBe(true);
+    expect(isShortTermStudentLease('Bail meublé, période septembre juin')).toBe(true);
+  });
+
+  it('accepte les autres bornes de la même année scolaire', () => {
+    expect(isShortTermStudentLease('Bail d’octobre à juin, résidence calme')).toBe(true);
+    expect(isShortTermStudentLease('Location meublée du 1er septembre au 31 mai')).toBe(true);
+    expect(isShortTermStudentLease('Location d’octobre à mai, loyer 900 € charges comprises')).toBe(
+      true,
+    );
+  });
+
+  it('lit la seule fin quand un mot de location la précède', () => {
+    expect(isShortTermStudentLease('Bail meublé étudiant jusqu’au 31 mai 2027')).toBe(true);
+    expect(
+      isShortTermStudentLease('Le logement est disponible immédiatement jusqu’au 30 juin'),
+    ).toBe(true);
+  });
+
+  it('lit une durée de neuf mois même sans le mot « bail » accolé', () => {
+    expect(isShortTermStudentLease('Loué pour une période de 9 mois')).toBe(true);
+    expect(isShortTermStudentLease('Beau studio meublé, bail de 9mois')).toBe(true);
+  });
+
+  it('ne conclut rien d’une date de juin isolée', () => {
+    expect(isShortTermStudentLease('Travaux de ravalement terminés en juin')).toBe(false);
+    expect(isShortTermStudentLease('Bail de 3 à 6 mois minimum, garantie Visale')).toBe(false);
+    expect(isShortTermStudentLease('Libre le 30 juin')).toBe(false);
   });
 });
 
@@ -878,6 +929,92 @@ describe('isStudentOnlyHousing', () => {
   it('ne conclut rien d’un texte vide (§17)', () => {
     expect(isStudentOnlyHousing(null)).toBe(false);
     expect(isStudentOnlyHousing('')).toBe(false);
+  });
+});
+
+describe('isStudentOnlyHousing — les formules sans « uniquement »', () => {
+  // Relevé du 2026-09-16 : 248 occurrences disaient l'une de ces choses sans
+  // être signalées. Une famille par expectation, pour que l'échec nomme
+  // laquelle a lâché.
+  it('lit « location étudiante », sous toutes ses formes', () => {
+    expect(isStudentOnlyHousing('Location étudiante 2 pièces - secteur Fictif')).toBe(true);
+    expect(isStudentOnlyHousing('LOCATION ETUDIANTE - Studio Exemple')).toBe(true);
+    expect(isStudentOnlyHousing('T3 loc étudiante, bord de mer')).toBe(true);
+    expect(isStudentOnlyHousing('Location meublée étudiante, wifi inclus')).toBe(true);
+  });
+
+  it('lit le bail meublé étudiant, même quand un mot s’intercale', () => {
+    expect(isStudentOnlyHousing('Bail meublé étudiant jusqu’au 31 mai')).toBe(true);
+    expect(isStudentOnlyHousing('Location en bail meublé pour les étudiants, 500 € par mois')).toBe(
+      true,
+    );
+  });
+
+  it('lit l’adjectif qui qualifie le logement lui-même', () => {
+    expect(isStudentOnlyHousing('Studio étudiant, arrêt de tram à 100 m')).toBe(true);
+    expect(isStudentOnlyHousing('2 pièces meublé étudiant - Quartier Fictif')).toBe(true);
+    expect(isStudentOnlyHousing('F3 meublé étudiants, avenue Imaginaire')).toBe(true);
+  });
+
+  it('lit « pour étudiant » quand c’est le logement qui est proposé', () => {
+    expect(isStudentOnlyHousing('Studio meublé pour étudiant')).toBe(true);
+    expect(isStudentOnlyHousing('Studio premium Pour ÉTUDIANT(E)')).toBe(true);
+    expect(isStudentOnlyHousing('Loue studio pour étudiant')).toBe(true);
+    expect(isStudentOnlyHousing('3 pièces meublé pour étudiants dans une résidence fermée')).toBe(
+      true,
+    );
+  });
+
+  it('lit la réserve écrite en toutes lettres', () => {
+    expect(isStudentOnlyHousing('Location exclusivement destinée aux étudiants')).toBe(true);
+    expect(isStudentOnlyHousing('Appartement à louer, seulement pour étudiant')).toBe(true);
+    expect(isStudentOnlyHousing('Acceptés uniquement pour les étudiants')).toBe(true);
+    expect(isStudentOnlyHousing('Location uniquement pour période étudiants')).toBe(true);
+  });
+});
+
+describe('isStudentOnlyHousing — ce qu’on refuse d’y voir', () => {
+  it('ne prend pas l’argument de vente pour une condition', () => {
+    expect(isStudentOnlyHousing('Studio meublé, idéal pour étudiant')).toBe(false);
+    expect(isStudentOnlyHousing('Ce 2 pièces lumineux est parfait pour étudiants')).toBe(false);
+    expect(isStudentOnlyHousing('Studette meublée, idéalement meublée pour les étudiants')).toBe(
+      false,
+    );
+    expect(isStudentOnlyHousing('Un cadre de vie idéal aussi bien pour un étudiant')).toBe(false);
+  });
+
+  it('ne prend pas une condition de dossier pour une réserve', () => {
+    // Formule d'agence relevée sur neuf annonces : le garant ne suffit QUE si
+    // l'on est étudiant — les autres candidats se qualifient sur leurs revenus.
+    expect(
+      isStudentOnlyHousing(
+        'Votre dossier sera demandé. Garants acceptés seulement pour les étudiants.',
+      ),
+    ).toBe(false);
+    expect(isStudentOnlyHousing('Les garants sont acceptés uniquement pour les étudiants')).toBe(
+      false,
+    );
+    expect(isStudentOnlyHousing('Garants seulement pour étudiant, nous contacter')).toBe(false);
+  });
+
+  it('ne signale pas ce qui reste ouvert à qui n’est pas étudiant', () => {
+    expect(isStudentOnlyHousing('3P meublé pour étudiants ou bail civil')).toBe(false);
+    expect(isStudentOnlyHousing('Logement meublé pensé pour étudiant ou jeune actif')).toBe(false);
+    expect(isStudentOnlyHousing('2 pièces pour étudiants ou jeunes professionnels')).toBe(false);
+  });
+
+  it('ne se laisse pas désarmer par un argument de vente ailleurs dans le texte', () => {
+    expect(isStudentOnlyHousing('Idéal étudiant ! Location étudiante de septembre à juin.')).toBe(
+      true,
+    );
+  });
+
+  it('laisse le voisinage tranquille', () => {
+    expect(isStudentOnlyHousing('Appartement à 5 minutes des universités, quartier vivant')).toBe(
+      false,
+    );
+    expect(isStudentOnlyHousing('Parking étudiant gratuit à 5 mn')).toBe(false);
+    expect(isStudentOnlyHousing('Location étudiante acceptée, compteur individuel')).toBe(false);
   });
 });
 
@@ -1432,9 +1569,13 @@ describe('isStudentOnlyHousing — aperçu tronqué', () => {
   });
 
   it('ne complète pas un mot trop court ni un argument de vente', () => {
-    expect(isStudentOnlyHousing('Studio étudiant uni...')).toBe(false);
+    // Le porteur ne dit plus « studio étudiant » : cet accolement-là suffit
+    // désormais à signaler la fiche, et il masquait ce que ces cas vérifient —
+    // qu'« uni » (trois lettres) ne devient pas « uniquement », et qu'un mot
+    // coupé sans ellipse n'est pas complété du tout.
+    expect(isStudentOnlyHousing('Bel appartement rénové, étudiant uni...')).toBe(false);
     expect(isStudentOnlyHousing('Studio idéal étudiant, proche fac...')).toBe(false);
     expect(isStudentOnlyHousing('Studio idéal pour étud…')).toBe(false);
-    expect(isStudentOnlyHousing('Studio étudiant uniquemen')).toBe(false);
+    expect(isStudentOnlyHousing('Bel appartement rénové, étudiant uniquemen')).toBe(false);
   });
 });
