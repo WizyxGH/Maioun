@@ -11,3 +11,7 @@ CHANGELOG.md
 # invaliderait les tests de parsing (§50).
 tests/fixtures
 packages/collector/tests/fixtures
+
+# Copie de travail d'agent : un clone du dépôt, fixtures comprises. Le
+# vérificateur s'y cassait les dents sur du HTML capturé tel quel.
+.claude

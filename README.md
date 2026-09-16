@@ -196,16 +196,18 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 - **L'offre payante n'encaisse rien** : aucune clé de paiement n'est branchée.
   La route de paiement répond franchement « pas configuré » plutôt que
   d'ouvrir une page qui échouerait.
-- 57 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
+- 210 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
   Century 21, Orpi, Arthurimmo, LocService, les adaptateurs génériques Apimo et
   La Boîte Immo/Hektor, et Studapart par API) ; PAP est implémentée mais
   désactivée (son WAF refuse les clients non-navigateurs, qu'on ne contourne
   pas) — l'[étude des sources](docs/sources.md) détaille chaque verdict.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
-- Leboncoin, SeLoger et Bien'ici restent **écartés** : DataDome + interdiction
-  explicite de l'accès automatisé (Leboncoin), qu'on ne contourne pas. La voie
-  conforme — l'import de leurs alertes e-mail — est en service : leurs annonces
-  arrivent, sans que leurs pages soient jamais visitées.
+- Leboncoin et SeLoger restent **écartés** : DataDome + interdiction explicite
+  de l'accès automatisé (Leboncoin), qu'on ne contourne pas. La voie conforme —
+  l'import de leurs alertes e-mail — est en service : leurs annonces arrivent,
+  sans que leurs pages soient jamais visitées. Bien'ici, lui, est collecté
+  depuis le 2026-09-08 : son API de recherche est publique et son robots.txt ne
+  l'interdit pas.
 - Les notifications ne sont pas de l'instantané : elles partent au rythme des
   collectes (tâche planifiée + intervalles adaptatifs par source).
 - En mode local, la collecte tourne sur votre machine : ordinateur éteint, pas
@@ -217,7 +219,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 
 ## Roadmap
 
-- **Actuel** : pipeline complet, 57 sources actives (portails + réseaux +
+- **Actuel** : pipeline complet, 210 sources actives (portails + réseaux +
   agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
   par API publique) + PAP prête mais désactivée ; mode local zéro-cloud et mode
   publié (Actions + Pages + Turso) ; dédoublonnage multi-signaux ; contact

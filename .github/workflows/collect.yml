@@ -18,6 +18,13 @@ on:
     # les autres ayant été demandées à `:00` et `:30`, les minutes les plus
     # encombrées. Rien ne le garantit non plus ici, mais la file y est moins
     # longue.
+    #
+    # CE N'EST PLUS LA VOIE PRINCIPALE : le Cron Trigger du Worker réveille la
+    # collecte aux MÊMES minutes (`packages/worker/wrangler.toml`), en
+    # déclenchement manuel, qui lui part à l'heure. Ce `schedule` est le filet
+    # du jour où le Worker se tait. Les deux tombant ensemble, un réveil qui
+    # passe ici fait une seconde exécution — mise en file par `concurrency`, et
+    # sans requête vers les sources dont l'intervalle n'est pas écoulé.
     - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
     inputs:

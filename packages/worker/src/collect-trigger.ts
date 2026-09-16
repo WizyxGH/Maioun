@@ -1,8 +1,8 @@
 /**
  * RÉVEILLER LA COLLECTE, PARCE QUE LE CRON DE GITHUB NE LE FAIT PLUS (§30).
  *
- * Le workflow demande `7,37 * * * *`, soit quarante-huit passages par jour ; le
- * 2026-09-07 il en a exécuté TROIS. GitHub met les déclenchements `schedule` en
+ * Le workflow demandait alors `7,37 * * * *`, soit quarante-huit passages par
+ * jour ; le 2026-09-07 il en a exécuté TROIS. GitHub met les `schedule` en
  * file et les écarte quand elle est chargée, sans le dire. Sans collecte, rien
  * n'entre et aucune alerte ne part — alors que la dernière collecte a réussi.
  *

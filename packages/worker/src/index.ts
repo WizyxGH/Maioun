@@ -397,9 +397,10 @@ const DUMMY_HASH =
 /**
  * Les pièces du dossier (§25).
  *
- * Elles vivent dans R2, préfixées par le compte : un dossier de candidature
- * contient une fiche de paie et une pièce d'identité, il n'y a pas de pièces
- * communes.
+ * Elles vivent dans le stockage clé-valeur des Workers, préfixées par le
+ * compte : un dossier de candidature contient une fiche de paie et une pièce
+ * d'identité, il n'y a pas de pièces communes. (R2 aurait été le choix naturel
+ * pour des fichiers, mais il exige une carte bancaire — voir `wrangler.toml`.)
  *
  * RIEN N'EST ENVOYÉ AUTOMATIQUEMENT (§24) : on stocke, on liste, on rend, on
  * supprime. C'est vous qui joignez.
@@ -581,26 +582,6 @@ async function signup(
 }
 
 /**
- * Suppression du compte (RGPD, article 17 — « droit à l'effacement »).
- *
- * LE MOT DE PASSE EST REDEMANDÉ, alors qu'on est déjà connecté. Ce n'est pas
- * une formalité : un ordinateur laissé ouvert, un lien piégé, et un compte
- * entier disparaît sans retour. Redemander le mot de passe est la seule chose
- * qui distingue le propriétaire de quiconque a la main sur son écran.
- *
- * ELLE EST IMMÉDIATE ET SANS RETOUR. Pas de corbeille, pas de délai de grâce :
- * effacer veut dire effacer. Ce que l'écran doit dire clairement AVANT, parce
- * qu'après il n'y a plus personne à qui le dire.
- */
-/**
- * L'adresse du compte : la lire, ou en changer. `null` si la méthode ne
- * correspond à rien ici — l'appelant poursuit alors son aiguillage.
- *
- * Route À PART et non un champ de `/api/me` : `me` répond à chaque ouverture du
- * site sans toucher la base, et y ajouter une lecture de ligne la ferait payer
- * à tout le monde pour un écran de réglages qu'on ouvre une fois (§30).
- */
-/**
  * Déclarer, remplacer ou retirer l'accès à une source PAYÉE (§6, §26).
  *
  * LE SECRET NE REDESCEND JAMAIS. La lecture ne rend que « configuré » et
@@ -679,6 +660,14 @@ async function credentialsRoute(
   return json({ configured: true, login }, cors);
 }
 
+/**
+ * L'adresse du compte : la lire, ou en changer. `null` si la méthode ne
+ * correspond à rien ici — l'appelant poursuit alors son aiguillage.
+ *
+ * Route À PART et non un champ de `/api/me` : `me` répond à chaque ouverture du
+ * site sans toucher la base, et y ajouter une lecture de ligne la ferait payer
+ * à tout le monde pour un écran de réglages qu'on ouvre une fois (§30).
+ */
 async function accountEmailRoute(
   db: Client,
   request: Request,
@@ -826,6 +815,18 @@ async function resendConfirmationRoute(
   );
 }
 
+/**
+ * Suppression du compte (RGPD, article 17 — « droit à l'effacement »).
+ *
+ * LE MOT DE PASSE EST REDEMANDÉ, alors qu'on est déjà connecté. Ce n'est pas
+ * une formalité : un ordinateur laissé ouvert, un lien piégé, et un compte
+ * entier disparaît sans retour. Redemander le mot de passe est la seule chose
+ * qui distingue le propriétaire de quiconque a la main sur son écran.
+ *
+ * ELLE EST IMMÉDIATE ET SANS RETOUR. Pas de corbeille, pas de délai de grâce :
+ * effacer veut dire effacer. Ce que l'écran doit dire clairement AVANT, parce
+ * qu'après il n'y a plus personne à qui le dire.
+ */
 async function deleteAccountRoute(
   db: Client,
   request: Request,

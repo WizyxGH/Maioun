@@ -98,3 +98,9 @@ temp/
 .q/
 .tmpq/
 .probe/
+
+# --- Copies de travail des agents -------------------------------------------
+# `.claude/worktrees/` contient un CLONE COMPLET du dépôt : ses fixtures HTML
+# et son service worker faisaient échouer `lint` et `format:check` à la racine,
+# et un `git add -A` y aurait versionné le dépôt dans lui-même.
+.claude/

@@ -49,16 +49,20 @@ vi.mock('@maioun/collector/server/routes', () => ({
   route: (
     _db: unknown,
     _request: unknown,
-    _url: unknown,
+    url: URL,
     segments: readonly string[],
     _cors: unknown,
     userId: string | null,
   ) => {
+    deleguees.push({ url, segments, userId });
     const open = ['listings', 'districts', 'sources', 'agencies'].includes(segments[1] ?? '');
     if (userId === null && !open) return new Response('{}', { status: 401 });
     return new Response('{}', { status: 404 });
   },
 }));
+
+/** Ce que le Worker a transmis à `route`, appel par appel. */
+const deleguees: { url: URL; segments: readonly string[]; userId: string | null }[] = [];
 
 /**
  * LA VERIFICATION DU JETON EST TESTEE POUR DE VRAI AILLEURS, avec de vraies
@@ -126,6 +130,7 @@ async function call(
 
 beforeEach(() => {
   executed.length = 0;
+  deleguees.length = 0;
   rows = [];
 });
 
@@ -276,6 +281,51 @@ describe('jeton lié à la clé d’appareil', () => {
     const response = await call('GET', '/api/me');
     expect(await response.json()).toEqual({ user: null });
     expect(response.headers.get('Set-Cookie')).toBeNull();
+  });
+});
+
+/**
+ * CE QUE LE WORKER TRANSMET AU CATALOGUE.
+ *
+ * Il ne lit ni ne filtre les annonces : il passe l'adresse et l'identité à
+ * `routes.ts`. Deux choses peuvent donc casser ici sans qu'aucun test du
+ * collecteur ne bronche — une adresse amputée de sa requête, et une identité
+ * mal transmise. C'est exactement ce dont dépendent la recherche partagée
+ * (`criteria`, lue POUR UN VISITEUR seulement) et les archives
+ * (`?archived=true`, lues pour le compte connecté).
+ */
+describe('délégation du catalogue', () => {
+  it('transmet `criteria` intact à un visiteur, sans identité', async () => {
+    const criteria = JSON.stringify({ cities: ['nice'], maxPrice: 900 });
+    const chemin = `/api/listings?limit=500&criteria=${encodeURIComponent(criteria)}`;
+    const response = await call('GET', chemin);
+
+    expect(response.status).toBe(404); // le double ne rend pas de catalogue
+    expect(deleguees).toHaveLength(1);
+    // L'IDENTITÉ EST `null` ET NON UN COMPTE : c'est elle qui décide, dans
+    // `routes.ts`, que `criteria` est lu. Transmettre un compte ici ferait
+    // ignorer le paramètre en silence, et le lien partagé rendrait la liste de
+    // quelqu'un d'autre.
+    expect(deleguees[0]?.userId).toBeNull();
+    expect(deleguees[0]?.url.searchParams.get('criteria')).toBe(criteria);
+    expect(deleguees[0]?.segments).toEqual(['api', 'listings']);
+  });
+
+  it('transmet `?archived=true` avec le compte qui le demande', async () => {
+    const response = await call('GET', '/api/listings?archived=true', { session: 'moi' });
+
+    expect(response.status).toBe(404);
+    expect(deleguees[0]?.userId).toBe('moi');
+    expect(deleguees[0]?.url.searchParams.get('archived')).toBe('true');
+  });
+
+  it('habille de CORS ce que le catalogue renvoie, erreurs comprises', async () => {
+    // Sans en-tête d'origine, le navigateur BLOQUE la réponse avant le code :
+    // un 401 devient une panne réseau, et l'écran ne peut plus renvoyer vers la
+    // connexion.
+    const response = await call('GET', '/api/stats');
+    expect(response.status).toBe(401);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
   });
 });
 

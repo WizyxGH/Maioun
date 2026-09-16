@@ -111,12 +111,12 @@ saisit une adresse en clair (« 12 rue X, Nice »), pas des coordonnées ; elle 
 géocodée à la collecte suivante, une fois, puis mise en cache. Les distances ne
 changent donc pas dans la seconde.
 
-Les variables `REFERENCE_*` de `.env` restent la valeur de DÉPART : tant que
-rien n'a été réglé depuis le site, elles font foi. Dès qu'on enregistre depuis
-l'écran, c'est le réglage qui prime — sinon une adresse saisie sur le téléphone
-aurait paru sans effet, écrasée en silence par un fichier posé sur la machine
-de collecte. Une liste vidée depuis le site est un choix, pas une absence : elle
-ne rallume pas `.env`.
+**L'écran est la seule source.** Les variables `REFERENCE_*` de `.env` ne sont
+plus lues par rien : un fichier posé sur la machine de collecte ne peut pas
+porter les adresses de plusieurs comptes, et une adresse saisie depuis le
+téléphone y aurait paru sans effet. Rien de réglé depuis le site veut donc dire
+aucun point de référence — les annonces sont alors classées sans temps de
+trajet, ce que la fiche dit au lieu de l'inventer.
 
 Ces adresses désignent un lieu de travail et un domicile. Elles vivent dans la
 base à jeton, jamais dans le dépôt (§26).
@@ -139,12 +139,13 @@ source : c'est là qu'on vérifie que tout tourne.
 ## Mise en ligne
 
 ```
-GitHub Actions (cron 20 min)  → collecte 24/7 et notifications Web Push
-        ↓ écrit
+GitHub Actions (toutes les 15 min) → collecte 24/7 et notifications Web Push
+        ↓ écrit                      (réveillée par le Worker, voir plus bas)
 Turso (SQLite cloud)          → base PRIVÉE, jeton jamais publié
         ↑ lit
 Worker Cloudflare             → l'API, les sessions, les pièces du dossier
-        ↑ appelle                (R2), et le SEUL détenteur du jeton Turso
+        ↑ appelle                (stockage clé-valeur), le réveil de la
+                                 collecte, et le SEUL détenteur du jeton Turso
 GitHub Pages                  → le site (bundle public, sans aucun secret)
 ```
 
@@ -191,15 +192,35 @@ jamais de données fictives.
 
 **Settings → Secrets and variables → Actions** :
 
-| Secret                                    | Valeur                        |
-| ----------------------------------------- | ----------------------------- |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | ceux de l'étape 1             |
-| `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY`       | pour les notifications (§29)  |
-| `BEP_SUBSCRIBER_USER` / `_PASSWORD`       | optionnel (accès abonné payé) |
+| Secret                                    | Valeur                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | ceux de l'étape 1                                                                                 |
+| `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY`       | pour les notifications (§29)                                                                      |
+| `EMAIL_API_KEY`                           | le canal e-mail qui double le push — **la même clé Resend que le Worker**                         |
+| `CREDENTIALS_KEY`                         | déchiffre les accès abonnés déclarés depuis le site — **exactement la même valeur que le Worker** |
+| `IMAP_USER` / `IMAP_APP_PASSWORD`         | la boîte où arrivent les alertes des portails (§6, §10)                                           |
+| `BEP_SUBSCRIBER_USER` / `_PASSWORD`       | optionnel (amorçage d'un accès abonné payé)                                                       |
 
-Plus la _variable_ `CLOUD_COLLECT_ENABLED=true`, l'interrupteur de la collecte
-planifiée. Sans elle, `collect.yml` **ne fait rien** : un fork du dépôt ne
-consomme rien et ne déclenche aucune action involontaire.
+Et les _variables_ (onglet « Variables », pas « Secrets ») :
+
+| Variable                     | Rôle                                                                                                                                                                                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUD_COLLECT_ENABLED`      | `true` allume la collecte planifiée. Absente, `collect.yml` **ne fait rien** : un fork ne consomme rien et ne déclenche aucune action involontaire.                                                                                      |
+| `API_URL`                    | l'URL du Worker, qui relaie en https les photos publiées en http — sans elle la notification s'affiche nue                                                                                                                               |
+| `EMAIL_FROM`                 | l'expéditeur, le même que celui du Worker                                                                                                                                                                                                |
+| `IMAP_HOST` / `IMAP_MAILBOX` | la boîte à lire ; défauts `imap.gmail.com` et la boîte de réception                                                                                                                                                                      |
+| `ALERT_ADDRESS_TEMPLATE`     | **le même gabarit que le Worker.** Le Worker MONTRE l'adresse à chaque compte, le collecteur s'en sert pour ROUTER ce qui arrive : configuré d'un seul côté, l'écran affiche une adresse dont les messages n'appartiendraient à personne |
+| `AUTO_CONTACT_ENABLED`       | interrupteur global du contact automatique (§23). Absent = OFF                                                                                                                                                                           |
+
+**Les valeurs manquantes ne font pas d'erreur, elles font du silence.** Les
+quatre variables IMAP ont manqué longtemps : la source des alertes e-mail se
+désactivait à chaque passage sans rien dire, et ne fonctionnait que sur la
+machine de son propriétaire — tout un pan du gisement (Leboncoin, SeLoger)
+absent, sans qu'aucune collecte ne rougisse.
+
+Ce qui ne figure **pas** ici se déduit du dépôt et n'a donc pas à être écrit :
+l'adresse des liens d'alerte et l'identité annoncée aux sites viennent de
+`GITHUB_REPOSITORY`, que GitHub tient à jour même après un renommage.
 
 Les points de référence ne figurent nulle part ici : ils se règlent depuis le
 site (Paramètres → Adresses de référence) et vivent en base, par compte. Ce sont
@@ -239,8 +260,12 @@ La commande demande un identifiant et un mot de passe **sans l'afficher**, et
 n'écrit que son empreinte (PBKDF2, 210 000 tours). Elle ne prend pas le mot de
 passe en argument : il resterait dans l'historique du terminal.
 
-Il n'y a **pas d'écran d'inscription** sur le site, et c'est voulu : un site
-ouvert à l'inscription est un site que n'importe qui remplit.
+Cette commande sert à **amorcer** une installation, ou à créer un compte sans
+passer par le site. L'inscription est ouverte depuis, par mot de passe ou avec
+un compte Google : ce qui protège de l'inscription en masse n'est plus une porte
+fermée mais trois barrières — trois inscriptions par heure et par origine, une
+adresse dont le domaine existe, et une confirmation par e-mail (voir
+`packages/worker/src/signup.ts`).
 
 Enfin, deux réglages se répondent :
 
@@ -248,6 +273,39 @@ Enfin, deux réglages se répondent :
   (`https://<vous>.github.io`). Un `*` serait refusé par les navigateurs dès
   lors qu'on envoie un cookie — et il le serait à raison.
 - `VITE_API_URL` du build du site = l'URL du Worker.
+
+### 5. Le réveil de la collecte — Cron Trigger du Worker
+
+**C'EST LUI QUI LANCE LES COLLECTES, pas le `schedule` de GitHub.** Ce dernier
+met les réveils planifiés en file et les écarte quand elle est chargée, sans le
+dire : le 2026-09-07, trois passages sur quarante-huit demandés. Une base sans
+collecte n'a l'air de rien — la dernière a réussi, elle date simplement.
+
+Les Cron Triggers de Cloudflare tiennent l'heure et sont compris dans le plan
+gratuit. Le Worker ne collecte pas (il n'a ni Node ni le temps qu'il faudrait) :
+il demande à GitHub d'exécuter `collect.yml`, ce qui compte comme un
+déclenchement **manuel** et échappe donc à la file des `schedule`.
+
+Un seul geste, une fois :
+
+```bash
+cd packages/worker
+npx wrangler secret put GITHUB_DISPATCH_TOKEN
+```
+
+Un jeton **fin** (fine-grained), sur ce seul dépôt, avec la permission
+« Actions: Read and write » et rien d'autre : le Worker n'a besoin que d'appuyer
+sur un bouton. Le dépôt visé est désigné par `GITHUB_REPOSITORY_ID` dans
+`[vars]` — son identifiant NUMÉRIQUE, qui survit aux renommages là où le nom les
+subit :
+
+```bash
+gh api repos/<propriétaire>/<nom> --jq .id
+```
+
+Sans le jeton, le réveil se tait **et l'écrit dans le journal** : `npx wrangler
+tail` le montre (« collecte NON demandée : GITHUB_DISPATCH_TOKEN absent »). Le
+`schedule` du workflow reste en place comme filet — il ne coûte rien.
 
 ### Les pièces du dossier de candidature (§25) — option gratuite à activer
 
@@ -260,12 +318,17 @@ plus — deux ordres de grandeur sous les limites.
 exige d'enregistrer une carte bancaire avant de créer le moindre seau, y compris
 pour son palier gratuit. KV n'en demande aucune.
 
-Le binding reste commenté dans `wrangler.toml`, parce qu'il a besoin de
-l'identifiant d'un espace qui doit déjà exister. Deux gestes :
+L'espace **existe depuis le 2026-09-07** et son binding est actif dans
+`wrangler.toml` : il n'y a rien à faire ici pour une installation qui part de ce
+dépôt. Un binding KV exige l'identifiant d'un espace DÉJÀ créé — c'est ce qui
+l'avait laissé commenté si longtemps, `/api/documents` répondant `501` pendant
+que l'écran acceptait des fichiers que rien ne conservait.
+
+Pour recréer l'espace (autre compte Cloudflare, espace supprimé) :
 
 ```bash
 npx wrangler kv namespace create DOCUMENTS
-# recopier l'`id` affiché dans wrangler.toml, décommenter le bloc
+# recopier l'`id` affiché dans le bloc [[kv_namespaces]] de wrangler.toml
 npx wrangler deploy
 ```
 

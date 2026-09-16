@@ -15,6 +15,10 @@ export default tseslint.config(
       '**/playwright-report/**',
       '**/test-results/**',
       '**/*.d.ts',
+      // Copie de travail d'agent : un clone du dépôt. Son service worker était
+      // relu sans les globales du navigateur, faute d'être sous `frontend/`
+      // — sept « self is not defined » pour du code déjà couvert ici.
+      '.claude/**',
     ],
   },
 

@@ -36,7 +36,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['packages/**/*.test.ts', 'tests/**/*.test.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', 'frontend/**'],
+    // `.claude/**` : une copie de travail d'agent y est un clone du dépôt. Les
+    // motifs ci-dessus ne l'atteignent pas aujourd'hui, mais un `**/` ajouté à
+    // l'un d'eux y ferait tourner la suite en double, sur un code d'ailleurs.
+    exclude: ['**/node_modules/**', '**/dist/**', 'frontend/**', '.claude/**'],
     globals: false,
     // Horloge et aléatoire sont figés au cas par cas dans les tests concernés.
     restoreMocks: true,
