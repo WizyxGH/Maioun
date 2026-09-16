@@ -277,6 +277,11 @@ export interface FetchListingsOptions {
   readonly favoritesOnly?: boolean;
   /** Absente : tout l'inventaire pertinent (le plafond de l'API). */
   readonly limit?: number;
+  /**
+   * Critères d'une recherche partagée, pour un VISITEUR : l'API les applique à
+   * cette réponse sans rien écrire. Un compte lit les siens et les ignore.
+   */
+  readonly criteria?: FilterConfig;
 }
 
 export async function fetchListings(options: FetchListingsOptions = {}): Promise<ListingsResponse> {
@@ -293,6 +298,15 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
     if (!includeArchived)
       filtered = filtered.filter((listing) => archiveReasonOf(listing) === null);
     if (favoritesOnly) filtered = filtered.filter((listing) => listing.favorite === true);
+    const { criteria } = options;
+    if (criteria !== undefined) {
+      filtered = filtered.filter(
+        (listing) =>
+          (listing.price.value === null || listing.price.value <= criteria.maxPrice) &&
+          (listing.price.value === null || listing.price.value >= (criteria.minPrice ?? 0)) &&
+          (listing.area.value === null || listing.area.value >= criteria.minArea),
+      );
+    }
     const listings = sortMock(filtered, sort);
     return { listings, total: listings.length, limit: listings.length, offset: 0 };
   }
@@ -304,6 +318,7 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
   if (includeAll) params.set('all', 'true');
   if (includeArchived) params.set('archived', 'true');
   if (favoritesOnly) params.set('favorite', 'true');
+  if (options.criteria !== undefined) params.set('criteria', JSON.stringify(options.criteria));
   return request<ListingsResponse>(`/api/listings?${params.toString()}`);
 }
 

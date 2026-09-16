@@ -15,9 +15,12 @@
  * seulement » la range parmi les recherches enregistrées, où elle attendra —
  * c'est le bon geste quand on reçoit le lien d'un ami au milieu de sa propre
  * recherche et qu'on ne veut rien perdre.
+ *
+ * SANS COMPTE, rien à remplacer ni où ranger : « Voir les annonces » filtre la
+ * liste pour cette session, et créer un compte ramène ici pour l'enregistrer.
  */
 
-import { ArrowLeft, Bookmark, Check, TriangleAlert } from './icons.js';
+import { ArrowLeft, Bookmark, Check, Search, TriangleAlert, UserPlus } from './icons.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { SearchSummary } from './SearchSummary.js';
 import { decodeSearch } from '../share-search.js';
@@ -29,6 +32,7 @@ export function SharedSearch({
   onApply,
   onSave,
   onCancel,
+  visitor,
 }: {
   readonly token: string;
   /** Remplace les critères du compte et ouvre la liste. */
@@ -36,6 +40,12 @@ export function SharedSearch({
   /** Range la recherche sans rien changer à l'écran courant. */
   readonly onSave: (search: SavedSearch) => void;
   readonly onCancel: () => void;
+  /** Présent pour un visiteur : remplace « Appliquer » et « Enregistrer ». */
+  readonly visitor?: {
+    /** Filtre la liste pour cette session, sans rien écrire. */
+    readonly onBrowse: (search: SavedSearch) => void;
+    readonly onSignup: () => void;
+  };
 }): React.JSX.Element {
   const shared = decodeSearch(token);
 
@@ -87,23 +97,46 @@ export function SharedSearch({
             <SearchSummary search={search} className="mt-1 text-sm" />
           </div>
 
-          <p className="border-border rounded-lg border px-3 py-2 text-[0.85rem]">
-            « Appliquer » remplace vos critères de recherche : c’est ce que la prochaine collecte
-            ira chercher, et ce qui déclenchera vos alertes. Vos favoris, votre suivi et votre
-            profil ne changent pas.
-          </p>
+          {visitor !== undefined ? (
+            <>
+              <p className="border-border rounded-lg border px-3 py-2 text-[0.85rem]">
+                Sans compte, la recherche vaut le temps de votre visite. Créez un compte pour la
+                garder et recevoir des alertes.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => visitor.onBrowse(search)}>
+                  <Search aria-hidden="true" className="size-4" /> Voir les annonces
+                </Button>
+                <Button variant="outline" onClick={visitor.onSignup}>
+                  <UserPlus aria-hidden="true" className="size-4" /> Créer un compte pour
+                  l’enregistrer
+                </Button>
+                <Button variant="ghost" onClick={onCancel}>
+                  <ArrowLeft aria-hidden="true" className="size-4" /> Continuer sans
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="border-border rounded-lg border px-3 py-2 text-[0.85rem]">
+                « Appliquer » remplace vos critères de recherche : c’est ce que la prochaine
+                collecte ira chercher, et ce qui déclenchera vos alertes. Vos favoris, votre suivi
+                et votre profil ne changent pas.
+              </p>
 
-          <div className="flex flex-col gap-2">
-            <Button onClick={() => onApply(search)}>
-              <Check aria-hidden="true" className="size-4" /> Appliquer cette recherche
-            </Button>
-            <Button variant="outline" onClick={() => onSave(search)}>
-              <Bookmark aria-hidden="true" className="size-4" /> Enregistrer seulement
-            </Button>
-            <Button variant="ghost" onClick={onCancel}>
-              <ArrowLeft aria-hidden="true" className="size-4" /> Garder mes critères
-            </Button>
-          </div>
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => onApply(search)}>
+                  <Check aria-hidden="true" className="size-4" /> Appliquer cette recherche
+                </Button>
+                <Button variant="outline" onClick={() => onSave(search)}>
+                  <Bookmark aria-hidden="true" className="size-4" /> Enregistrer seulement
+                </Button>
+                <Button variant="ghost" onClick={onCancel}>
+                  <ArrowLeft aria-hidden="true" className="size-4" /> Garder mes critères
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </main>

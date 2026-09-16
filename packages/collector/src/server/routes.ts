@@ -76,6 +76,11 @@ export interface LiveFilters {
   readonly availableBy?: string;
   readonly districts?: readonly string[];
   readonly includeUnknownDistrict?: boolean;
+  /**
+   * Communes, en minuscules. Ne sert qu'au visiteur : pour un compte, la
+   * commune est déjà jugée dans `matches_criteria`.
+   */
+  readonly cities?: readonly string[];
 }
 
 /**
@@ -331,8 +336,9 @@ function sqlText(value: string): string {
  * défaut. En littéraux plutôt qu'en paramètres, pour servir aussi en colonne
  * sans décaler les arguments de la requête.
  */
-const CATALOGUE_SQL = `listings.lifecycle != 'inactive'
-  AND listings.property_type NOT IN ('parking', 'commercial')
+const CATALOGUE_BASE_SQL = `listings.lifecycle != 'inactive'
+  AND listings.property_type NOT IN ('parking', 'commercial')`;
+const CATALOGUE_SQL = `${CATALOGUE_BASE_SQL}
   AND listings.city IN (${MVP_CRITERIA.cities.map(sqlText).join(', ')})`;
 
 /**
@@ -594,32 +600,45 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
   const conditions: string[] = [];
   const filterArgs: Array<string | number> = [];
 
-  if (!includeAll && anonymous) {
+  // TOUS les filtres s'appliquent en direct : les changer depuis l'interface
+  // se répercute sur la liste immédiatement, sans re-collecter. Un champ NULL
+  // n'exclut JAMAIS — c'est ce qui évite qu'une annonce disparaisse parce que
+  // la source s'est tue sur un détail.
+  const applyFilters = (live: LiveFilters): void => {
+    conditions.push('(price IS NULL OR price <= ?)');
+    filterArgs.push(live.maxPrice);
+    if (live.minPrice !== undefined) {
+      conditions.push('(price IS NULL OR price >= ?)');
+      filterArgs.push(live.minPrice);
+    }
+    conditions.push('(area IS NULL OR area >= ?)');
+    filterArgs.push(live.minArea);
+    // Les préférences vivent dans `core/trait-filters` : la LISTE et les
+    // NOTIFICATIONS s'en servent toutes deux, et deux copies auraient fini
+    // par diverger — on aurait alors signalé ce qu'on n'affiche pas.
+    const traits = traitConditions(live);
+    conditions.push(...traits.sql);
+    filterArgs.push(...traits.args);
+  };
+
+  if (!includeAll && anonymous && filters === undefined) {
     // Même prédicat que son « dans les critères » : la liste et la fiche concordent.
     conditions.push(`(${CATALOGUE_SQL})`);
+  } else if (!includeAll && anonymous && filters !== undefined) {
+    // Recherche partagée : le catalogue, mais dans SES communes et SES critères.
+    const cities =
+      filters.cities !== undefined && filters.cities.length > 0
+        ? filters.cities
+        : MVP_CRITERIA.cities;
+    conditions.push(
+      `(${CATALOGUE_BASE_SQL})`,
+      `LOWER(listings.city) IN (${cities.map(() => '?').join(',')})`,
+    );
+    filterArgs.push(...cities);
+    applyFilters(filters);
   } else if (!includeAll) {
     conditions.push('COALESCE(sc.matches_criteria, 0) = 1');
-
-    // TOUS les filtres s'appliquent en direct : les changer depuis l'interface
-    // se répercute sur la liste immédiatement, sans re-collecter. Un champ NULL
-    // n'exclut JAMAIS (§17) — c'est ce qui évite qu'une annonce disparaisse
-    // parce que la source s'est tue sur un détail.
-    if (filters !== undefined) {
-      conditions.push('(price IS NULL OR price <= ?)');
-      filterArgs.push(filters.maxPrice);
-      if (filters.minPrice !== undefined) {
-        conditions.push('(price IS NULL OR price >= ?)');
-        filterArgs.push(filters.minPrice);
-      }
-      conditions.push('(area IS NULL OR area >= ?)');
-      filterArgs.push(filters.minArea);
-      // Les préférences vivent dans `core/trait-filters` : la LISTE et les
-      // NOTIFICATIONS s'en servent toutes deux, et deux copies auraient fini
-      // par diverger — on aurait alors signalé ce qu'on n'affiche pas (§75).
-      const traits = traitConditions(filters);
-      conditions.push(...traits.sql);
-      filterArgs.push(...traits.args);
-    }
+    if (filters !== undefined) applyFilters(filters);
   }
 
   // Archivées à la main ou d'office — louées, retirées, fermées aux
@@ -1458,48 +1477,100 @@ async function liveFilters(db: Client, userId: string): Promise<LiveFilters | un
   const raw = stored.rows[0]?.['value'];
   if (typeof raw !== 'string') return undefined;
   try {
-    const parsed = JSON.parse(raw) as Partial<LiveFilters>;
-    if (typeof parsed.maxPrice !== 'number' || typeof parsed.minArea !== 'number') return undefined;
-    return {
-      maxPrice: parsed.maxPrice,
-      minArea: parsed.minArea,
-      ...(typeof parsed.minPrice === 'number' ? { minPrice: parsed.minPrice } : {}),
-      ...(parsed.excludeFlatShare === true ? { excludeFlatShare: true } : {}),
-      ...(parsed.excludeStudent === true ? { excludeStudent: true } : {}),
-      ...(parsed.landlordFilter === 'private' || parsed.landlordFilter === 'agency'
-        ? { landlordFilter: parsed.landlordFilter }
-        : {}),
-      ...(parsed.furnishedFilter === 'furnished' || parsed.furnishedFilter === 'unfurnished'
-        ? { furnishedFilter: parsed.furnishedFilter }
-        : {}),
-      ...(typeof parsed.maxCommuteMinutes === 'number'
-        ? { maxCommuteMinutes: parsed.maxCommuteMinutes }
-        : {}),
-      // LA FORME EST VERIFIEE ICI, et il le faut : cette valeur part dans une
-      // comparaison SQL. Elle est parametree, donc rien ne s'injecte, mais une
-      // chaine quelconque produirait un filtre silencieusement faux — refuser
-      // ce qui n'est pas une date vaut mieux que filtrer sur du vide.
-      ...(typeof parsed.availableBy === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.availableBy)
-        ? { availableBy: parsed.availableBy }
-        : {}),
-      // ON NE GARDE QUE DES QUARTIERS CONNUS. Ces valeurs partent dans un `IN`
-      // paramétré, donc rien ne s'injecte ; mais un slug inventé produirait un
-      // filtre qui ne rend jamais rien, et l'écran n'aurait aucun moyen de le
-      // dire. Mieux vaut l'ignorer que filtrer sur du vide.
-      ...(Array.isArray(parsed.districts)
-        ? {
-            districts: parsed.districts.filter(
-              (slug): slug is string =>
-                typeof slug === 'string' && districtBySlug(slug) !== undefined,
-            ),
-          }
-        : {}),
-      // Seul le REFUS se transmet : absent, les inconnus sont gardés.
-      ...(parsed.includeUnknownDistrict === false ? { includeUnknownDistrict: false } : {}),
-    };
+    return parseLiveFilters(JSON.parse(raw));
   } catch {
     return undefined;
   }
+}
+
+/** Un nombre utilisable en SQL : `1e999` se lit `Infinity` en JSON. */
+function finite(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/**
+ * Des critères enregistrés ou reçus → ce que la liste sait appliquer.
+ *
+ * UNE SEULE LECTURE pour le compte et pour le visiteur : un lien partagé filtre
+ * exactement comme les mêmes critères posés dans un compte.
+ */
+function parseLiveFilters(value: unknown): LiveFilters | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const parsed = value as Partial<Record<keyof LiveFilters, unknown>>;
+  if (!finite(parsed.maxPrice) || !finite(parsed.minArea)) return undefined;
+  return {
+    maxPrice: parsed.maxPrice,
+    minArea: parsed.minArea,
+    ...(finite(parsed.minPrice) ? { minPrice: parsed.minPrice } : {}),
+    ...(parsed.excludeFlatShare === true ? { excludeFlatShare: true } : {}),
+    ...(parsed.excludeStudent === true ? { excludeStudent: true } : {}),
+    ...(parsed.landlordFilter === 'private' || parsed.landlordFilter === 'agency'
+      ? { landlordFilter: parsed.landlordFilter }
+      : {}),
+    ...(parsed.furnishedFilter === 'furnished' || parsed.furnishedFilter === 'unfurnished'
+      ? { furnishedFilter: parsed.furnishedFilter }
+      : {}),
+    ...(finite(parsed.maxCommuteMinutes) ? { maxCommuteMinutes: parsed.maxCommuteMinutes } : {}),
+    // LA FORME EST VERIFIEE ICI, et il le faut : cette valeur part dans une
+    // comparaison SQL. Elle est parametree, donc rien ne s'injecte, mais une
+    // chaine quelconque produirait un filtre silencieusement faux — refuser
+    // ce qui n'est pas une date vaut mieux que filtrer sur du vide.
+    ...(typeof parsed.availableBy === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.availableBy)
+      ? { availableBy: parsed.availableBy }
+      : {}),
+    // ON NE GARDE QUE DES QUARTIERS CONNUS. Ces valeurs partent dans un `IN`
+    // paramétré, donc rien ne s'injecte ; mais un slug inventé produirait un
+    // filtre qui ne rend jamais rien, et l'écran n'aurait aucun moyen de le
+    // dire. Mieux vaut l'ignorer que filtrer sur du vide.
+    ...(Array.isArray(parsed.districts)
+      ? {
+          districts: parsed.districts.filter(
+            (slug): slug is string =>
+              typeof slug === 'string' && districtBySlug(slug) !== undefined,
+          ),
+        }
+      : {}),
+    // Seul le REFUS se transmet : absent, les inconnus sont gardés.
+    ...(parsed.includeUnknownDistrict === false ? { includeUnknownDistrict: false } : {}),
+  };
+}
+
+/** Au-delà, ce n'est plus un lien de recherche mais une adresse bricolée. */
+const MAX_SHARED_CRITERIA = 4000;
+const MAX_SHARED_CITIES = 20;
+
+/**
+ * Les critères d'une recherche partagée, passés par un visiteur en `criteria`.
+ *
+ * LUS, JAMAIS ÉCRITS : ils filtrent cette réponse et rien d'autre. Un visiteur
+ * n'a pas de compte où les ranger.
+ *
+ * @returns `undefined` sans paramètre, `null` s'il est illisible.
+ */
+export function sharedCriteria(url: URL): LiveFilters | undefined | null {
+  const raw = url.searchParams.get('criteria');
+  if (raw === null) return undefined;
+  if (raw.length > MAX_SHARED_CRITERIA) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const filters = parseLiveFilters(value);
+  if (filters === undefined) return null;
+  const cities = (value as { cities?: unknown }).cities;
+  if (!Array.isArray(cities)) return null;
+  const communes = [
+    ...new Set(
+      cities
+        .filter((city): city is string => typeof city === 'string')
+        .map((city) => city.trim().toLowerCase())
+        .filter((city) => city !== '' && city.length <= 80),
+    ),
+  ];
+  if (communes.length > MAX_SHARED_CITIES) return null;
+  return { ...filters, cities: communes };
 }
 
 /** Ressource `listings` : collection, élément et sous-ressource `contact`. */
@@ -1515,7 +1586,12 @@ async function handleListingsRoute(
 ): Promise<Response> {
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
-    const query = buildListQuery(url, await liveFilters(db, userId), userId === ANONYMOUS_USER);
+    const anonymous = userId === ANONYMOUS_USER;
+    // Un compte lit SES critères ; le paramètre ne vaut que pour un visiteur.
+    const shared = anonymous ? sharedCriteria(url) : undefined;
+    if (shared === null) return json({ error: 'Critères illisibles' }, cors, 400);
+    const filters = anonymous ? shared : await liveFilters(db, userId);
+    const query = buildListQuery(url, filters, anonymous);
     const { etag, total } = await listSignature(db, query, userId);
 
     // REQUÊTE CONDITIONNELLE. Le navigateur renvoie l'empreinte qu'il détient ;
