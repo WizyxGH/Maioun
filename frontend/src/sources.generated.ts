@@ -1106,6 +1106,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  oqoro: { name: 'Oqoro', domain: null, logo: null, paidContact: false, address: null },
   orea: {
     name: 'Oréa Immobilier',
     domain: 'orea-immobilier.fr',

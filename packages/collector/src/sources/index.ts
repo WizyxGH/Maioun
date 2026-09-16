@@ -225,6 +225,7 @@ import { guyHoquetScraper } from './guy-hoquet/index.js';
 import { kellerWilliamsScraper } from './keller-williams/index.js';
 import { rivieraSudImmobilierScraper } from './riviera-sud-immobilier/index.js';
 import { immoRivieraTransactionsScraper } from './immo-riviera-transactions/index.js';
+import { oqoroScraper } from './oqoro/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -447,6 +448,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   kellerWilliamsScraper,
   rivieraSudImmobilierScraper,
   immoRivieraTransactionsScraper,
+  oqoroScraper,
 ];
 
 // Laforêt sert de source de référence aux tests d'intégration, qui passent par

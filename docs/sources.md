@@ -700,6 +700,89 @@ vit que dans le texte, où la normalisation la lit déjà), la rue chez La Boît
 Immo, et le DPE de cette même plateforme — servi en image sous `/admin`, que le
 robots.txt interdit. On ne le contourne pas.
 
+## Oqoro, gestionnaire locatif en ligne (étude du 2026-09-16) — implémentée
+
+```
+Source            : Oqoro
+URL               : https://www.oqoro.com
+Type              : agencyNetwork
+robots.txt vérifié le : 2026-09-16
+Chemins autorisés utilisés : /locations-departement/*, /location/*, /colocation/*
+Méthode           : html (rendu côté serveur, Rails/Turbo)
+Volume estimé (annonces pertinentes Nice) : 40 fiches dans le périmètre, dont 2 à louer
+Fraîcheur (délai de publication constaté) : non mesurable (aucune date publiée)
+Difficulté technique : faible
+Risque de blocage : faible
+Priorité          : 2
+```
+
+**Pourquoi on s'y est intéressé.** Oqoro gère des biens POUR des propriétaires
+particuliers : on espérait la source de bailleurs privés qui manque au projet.
+**Ce n'en est pas une**, et il vaut mieux le dire d'emblée : c'est Oqoro qui
+publie (« Publié par OQORO »), Oqoro qui détient la carte professionnelle, et
+Oqoro qui facture au locataire des honoraires détaillés — 306,13 € sur la fiche
+lue, rédaction du bail et état des lieux compris. Le locataire n'a jamais le
+propriétaire en face. Le descripteur porte donc `landlord: 'agency'` : annoncer
+« particulier » aurait faussé le filtre qui les cherche.
+
+**Accès.** `robots.txt` (relevé le 2026-09-16) interdit `/recherche?*`,
+`/candidat*`, `/proprietaire*`, `/partenaire*`, `/candidature*`, `/*.pdf*` et
+`/s/*`. Les listes et les fiches ne sont pas visées. Tout est rendu côté
+serveur : aucun appel d'API à imiter, aucun JavaScript nécessaire. Le site
+n'envoie ni `ETag` ni `Last-Modified` — il ne répondra jamais 304, et chaque
+page est à relire en entier (113 à 470 Ko).
+
+**Le parc est publié EN ENTIER, loué compris.** C'est le fait central. Sur les
+quarante-sept biens des Alpes-Maritimes, quarante-quatre portent le bandeau
+« Occupé » : ce sont des pages de référencement, pas des offres. Le bandeau de
+la carte connaît trois états — « Disponible », « Dispo le 01/10 » (préavis en
+cours, avec la date d'entrée) et « Occupé/Occupée » — et le JSON-LD de la fiche
+les confirme : `offers.availability` vaut `InStock`, `PreOrder`, ou le bloc
+`offers` disparaît. Une fiche occupée n'affiche plus ni loyer, ni honoraires, ni
+dépôt.
+
+| Le 2026-09-16                                             | Fiches | À louer |
+| --------------------------------------------------------- | ------ | ------- |
+| Nice                                                      | 39     | 2       |
+| Saint-Laurent-du-Var                                      | 1      | 0       |
+| Onze autres communes suivies                              | 0      | 0       |
+| Reste du 06 (Cannes, Antibes, Grasse, Mougins, Le Cannet) | 7      | 1       |
+
+Les deux annonces à louer du périmètre sont deux chambres d'une même colocation
+niçoise. C'est peu, et c'est assumé : la source coûte trois pages par passage.
+
+**Entrée départementale, pas communale.** Chaque commune de France a sa page
+(`/locations/contes` existe et annonce « 0 appartements »), et le titre y donne
+un total qui prouverait l'exhaustivité — mais lire les treize communes suivies
+coûtait treize pages sans cache à chaque passage. La liste
+`/locations-departement/alpes-maritimes` porte exactement les mêmes annonces en
+trois pages de vingt (39 fiches niçoises des deux côtés, vérifiées une à une),
+et fera apparaître d'elle-même une commune où Oqoro n'a encore rien. On filtre
+sur les communes du périmètre (`portalCommunes`), et l'on s'arrête à la première
+page incomplète — la quatrième est vide.
+
+**Ce que publie une fiche**, et c'est riche : adresse EXACTE avec le numéro (la
+carte la porte déjà, dans l'`aria-label` de la photo), position géographique
+saisie par le gestionnaire, code postal, loyer charges comprises, provision sur
+charges avec son détail (ordures ménagères, eau, chauffage, internet…), dépôt de
+garantie, honoraires ventilés, surface — et la part PRIVATIVE pour une chambre
+en colocation —, nombre de chambres, étage, meublé ou non, commodités, DPE **et**
+GES chiffrés chacun sur son échelle, description longue avec le quartier en
+toutes lettres, référence interne (`OQ6686W`), galerie de photos et visite
+virtuelle Matterport.
+
+**Ce qu'elle ne publie pas : aucune coordonnée.** Ni téléphone, ni e-mail. Le
+seul canal est le bouton « Candidater », qui mène à
+`/candidat/applications/new?lot=…` — chemin que le `robots.txt` interdit, et qui
+demande un compte. On ne le remplit donc pas, et `contactFormUrl` reste vide
+plutôt que de faire croire à un canal automatisable : l'utilisateur clique
+lui-même depuis la fiche.
+
+**Ce qu'on y gagne en plus des annonces.** Le bandeau « Occupé » est un signal
+de location POSITIF, que presque aucune source ne donne : une annonce déjà
+publiée qui passe à « Occupé » est rendue louée dans le passage même
+(`rentedRefs`), sans attendre trois absences.
+
 ## Les annonces de DEMANDE (audit du 2026-09-16)
 
 Des particuliers publient l'annonce inverse : non pas « je loue », mais « je
