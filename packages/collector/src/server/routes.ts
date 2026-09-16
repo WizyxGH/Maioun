@@ -553,6 +553,19 @@ const ORDER_BY: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Un entier lu dans l'URL, ramené entre deux bornes.
+ *
+ * `?limit=abc` donnait `NaN` : `Math.max` le propage, libsql REFUSE de lier une
+ * valeur non finie, et l'adresse mal tapée ressortait en 500. Une valeur
+ * illisible retombe donc sur le défaut, comme si elle n'était pas là.
+ */
+function boundedInt(raw: string | null, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+/**
  * `anonymous` : le lecteur n'a pas de compte, donc aucun score personnel.
  *
  * LA CONSULTATION LIBRE MONTRAIT UNE LISTE VIDE, depuis qu'elle existe. La liste
@@ -568,11 +581,8 @@ const ORDER_BY: Readonly<Record<string, string>> = {
  * n'a pas de sens pour lui. Il affine avec les filtres de l'écran.
  */
 export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = false): ListQuery {
-  const limit = Math.min(
-    500,
-    Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
-  );
-  const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') ?? '0', 10));
+  const limit = boundedInt(url.searchParams.get('limit'), 30, 1, 500);
+  const offset = boundedInt(url.searchParams.get('offset'), 0, 0, Number.MAX_SAFE_INTEGER);
 
   /**
    * §36 : par défaut, le classement suit la priorité d'action — pas le prix.

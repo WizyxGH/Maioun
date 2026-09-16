@@ -50,6 +50,40 @@ describe('la liste d’un visiteur sans compte', () => {
   });
 });
 
+describe('pagination : ce que l’URL peut contenir de travers', () => {
+  /**
+   * `?limit=abc` donnait `NaN` : `Math.max` le propage, et libsql REFUSE de
+   * lier une valeur non finie (« Only finite numbers … can be passed as
+   * arguments »). La requête levait, et une adresse mal tapée — ou une sonde —
+   * ressortait en 500 au lieu d'une liste.
+   */
+  it('retombe sur le défaut quand le nombre est illisible', () => {
+    expect(query('?limit=abc').limit).toBe(30);
+    expect(query('?offset=abc').offset).toBe(0);
+    expect(query('?limit=&offset=').limit).toBe(30);
+  });
+
+  it('borne les valeurs extrêmes au lieu de les transmettre', () => {
+    expect(query('?limit=99999').limit).toBe(500);
+    expect(query('?limit=0').limit).toBe(1);
+    expect(query('?limit=-5').limit).toBe(1);
+    expect(query('?offset=-5').offset).toBe(0);
+  });
+
+  it('respecte une pagination valide', () => {
+    expect(query('?limit=50&offset=100').limit).toBe(50);
+    expect(query('?limit=50&offset=100').offset).toBe(100);
+  });
+
+  it('ne rend jamais autre chose qu’un entier fini', () => {
+    // Le contrat que libsql exige : sans lui, la requête ne part même pas.
+    for (const search of ['?limit=abc', '?limit=NaN', '?offset=Infinity', '?limit=1e999']) {
+      expect(Number.isFinite(query(search).limit)).toBe(true);
+      expect(Number.isFinite(query(search).offset)).toBe(true);
+    }
+  });
+});
+
 describe('ordre de la liste', () => {
   it('compte « récent » à la DÉCOUVERTE, pas à la dernière vue', () => {
     // `last_seen_at` se rafraîchit à chaque collecte : une annonce en ligne

@@ -16,6 +16,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { formatArea, formatPhone, formatPrice, formatSourceName, telHref } from '../format.js';
+import { safeHref } from '../safe-url.js';
 import {
   FOLLOW_UP_TEMPLATE,
   portalLabel,
@@ -56,7 +57,9 @@ function actionLink(
     return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
   if (channel === 'phone') return `tel:${recipient}`;
-  if (channel === 'form') return recipient;
+  // L'adresse du formulaire est recopiée d'un site tiers : elle ne devient un
+  // lien que si c'en est un.
+  if (channel === 'form') return safeHref(recipient);
   return null;
 }
 
@@ -120,7 +123,9 @@ function SourceRow({
   return (
     <>
       <a
-        href={occurrence.sourceUrl}
+        // Adresse venue du site collecté : sans schéma web, pas de lien du tout
+        // — un `javascript:` s'exécuterait ici dans notre origine.
+        href={safeHref(occurrence.sourceUrl) ?? undefined}
         target="_blank"
         rel="noreferrer noopener"
         className="inline-flex min-h-6 items-center text-primary underline"
@@ -215,7 +220,8 @@ function ContactDetails({
             <dt className="text-muted-foreground">Formulaire</dt>
             <dd>
               <a
-                href={formUrl}
+                // Même précaution : l'adresse du formulaire vient de l'agence.
+                href={safeHref(formUrl) ?? undefined}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="text-primary underline"
