@@ -19,6 +19,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetailPage, parseListPage } from './parser.js';
 
 const LIST_URL = 'https://www.borne-delaunay.com/immobilier/louer-13';
@@ -76,9 +77,13 @@ export const borneDelaunayScraper: Scraper = {
         parse: (html) => parseDetailPage(html),
       });
 
+      // Fiches que le site dit absentes : éteintes dès ce passage.
+      const restantes = withdrawnAfterEnrich(context, enriched, 'completed');
+
       return {
         sourceId: BORNE_DELAUNAY_DESCRIPTOR.id,
-        listings: enriched.listings,
+        listings: restantes.listings,
+        withdrawnRefs: restantes.withdrawnRefs,
         requestCount: requestCount + enriched.requestCount,
         pagesFetched: pagesFetched + enriched.pagesFetched,
         stopReason: 'completed',

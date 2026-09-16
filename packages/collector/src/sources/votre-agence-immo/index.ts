@@ -19,6 +19,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseListPage } from './parser.js';
 
 const LIST_URL = 'https://votre-agence-immo.fr/type_biens/location/';
@@ -85,10 +86,14 @@ export const votreAgenceImmoScraper: Scraper = {
       parse: (html) => parseDetail(html),
     });
 
-    context.log('list.parsed', { listings: enriched.listings.length });
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+
+    context.log('list.parsed', { listings: restantes.listings.length });
     return {
       sourceId: VOTRE_AGENCE_IMMO_DESCRIPTOR.id,
-      listings: enriched.listings,
+      listings: restantes.listings,
+      withdrawnRefs: restantes.withdrawnRefs,
       requestCount: requestCount + enriched.requestCount,
       pagesFetched: pagesFetched + enriched.pagesFetched,
       stopReason,

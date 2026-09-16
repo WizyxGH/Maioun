@@ -19,6 +19,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { detailDraft, parseDetailPage, parseListPage, parsePageCount } from './parser.js';
 
 const ORIGIN = 'https://www.dinamyimmobilier.com';
@@ -188,10 +189,15 @@ export const dinamyScraper: Scraper = {
     });
     warnings.push(...enriched.warnings);
 
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+    const parties = new Set(restantes.withdrawnRefs);
+
     return {
       sourceId: DINAMY_DESCRIPTOR.id,
-      listings: enriched.listings,
-      confirmedRefs,
+      listings: restantes.listings,
+      confirmedRefs: confirmedRefs.filter((ref) => !parties.has(ref)),
+      withdrawnRefs: restantes.withdrawnRefs,
       requestCount: requestCount + enriched.requestCount,
       pagesFetched: pagesFetched + enriched.pagesFetched,
       stopReason,

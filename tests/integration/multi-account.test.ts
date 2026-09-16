@@ -13,7 +13,6 @@
  * rien ne pouvait le révéler.
  */
 
-import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -23,7 +22,6 @@ import {
   openDatabase,
   scoreListing,
   silentLogger,
-  splitStatements,
   type Database,
 } from '@maioun/collector';
 // Chemin direct vers la source : le paquet expose bien `./server/routes`, mais
@@ -497,8 +495,17 @@ describe('état personnel : chacun le sien, sur chaque écran', () => {
   });
 
   it('n’écrit plus rien de personnel sur la fiche commune', async () => {
+    // La fiche n'a plus de colonnes où l'écrire (migration 0042) : c'est la
+    // garantie structurelle, celle qu'aucun code ne peut contourner par erreur.
+    const colonnes = await db.execute("SELECT name FROM pragma_table_info('listings')");
+    const noms = colonnes.rows.map((row) => String(row['name']));
+    expect(noms).not.toContain('viewed');
+    expect(noms).not.toContain('favorite');
+    expect(noms).not.toContain('notified');
+    expect(noms).not.toContain('drafted');
+
     const avant = await db.execute({
-      sql: 'SELECT viewed, favorite, archived, tracking, updated_at FROM listings WHERE id = ?',
+      sql: 'SELECT archived, updated_at FROM listings WHERE id = ?',
       args: [ID],
     });
     await call(db, 'alice', 'PATCH', `/api/listings/${ID}`, {
@@ -507,7 +514,7 @@ describe('état personnel : chacun le sien, sur chaque écran', () => {
     });
     await call(db, 'alice', 'POST', `/api/listings/${ID}/contact`, { channel: 'email' });
     const apres = await db.execute({
-      sql: 'SELECT viewed, favorite, archived, tracking, updated_at FROM listings WHERE id = ?',
+      sql: 'SELECT archived, updated_at FROM listings WHERE id = ?',
       args: [ID],
     });
     expect(apres.rows[0]).toEqual(avant.rows[0]);
@@ -590,34 +597,11 @@ describe('état personnel : chacun le sien, sur chaque écran', () => {
     for (const vue of Object.values(await vues('alice'))) expect(personnel(vue)).toEqual(NEUF);
   });
 
-  it('rend au compte principal l’état resté sur la fiche, sans rien faire reculer', async () => {
-    // L'état d'avant : écrit sur `listings`, en partie seulement dans `moi`.
-    await db.execute({
-      sql: `UPDATE listings SET viewed = 1, favorite = 1, tracking = 'contacted',
-              notified_at = '2026-09-01T08:00:00.000Z' WHERE id = ?`,
-      args: [ID],
-    });
-    await db.execute({
-      sql: `UPDATE listing_user_state SET tracking = 'visited', notified_at = NULL
-             WHERE user_id = 'moi' AND listing_id = ?`,
-      args: [ID],
-    });
-    const sql = await readFile(
-      resolve(MIGRATIONS, '0041_personal_state_from_listings.sql'),
-      'utf8',
-    );
-    for (const statement of splitStatements(sql)) await db.execute(statement);
-
-    const fiche = (await vues('moi'))['fiche'] ?? {};
-    expect(personnel(fiche)).toEqual({
-      ...NEUF,
-      viewed: true,
-      favorite: true,
-      tracking: 'visited',
-    });
-    expect(fiche['notifiedAt']).toBe('2026-09-01T08:00:00.000Z');
-    for (const vue of Object.values(await vues('bob'))) expect(personnel(vue)).toEqual(NEUF);
-  });
+  // LE TRANSFERT DE 0041 NE SE REJOUE PLUS. Il rendait au compte principal
+  // l'état resté sur la fiche ; 0042 a retiré ces colonnes, donc il n'y a plus
+  // rien à transférer ni à simuler. Le contrôle en production n'avait rien
+  // perdu, et le test ci-dessus garantit désormais l'essentiel : la fiche n'a
+  // plus où écrire un état personnel.
 
   it('change l’empreinte de la liste quand le lecteur change son propre état', async () => {
     const path = '/api/listings?all=true&archived=true';

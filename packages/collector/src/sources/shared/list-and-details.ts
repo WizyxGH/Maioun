@@ -14,6 +14,7 @@
 import type { RawListing, ScrapeContext, ScrapeResult } from '@maioun/shared';
 import { enrichNewListings } from './enrich.js';
 import type { RawDraft } from './raw-listing.js';
+import { withdrawnRefsFrom } from './withdrawn.js';
 
 export interface ListAndDetailsOptions {
   readonly sourceId: string;
@@ -47,6 +48,7 @@ export async function runListAndDetails(
   const stubs = new Map<string, RawListing>();
   let unchanged = 0;
   let saidEmpty = 0;
+  let listesEnEchec = 0;
 
   for (const url of options.listUrls) {
     try {
@@ -66,6 +68,7 @@ export async function runListAndDetails(
       const message = error instanceof Error ? error.message : String(error);
       warnings.push(`Échec de la liste ${url} : ${message}`);
       context.log('list.failed', { url, error: message });
+      listesEnEchec += 1;
       if (message.includes('429') || message.includes('refusé')) {
         const stopReason = message.includes('429') ? 'rateLimited' : 'blocked';
         return { sourceId, listings: [], requestCount, pagesFetched, stopReason, warnings };
@@ -104,11 +107,24 @@ export async function runListAndDetails(
   pagesFetched += enriched.pagesFetched;
   warnings.push(...enriched.warnings);
 
-  const listings = enriched.listings.filter((listing) => listing.priceText !== undefined);
+  // Une liste en échec laisse l'inventaire lu en partie : ce passage ne conclut
+  // rien, pas même sur une fiche demandée une par une.
+  const withdrawnRefs = withdrawnRefsFrom(
+    context,
+    enriched,
+    listesEnEchec > 0 ? 'incomplete' : 'completed',
+  );
+  const parties = new Set(withdrawnRefs);
+
+  const listings = enriched.listings.filter(
+    (listing) => listing.priceText !== undefined && !parties.has(listing.sourceRef),
+  );
   const rendered = new Set(listings.map((listing) => listing.sourceRef));
+  // Une annonce retirée n'est pas une annonce confirmée : sans cette exclusion,
+  // la confirmation la remettrait en ligne juste avant qu'on ne l'éteigne.
   const confirmedRefs = all
     .map((stub) => stub.sourceRef)
-    .filter((ref) => !rendered.has(ref) && context.isKnown(ref));
+    .filter((ref) => !rendered.has(ref) && !parties.has(ref) && context.isKnown(ref));
 
   context.log('list.parsed', {
     found: all.length,
@@ -120,6 +136,7 @@ export async function runListAndDetails(
     sourceId,
     listings,
     confirmedRefs,
+    withdrawnRefs,
     requestCount,
     pagesFetched,
     stopReason: 'completed',

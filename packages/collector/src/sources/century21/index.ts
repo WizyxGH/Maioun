@@ -18,6 +18,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseSearchPage } from './parser.js';
 
 /**
@@ -69,6 +70,7 @@ export const century21Scraper: Scraper = {
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const listings: RawListing[] = [];
     const warnings: string[] = [];
+    const withdrawnRefs: string[] = [];
     let pagesFetched = 0;
     let requestCount = 0;
     let stopReason: StopReason = 'completed';
@@ -100,7 +102,10 @@ export const century21Scraper: Scraper = {
           detailUrl: (listing) => listing.sourceUrl,
           parse: (html) => parseDetail(html),
         });
-        listings.push(...enriched.listings);
+        // Fiches que le site dit absentes : éteintes dès ce passage.
+        const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+        withdrawnRefs.push(...restantes.withdrawnRefs);
+        listings.push(...restantes.listings);
         requestCount += enriched.requestCount;
         pagesFetched += enriched.pagesFetched;
         warnings.push(...enriched.warnings);
@@ -127,6 +132,7 @@ export const century21Scraper: Scraper = {
     return {
       sourceId: CENTURY21_DESCRIPTOR.id,
       listings,
+      withdrawnRefs,
       requestCount,
       pagesFetched,
       stopReason,

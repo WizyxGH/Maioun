@@ -43,6 +43,7 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { wantedAdEvidence } from '../../normalization/housing-wanted.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { pageUrlFor, parseDetail, parseSearchPage } from './parser.js';
 
 /** Pages lues au plus par recherche ; le site n'en sert pas plus de cinq. */
@@ -153,10 +154,15 @@ export const paruvenduScraper: Scraper = {
     counters.pagesFetched += enriched.pagesFetched;
     warnings.push(...enriched.warnings);
 
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+    const parties = new Set(restantes.withdrawnRefs);
+
     return {
       sourceId: PARUVENDU_DESCRIPTOR.id,
-      listings: enriched.listings,
-      confirmedRefs,
+      listings: restantes.listings,
+      confirmedRefs: confirmedRefs.filter((ref) => !parties.has(ref)),
+      withdrawnRefs: restantes.withdrawnRefs,
       requestCount: counters.requestCount,
       pagesFetched: counters.pagesFetched,
       stopReason,

@@ -13,6 +13,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseListPage } from './parser.js';
 
 /** Catégorie « location meublée » filtrée sur le département 06 (`france-6`). */
@@ -95,7 +96,9 @@ export const lodgisScraper: Scraper = {
       detailUrl: (listing) => listing.sourceUrl,
       parse: (html) => parseDetail(html),
     });
-    listings.push(...enriched.listings);
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+    listings.push(...restantes.listings);
     requestCount += enriched.requestCount;
     pagesFetched += enriched.pagesFetched;
     warnings.push(...enriched.warnings);
@@ -104,6 +107,7 @@ export const lodgisScraper: Scraper = {
     return {
       sourceId: LODGIS_DESCRIPTOR.id,
       listings,
+      withdrawnRefs: restantes.withdrawnRefs,
       requestCount,
       pagesFetched,
       stopReason,

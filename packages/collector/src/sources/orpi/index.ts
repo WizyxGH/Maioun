@@ -28,6 +28,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseSearchPage } from './parser.js';
 
 /**
@@ -224,14 +225,19 @@ export const orpiScraper: Scraper = {
       detailUrl: (listing) => listing.sourceUrl,
       parse: (html) => parseDetail(html),
     });
-    listings.push(...enriched.listings);
     requestCount += enriched.requestCount;
     pagesFetched += enriched.pagesFetched;
     warnings.push(...enriched.warnings);
 
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const partants = withdrawnAfterEnrich(context, enriched, stopReason);
+    const withdrawnRefs = partants.withdrawnRefs;
+    listings.push(...partants.listings);
+
     return {
       sourceId: ORPI_DESCRIPTOR.id,
       listings,
+      withdrawnRefs,
       requestCount,
       pagesFetched,
       stopReason,

@@ -14,6 +14,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetail, parseListPage, parseWithdrawn } from './parser.js';
 
 const LIST_URL = 'https://www.ladresse.com/recherche/location/appartement/nice-06000';
@@ -136,9 +137,13 @@ export const ladresseScraper: Scraper = {
       vanished: vanished.length,
       withdrawn: rentedRefs.length,
     });
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+
     return {
       sourceId: LADRESSE_DESCRIPTOR.id,
-      listings: enriched.listings,
+      listings: restantes.listings,
+      withdrawnRefs: restantes.withdrawnRefs,
       rentedRefs,
       requestCount,
       pagesFetched,

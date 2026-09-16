@@ -24,6 +24,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import type { RawDraft } from '../shared/raw-listing.js';
 import {
   parseAgencies,
@@ -381,6 +382,7 @@ export const fonciaScraper: Scraper = {
 
     // Après un 429, toute requête attendrait la fin du cooldown : on s'arrête.
     let result: readonly RawListing[] = checked;
+    let withdrawnRefs: readonly string[] = [];
     if (rateLimited) {
       stopReason = 'rateLimited';
     } else {
@@ -391,7 +393,10 @@ export const fonciaScraper: Scraper = {
         // Fiches déjà lues pour la candidature : pas de seconde requête.
         prefetched: details,
       });
-      result = enriched.listings;
+      // Fiches que le site dit absentes : éteintes dès ce passage.
+      const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+      result = restantes.listings;
+      withdrawnRefs = restantes.withdrawnRefs;
       requestCount += enriched.requestCount;
       pagesFetched += enriched.pagesFetched;
       warnings.push(...enriched.warnings);
@@ -407,6 +412,7 @@ export const fonciaScraper: Scraper = {
     return {
       sourceId: FONCIA_DESCRIPTOR.id,
       listings: result,
+      withdrawnRefs,
       rentedRefs,
       requestCount,
       pagesFetched,

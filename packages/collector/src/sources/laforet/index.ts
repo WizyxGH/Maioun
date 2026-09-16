@@ -30,6 +30,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { parseDetailPage, parseDpeSvg, parseSearchPage } from './parser.js';
 
 /**
@@ -184,12 +185,17 @@ export const laforetScraper: Scraper = {
     });
     warnings.push(...enriched.warnings);
 
-    const labelled = await withDpeLabels(context, enriched.listings);
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
+    const withdrawnRefs = restantes.withdrawnRefs;
+
+    const labelled = await withDpeLabels(context, restantes.listings);
     warnings.push(...labelled.warnings);
 
     return {
       sourceId: LAFORET_DESCRIPTOR.id,
       listings: labelled.listings,
+      withdrawnRefs,
       requestCount: requestCount + enriched.requestCount + labelled.requestCount,
       pagesFetched: pagesFetched + enriched.pagesFetched + labelled.requestCount,
       stopReason,

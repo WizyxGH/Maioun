@@ -20,6 +20,8 @@ interface ContextOptions {
   readonly mode?: 'live' | 'backfill';
   readonly body?: (url: string) => string;
   readonly fail?: (url: string) => string | null;
+  /** Statut rendu par la fiche ; l'appel est numéroté, pour distinguer les deux lectures. */
+  readonly status?: (url: string, appel: number) => number;
   /** Ce que les fiches ont déjà appris, par référence — simule `detail_drafts`. */
   readonly memoire?: Map<string, { draft: Partial<RawListing>; fetchedAt: string }>;
 }
@@ -41,8 +43,9 @@ function context(options: ContextOptions = {}): {
       visited.push(url);
       const failure = options.fail?.(url) ?? null;
       if (failure !== null) throw new Error(failure);
+      const appel = visited.filter((one) => one === url).length;
       return await Promise.resolve({
-        status: 200,
+        status: options.status?.(url, appel) ?? 200,
         body: options.body?.(url) ?? 'texte entier de la fiche',
         headers: {},
         notModified: false,
@@ -69,6 +72,9 @@ function context(options: ContextOptions = {}): {
 
 /** Une fiche lue il y a une heure : fraîche, on ne la relit pas. */
 const FRAICHE = (): string => new Date(Date.now() - 3_600_000).toISOString();
+
+/** Une fiche lue il y a deux semaines : à relire. */
+const VIEILLE = (): string => new Date(Date.now() - 14 * 86_400_000).toISOString();
 
 const parseAll = (html: string): { description: string } => ({ description: html });
 
@@ -311,5 +317,98 @@ describe('enrichNewListings', () => {
       parse: parseAll,
     });
     expect(result.listings.map((one) => one.sourceRef)).toEqual(['c', 'a', 'b']);
+  });
+});
+
+/**
+ * Le retrait immédiat. Une annonce dont la fiche n'existe plus doit s'éteindre
+ * dans la collecte même ; tout le reste — refus, incident, redirection — doit
+ * la laisser intacte, c'est la condition posée à ce mécanisme.
+ */
+describe('enrichNewListings : fiche disparue', () => {
+  /** Une annonce connue dont la fiche n'a jamais été lue : elle sera visitée. */
+  const connue = ['a'];
+
+  it('retient une fiche 404 après une seconde lecture', async () => {
+    const { ctx, visited } = context({ known: connue, status: () => 404 });
+    const result = await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.gone.map((one) => one.sourceRef)).toEqual(['a']);
+    expect(result.gone[0]?.status).toBe(404);
+    // Deux lectures de la MÊME adresse : la confirmation.
+    expect(visited).toHaveLength(2);
+  });
+
+  it('retient une fiche 410', async () => {
+    const { ctx } = context({ known: connue, status: () => 410 });
+    const result = await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.gone.map((one) => one.sourceRef)).toEqual(['a']);
+  });
+
+  it('ne retient pas un 404 que la seconde lecture dément', async () => {
+    const { ctx } = context({ known: connue, status: (_url, appel) => (appel === 1 ? 404 : 200) });
+    const result = await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.gone).toEqual([]);
+  });
+
+  it.each([
+    ['refus 403', 'HTTP 403 — accès refusé'],
+    ['quota 429', 'HTTP 429 reçu'],
+    ['panne 503', 'HTTP 503 temporaire'],
+    ['réseau', 'fetch failed'],
+  ])('ne retient rien sur %s', async (_nom, message) => {
+    const { ctx } = context({ known: connue, fail: () => message });
+    const result = await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.gone).toEqual([]);
+  });
+
+  it('ne retient rien sur une redirection suivie jusqu’à une page de recherche', async () => {
+    const { ctx } = context({ known: connue, status: () => 200, body: () => 'nos annonces' });
+    const result = await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.gone).toEqual([]);
+  });
+
+  it('retient aussi une fiche que `isKnown` dit inconnue', async () => {
+    // `isKnown` répond « faut-il la revisiter ? », et il rend faux exprès pour
+    // les fiches à rattraper : s'y fier laisserait justement ces annonces-là.
+    const { ctx } = context({ status: () => 404 });
+    const result = await enrichNewListings(ctx, [listing('z')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.gone.map((one) => one.sourceRef)).toEqual(['z']);
+  });
+
+  it('garde ce que la fiche avait appris : la page absente n’efface rien', async () => {
+    const memoire = new Map([
+      ['a', { draft: { description: 'texte complet' }, fetchedAt: VIEILLE() }],
+    ]);
+    const { ctx } = context({ known: connue, status: () => 404, memoire });
+    const result = await enrichNewListings(ctx, [listing('a')], {
+      max: 5,
+      detailUrl: (one) => one.sourceUrl,
+      parse: parseAll,
+    });
+    expect(result.listings[0]?.description).toBe('texte complet');
   });
 });

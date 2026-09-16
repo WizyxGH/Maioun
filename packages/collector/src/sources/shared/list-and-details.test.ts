@@ -5,7 +5,10 @@ import { runListAndDetails } from './list-and-details.js';
 
 const LIST = 'https://agence.exemple/locations';
 
-function context(pages: Record<string, string | '304' | Error>, known: readonly string[] = []) {
+/** Une page d'essai : un corps, un `304`, un incident, ou un code HTTP nu. */
+type Page = string | '304' | Error | number;
+
+function context(pages: Record<string, Page>, known: readonly string[] = []) {
   const seen: string[] = [];
   const ctx: ScrapeContext = {
     criteria: MVP_CRITERIA,
@@ -16,6 +19,9 @@ function context(pages: Record<string, string | '304' | Error>, known: readonly 
       if (page instanceof Error) return Promise.reject(page);
       if (page === '304') {
         return Promise.resolve({ status: 304, body: '', headers: {}, notModified: true });
+      }
+      if (typeof page === 'number') {
+        return Promise.resolve({ status: page, body: '', headers: {}, notModified: false });
       }
       return Promise.resolve({ status: 200, body: page, headers: {}, notModified: false });
     },
@@ -111,5 +117,46 @@ describe('runListAndDetails', () => {
       sourceUrl: 'https://agence.exemple/fiche/a',
       priceText: '750 €',
     });
+  });
+
+  it('éteint dès ce passage une annonce connue dont la fiche répond 404', async () => {
+    const { ctx } = context(
+      {
+        [LIST]: 'a\nb\nc',
+        'https://agence.exemple/fiche/a': 404,
+        'https://agence.exemple/fiche/b': '800 €',
+        'https://agence.exemple/fiche/c': '900 €',
+      },
+      ['a', 'b', 'c'],
+    );
+    const result = await runListAndDetails(ctx, options);
+    expect(result.withdrawnRefs).toEqual(['a']);
+    // Ni rendue, ni confirmée : la confirmation la remettrait en ligne.
+    expect(result.listings.map((one) => one.sourceRef)).toEqual(['b', 'c']);
+    expect(result.confirmedRefs).not.toContain('a');
+  });
+
+  it('ne retire rien quand une liste a échoué : l’inventaire est incomplet', async () => {
+    const OTHER = 'https://agence.exemple/autres';
+    const { ctx } = context(
+      {
+        [LIST]: 'a\nb',
+        [OTHER]: new Error('HTTP 503 temporaire'),
+        'https://agence.exemple/fiche/a': 404,
+        'https://agence.exemple/fiche/b': '800 €',
+      },
+      ['a', 'b'],
+    );
+    const result = await runListAndDetails(ctx, { ...options, listUrls: [LIST, OTHER] });
+    expect(result.withdrawnRefs).toEqual([]);
+  });
+
+  it.each([403, 500, 503])('ne retire rien sur un %s', async (status) => {
+    const { ctx } = context(
+      { [LIST]: 'a\nb', 'https://agence.exemple/fiche/a': new Error(`HTTP ${status}`) },
+      ['a', 'b'],
+    );
+    const result = await runListAndDetails(ctx, options);
+    expect(result.withdrawnRefs).toEqual([]);
   });
 });

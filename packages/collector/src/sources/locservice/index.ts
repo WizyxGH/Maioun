@@ -24,6 +24,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { enrichNewListings } from '../shared/enrich.js';
+import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
 import { pageUrlFor, parseDetail, parseListPage } from './parser.js';
 
 /** La page « toutes natures » d'une commune : appartements, studios, maisons. */
@@ -224,7 +225,9 @@ export const locserviceScraper: Scraper = {
     pagesFetched += enriched.pagesFetched;
     warnings.push(...enriched.warnings);
 
-    const listings = [...enriched.listings];
+    // Fiches que le site dit absentes : éteintes dès ce passage.
+    const { listings, withdrawnRefs } = withdrawnAfterEnrich(context, enriched, stopReason);
+    const parties = new Set(withdrawnRefs);
     const fullPass = fullPassDue && reachedEnd && !pageInconnue && stopReason === 'completed';
     context.log('list.parsed', {
       listings: listings.length,
@@ -235,7 +238,8 @@ export const locserviceScraper: Scraper = {
     return {
       sourceId: LOCSERVICE_DESCRIPTOR.id,
       listings,
-      confirmedRefs,
+      confirmedRefs: confirmedRefs.filter((ref) => !parties.has(ref)),
+      withdrawnRefs,
       requestCount,
       pagesFetched,
       stopReason,

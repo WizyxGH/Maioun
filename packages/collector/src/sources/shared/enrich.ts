@@ -21,8 +21,9 @@
  * série sur-le-champ : la source vient de dire qu'elle en a assez.
  */
 
-import type { DetailMemoryEntry, RawListing, ScrapeContext } from '@maioun/shared';
+import type { DetailMemoryEntry, FetchResult, RawListing, ScrapeContext } from '@maioun/shared';
 import type { RawDraft } from './raw-listing.js';
+import type { GoneDetail, GoneReport } from './withdrawn.js';
 
 export interface EnrichOptions {
   /** Fiches visitées au plus par exécution. */
@@ -52,12 +53,15 @@ export interface DetailPage {
   readonly location: string | null;
 }
 
-export interface EnrichResult {
+export interface EnrichResult extends GoneReport {
   readonly listings: readonly RawListing[];
   readonly requestCount: number;
   readonly pagesFetched: number;
   readonly warnings: readonly string[];
 }
+
+/** Codes qui disent la page définitivement absente : introuvable, supprimée. */
+const PAGE_DISPARUE: ReadonlySet<number> = new Set([404, 410]);
 
 /**
  * Au-delà, on relit une fiche si le budget le permet : l'annonceur a pu changer
@@ -142,8 +146,10 @@ export async function enrichNewListings(
 ): Promise<EnrichResult> {
   const warnings: string[] = [];
   const learned = new Map<string, RawDraft>();
+  const gone: GoneDetail[] = [];
   let requestCount = 0;
   let pagesFetched = 0;
+  let detailsRequested = 0;
 
   const nowMs = Date.now();
   const rang = (listing: RawListing): number | null => {
@@ -193,6 +199,13 @@ export async function enrichNewListings(
     await remember(listing.sourceRef, draft ?? previous ?? REJECTED_DRAFT);
   };
 
+  /** Une demande de fiche, avec les options de la source. */
+  const demander = async (url: string, conditionnel: boolean): Promise<FetchResult> =>
+    context.fetch(url, {
+      ...(options.redirect === undefined ? {} : { redirect: options.redirect }),
+      ...(conditionnel ? {} : { conditional: false }),
+    });
+
   let budget = options.max;
   for (const listing of aVisiter) {
     if (options.prefetched?.has(listing.sourceRef) === true) {
@@ -207,14 +220,31 @@ export async function enrichNewListings(
 
     budget -= 1;
     try {
-      const page =
-        options.redirect === undefined
-          ? await context.fetch(url)
-          : await context.fetch(url, { redirect: options.redirect });
+      const page = await demander(url, true);
       requestCount += 1;
+      detailsRequested += 1;
       if (page.notModified) {
         // Fiche inchangée : ce que la mémoire en garde reste vrai, et rajeunit.
         await remember(listing.sourceRef, context.detailMemory.get(listing.sourceRef)?.draft);
+      } else if (PAGE_DISPARUE.has(page.status)) {
+        pagesFetched += 1;
+        // DEUX LECTURES, PAS UNE. Un 404 passager — déploiement en cours, cache
+        // de bordure fautif — ne doit pas suffire à retirer une annonce. La
+        // seconde est non conditionnelle, pour qu'un 304 ne trouble pas la
+        // réponse ; elle ne coûte une requête qu'aux fiches déjà absentes.
+        const confirmation = await demander(url, false);
+        requestCount += 1;
+        if (PAGE_DISPARUE.has(confirmation.status)) {
+          gone.push({ sourceRef: listing.sourceRef, url, status: confirmation.status });
+        } else {
+          context.log('detail.gone_unconfirmed', {
+            url,
+            premier: page.status,
+            second: confirmation.status,
+          });
+        }
+        // Une page absente n'apprend rien : ce que la fiche avait donné reste.
+        await learn(listing, null);
       } else {
         pagesFetched += 1;
         const location = options.redirect === 'manual' ? (page.headers['location'] ?? null) : null;
@@ -239,5 +269,5 @@ export async function enrichNewListings(
 
   await flush();
 
-  return { listings: enriched, requestCount, pagesFetched, warnings };
+  return { listings: enriched, requestCount, pagesFetched, warnings, gone, detailsRequested };
 }

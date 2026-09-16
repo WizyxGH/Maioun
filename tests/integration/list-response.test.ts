@@ -214,10 +214,8 @@ describe('la liste assemblée à partir des colonnes préparées', () => {
                         '2026-09-02T10:00:00.000Z', NULL, datetime('now'))`,
           args: [],
         },
-        {
-          sql: "UPDATE listings SET notified_at = '2026-08-01T00:00:00.000Z', viewed = 1 WHERE id = 'orpi:2'",
-          args: [],
-        },
+        // orpi:2 n'a aucun état personnel : la fiche ne porte plus de colonnes
+        // homonymes depuis la migration 0042, il n'y a donc plus rien à écraser.
         // Fermée aux candidatures : archivée d'office, sans écriture.
         {
           sql: `UPDATE listings
