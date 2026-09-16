@@ -22,6 +22,7 @@ import type { RawListing } from '@maioun/shared';
 import { cleanText, slugify } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
+import { collectJsonLdNodes, findJsonLdNode } from '../shared/json-ld.js';
 
 /**
  * Identifiant d'une fiche dans une URL Hektor : dernier segment `{id}-{slug}`
@@ -169,6 +170,8 @@ const LABEL_KEYS: readonly (readonly [RegExp, string])[] = [
   [/^meublé/i, 'meuble'],
   [/^charges locatives/i, 'ChargesAnnonceLocation_forfaitaires_mensuelles'],
   [/^surface habitable/i, 'surface_habitable'],
+  [/^nombre de chambre/i, 'nbchambres'],
+  [/^[ée]tage$/i, 'etage'],
 ];
 
 function keyOfLabel(label: string): string | undefined {
@@ -203,6 +206,15 @@ function readAriaTable($: cheerio.CheerioAPI): Map<string, string> {
     if (key === undefined || rows.has(key)) return;
     const value = cleanText($(cells.get(cells.length - 1)).text());
     if (value !== '') rows.set(key, value);
+  });
+  // Quatrième variante, sans table : une liste `<li class="data">Étage : 2</li>`
+  // (AA Gestion, Riviera Angels). Mêmes libellés, donc mêmes clés — sans quoi
+  // l'étage et les chambres qu'elle est seule à porter étaient perdus.
+  $('li.data').each((_i, el) => {
+    const pair = /^([^:]+?)\s*:\s*(.+)$/.exec(cleanText($(el).text()));
+    const key = pair?.[1] !== undefined ? keyOfLabel(pair[1]) : undefined;
+    if (key === undefined || pair?.[2] === undefined || rows.has(key)) return;
+    rows.set(key, pair[2]);
   });
   return rows;
 }
@@ -304,7 +316,26 @@ function agencyPhone($: cheerio.CheerioAPI): string | undefined {
   )
     .first()
     .attr('href');
-  return href !== undefined ? href.replace(/^tel:/, '') : undefined;
+  // « tel:   06 00 00 00 00 » : la plateforme laisse les espaces du gabarit.
+  return href !== undefined ? cleanText(href.replace(/^tel:/, '')) : undefined;
+}
+
+/**
+ * L'e-mail de l'agence, au même endroit que son téléphone. La fiche n'offre
+ * qu'un formulaire : sans cette adresse, on ne pouvait qu'attendre une réponse.
+ * Le JSON-LD `RealEstateAgent` la porte aussi, sur les gabarits sans pied de page.
+ */
+function agencyEmail($: cheerio.CheerioAPI): string | undefined {
+  const href = $(
+    '.coords-mail a[href^="mailto:"], a.coords-mail__content[href^="mailto:"], .footer_element__content a.mail[href^="mailto:"]',
+  )
+    .first()
+    .attr('href');
+  const fromFooter = href !== undefined ? cleanText(href.replace(/^mailto:/, '')) : '';
+  if (fromFooter !== '') return fromFooter;
+  const agent = findJsonLdNode(collectJsonLdNodes($), ['realestateagent']);
+  const email = agent?.['email'];
+  return typeof email === 'string' && email.includes('@') ? cleanText(email) : undefined;
 }
 
 /**
@@ -320,8 +351,24 @@ interface DetailContent {
   readonly city?: string;
   readonly postalCode?: string;
   readonly district?: string;
+  /** Étage du logement, « 0 » pour un rez-de-chaussée. */
+  readonly floor?: string;
+  readonly bedrooms?: string;
   readonly items: readonly string[];
 }
+
+/** Étage du logement dans la liste de caractéristiques : « 1er étage », « RDC ». */
+const ITEM_FLOOR = /^(?:(\d{1,2})\s*(?:er|[èe]me|e)\s+[ée]tage|(rez[- ]de[- ]chauss[ée]e))$/i;
+
+/**
+ * Hauteur de l'IMMEUBLE, écrite « 5 étage(s) » juste après l'étage du logement.
+ * Sans la distinguer, un bien qui ne déclare que cette ligne se voyait attribuer
+ * l'étage de l'immeuble entier — un fait faux, pas une donnée manquante.
+ */
+const ITEM_BUILDING_FLOORS = /^(\d{1,2})\s+[ée]tage\(s\)$/i;
+
+/** Chambres dans la même liste : « 2 chambre(s) ». */
+const ITEM_BEDROOMS = /^(\d{1,2})\s+chambres?(?:\(s\))?$/i;
 
 /** Numéro puis type de voie : « 37 Boulevard François Grosso », « 4 bis, rue … ». */
 const STREET =
@@ -333,11 +380,23 @@ function readDetailContent($: cheerio.CheerioAPI): DetailContent {
     cleanText($('.id_ref_item').first().text()) ||
     (/^R[ée]f[ée]rence\s*:?\s*(\S+)$/i.exec(cleanText($('p.ref').first().text()))?.[1] ?? '');
   const location = /^(.+?)\s*\((\d{5})\)$/.exec(cleanText($('.text_location_item').first().text()));
-  const items = $('.list_items .list_item')
+  const rawItems = $('.list_items .list_item')
     .filter((_i, el) => $(el).closest('[class*="property-more"]').length === 0)
     .toArray()
     .map((el) => cleanText($(el).text()))
     .filter((text) => text !== '');
+  const floorMatch = rawItems.map((item) => ITEM_FLOOR.exec(item)).find((m) => m !== null);
+  const floor = floorMatch?.[1] ?? (floorMatch?.[2] !== undefined ? '0' : undefined);
+  const bedrooms = rawItems
+    .map((item) => ITEM_BEDROOMS.exec(item)?.[1])
+    .find((v) => v !== undefined);
+  // « 5 étage(s) » compte les niveaux de l'immeuble : reformulé pour qu'aucune
+  // relecture ne le prenne pour l'étage du logement.
+  const items = rawItems.map((item) =>
+    ITEM_BUILDING_FLOORS.test(item)
+      ? `Immeuble : ${ITEM_BUILDING_FLOORS.exec(item)?.[1] ?? ''} niveaux`
+      : item,
+  );
   const district = items
     .map((item) => /^quartier\s*:?\s+(.+)$/i.exec(item)?.[1])
     .find((value) => value !== undefined);
@@ -350,6 +409,8 @@ function readDetailContent($: cheerio.CheerioAPI): DetailContent {
     ...(location?.[1] !== undefined ? { city: location[1] } : {}),
     ...(location?.[2] !== undefined ? { postalCode: location[2] } : {}),
     ...(district !== undefined ? { district } : {}),
+    ...(floor !== undefined ? { floor } : {}),
+    ...(bedrooms !== undefined ? { bedrooms } : {}),
     items,
   };
 }
@@ -425,6 +486,7 @@ interface Figures {
 function readFigures(
   table: Map<string, string>,
   labels: LabelledValues,
+  content: DetailContent,
   pageTitle: string,
   h1: string,
 ): Figures {
@@ -452,10 +514,14 @@ function readFigures(
     (labels.area !== undefined ? `${labels.area} m²` : undefined);
   const roomsFromTable = table.get('nbpiecees') ?? labels.rooms;
   // Titre libre sans pièces (englimmo.com) : le h1 engendré « Studio 1 pièce(s) » les donne.
-  const roomsText =
+  const rooms =
     roomsFromTable !== undefined
       ? `${roomsFromTable} pièces`
       : `${pageTitle} ${h1}`.match(/\d+\s*pièces?/i)?.[0];
+  // Chambres déclarées : convention « N pièces M chambres », lue telle quelle
+  // par la normalisation. Sans elles, un trois-pièces n'en annonçait aucune.
+  const bedrooms = table.get('nbchambres') ?? content.bedrooms;
+  const roomsText = bedrooms === undefined ? rooms : `${rooms ?? ''} ${bedrooms} chambres`.trim();
 
   // Meublé : la table est explicite (OUI/NON) — un texte fidèle à sa valeur,
   // jamais un « meublé » par défaut qui inverserait le sens (§17).
@@ -520,7 +586,17 @@ function hektorExtra(
   if (featureList.length > 0) extra['features'] = featureList.join(' · ');
   if (declared.district !== undefined) extra['quartier'] = declared.district;
   if (declared.dpe !== undefined) extra['dpe'] = declared.dpe;
+  const floor = declaredFloor(table) ?? content.floor;
+  if (floor !== undefined) extra['etage'] = floor;
   return extra;
+}
+
+/** Étage déclaré dans la table : « 2 », « Rez-de-chaussée ». */
+function declaredFloor(table: Map<string, string>): string | undefined {
+  const value = table.get('etage') ?? table.get('Etage');
+  if (value === undefined) return undefined;
+  if (/rez.de.chauss/i.test(value)) return '0';
+  return /^(\d{1,2})\b/.exec(value)?.[1];
 }
 
 export function parseDetailPage(html: string, pageUrl: string, agencyName: string): ParsedDetail {
@@ -556,6 +632,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   const { priceText, areaText, roomsText, furnishedText } = readFigures(
     table,
     labels,
+    content,
     pageTitle,
     h1,
   );
@@ -613,6 +690,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
         : undefined,
     feesText: labels.fees !== undefined ? `${labels.fees} €` : undefined,
     phoneText: agencyPhone($),
+    emailText: agencyEmail($),
     addressText: content.address,
     cityText: cityText ?? content.city ?? cityFromPostalCode(table.get('cp') ?? labels.postalCode),
     postalCodeText: table.get('cp') ?? labels.postalCode ?? content.postalCode,

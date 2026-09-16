@@ -236,6 +236,15 @@ function letterFromBands(svg: string): string | undefined {
  * en `data:`. Aucune des fiches Apimo n'avait donc de DPE.
  */
 export function apimoDpe($: cheerio.CheerioAPI): string | undefined {
+  // Quand le gabarit écrit la lettre en toutes lettres (`class-a`, et
+  // `class-none` pour un bien sans DPE), elle fait foi : l'étiquette dessinée
+  // reste affichée vide sur ces fiches, et l'y déduire donnait une classe
+  // inventée (Vizcaya, fiche sans DPE lue « C »).
+  const declared = $('.custom-energy-diagnostics .energy, .regulation .energy').first();
+  if (declared.length > 0) {
+    const letter = cleanText(declared.text());
+    return /^[A-G]$/i.test(letter) ? letter.toUpperCase() : undefined;
+  }
   for (const img of $('.energy-diagnostics img, .diagnostic img').toArray()) {
     const src = $(img).attr('src') ?? '';
     const base64 = /^data:image\/svg\+xml;base64,(.+)$/.exec(src)?.[1];

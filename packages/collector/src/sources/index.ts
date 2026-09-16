@@ -112,6 +112,7 @@ import { marceleScraper } from './marcele/index.js';
 import { sambroniScraper } from './sambroni/index.js';
 import { homePearlScraper } from './home-pearl/index.js';
 import { fiveStarsScraper } from './five-stars/index.js';
+import { agenceGounodScraper } from './agence-gounod/index.js';
 import { bomarcheScraper } from './bomarche/index.js';
 import { provencalpesScraper } from './provencalpes/index.js';
 import { fitImmobilierScraper } from './fit-immobilier/index.js';
@@ -333,6 +334,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   sambroniScraper,
   homePearlScraper,
   fiveStarsScraper,
+  agenceGounodScraper,
   bomarcheScraper,
   provencalpesScraper,
   fitImmobilierScraper,

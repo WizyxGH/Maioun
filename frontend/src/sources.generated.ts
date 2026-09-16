@@ -118,6 +118,13 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  'agence-gounod': {
+    name: 'Agence Gounod',
+    domain: 'agencegounod.com',
+    logo: null,
+    paidContact: false,
+    address: { street: '19 rue Gounod', postalCode: '06000', city: 'Nice' },
+  },
   'agence-longchamp': {
     name: 'Agence Longchamp',
     domain: 'agencelongchamp.com',

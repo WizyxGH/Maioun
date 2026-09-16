@@ -183,3 +183,68 @@ describe('parseListingUrl — schéma « à barres » (Abyla Bosse)', () => {
     expect(isCommercialSlug('appartement')).toBe(false);
   });
 });
+
+// Relevé du 2026-09-16 sur Vizcaya : trois champs que la plateforme publie et
+// que l'adaptateur laissait tomber — position du bien, quartier, DPE en clair.
+describe('parseDetailPage — position, quartier, DPE déclaré', () => {
+  const url = 'https://exemple.fr/fr/propriete/location+appartement+nice+carabacel-3p+87331733';
+  const page = (property: Record<string, unknown>, body = ''): string =>
+    `<html><head><script type="application/ld+json">${JSON.stringify({
+      '@graph': [
+        { '@type': 'RealEstateAgent', name: 'Agence' },
+        {
+          '@type': 'Apartment',
+          name: 'Trois pièces Carabacel',
+          offers: { price: 1900 },
+          address: { addressLocality: 'Nice', postalCode: '06000' },
+          ...property,
+        },
+      ],
+    })}</script></head><body>${body}</body></html>`;
+
+  it('lit la position du bien publiée en `geo`, chaîne comme nombre', () => {
+    const asNumbers = parseDetailPage(
+      page({ geo: { latitude: 43.70119, longitude: 7.27535 } }),
+      url,
+      AGENCY,
+    ).listing;
+    expect(asNumbers).toMatchObject({ latitude: 43.70119, longitude: 7.27535 });
+    const asStrings = parseDetailPage(
+      page({ geo: { latitude: '43.699825', longitude: '7.267790' } }),
+      url,
+      AGENCY,
+    ).listing;
+    expect(asStrings?.latitude).toBeCloseTo(43.699825, 5);
+  });
+
+  it('ignore une position absente ou hors bornes', () => {
+    expect(parseDetailPage(page({}), url, AGENCY).listing?.latitude).toBeUndefined();
+    const absurd = page({ geo: { latitude: 0, longitude: 7.27 } });
+    expect(parseDetailPage(absurd, url, AGENCY).listing?.longitude).toBeUndefined();
+  });
+
+  it('lit le quartier du titre de partage, après la commune', () => {
+    const body =
+      '<div class="popup-module-share"><h2>Location Appartement, Nice Carabacel</h2></div>';
+    expect(parseDetailPage(page({}, body), url, AGENCY).listing?.extra?.['quartier']).toBe(
+      'Carabacel',
+    );
+  });
+
+  it('ne prend pas pour un quartier un titre de partage qui décrit le bien', () => {
+    const body =
+      '<div class="popup-module-share"><h2>Location appartement Nice, 2 pièces, 41 m², 850 €</h2></div>';
+    expect(
+      parseDetailPage(page({}, body), url, AGENCY).listing?.extra?.['quartier'],
+    ).toBeUndefined();
+  });
+
+  it('croit la lettre écrite en clair, et son absence (`class-none`)', () => {
+    const withLetter =
+      '<div class="custom-energy-diagnostics"><div class="regulation"><p>DPE : <span class="energy class-d">D</span></p></div></div>';
+    expect(parseDetailPage(page({}, withLetter), url, AGENCY).listing?.extra?.['dpe']).toBe('D');
+    const none =
+      '<div class="custom-energy-diagnostics"><div class="regulation"><p>DPE : <span class="energy class-none"></span></p></div></div>';
+    expect(parseDetailPage(page({}, none), url, AGENCY).listing?.extra?.['dpe']).toBeUndefined();
+  });
+});

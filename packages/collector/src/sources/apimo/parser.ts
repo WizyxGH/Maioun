@@ -115,6 +115,8 @@ interface JsonLdData {
   readonly datePosted?: string;
   readonly dateModified?: string;
   readonly offerPrice?: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
   readonly imageUrls?: readonly string[];
   readonly agencyName?: string;
   readonly agencyPhone?: string;
@@ -125,6 +127,25 @@ interface JsonLdData {
 function str(node: JsonLdNode | undefined, key: string): string | undefined {
   const value = node?.[key];
   return typeof value === 'string' ? value : undefined;
+}
+
+/**
+ * Coordonnées du BIEN, publiées en `geo` par la plateforme (nombre ou chaîne
+ * selon les sites). C'est la position que l'agence a saisie : mieux vaut elle
+ * qu'un géocodage d'adresse, souvent absente. Hors bornes → rien (§17).
+ */
+function geoOf(property: JsonLdNode): { latitude?: number; longitude?: number } {
+  const geo = property['geo'] as JsonLdNode | undefined;
+  const read = (key: string): number | undefined => {
+    const raw = geo?.[key];
+    const value = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+    return Number.isFinite(value) && value !== 0 ? value : undefined;
+  };
+  const latitude = read('latitude');
+  const longitude = read('longitude');
+  if (latitude === undefined || longitude === undefined) return {};
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return {};
+  return { latitude, longitude };
 }
 
 /** Mappe les nœuds `bien` + `agence` du graphe vers `JsonLdData`. */
@@ -162,6 +183,7 @@ function mapApimoJsonLd(property: JsonLdNode, agent: JsonLdNode | undefined): Js
     ...(Array.isArray(property['image'])
       ? { imageUrls: property['image'].filter((u): u is string => typeof u === 'string') }
       : {}),
+    ...geoOf(property),
     ...(str(agent, 'name') !== undefined ? { agencyName: str(agent, 'name') } : {}),
     ...(str(agent, 'telephone') !== undefined ? { agencyPhone: str(agent, 'telephone') } : {}),
     ...(str(agent, 'email') !== undefined ? { agencyEmail: str(agent, 'email') } : {}),
@@ -346,7 +368,9 @@ function apimoExtra(
   $: cheerio.CheerioAPI,
   criteria: ApimoCriteria,
   parsedUrl: ParsedListingUrl,
+  jsonLd: JsonLdData | null,
 ): Record<string, string> {
+  const district = apimoDistrict($, jsonLd?.city);
   const lines = criteria.pairs.map(([label, value]) => `${label} : ${value}`);
   if (criteria.services.length > 0) lines.push(`Prestations : ${criteria.services.join(', ')}`);
   const extra: Record<string, string> = {
@@ -360,7 +384,51 @@ function apimoExtra(
   if (criteria.services.some((service) => /^ascenseur$/i.test(service))) extra['ascenseur'] = '1';
   const dpe = apimoDpe($);
   if (dpe !== undefined) extra['dpe'] = dpe;
+  if (district !== undefined) extra['quartier'] = district;
   return extra;
+}
+
+/**
+ * Quartier du bien. Apimo ne le publie ni en JSON-LD ni en critère : le seul
+ * endroit où il s'écrit est le titre du partage, « Location appartement, Nice
+ * Carabacel » — la commune, puis le quartier. On ne le retient donc que si ce
+ * titre commence bien par la commune connue et ne poursuit que par des mots :
+ * d'autres gabarits mettent surface et loyer à la même place.
+ */
+function apimoDistrict($: cheerio.CheerioAPI, city: string | undefined): string | undefined {
+  if (city === undefined || city === '') return undefined;
+  const target = comparable(city);
+  for (const heading of $('.popup-module-share h2').toArray()) {
+    const tail = /^(?:location|vente)\b[^,]*,\s*(.+)$/i.exec(cleanText($(heading).text()))?.[1];
+    if (tail === undefined) continue;
+    // La commune peut tenir en un mot ou en trois (« Villefranche-sur-Mer ») :
+    // on avance mot à mot jusqu'à la retrouver, et ce qui suit est le quartier.
+    const words = tail.split(/\s+/);
+    for (let cut = 1; cut < words.length; cut += 1) {
+      if (comparable(words.slice(0, cut).join(' ')) !== target) continue;
+      const rest = words.slice(cut).join(' ');
+      // Un quartier est un nom, pas une suite de chiffres (« 2 pièces, 41 m² »).
+      if (/^[\p{L}][\p{L}' -]{1,40}$/u.test(rest)) return rest;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Où est le bien : rue, commune, code postal et position (§21 — le JSON-LD
+ * publie l'adresse exacte, que peu de sources donnent).
+ */
+function apimoLocation(
+  jsonLd: JsonLdData | null,
+  parsedUrl: ParsedListingUrl,
+): Pick<RawListing, 'addressText' | 'cityText' | 'postalCodeText' | 'latitude' | 'longitude'> {
+  return {
+    addressText: jsonLd?.streetAddress,
+    cityText: jsonLd?.city ?? parsedUrl.citySlug.replace(/-/g, ' '),
+    postalCodeText: jsonLd?.postalCode,
+    latitude: jsonLd?.latitude,
+    longitude: jsonLd?.longitude,
+  };
 }
 
 /** `true` si la page est une fiche retirée / introuvable (§17). */
@@ -439,10 +507,7 @@ export function parseApimoDetail(
     propertyTypeText: parsedUrl.typeSlug,
     ...apimoMoney(criteria),
     furnishedText: apimoFurnished(criteria),
-    // §21 : adresse exacte + coordonnées d'agence, publiées dans le JSON-LD.
-    addressText: jsonLd?.streetAddress,
-    cityText: jsonLd?.city ?? parsedUrl.citySlug.replace(/-/g, ' '),
-    postalCodeText: jsonLd?.postalCode,
+    ...apimoLocation(jsonLd, parsedUrl),
     agencyName: jsonLd?.agencyName ?? defaultAgencyName,
     phoneText: jsonLd?.agencyPhone,
     emailText: jsonLd?.agencyEmail,
@@ -450,7 +515,7 @@ export function parseApimoDetail(
     publishedAtText,
     imageUrls:
       jsonLd?.imageUrls !== undefined && jsonLd.imageUrls.length > 0 ? jsonLd.imageUrls : undefined,
-    extra: apimoExtra($, criteria, parsedUrl),
+    extra: apimoExtra($, criteria, parsedUrl, jsonLd),
   });
 
   return { listing, warnings };

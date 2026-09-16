@@ -410,10 +410,10 @@ describe('liste sans liens de fiche (Riviera Angels)', () => {
       depositText: '3 980 €',
       feesText: '1 422,99 €',
       areaText: '108,46 m²',
-      roomsText: '4 pièces',
+      roomsText: '4 pièces 3 chambres',
       cityText: 'Nice',
       postalCodeText: '06000',
-      extra: { reference: 'SMLAP50000384' },
+      extra: { reference: 'SMLAP50000384', etage: '4' },
     });
     expect(listing?.propertyTypeText).toBeUndefined();
     expect(listing?.description).toMatch(/^Au cœur du Carré d’Or[\s\S]+GARANTME souhaitée\.$/);
@@ -432,5 +432,58 @@ describe('liste sans liens de fiche (Riviera Angels)', () => {
       'https://a.staticlbi.com/1600xauto/images/biens/1/aaa/photo_1.jpg',
       'https://a.staticlbi.com/1600xauto/images/biens/1/aaa/photo_2.jpg',
     ]);
+  });
+});
+
+// Gabarit à liste de caractéristiques (Cabinet AGIR), relevé du 2026-09-16 :
+// l'étage, les chambres et l'e-mail de l'agence y sont écrits, et la hauteur de
+// l'immeuble juste à côté de l'étage du logement.
+describe('parseDetailPage — caractéristiques en liste, coordonnées du pied de page', () => {
+  const URL = 'https://www.agence-fictive.fr/location/1-nice/appartement/1043-3p-meuble';
+  const page = (items: string, footer = '') =>
+    `<html><head><title>Location appartement Nice 3 pièces 39.52m² 1370€</title></head>
+     <body><h1>Appartement 3 pièce(s) 2 chambre(s) 39.52 m²</h1>
+     <ul class="list_items">${items}</ul>
+     <div class="footer_element__content">${footer}</div></body></html>`;
+  const items = `<li class="list_item">Surface 39,52 m²</li>
+     <li class="list_item">2 chambre(s)</li>
+     <li class="list_item">1er étage</li>
+     <li class="list_item">5 étage(s)</li>
+     <li class="list_item">ascenseur</li>`;
+
+  it('lit l’étage et les chambres du logement', () => {
+    const { listing } = parseDetailPage(page(items), URL, 'Agence');
+    expect(listing?.extra?.['etage']).toBe('1');
+    expect(listing?.roomsText).toBe('3 pièces 2 chambres');
+  });
+
+  it('ne prend pas la hauteur de l’immeuble pour l’étage du logement', () => {
+    const { listing } = parseDetailPage(
+      page('<li class="list_item">2 étage(s)</li>'),
+      URL,
+      'Agence',
+    );
+    expect(listing?.extra?.['etage']).toBeUndefined();
+    const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
+      sourceId: 'hektor-test',
+      nowMs: Date.parse('2026-09-16T12:00:00Z'),
+    });
+    expect(normalized?.features).not.toContain('2e étage');
+  });
+
+  it('lit le téléphone et l’e-mail de l’agence, espaces du gabarit compris', () => {
+    const footer = `<a href="tel:   06 00 00 00 43" class="text__element phone"> 06 00 00 00 43</a>
+      <a href="mailto:contact@example.invalid" class="text__element mail">contact@example.invalid</a>`;
+    const { listing } = parseDetailPage(page(items, footer), URL, 'Agence');
+    expect(listing?.phoneText).toBe('06 00 00 00 43');
+    expect(listing?.emailText).toBe('contact@example.invalid');
+  });
+
+  it('à défaut de pied de page, l’e-mail vient du JSON-LD de l’agence', () => {
+    const ld = `<script type="application/ld+json">${JSON.stringify([
+      { '@type': 'RealEstateAgent', name: 'Agence', email: 'agence@example.invalid' },
+    ])}</script>`;
+    const { listing } = parseDetailPage(page(items, ld), URL, 'Agence');
+    expect(listing?.emailText).toBe('agence@example.invalid');
   });
 });
