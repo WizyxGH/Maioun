@@ -8,6 +8,7 @@
  */
 
 import {
+  NICE_DISTRICTS,
   SHORT_TERM_LEASE_FEATURE,
   STUDENT_HOUSING_FEATURE,
   type PropertyType,
@@ -1503,60 +1504,63 @@ const NAMED_DISTRICT =
  * ne devine pas, on reconnaît (§17) — et un nom absent de cette liste laisse le
  * quartier vide, ce qui est la bonne réponse quand on ne sait pas.
  *
- * L'ORDRE EST SIGNIFIANT : le premier nom trouvé l'emporte, donc le plus
- * précis vient d'abord. « Nice Ouest Madeleine » doit donner Madeleine, le
- * quartier, et non Nice Ouest, le secteur qui en contient une demi-douzaine ;
- * « Petit Fabron » doit l'emporter sur « Fabron ».
+ * ELLE VIENT DE `shared`, ET C'ÉTAIT TOUT L'ENJEU. Le collecteur en tenait une
+ * COPIE, figée à trente-cinq noms là où la table partagée en compte
+ * soixante-dix-huit, alias compris. Les deux ont donc divergé exactement comme
+ * le §75 le redoutait, et le prix se lit en base : Carabacel, Gorbella, Grosso,
+ * Valrose, Cessole, Masséna, le Parc Impérial, la Promenade des Anglais, le
+ * Carré d'or n'existaient pas pour la normalisation, quand l'écran et le filtre
+ * les proposaient. Relevé du 2026-09-16 sur l'inventaire niçois : **1 014
+ * occupations de plus reçoivent leur quartier, aucune ne le perd**.
+ *
+ * L'ORDRE EST SIGNIFIANT, et la table partagée le porte déjà : le premier nom
+ * reconnu l'emporte, donc le plus précis vient d'abord. « Nice Ouest Madeleine »
+ * doit donner Madeleine, le quartier, et non Nice Ouest, le secteur qui en
+ * contient une demi-douzaine ; « Petit Fabron » doit l'emporter sur « Fabron » ;
+ * et « Centre-ville », libellé large, ne se déclenche qu'à défaut de tout le
+ * reste.
  */
-const NICE_DISTRICTS: readonly string[] = [
-  // Quartiers, du composé au simple.
-  'Vieux Nice',
-  'Petit Fabron',
-  'Bas Fabron',
-  'Mont Boron',
-  'Bon Voyage',
-  'Las Planas',
-  'Sainte-Marguerite',
-  'Saint-Sylvestre',
-  'Saint-Pancrace',
-  'Saint-Augustin',
-  'Saint-Isidore',
-  'Saint-Antoine',
-  'Saint-Roch',
-  'Jean Medecin',
-  'Borriglione',
-  'Liberation',
-  'Californie',
-  'Baumettes',
-  'Madeleine',
-  'Musiciens',
-  'Pessicart',
-  'Gambetta',
-  'Lanterne',
-  'Riquier',
-  'Fabron',
-  'Gairaut',
-  'Pasteur',
-  'Magnan',
-  'Ariane',
-  'Cimiez',
-  'Rimiez',
-  'Carras',
-  'Thiers',
-  'Port',
-  // Secteurs : en dernier recours seulement, faute de quartier plus precis.
-  'Nice Nord',
-  'Nice Ouest',
-  'Nice Est',
-];
+const DISTRICT_SPELLINGS: readonly {
+  readonly label: string;
+  readonly patterns: readonly RegExp[];
+}[] = NICE_DISTRICTS.map((district) => ({
+  label: district.label,
+  // Compilées une fois : cette reconnaissance passe sur chaque titre et
+  // chaque description de chaque annonce, à chaque passage.
+  patterns: [district.label, ...(district.aliases ?? [])].map(
+    (spelling) => new RegExp(`\\b${districtComparable(spelling).replace(/ /g, '\\s+')}\\b`),
+  ),
+}));
+
+/**
+ * Forme comparable propre aux noms de quartiers : celle de `comparable`, plus
+ * l'abréviation dépliée.
+ *
+ * « St Roch », « Ste Marguerite », « St Pierre de Féric » : les annonces
+ * abrègent, la table partagée écrit en toutes lettres. Sans ce dépliage, les
+ * deux ne se rencontrent jamais — et c'est la règle que `shared` applique déjà
+ * de son côté, reprise ici pour que les deux moitiés du projet lisent un nom de
+ * quartier de la même façon.
+ */
+function districtComparable(input: string): string {
+  return comparable(input)
+    .replace(/\bst\b/g, 'saint')
+    .replace(/\bste\b/g, 'sainte');
+}
 
 /**
  * « Proche de Cimiez » ne dit PAS que le bien est à Cimiez — il dit le
  * contraire. Ces tournures précèdent un repère dont l'annonce se rapproche, et
  * un nom de quartier qui les suit n'est pas celui du logement (§17).
+ *
+ * SUR DES MOTS ENTIERS. Sans l'ancre, « Nice cENTRE Carabacel » se lisait
+ * « entre », la préposition, et le quartier qui suivait était rejeté comme un
+ * simple voisin — le titre perdait Carabacel pour ne garder que le
+ * centre-ville. « aPRES », « cyPRES » tendaient le même piège à « pres ». La
+ * tournure doit commencer un mot, sinon elle n'en est pas une.
  */
 const NEAR_BUT_NOT_IN =
-  /(?:proche|proximite|pres|pied|deux pas|face|limitrophe|vers|entre|acces|direction)(?: de| du| des| d| a)?$/;
+  /\b(?:proche|proximite|pres|pied|deux pas|face|limitrophe|vers|entre|acces|direction)(?: de| du| des| d| a)?$/;
 
 /**
  * Les derniers mots avant un nom de quartier l'éloignent-ils du bien ?
@@ -1577,17 +1581,22 @@ function pointsElsewhere(before: string): boolean {
  * La comparaison se fait en forme `comparable` — minuscules, sans accent ni
  * ponctuation — sur des MOTS ENTIERS : « Port » ne doit se déclencher ni sur
  * « aéroport », ni sur « portes ».
+ *
+ * ON REND LE NOM DE LA TABLE, jamais la graphie rencontrée : « carré d'or » et
+ * « hyper centre » désignent le Centre-ville, et c'est sous ce nom-là que le
+ * filtre de l'écran et le rapprochement les attendent.
  */
 function knownNiceDistrict(text: string): string | null {
-  const haystack = comparable(text);
-  for (const district of NICE_DISTRICTS) {
-    const pattern = comparable(district).replace(/ /g, '\\s+');
-    const found = new RegExp(`\\b${pattern}\\b`).exec(haystack);
-    if (found === null) continue;
-    // Ce qui précède décide : « à la Madeleine » situe, « proche de la
-    // Madeleine » éloigne. On regarde les quelques mots d'avant.
-    if (pointsElsewhere(haystack.slice(0, found.index))) continue;
-    return district;
+  const haystack = districtComparable(text);
+  for (const district of DISTRICT_SPELLINGS) {
+    for (const pattern of district.patterns) {
+      const found = pattern.exec(haystack);
+      if (found === null) continue;
+      // Ce qui précède décide : « à la Madeleine » situe, « proche de la
+      // Madeleine » éloigne. On regarde les quelques mots d'avant.
+      if (pointsElsewhere(haystack.slice(0, found.index))) continue;
+      return district.label;
+    }
   }
   return null;
 }

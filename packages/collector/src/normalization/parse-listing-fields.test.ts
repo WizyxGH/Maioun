@@ -1086,6 +1086,53 @@ describe('parseDistrict', () => {
     // « aéroport » contient « port » : les mots entiers, et rien d’autre.
     expect(parseDistrict('Grand studio aéroport, résidence récente')).toBeNull();
   });
+
+  /**
+   * LA TABLE PARTAGÉE FAIT AUTORITÉ, et ces titres le prouvent.
+   *
+   * Le collecteur tenait sa propre copie, restée à trente-cinq noms quand
+   * `shared` en compte soixante-dix-huit, alias compris. Ces quartiers-là
+   * existaient donc pour l'écran et pour le filtre, mais pas pour la
+   * normalisation qui les range : elle rendait `null`, et l'annonce devenait
+   * introuvable par quartier.
+   */
+  it('reconnaît les quartiers que seule la table partagée nommait', () => {
+    expect(parseDistrict('NICE - CENTRE CARABACEL - STUDIO MEUBLE')).toBe('Carabacel');
+    expect(parseDistrict('NICE Gorbella - Studio terrasse')).toBe('Gorbella');
+    expect(parseDistrict('Studio meublé - Boulevard Grosso')).toBe('Grosso');
+    expect(parseDistrict('Beau studio meublé 25m2 à Nice Valrose')).toBe('Valrose');
+    expect(parseDistrict('DEUX PIECES VIDES — NICE PARC IMPERIAL')).toBe('Parc Impérial');
+  });
+
+  it('rend le NOM DE LA TABLE, pas la graphie rencontrée', () => {
+    // C'est sous ce nom-là que le filtre de l'écran attend l'annonce : rendre
+    // « carré d'or » la rangerait sous un quartier que le menu ne propose pas.
+    expect(parseDistrict("Carré d'or - Studio avec balcon")).toBe('Centre-ville');
+    expect(parseDistrict('Studio meublé rue de France')).toBe('Promenade des Anglais');
+    // Les annonces abrègent, la table écrit en toutes lettres.
+    expect(parseDistrict('STUDIO MEUBLE — NICE COLLINES ST PIERRE DE FERIC')).toBe(
+      'Saint-Pierre-de-Féric',
+    );
+  });
+
+  it('garde le libellé large pour la fin : « centre » cède à tout nom précis', () => {
+    expect(parseDistrict('Nice plein centre - Studio meublé équipé')).toBe('Centre-ville');
+    expect(parseDistrict('Nice centre — Studio Gambetta')).toBe('Gambetta');
+  });
+
+  it('applique le garde-fou du VOISINAGE aux noms nouvellement reconnus', () => {
+    expect(parseDistrict('Studio proche de Carabacel')).toBeNull();
+    expect(parseDistrict('T2 à deux pas de Valrose')).toBeNull();
+  });
+
+  it('ne lit « entre » ni « près » au MILIEU d’un mot', () => {
+    // « cENTRE » finissait par la préposition « entre », et le quartier qui
+    // suivait passait pour un simple voisin.
+    expect(parseDistrict('NICE - CENTRE CARABACEL - STUDIO MEUBLE')).toBe('Carabacel');
+    expect(parseDistrict('Résidence Les Cyprès, Gorbella')).toBe('Gorbella');
+    // La vraie préposition, elle, écarte toujours.
+    expect(parseDistrict('Studio entre Carabacel et la mer')).toBeNull();
+  });
 });
 
 describe('parseDistrictOf', () => {
