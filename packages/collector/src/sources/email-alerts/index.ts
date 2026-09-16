@@ -17,7 +17,7 @@ import type {
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { alertAddressTemplate, loadImapConfig } from '../../config.js';
-import { fetchAlertEmails } from '../../core/email-import.js';
+import { fetchAlertEmails, parseBookmark } from '../../core/email-import.js';
 import { acceptsRecipients, forwardingToken } from '../../core/alert-recipients.js';
 import { locationFromUrl, parseAlertEmail, referenceFromUrl } from './parser.js';
 
@@ -29,14 +29,12 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 1,
   schedule: scheduleFor('portal'),
-  // Une requête par annonce NOUVELLE, pour résoudre son lien de tracking en URL
-  // canonique (voir `resolveCanonicalUrls`). Ce sont des résolutions de
-  // redirection — l'en-tête `location` seul, jamais la page — étalées par le
-  // limiteur à 20/min. Au-delà du plafond, les annonces restantes gardent leur
-  // lien d'origine plutôt que d'insister (§10, §69).
-  // Le plafond doit couvrir TOUTES les annonces nouvelles d'un passage : une
-  // annonce non résolue est enregistrée avec son lien de tracking, devient
-  // « connue », et n'est alors plus jamais résolue.
+  // Une requête par annonce NOUVELLE dont le lien de tracking peut être dénoué
+  // en URL canonique (voir `resolveCanonicalUrls`) : une résolution de
+  // redirection — l'en-tête `location` seul, jamais la page (§10). SeLoger en
+  // est exclu, son redirecteur interdisant les robots : en pratique, seules les
+  // alertes Bien'ici en consomment. Au-delà du plafond, les annonces restantes
+  // gardent leur lien d'origine plutôt que d'insister (§69).
   budget: budgetFor('portal', { maxPagesPerRun: 120, maxListingsPerRun: 200 }),
   // Le portail envoie chaque annonce une fois : son absence des digests
   // suivants ne prouve rien (voir `oneShotListings`).
@@ -56,6 +54,25 @@ export const NOT_CONFIGURED_WARNING =
 
 /** Hôtes de redirection des portails : leur lien expire, pas l'annonce. */
 const TRACKING_HOSTS = /(^|\.)(click|link|clic|url\d*|email|mail|t)\./i;
+
+/**
+ * LES REDIRECTEURS QU'ON NE SUIT PAS, ET POURQUOI.
+ *
+ * `click.by.seloger.com/robots.txt` dit `User-agent: * / Disallow: /` (vérifié
+ * le 2026-09-16). Une interdiction écrite se respecte (§10), et le contrôle du
+ * robots.txt la refusait déjà : chaque annonce SeLoger consommait une place du
+ * budget pour une requête qui n'était jamais émise, jusqu'à l'épuiser — cent
+ * vingt refus par passage, et les annonces suivantes abandonnées en chemin.
+ *
+ * ON N'Y PERD RIEN QU'ON PUISSE RÉCUPÉRER : le jeton du lien est chiffré, la
+ * fiche `www.seloger.com/annonce/<ref>` répond 403 à un client honnête
+ * (DataDome) et le site n'a pas de sitemap. Tout ce qu'on aura de SeLoger est
+ * ce que le digest écrit — d'où le soin porté à le lire (voir `parser.ts`).
+ *
+ * Le lien de tracking reste l'adresse de l'annonce : il redirige correctement
+ * dans un NAVIGATEUR, ce qui est son seul usage ici.
+ */
+const TRACKING_FORBIDDEN = /(^|\.)by\.seloger\.com$/i;
 
 /**
  * Remplace un lien de tracking par l'URL canonique de l'annonce.
@@ -80,7 +97,7 @@ async function resolveCanonicalUrls(
       resolved.push(listing);
       continue;
     }
-    if (!TRACKING_HOSTS.test(host) || context.shouldStop()) {
+    if (!TRACKING_HOSTS.test(host) || TRACKING_FORBIDDEN.test(host) || context.shouldStop()) {
       resolved.push(listing);
       continue;
     }
@@ -104,7 +121,10 @@ async function resolveCanonicalUrls(
         // dédoublonnage (les clés sont préfixées par la commune). On ne
         // remplace jamais ce que l'e-mail a publié, on complète (§17).
         const place = locationFromUrl(canonical);
-        const quartier = place.districtText;
+        // Le QUARTIER écrit dans le message l'emporte : « Roquebillière - Bon
+        // Voyage » y est nommé en toutes lettres là où l'URL n'en garde qu'un
+        // fragment. On complète, on n'écrase jamais (§17).
+        const quartier = listing.extra?.['quartier'] === undefined ? place.districtText : undefined;
         resolved.push({
           ...listing,
           ...(reference !== null ? { sourceRef: reference } : {}),
@@ -161,11 +181,28 @@ export const emailAlertsScraper: Scraper = {
       context.log(event, fields);
     };
 
-    // Fenêtre courte (4 j) : les annonces des portails expirent vite. Au-delà,
-    // le lien renvoie souvent vers une annonce « plus disponible » et rouvrir
-    // beaucoup de ces liens fait rate-limiter l'utilisateur par le portail. On
-    // privilégie donc le frais au volume (§17, §29).
-    const emails = await fetchAlertEmails({ config, log, sinceDays: 4 });
+    /**
+     * ON NE REDEMANDE QUE CE QUI EST ARRIVÉ DEPUIS LE DERNIER PASSAGE.
+     *
+     * La fenêtre de quatre jours était redescendue en entier à chaque fois :
+     * 12 161 messages téléchargés en quatorze jours pour 140 réellement reçus,
+     * soit 40 % du trafic du projet (relevé du 2026-09-16). Le repère de
+     * lecture — `UIDVALIDITY` du dossier et dernier UID vu — vit dans la
+     * mémoire de la source ; voir `core/email-import.ts` pour les cas qui
+     * forcent une relecture complète.
+     *
+     * La fenêtre reste posée : elle borne la PREMIÈRE lecture et celles qui
+     * suivent une renumérotation de la boîte. Les annonces des portails
+     * expirent vite, et rouvrir de vieux liens ne mène qu'à des « plus
+     * disponible » (§17, §29).
+     */
+    const batch = await fetchAlertEmails({
+      config,
+      log,
+      sinceDays: 4,
+      bookmark: parseBookmark(context.memo),
+    });
+    const emails = batch.emails;
 
     /**
      * QUI A FAIT SUIVRE CE MESSAGE. La boîte lue est celle du PROJET : chaque
@@ -219,7 +256,21 @@ export const emailAlertsScraper: Scraper = {
       listings: all.length,
       new: listings.length,
       resolved: requests,
+      fullRead: batch.fullRead,
     });
+
+    /**
+     * UN MESSAGE SANS ANNONCE N'EST PAS UN PARSEUR CASSÉ.
+     *
+     * Le cœur marque « dégradée » une source qui a téléchargé des pages sans
+     * rien y découvrir — le bon réflexe pour une liste HTML. Mais la boîte
+     * reçoit aussi des messages de service (bienvenue, connexion, relance) : en
+     * lecture incrémentale, un passage peut n'en lire qu'un seul et ne rien
+     * trouver, sans que rien ne soit cassé. `empty` est le mot que le cœur
+     * attend pour « rien à voir, source saine » (§69).
+     */
+    const stopReason =
+      accepted.length > 0 && all.length === 0 ? ('empty' as const) : ('completed' as const);
 
     return {
       sourceId: EMAIL_ALERTS_DESCRIPTOR.id,
@@ -227,8 +278,11 @@ export const emailAlertsScraper: Scraper = {
       confirmedRefs,
       requestCount: accepted.length + requests,
       pagesFetched: accepted.length,
-      stopReason: 'completed',
+      stopReason,
       warnings,
+      // Pas de repère rendu : le passage n'a rien pu conclure, le cœur garde le
+      // précédent et la fenêtre sera relue — jamais l'inverse.
+      ...(batch.bookmark !== null ? { memo: JSON.stringify(batch.bookmark) } : {}),
     };
   },
 };

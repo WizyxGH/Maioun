@@ -179,6 +179,7 @@ async function runSource(
   knownRefs: ReadonlySet<string>,
   credentials: SourceCredentials | null,
   lastFullPassAt: string | null,
+  memo: string | null,
   robots: RobotsGate,
 ): Promise<{ outcome: SourceOutcome; nextState: Partial<SourceRuntimeState> }> {
   const { descriptor } = scraper;
@@ -224,6 +225,7 @@ async function runSource(
         options.repository.savePageRefs(url, refs, new Date(options.clock.now()).toISOString()),
     },
     credentials,
+    memo,
     log: (event, fields) => logger.debug(event, fields),
     shouldStop: () => requestsUsed >= descriptor.budget.maxPagesPerRun,
   };
@@ -545,6 +547,13 @@ async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
     // Source qui n'annonce qu'une fois : le temps remplace le décompte.
     if (registry.get(sourceId)?.descriptor.oneShotListings === true) {
       await repository.expireByAge(sourceId, ONE_SHOT_EXPIRY);
+      // MIEUX QUE L'ANCIENNETÉ QUAND ON L'A : le portail d'origine est parfois
+      // une source à part entière, et sait, lui, que l'annonce est partie.
+      const retired = await repository.retireRelayedByOrigin(
+        sourceId,
+        registry.descriptors().map((descriptor) => descriptor.id),
+      );
+      if (retired > 0) logger.info('lifecycle.relayed_retired', { sourceId, retired });
       continue;
     }
 
@@ -914,7 +923,8 @@ async function resolveCredentials(
  * L'état d'une source après son passage.
  *
  * Un passage COMPLET se date : c'est ce qui dit à la source quand le suivant
- * est dû. Un passage partiel garde la date précédente.
+ * est dû. Un passage partiel garde la date précédente, et le repère de lecture
+ * (`memo`) suit la même règle.
  */
 function stateAfterRun(
   base: SourceRuntimeState,
@@ -928,6 +938,9 @@ function stateAfterRun(
     ...(outcome.result?.fullPass === true
       ? { lastFullPassAt: new Date(startedMs).toISOString() }
       : {}),
+    // Le repère n'avance QUE si la source en a rendu un : un passage
+    // interrompu garde celui d'avant, et relira donc ce qu'il n'a pas lu.
+    ...(outcome.result?.memo !== undefined ? { memo: outcome.result.memo } : {}),
     consecutiveErrors: outcome.success ? 0 : base.consecutiveErrors + 1,
     averageNewListingCount: updateAverage(
       base.averageNewListingCount,
@@ -996,6 +1009,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
         knownRefs,
         credentials,
         previousState?.lastFullPassAt ?? null,
+        previousState?.memo ?? null,
         robots,
       );
       outcomes.push(outcome);

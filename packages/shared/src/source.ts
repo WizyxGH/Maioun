@@ -266,6 +266,11 @@ export interface SourceRuntimeState {
    * jamais, faute d'avoir tout vu. `null` = jamais.
    */
   readonly lastFullPassAt?: IsoDateTime | null;
+  /**
+   * Repère libre gardé d'un passage à l'autre, opaque pour le cœur — voir
+   * `ScrapeContext.memo`.
+   */
+  readonly memo?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +401,20 @@ export interface ScrapeContext {
    */
   readonly credentials: SourceCredentials | null;
 
+  /**
+   * CE QUE LA SOURCE S'EST ÉCRIT À ELLE-MÊME au passage précédent, ou `null`.
+   *
+   * Une chaîne opaque, dont le cœur ne sait rien : seule la source la produit
+   * (`ScrapeResult.memo`) et la relit. `knownRefs` et `pageRefs` répondent
+   * « quelles ANNONCES ai-je vues » ; celle-ci répond « où en étais-je ».
+   *
+   * C'est ce qui manquait à une lecture INCRÉMENTALE. Les alertes e-mail
+   * relisaient les mêmes messages à chaque passage, faute de pouvoir retenir le
+   * dernier lu : 12 161 messages téléchargés en quatorze jours pour 140
+   * messages réellement reçus.
+   */
+  readonly memo: string | null;
+
   /** `true` quand le budget est épuisé : le scraper doit s'arrêter proprement. */
   readonly shouldStop: () => boolean;
 }
@@ -445,6 +464,13 @@ export interface ScrapeResult {
    * le suivant est dû.
    */
   readonly fullPass?: boolean;
+  /**
+   * Le repère que la source veut retrouver au passage suivant
+   * (`ScrapeContext.memo`). Absent : le repère précédent est conservé — ce qui
+   * est la bonne réponse quand le passage a échoué en chemin, car avancer le
+   * repère sur un passage incomplet perdrait ce qu'il n'a pas lu.
+   */
+  readonly memo?: string;
 }
 
 /** Pourquoi une exécution s'est terminée (§9, §10). */

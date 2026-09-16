@@ -65,6 +65,7 @@ import { sendEmailAlert } from '../notify/email-alerts.js';
 import { mailerConfigured } from '../notify/mailer.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
+import { EMAIL_ALERTS_DESCRIPTOR } from '../sources/email-alerts/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -408,6 +409,44 @@ function sourcesVisees(
   return { scrapers, force: true };
 }
 
+/**
+ * §47 : repérage d'agences NON scrapées citées dans les e-mails de confirmation
+ * (candidates à ajouter). Lecture seule, silencieux si IMAP n'est pas
+ * configuré. Ne fait jamais échouer la collecte (§69).
+ *
+ * CETTE RELECTURE COÛTAIT PLUS CHER QUE TOUTE LA COLLECTE. Elle redescendait
+ * trente jours de boîte À CHAQUE CYCLE : 336 messages × 847 cycles en quatorze
+ * jours, soit près de trois cent mille téléchargements — et pas un seul compté,
+ * puisqu'ils n'appartiennent à aucune source (relevé du 2026-09-16).
+ *
+ * ON NE REGARDE DONC QUE QUAND IL EST ARRIVÉ DU COURRIER, et sur la même
+ * fenêtre que la source. Un e-mail de confirmation arrive lui aussi dans la
+ * boîte : c'est son arrivée qui déclenche la lecture, et il y est donc toujours.
+ * Rien n'est perdu ; seules les relectures à vide disparaissent.
+ */
+async function reportUndiscoveredAgencies(logger: Logger): Promise<void> {
+  const imap = loadImapConfig();
+  if (imap === null) return;
+  try {
+    const batch = await fetchAlertEmails({
+      config: imap,
+      log: (event, fields) => logger.debug(event, fields),
+      sinceDays: 4,
+    });
+    // `findUndiscoveredAgencies` ne lit que le TEXTE : les destinataires, qui
+    // servent à rattacher un transfert à son compte, ne l'intéressent pas.
+    const agencies = findUndiscoveredAgencies(
+      batch.emails.map((email) => email.body),
+      ALL_SCRAPERS.map((scraper) => scraper.descriptor.name),
+    );
+    if (agencies.length > 0) logger.info('agencies.undiscovered', { agencies });
+  } catch (error) {
+    logger.debug('agencies.discovery_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function main(): Promise<void> {
   // Charge la configuration privée locale (.env) avant toute lecture d'env.
   loadDotEnv();
@@ -585,33 +624,11 @@ async function main(): Promise<void> {
       });
     }
 
-    // §47 : repérage d'agences NON scrapées citées dans les e-mails de
-    // confirmation (candidates à ajouter). Lecture seule, à chaque collecte,
-    // silencieux si IMAP non configuré ou si rien de nouveau. Ne fait jamais
-    // échouer la collecte (§69).
-    const imap = loadImapConfig();
-    if (imap !== null) {
-      try {
-        const bodies = await fetchAlertEmails({
-          config: imap,
-          log: (event, fields) => logger.debug(event, fields),
-          sinceDays: 30,
-        });
-        const known = ALL_SCRAPERS.map((scraper) => scraper.descriptor.name);
-        // `findUndiscoveredAgencies` ne lit que le TEXTE : les destinataires,
-        // qui servent à rattacher un transfert à son compte, ne l'intéressent
-        // pas.
-        const agencies = findUndiscoveredAgencies(
-          bodies.map((email) => email.body),
-          known,
-        );
-        if (agencies.length > 0) logger.info('agencies.undiscovered', { agencies });
-      } catch (error) {
-        logger.debug('agencies.discovery_failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+    // Il n'y a de nouvelles agences à repérer que s'il est arrivé du courrier.
+    const mailRead = report.outcomes.find(
+      (outcome) => outcome.sourceId === EMAIL_ALERTS_DESCRIPTOR.id,
+    )?.result?.pagesFetched;
+    if (mailRead !== undefined && mailRead > 0) await reportUndiscoveredAgencies(logger);
   } finally {
     db.close();
   }

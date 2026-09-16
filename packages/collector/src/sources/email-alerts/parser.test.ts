@@ -136,20 +136,27 @@ describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
     expect(listing?.sourceRef).toMatch(/^seloger:/);
   });
 
-  it('ne prend pas la ligne de prix pour un nom de commune', () => {
+  it('ne prend pas la ligne de prix pour un lieu, et met le quartier à sa place', () => {
     /**
      * Relevé tel quel le 2026-09-10 : une annonce de Fabron était rangée dans la
      * commune « mois charges comprises fabron ».
      *
      * La ville préfixe les clés du dédoublonnage — ainsi située, l'annonce ne
      * pouvait plus être rapprochée d'aucune autre, et ressortait en double.
+     *
+     * LE PREMIER CORRECTIF S'ARRÊTAIT À MI-CHEMIN : il rendait « Fabron », qui
+     * n'est pas une commune mais un QUARTIER de Nice — la commune, elle, est
+     * écrite juste APRÈS le code postal. Rangée dans la commune « Fabron »,
+     * l'annonce restait incomparable à toutes celles de Nice. On lit donc les
+     * deux, chacun à sa place.
      */
     const digest = `
 <table><tbody><tr>
   <td><a href="https://click.by.seloger.com/?qs=T2">Studio • 22 m² <br /> 790 € / mois charges comprises Fabron 06200 Nice</a></td>
 </tr></tbody></table>`;
     const [trouvee] = parseAlertEmail(digest);
-    expect(trouvee?.cityText).toBe('Fabron');
+    expect(trouvee?.cityText).toBe('Nice');
+    expect(trouvee?.extra?.['quartier']).toBe('Fabron');
     expect(trouvee?.postalCodeText).toBe('06200');
   });
 
@@ -278,6 +285,156 @@ describe('parseAlertEmail — Bien’ici meublé', () => {
     expect(l?.roomsText).toContain('4 pièces');
     expect(l?.propertyTypeText).toBe('appartement');
     expect(l?.imageUrls?.[0]).toContain('file.bienici.com');
+  });
+});
+
+/**
+ * GABARIT RÉEL D'UN DIGEST SELOGER « STANDARD », relevé le 2026-09-16 et rendu
+ * anonyme (liens de tracking raccourcis, aucune donnée personnelle).
+ *
+ * La ligne de lieu s'y écrit « Quartier, Commune (CP) ». C'est la forme
+ * MAJORITAIRE — et elle ne rendait rien : la lecture remontait mot à mot depuis
+ * le code postal, butait sur la parenthèse et abandonnait. Sur quatorze jours
+ * de digests, 1 % des annonces SeLoger portaient une commune, aucune un
+ * quartier, alors que le message écrit les deux en toutes lettres.
+ */
+const SELOGER_QUARTIER = `
+<table><tbody>
+  <tr><td><a href="https://click.by.seloger.com/?qs=P1">700 €/mois charges comprises</a></td></tr>
+  <tr><td><a href="https://click.by.seloger.com/?qs=T1">RUE DE FRANCE/STUDIO MEUBLE</a></td></tr>
+  <tr><td><a href="https://click.by.seloger.com/?qs=D1">1 pièce · 20 m²</a></td></tr>
+  <tr><td><a href="https://click.by.seloger.com/?qs=L1">Magnan, Nice (06000)</a></td></tr>
+</tbody></table>`;
+
+describe('parseAlertEmail — « Quartier, Commune (CP) », la forme majoritaire', () => {
+  const [l, ...autres] = parseAlertEmail(SELOGER_QUARTIER);
+
+  it('sépare le quartier de la commune', () => {
+    expect(l?.cityText).toBe('Nice');
+    expect(l?.extra?.['quartier']).toBe('Magnan');
+    expect(l?.postalCodeText).toBe('06000');
+  });
+
+  it('garde le titre rédigé, pas la ligne de caractéristiques', () => {
+    expect(l?.title).toBe('RUE DE FRANCE/STUDIO MEUBLE');
+    expect(l?.priceText).toBe('700 € cc');
+    expect(l?.areaText).toBe('20 m²');
+    // Les quatre liens de tracking d'une même annonce n'en font qu'une.
+    expect(autres).toHaveLength(0);
+  });
+
+  it('accepte un quartier composé, tirets et espaces compris', () => {
+    const digest = `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T">4 pièces · 70 m² — 690 € — Roquebillière - Bon Voyage, Nice (06300)</a></td>
+</tr></tbody></table>`;
+    const [trouvee] = parseAlertEmail(digest);
+    expect(trouvee?.cityText).toBe('Nice');
+    expect(trouvee?.extra?.['quartier']).toBe('Roquebillière - Bon Voyage');
+  });
+});
+
+/**
+ * GABARIT RÉEL D'UNE ALERTE BIEN'ICI, relevé le 2026-09-16 et rendu anonyme.
+ * Le lieu s'y écrit « CP Commune », et le corps imprime la référence de
+ * l'annonceur — que rien ne lisait.
+ */
+const BIENICI_ALERTE = `
+<table><tbody>
+  <tr><td><a href="https://link.bienici.com/lnk/AAA/9">Appartement meublé 1 pièce 20 m²</a></td></tr>
+  <tr><td><a href="https://link.bienici.com/lnk/AAA/1">06000 Nice</a></td></tr>
+  <tr><td><a href="https://link.bienici.com/lnk/AAA/1">630 €par mois charges comprises</a></td></tr>
+  <tr><td><a href="https://link.bienici.com/lnk/AAA/1">RÉFÉRENCE : 87354095</a></td></tr>
+</tbody></table>`;
+
+describe('parseAlertEmail — Bien’ici : « CP Commune » et référence d’annonceur', () => {
+  const [l] = parseAlertEmail(BIENICI_ALERTE);
+
+  it('lit la commune écrite APRÈS le code postal', () => {
+    expect(l?.cityText).toBe('Nice');
+    expect(l?.postalCodeText).toBe('06000');
+  });
+
+  it('retient la référence que l’annonceur imprime', () => {
+    // C'est le numéro que porte la même annonce chez l'agence : de quoi la
+    // rapprocher d'une source directe. Ce n'est PAS l'identifiant du portail,
+    // qui vit dans l'URL — la référence de collecte n'en dépend pas.
+    expect(l?.extra?.['reference']).toBe('87354095');
+    expect(l?.sourceRef).toMatch(/^bienici:/);
+  });
+});
+
+/**
+ * GABARIT RÉEL D'UN DIGEST « EXCLUSIVITÉ » SELOGER, rendu anonyme. Ces
+ * messages — dix-neuf sur cent trente-sept en quatorze jours — NOMMENT
+ * l'agence, ce qu'aucune alerte ordinaire ne fait. Aucune annonce d'alerte
+ * e-mail n'avait jamais porté de nom d'annonceur.
+ */
+const SELOGER_EXCLUSIVITE = `
+<div>
+  <p>Annonce exclusive Nice</p>
+  <p><b>AGENCE DU LITTORAL</b> vous propose une nouvelle annonce en partenariat avec SeLoger.</p>
+  <table><tbody>
+    <tr><td><a href="https://click.by.seloger.com/?qs=PX">563 €/mois charges comprises</a></td></tr>
+    <tr><td><a href="https://click.by.seloger.com/?qs=TX">A LOUER STUDIO ACROPOLIS</a></td></tr>
+    <tr><td><a href="https://click.by.seloger.com/?qs=DX">1 pièce · 21,9 m²</a></td></tr>
+    <tr><td><a href="https://click.by.seloger.com/?qs=LX">Riquier, Nice (06300)</a></td></tr>
+  </tbody></table>
+</div>`;
+
+describe('parseAlertEmail — digest « exclusivité » : l’agence se nomme', () => {
+  const [l] = parseAlertEmail(SELOGER_EXCLUSIVITE);
+
+  it('retient le nom de l’agence annoncé en tête', () => {
+    expect(l?.agencyName).toBe('AGENCE DU LITTORAL');
+  });
+
+  it('lit la surface à la virgule et le quartier', () => {
+    expect(l?.areaText).toBe('21,9 m²');
+    expect(l?.cityText).toBe('Nice');
+    expect(l?.extra?.['quartier']).toBe('Riquier');
+  });
+
+  it('n’invente pas d’agence dans une alerte ordinaire (§17)', () => {
+    expect(parseAlertEmail(SELOGER_QUARTIER)[0]?.agencyName).toBeUndefined();
+  });
+});
+
+describe('parseAlertEmail — la référence de repli ne bouge pas avec la mise en page', () => {
+  /**
+   * C'EST LA SEULE IDENTITÉ DE CES ANNONCES : SeLoger ne laisse ni lien
+   * dénouable (redirecteur interdit aux robots) ni fiche lisible (403). Une
+   * référence qui change avec l'écriture du digest republie donc le même
+   * studio sous plusieurs identités — quinze groupes portaient ainsi de deux à
+   * cinq références pour un seul bien (relevé du 2026-09-16).
+   */
+  const digest = (mesures: string): string => `
+<table><tbody><tr>
+  <td><a href="https://click.by.seloger.com/?qs=T">Studio ${mesures} — Nice (06300)</a></td>
+</tr></tbody></table>`;
+
+  it('« 21m² » et « 21 m² » désignent la même annonce', () => {
+    const serré = parseAlertEmail(digest('21m² 620 € CC'))[0]?.sourceRef;
+    const aéré = parseAlertEmail(digest('21 m² 620 € CC'))[0]?.sourceRef;
+    expect(serré).toBe(aéré);
+  });
+
+  it('la virgule décimale ne crée pas une seconde annonce', () => {
+    expect(parseAlertEmail(digest('21,5 m² 620 €'))[0]?.sourceRef).toBe(
+      parseAlertEmail(digest('21.5 m² 620 €'))[0]?.sourceRef,
+    );
+  });
+
+  it('« charges comprises » ou non ne change pas l’identité, seul le montant compte', () => {
+    expect(parseAlertEmail(digest('21 m² 620 € charges comprises'))[0]?.sourceRef).toBe(
+      parseAlertEmail(digest('21 m² 620 €'))[0]?.sourceRef,
+    );
+  });
+
+  it('deux biens distincts gardent des références distinctes', () => {
+    expect(parseAlertEmail(digest('21 m² 620 €'))[0]?.sourceRef).not.toBe(
+      parseAlertEmail(digest('24 m² 620 €'))[0]?.sourceRef,
+    );
   });
 });
 

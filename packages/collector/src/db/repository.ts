@@ -296,6 +296,31 @@ export interface Repository {
     thresholds: { possiblyInactiveAfterDays: number; inactiveAfterDays: number },
   ) => Promise<void>;
 
+  /**
+   * ÉTEINT LES ANNONCES RELAYÉES DONT LA SOURCE D'ORIGINE A RETIRÉ LA SIENNE.
+   *
+   * Une alerte e-mail ne se relit jamais : seule l'ancienneté pouvait la
+   * retirer, et elle survivait des jours au bien qu'elle annonce. Mais la
+   * référence qu'elle porte est celle du PORTAIL — « bienici:apimo-87354095 » —
+   * et ce portail est parfois une source à part entière, qui relit son
+   * inventaire et sait, elle, quand l'annonce a disparu.
+   *
+   * MÊME PORTAIL, MÊME IDENTIFIANT : c'est la même annonce, sans marge d'erreur
+   * — on ne compare ni prix ni photo, on lit un identifiant. Le rapprochement
+   * ordinaire ne peut pas le faire : il ne voit que les occurrences VIVANTES, et
+   * l'occurrence directe a justement cessé de l'être. Relevé le 2026-09-16 :
+   * trois alertes Bien'ici s'affichaient encore « en ligne » alors que la source
+   * Bien'ici avait retiré exactement la même annonce.
+   *
+   * @param originIds les identifiants de sources réellement déclarés : un
+   *   préfixe n'est cru que s'il désigne une source du registre.
+   * @returns le nombre d'occurrences éteintes.
+   */
+  readonly retireRelayedByOrigin: (
+    sourceId: string,
+    originIds: readonly string[],
+  ) => Promise<number>;
+
   /** Combien d'occurrences vivantes cette source compte aujourd'hui. */
   readonly activeOccurrenceCount: (sourceId: string) => Promise<number>;
 
@@ -1527,6 +1552,30 @@ export function createRepository(db: Database): Repository {
       );
     },
 
+    async retireRelayedByOrigin(sourceId, originIds) {
+      // Sans source d'origine déclarée, aucun préfixe n'est croyable.
+      const origins = [...new Set(originIds)].filter((id) => id !== sourceId && id !== '');
+      if (origins.length === 0) return 0;
+      const places = origins.map(() => '?').join(',');
+      const result = await db.execute({
+        // `relais.source_ref` vaut « <source d'origine>:<référence chez elle> ».
+        sql: `UPDATE occurrences AS relais SET lifecycle = 'inactive'
+              WHERE relais.source_id = ?
+                AND relais.lifecycle != 'inactive'
+                AND instr(relais.source_ref, ':') > 1
+                AND substr(relais.source_ref, 1, instr(relais.source_ref, ':') - 1) IN (${places})
+                AND EXISTS (
+                  SELECT 1 FROM occurrences AS origine
+                   WHERE origine.source_id =
+                           substr(relais.source_ref, 1, instr(relais.source_ref, ':') - 1)
+                     AND origine.source_ref =
+                           substr(relais.source_ref, instr(relais.source_ref, ':') + 1)
+                     AND origine.lifecycle = 'inactive')`,
+        args: [sourceId, ...origins],
+      });
+      return result.rowsAffected;
+    },
+
     async activeOccurrenceCount(sourceId) {
       const result = await db.execute({
         sql: "SELECT COUNT(*) AS n FROM occurrences WHERE source_id = ? AND lifecycle != 'inactive'",
@@ -1732,6 +1781,7 @@ export function createRepository(db: Database): Repository {
         lastNewListingCount: Number(row['last_new_listing_count'] ?? 0),
         averageNewListingCount: Number(row['average_new_listing_count'] ?? 0),
         lastFullPassAt: text('last_full_pass_at'),
+        memo: text('memo'),
       };
     },
 
@@ -1741,8 +1791,8 @@ export function createRepository(db: Database): Repository {
           INSERT INTO source_state (
             source_id, health, last_run_at, last_success_at, last_429_at, last_blocked_at,
             cooldown_until, consecutive_errors, last_new_listing_count,
-            average_new_listing_count, last_full_pass_at, updated_at
-          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            average_new_listing_count, last_full_pass_at, memo, updated_at
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(source_id) DO UPDATE SET
             health = excluded.health, last_run_at = excluded.last_run_at,
             last_success_at = excluded.last_success_at, last_429_at = excluded.last_429_at,
@@ -1751,6 +1801,7 @@ export function createRepository(db: Database): Repository {
             last_new_listing_count = excluded.last_new_listing_count,
             average_new_listing_count = excluded.average_new_listing_count,
             last_full_pass_at = excluded.last_full_pass_at,
+            memo = excluded.memo,
             updated_at = excluded.updated_at
         `,
         args: [
@@ -1765,6 +1816,7 @@ export function createRepository(db: Database): Repository {
           state.lastNewListingCount,
           state.averageNewListingCount,
           state.lastFullPassAt ?? null,
+          state.memo ?? null,
           new Date().toISOString(),
         ],
       });

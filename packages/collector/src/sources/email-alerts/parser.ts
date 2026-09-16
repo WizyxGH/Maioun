@@ -14,14 +14,21 @@
  * contenant un lien-image, un lien-titre (« Appartement · 3 pièces · 67 m² »)
  * et un prix, chacun pointant vers un lien de TRACKING distinct. On part donc
  * du lien-TITRE (seul repérable de façon fiable), on remonte à son bloc, et on
- * y lit prix / ville. Les liens de tracking sont dénoués : Bien'ici encode la
- * vraie URL en base64 dans le lien ; SeLoger garde un jeton opaque (on retombe
- * alors sur une référence de CONTENU). On n'invente jamais l'absent (§17).
+ * y lit prix, lieu, référence et annonceur.
+ *
+ * CE QUE LE MESSAGE ÉCRIT EST TOUT CE QU'ON AURA. Le redirecteur de SeLoger
+ * interdit les robots, son jeton est chiffré et sa fiche répond 403 : aucune
+ * lecture de la fiche ne viendra compléter le digest, aujourd'hui ni demain.
+ * D'où le soin porté ici à ne rien laisser passer — quartier, commune,
+ * référence d'annonceur, nom d'agence — et à fabriquer une identité qui ne
+ * bouge pas d'un envoi à l'autre. On n'invente jamais l'absent pour autant
+ * (§17).
  */
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { parseArea, parsePrice } from '../../normalization/parse-listing-fields.js';
 
 /** Portail reconnu et comment en tirer une référence stable depuis l'URL. */
 interface Portal {
@@ -144,17 +151,55 @@ function findArea(text: string): string | undefined {
  */
 const PARTICULES = new Set(['sur', 'de', 'du', 'des', 'la', 'le', 'les', 'en', 'd', 'l', 'lès']);
 
+/** Ce qu'un bloc de digest dit du lieu. */
+interface Place {
+  city?: string;
+  postalCode?: string;
+  /** Quartier/secteur, quand le digest le nomme à part de la commune. */
+  district?: string;
+}
+
+/** Nettoie un morceau de nom de lieu ; `undefined` s'il n'en reste rien. */
+function placeName(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const clean = cleanText(raw)
+    .replace(/[^A-Za-zÀ-ÿ'’ -]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean === '' ? undefined : clean;
+}
+
 /**
- * La commune écrite juste avant un code postal, et rien de plus.
+ * « Quartier, Commune (06300) » — la forme des digests SeLoger.
  *
- * ON REMONTE DEPUIS LE CODE POSTAL, mot à mot. La version précédente cherchait
+ * C'est LA forme majoritaire, et elle ne rendait rien du tout : l'ancienne
+ * lecture remontait mot à mot depuis le code postal, butait sur la parenthèse
+ * ouvrante et abandonnait. Relevé le 2026-09-16 sur quatorze jours de digests :
+ * 1 % des annonces SeLoger portaient une commune, aucune un quartier, alors que
+ * le message écrit les deux en toutes lettres.
+ */
+const SELOGER_PLACE =
+  /(?:([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’ -]{1,40}?)\s*,\s*)?([A-ZÀ-Ý][A-Za-zÀ-ÿ'’ -]{1,40}?)\s*\((\d{5})\)/;
+
+/**
+ * « 06000 Nice » — la forme des digests Bien'ici, et la fin de « Fabron 06200
+ * Nice » chez SeLoger.
+ *
+ * LA COMMUNE EST APRÈS LE CODE POSTAL, et c'est elle qu'il faut retenir : ce
+ * qui précède est un quartier. L'ancienne lecture ne regardait qu'en amont et
+ * rangeait donc « Fabron » — un quartier de Nice — dans la commune. La ville
+ * préfixe les clés du dédoublonnage : ainsi située, l'annonce ne pouvait plus
+ * être rapprochée d'aucune de Nice.
+ */
+const POSTAL_THEN_CITY = /(\d{5})\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]*(?:[ -][A-Za-zÀ-ÿ'’-]+){0,3})/;
+
+/**
+ * La commune écrite juste AVANT un code postal, et rien de plus.
+ *
+ * ON REMONTE DEPUIS LE CODE POSTAL, mot à mot. Une version antérieure cherchait
  * « une suite de lettres suivie de cinq chiffres » et retenait la PLUS À
- * GAUCHE : sur « 790 € / mois charges comprises Fabron 06200 Nice », elle
- * rendait « mois charges comprises Fabron » comme nom de commune.
- *
- * Ce n'est pas un défaut d'affichage. La ville préfixe les clés du
- * dédoublonnage : une annonce ainsi située ne peut plus être rapprochée
- * d'aucune autre, et elle ressort en double.
+ * GAUCHE : sur « 790 € / mois charges comprises Fabron 06200 », elle rendait
+ * « mois charges comprises Fabron » comme nom de commune.
  *
  * LA MAJUSCULE FAIT LA FRONTIÈRE. Un nom de commune en porte une, « comprises »
  * non. On remonte tant que le mot commence par une majuscule ou qu'il est une
@@ -164,12 +209,8 @@ const PARTICULES = new Set(['sur', 'de', 'du', 'des', 'la', 'le', 'les', 'en', '
  * rend RIEN plutôt qu'une ville inventée (§17). Le code postal, lui, reste : il
  * suffit à situer, et l'URL porte souvent la commune par ailleurs.
  */
-function findLocation(text: string): { city?: string; postalCode?: string } {
-  const match = /(\d{5})\b/.exec(text);
-  if (match?.[1] === undefined) return {};
-  const postalCode = match[1];
-
-  const avant = text.slice(0, match.index).replace(/[,\s]+$/, '');
+function nameBeforePostalCode(text: string, index: number): string | undefined {
+  const avant = text.slice(0, index).replace(/[,\s]+$/, '');
   const mots = avant.split(/\s+/).filter((mot) => mot !== '');
 
   const retenus: string[] = [];
@@ -184,9 +225,102 @@ function findLocation(text: string): { city?: string; postalCode?: string } {
 
   // Une particule en tête ne nomme rien : « de 06000 » n'est pas une commune.
   while (retenus.length > 0 && PARTICULES.has((retenus[0] ?? '').toLowerCase())) retenus.shift();
-  if (retenus.length === 0) return { postalCode };
+  if (retenus.length === 0) return undefined;
+  return cleanText(retenus.join(' ')).replace(/\s+/g, ' ').trim();
+}
 
-  return { city: cleanText(retenus.join(' ')).replace(/\s+/g, ' ').trim(), postalCode };
+/**
+ * Le lieu d'une annonce, lu dans le texte de son bloc.
+ *
+ * Trois écritures coexistent dans les digests, et l'ordre d'essai est celui de
+ * leur précision : la forme parenthésée nomme les deux, la forme « code postal
+ * puis commune » nomme la commune à coup sûr, la remontée mot à mot ne fait que
+ * deviner et reste en dernier recours.
+ */
+function findLocation(text: string): Place {
+  const parenthese = SELOGER_PLACE.exec(text);
+  if (parenthese?.[3] !== undefined) {
+    const city = placeName(parenthese[2]);
+    const district = placeName(parenthese[1]);
+    return {
+      ...(city !== undefined ? { city } : {}),
+      ...(district !== undefined && district !== city ? { district } : {}),
+      postalCode: parenthese[3],
+    };
+  }
+
+  const apres = POSTAL_THEN_CITY.exec(text);
+  if (apres?.[1] !== undefined) {
+    const city = placeName(apres[2]);
+    const district = placeName(nameBeforePostalCode(text, apres.index));
+    return {
+      ...(city !== undefined ? { city } : {}),
+      ...(district !== undefined && district !== city ? { district } : {}),
+      postalCode: apres[1],
+    };
+  }
+
+  const match = /(\d{5})\b/.exec(text);
+  if (match?.[1] === undefined) return {};
+  const city = nameBeforePostalCode(text, match.index);
+  return { ...(city !== undefined ? { city } : {}), postalCode: match[1] };
+}
+
+/**
+ * LA RÉFÉRENCE QUE L'ANNONCEUR LUI-MÊME DONNE, quand le digest l'écrit.
+ *
+ * Bien'ici imprime « RÉFÉRENCE : 87354095 », LocService « Réf. p-cf-… ». Ce
+ * n'est PAS l'identifiant du portail — celui-là vit dans l'URL — mais celui de
+ * l'agence, et c'est justement ce qui le rend précieux : c'est le même numéro
+ * que porte l'annonce chez l'agence, donc de quoi rapprocher un digest de la
+ * source directe. Aucune annonce de digest n'en avait jusqu'ici.
+ *
+ * Il ne sert JAMAIS de `sourceRef` : deux portails peuvent publier la même
+ * référence d'agence, et les occurrences se confondraient.
+ */
+function findAdvertiserReference(text: string): string | undefined {
+  const match =
+    /\br[ée]f(?:[ée]rence)?\s*(?:n[°o]\s*)?[:.]?\s*([A-Za-z0-9][A-Za-z0-9_-]{3,29})\b/i.exec(text);
+  return match?.[1];
+}
+
+/**
+ * L'AGENCE QUI PROPOSE LE BIEN, nommée par les digests « exclusivité ».
+ *
+ * Les alertes ordinaires taisent l'annonceur, mais SeLoger envoie aussi des
+ * messages « X vous adresse ses dernières exclusivités », dont le corps répète
+ * « X vous propose une nouvelle annonce en partenariat avec SeLoger ». Sur
+ * quatorze jours, dix-neuf digests sur cent trente-sept sont de cette forme —
+ * et aucune annonce d'alerte e-mail n'avait jamais porté de nom d'agence.
+ *
+ * Le nom vaut plus que l'affichage : `agency-discovery` s'en sert pour repérer
+ * les agences qui ne sont pas encore une source, et le rapprochement compare
+ * les annonceurs.
+ */
+const AGENCY_PHRASE = /vous propose une nouvelle annonce en partenariat/i;
+
+function findAgencyName($: cheerio.CheerioAPI): string | undefined {
+  /**
+   * ON LIT LA STRUCTURE, PAS LA PHRASE. Le texte aplati donne « Annonce
+   * exclusive Nice A.G.I.R vous propose… » : aucune règle sur les majuscules ne
+   * sait où commence le nom, puisque « Nice » en porte une aussi. Dans le HTML,
+   * en revanche, le nom est seul dans un `<b>` — et ce gras-là ne se met pas
+   * par hasard.
+   */
+  let found: string | undefined;
+  $('b, strong').each((_i, el) => {
+    if (found !== undefined) return;
+    const node = $(el);
+    const name = cleanText(node.text().replace(/\s+/g, ' ')).trim();
+    if (name.length < 3 || name.length > 60) return;
+    const around = cleanText((node.parent().text() ?? '').replace(/\s+/g, ' '));
+    const phrase = around.search(AGENCY_PHRASE);
+    const position = around.indexOf(name);
+    // Le nom doit PRÉCÉDER la phrase : un gras qui la suit dit autre chose.
+    if (phrase === -1 || position === -1 || position > phrase) return;
+    found = name;
+  });
+  return found;
 }
 
 /**
@@ -232,10 +366,31 @@ function extractDetails(text: string): ListingDetails {
   };
 }
 
-/** Référence de repli quand le portail n'expose pas d'identifiant (SeLoger). */
-function contentReference(portalId: string, parts: readonly (string | undefined)[]): string {
+/**
+ * Référence de repli quand le portail n'expose pas d'identifiant (SeLoger).
+ *
+ * C'EST LA SEULE IDENTITÉ QU'AURONT CES ANNONCES : le lien du digest est une
+ * redirection que l'on ne suit pas, et la fiche du portail refuse les robots.
+ * Elle doit donc être RIGOUREUSEMENT la même d'un envoi à l'autre, sans quoi la
+ * même annonce revient sous plusieurs identités.
+ *
+ * ELLE NE TIENT QUE DE VALEURS NORMALISÉES — surface et loyer en NOMBRES, code
+ * postal — et jamais du texte source. Slugué tel quel, « 21m² » et « 21 m² »
+ * donnaient `21m-620-06300` et `21-m-620-06300` : deux occurrences pour un seul
+ * studio. Relevé le 2026-09-16 : quinze groupes portaient de deux à cinq
+ * références SeLoger pour le même bien.
+ *
+ * La commune en est absente pour la même raison : son extraction progresse, et
+ * une identité qui bouge quand un parseur s'améliore réinvente l'annonce en
+ * double. Le code postal situe déjà, et ne bouge pas.
+ */
+function contentReference(
+  portalId: string,
+  parts: readonly (number | string | undefined)[],
+): string {
   const slug = parts
-    .filter((p): p is string => p !== undefined && p !== '')
+    .filter((p): p is number | string => p !== undefined && p !== '')
+    .map((p) => String(p))
     .join('|')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -323,21 +478,49 @@ function findPreviousPrice($: cheerio.CheerioAPI, block: Node): string | undefin
   return findPrice(cleanText(barre.text()));
 }
 
+/**
+ * L'identité de repli, bâtie sur des VALEURS et non sur leur écriture.
+ *
+ * Surface et loyer passent par les mêmes analyseurs que la normalisation : la
+ * valeur identifie l'annonce, pas la façon dont le digest l'a écrite ce jour-là.
+ */
+function fallbackReference(
+  portalId: string,
+  title: string,
+  areaText: string | undefined,
+  priceText: string | undefined,
+  postalCode: string | undefined,
+): string {
+  const area = parseArea(areaText);
+  const price = parsePrice(priceText).amount;
+  return contentReference(portalId, [
+    area ?? undefined,
+    price ?? undefined,
+    postalCode,
+    // Rien de mesuré : plutôt que de confondre toutes les annonces sans chiffre,
+    // on retombe sur le titre — faible, mais propre à l'annonce.
+    area === null && price === null ? title : undefined,
+  ]);
+}
+
 /** Construit l'annonce à partir de son lien-titre (celui qui porte « m² »). */
 function buildFromTitle(
   $: cheerio.CheerioAPI,
   anchor: Node,
   title: string,
   resolved: Resolved,
+  /** Nom d'agence lu en tête du message, quand il en porte un. */
+  agencyName: string | undefined,
 ): RawListing | null {
   const { portal, url, canonical } = resolved;
   const { block, image } = climbToBlock(anchor, $);
   const blockText = cleanText(block.text().replace(/\s+/g, ' '));
   const previousPrice = findPreviousPrice($, block);
+  const advertiserReference = findAdvertiserReference(blockText);
 
   const rawPrice = findPrice(title) ?? findPrice(blockText);
   const areaText = findArea(title) ?? findArea(blockText);
-  const { city, postalCode } = findLocation(blockText);
+  const { city, postalCode, district } = findLocation(blockText);
   if (rawPrice === undefined && areaText === undefined) return null;
 
   // Détails lus dans le titre + le bloc (typologie, pièces, meublé, charges).
@@ -349,7 +532,7 @@ function buildFromTitle(
 
   const reference =
     (canonical ? portal.reference(url) : null) ??
-    contentReference(portal.id, [areaText, priceText, postalCode, city]);
+    fallbackReference(portal.id, title, areaText, priceText, postalCode);
   // Lien ouvert par l'utilisateur : la vraie URL si on l'a dénouée, sinon le
   // lien de tracking d'origine (qui redirige bien vers l'annonce).
   const sourceUrl = canonical ? `${url.origin}${url.pathname}` : (anchor.attr('href') ?? url.href);
@@ -367,11 +550,15 @@ function buildFromTitle(
     ...(details.furnishedText !== undefined ? { furnishedText: details.furnishedText } : {}),
     ...(city !== undefined ? { cityText: city } : {}),
     ...(postalCode !== undefined ? { postalCodeText: postalCode } : {}),
+    ...(agencyName !== undefined ? { agencyName } : {}),
     contactFormUrl: sourceUrl,
     ...(image !== undefined && /^https?:/i.test(image) ? { imageUrls: [image] } : {}),
     extra: {
-      reference,
+      // La référence de l'ANNONCEUR quand le digest la donne, sinon la nôtre :
+      // c'est elle qui s'affiche et qui sert à rapprocher d'une source directe.
+      reference: advertiserReference ?? reference,
       portal: portal.id,
+      ...(district !== undefined ? { quartier: district } : {}),
       // Le loyer PRECEDENT, quand le digest annonce lui-meme une baisse.
       ...(previousPrice !== undefined ? { previousPrice } : {}),
     },
@@ -459,6 +646,10 @@ export function parseAlertEmail(html: string): RawListing[] {
   const $ = cheerio.load(html);
   const bySourceRef = new Map<string, RawListing>();
 
+  // Le nom de l'agence est écrit UNE fois, en tête du message : ces digests
+  // d'exclusivité ne portent qu'une annonce, celle de l'agence qui écrit.
+  const agencyName = findAgencyName($);
+
   $('a[href]').each((_i, el) => {
     const anchor = $(el);
     const title = cleanText(anchor.text().replace(/\s+/g, ' '));
@@ -468,7 +659,7 @@ export function parseAlertEmail(html: string): RawListing[] {
     const resolved = resolvePortalUrl(anchor.attr('href') ?? '');
     if (resolved === null) return;
 
-    const listing = buildFromTitle($, anchor, title, resolved);
+    const listing = buildFromTitle($, anchor, title, resolved, agencyName);
     if (listing !== null && !bySourceRef.has(listing.sourceRef)) {
       bySourceRef.set(listing.sourceRef, listing);
     }
