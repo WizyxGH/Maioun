@@ -38,6 +38,7 @@ import {
   parseEmail,
   parseDistrictOf,
   parseDpe,
+  parseGes,
   parseFlatShare,
   parseFurnished,
   parseMaxOccupants,
@@ -328,6 +329,16 @@ function resolveDpe(raw: RawListing): NormalizedListing['dpe'] {
   );
 }
 
+/** GES cherché aux mêmes endroits que le DPE, jamais déduit de lui. */
+function resolveGes(raw: RawListing): NormalizedListing['ges'] {
+  return (
+    parseGes(raw.extra?.['ges']) ??
+    parseGes(raw.title) ??
+    parseGes(raw.description) ??
+    parseGes(raw.extra?.['features'])
+  );
+}
+
 /**
  * Disponibilité : champ dédié d'abord, sinon repérée dans le titre ou la
  * description.
@@ -497,6 +508,7 @@ export function normalizeListing(
     furnished: parseFurnished(raw.title) ?? parseFurnished(text.furnished),
     flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
     dpe: resolveDpe(raw),
+    ges: resolveGes(raw),
     /**
      * LE LOYER PRÉCÉDENT, quand la source l'annonce. Il passe par le même
      * lecteur que le loyer courant : le digest l'écrit « 750 € », et l'accepter
@@ -556,6 +568,7 @@ function fillGaps(
   | 'tenantFees'
   | 'rooms'
   | 'dpe'
+  | 'ges'
   | 'district'
   | 'maxOccupants'
   | 'furnished'
@@ -602,6 +615,7 @@ function fillGaps(
     // description est le séjour d'un trois-pièces, pas le logement entier.
     rooms: occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms,
     dpe: occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe,
+    ges: occurrence.ges === null ? parseGes(occurrence.description) : occurrence.ges,
     district:
       occurrence.district === null
         ? parseDistrictOf(occurrence.title, occurrence.description)
@@ -877,7 +891,7 @@ export function rederiveFromText(
 
   const filled = fillGaps(occurrence, text, nowMs);
   const { flatShare, charges, deposit, tenantFees, rooms, dpe, district, maxOccupants } = filled;
-  const { furnished, availableAt } = filled;
+  const { ges, furnished, availableAt } = filled;
 
   if (
     address === occurrence.address &&
@@ -889,6 +903,7 @@ export function rederiveFromText(
     tenantFees === occurrence.tenantFees &&
     rooms === occurrence.rooms &&
     dpe === occurrence.dpe &&
+    ges === occurrence.ges &&
     district === occurrence.district &&
     maxOccupants === occurrence.maxOccupants &&
     furnished === occurrence.furnished &&
@@ -907,6 +922,7 @@ export function rederiveFromText(
     tenantFees,
     rooms,
     dpe,
+    ges,
     district,
     maxOccupants,
     furnished,

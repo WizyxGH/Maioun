@@ -113,11 +113,14 @@ export function parseDetail(html: string): RawDraft | null {
   ].filter((url) => url.startsWith('https://'));
   const title = cleanText($('title').first().text());
   const dpe = pick(more, String.raw`Classe énergétique\s*:\s*([A-G])\b`);
+  // Le GES n'est que dans l'échelle : la case retenue porte son identifiant.
+  const ges = /^ges-([a-g])$/.exec($('.ges .selected').first().attr('id') ?? '')?.[1];
 
   const extra: Record<string, string> = {};
   if (reference !== '') extra['reference'] = reference;
   if (district !== '') extra['quartier'] = district;
   if (dpe !== undefined) extra['dpe'] = dpe;
+  if (ges !== undefined) extra['ges'] = ges.toUpperCase();
 
   return {
     title: title === '' ? undefined : title,

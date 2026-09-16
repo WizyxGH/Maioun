@@ -61,6 +61,7 @@ describe('parseDetailPage', () => {
     expect(listing?.areaText).toBe('64.57m²');
     expect(listing?.roomsText).toBe('3 Pieces');
     expect(listing?.extra?.['dpe']).toBe('DPE D');
+    expect(listing?.extra?.['ges']).toBe('GES D');
     expect(listing?.imageUrls).toHaveLength(2);
     expect(listing?.phoneText).toContain('04');
     expect(listing?.cityText).toBe('nice');
@@ -79,6 +80,7 @@ describe('parseDetailPage', () => {
     expect(normalized.area).toBe(64.57);
     expect(normalized.rooms).toBe(3);
     expect(normalized.dpe).toBe('D');
+    expect(normalized.ges).toBe('D');
     expect(normalized.furnished).toBe(true);
     // « Disponible le 1er octobre » sans année → prochaine occurrence.
     expect(normalized.availableAt).toBe('2026-10-01T00:00:00.000Z');

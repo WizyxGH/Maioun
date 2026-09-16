@@ -298,7 +298,7 @@ describe('parseDetailPage — DPE, quartier, rue', () => {
     const html = readFileSync(join(FIXTURES, 'detail-pastilles.html'), 'utf8');
     const { listing, warnings } = parseDetailPage(html, url, 'Agence');
     expect(warnings).toHaveLength(0);
-    expect(listing?.extra).toMatchObject({ dpe: 'B', quartier: 'MADELEINE' });
+    expect(listing?.extra).toMatchObject({ dpe: 'B', ges: 'A', quartier: 'MADELEINE' });
     expect(listing).toMatchObject({ depositText: '1 145 €', feesText: '832,72 €' });
     const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
       sourceId: 'hektor-test',
@@ -381,6 +381,103 @@ describe('type de bien', () => {
   it('ne prend jamais l’adresse de la fiche pour un type', () => {
     const url = 'https://www.agence-fictive.fr/384-4-pieces-carre-d-or.html';
     expect(parseDetailPage(page, url, 'Agence').listing?.propertyTypeText).toBeUndefined();
+  });
+
+  it('lit le type du DERNIER segment quand le titre est libre (Sud Agence)', () => {
+    // « Location Magnifique F1… » ne nomme aucun type : cinq fiches sur neuf
+    // n'en avaient aucun, alors que leur adresse le porte.
+    const urls = {
+      appartement:
+        'https://www.agence-fictive.fr/location/06-alpes-maritimes/1-nice//565-appartement',
+      garage:
+        'https://www.agence-fictive.fr/location/06-alpes-maritimes/1-nice/garage-quartier-est/282-garage',
+      parking: 'https://www.agence-fictive.fr/location/1-nice/parking-securise/542-parking',
+    };
+    for (const [attendu, url] of Object.entries(urls)) {
+      expect(parseDetailPage(page, url, 'Agence').listing?.propertyTypeText).toBe(attendu);
+    }
+  });
+
+  it('le segment doit valoir le type ENTIER, pas le commencer', () => {
+    // « 282-garage-saint-roch » est un titre en slug, pas une catégorie.
+    const url = 'https://www.agence-fictive.fr/location/1-nice/282-garage-quartier-est';
+    expect(parseDetailPage(page, url, 'Agence').listing?.propertyTypeText).toBeUndefined();
+  });
+});
+
+// Relevés du 2026-09-16 sur sudagence.fr : gabarit « li.data », fiche retirée
+// servie en 200, référence à espaces et surface arrondie au titre.
+describe('parseDetailPage — fiche retirée, référence et surface déclarées', () => {
+  const read = (name: string): string => readFileSync(join(FIXTURES, name), 'utf8');
+  const URL_FICHE =
+    'https://www.agence-fictive.fr/location/06-alpes-maritimes/1-nice/grand-studio-vide-de-33-m-quartier-nord-790/554-appartement';
+  const URL_RETIREE =
+    'https://www.agence-fictive.fr/location/06-alpes-maritimes/1-nice/garage-quartier-est/282-garage';
+
+  it('ne lit rien de l’accueil servi à la place d’une fiche retirée', () => {
+    // Sans cette garde : une annonce dont le titre valait le nom de l'agence,
+    // le type « autre » et tout le reste vide, affichée comme un bien à visiter.
+    expect(
+      parseDetailPage(read('detail-redirigee-accueil.html'), URL_RETIREE, 'Agence Fictive'),
+    ).toEqual({ listing: null, warnings: [], withdrawn: true });
+  });
+
+  it('le nom de l’agence n’est jamais le titre d’une annonce', () => {
+    // Même page, sans canonique : la garde de dernier recours tient encore.
+    const sansCanonique = read('detail-redirigee-accueil.html').replace(
+      /<link rel="canonical"[^>]*>/,
+      '',
+    );
+    const { listing } = parseDetailPage(sansCanonique, URL_RETIREE, 'Agence Fictive');
+    expect(listing?.title).toBeUndefined();
+  });
+
+  it('une canonique qui désigne bien la fiche ne retire rien', () => {
+    const { listing, withdrawn } = parseDetailPage(
+      read('detail-li-data.html'),
+      URL_FICHE,
+      'Agence Fictive',
+    );
+    expect(withdrawn).toBeUndefined();
+    expect(listing).not.toBeNull();
+  });
+
+  it('garde la référence de l’agence même quand elle contient des espaces', () => {
+    const { listing } = parseDetailPage(read('detail-li-data.html'), URL_FICHE, 'Agence Fictive');
+    // Avant : l'identifiant d'URL (554), qui ne retrouve l'annonce nulle part.
+    expect(listing?.extra?.['reference']).toBe('LOC F1 QUARTIER NORD-1');
+  });
+
+  it('préfère la surface habitable déclarée à celle arrondie dans le titre', () => {
+    const { listing, warnings } = parseDetailPage(
+      read('detail-li-data.html'),
+      URL_FICHE,
+      'Agence Fictive',
+    );
+    expect(warnings).toHaveLength(0);
+    // Le titre dit « 33 m² », la fiche déclare 33,26 m².
+    expect(listing?.areaText).toBe('33,26 m²');
+    const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
+      sourceId: 'hektor-test',
+      nowMs: Date.parse('2026-09-16T12:00:00Z'),
+    });
+    expect(normalized).toMatchObject({
+      area: 33.26,
+      price: 750,
+      charges: 50,
+      chargesIncluded: true,
+      // Non renseigné dans la table : c'est la description qui le publie.
+      deposit: 700,
+      tenantFees: 335.59,
+      rooms: 1,
+      furnished: false,
+      postalCode: '06300',
+      city: 'nice',
+      // Image sous /admin, interdite par robots : laissée inconnue (§17).
+      dpe: null,
+    });
+    expect(normalized?.contact.phone).toBe('+33600000044');
+    expect(normalized?.contact.email).toBe('agence@example.invalid');
   });
 });
 

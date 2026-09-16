@@ -52,7 +52,12 @@ describe('parseV2Detail (AdaptImmo, nouveau gabarit)', () => {
     expect(draft?.chargesText).toBe('100 €');
     expect(draft?.depositText).toBe('1780 €');
     expect(draft?.imageUrls).toHaveLength(10);
-    expect(draft?.extra).toEqual({ reference: '328', quartier: 'LIBERATION', dpe: 'D' });
+    expect(draft?.extra).toEqual({
+      reference: '328',
+      quartier: 'LIBERATION',
+      dpe: 'D',
+      ges: 'D',
+    });
     expect(draft?.description).not.toMatch(/Géorisques|<br/);
   });
 

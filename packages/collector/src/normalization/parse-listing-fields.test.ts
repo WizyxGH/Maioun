@@ -12,6 +12,7 @@ import {
   parseDistrict,
   parseDistrictOf,
   parseDpe,
+  parseGes,
   dpeFromValues,
   extractFeatures,
   staleTextFeatures,
@@ -250,6 +251,29 @@ describe('parseDpe', () => {
     expect(parseDpe('bel appartement lumineux')).toBeNull();
     expect(parseDpe('')).toBeNull();
     expect(parseDpe(null)).toBeNull();
+  });
+});
+
+describe('parseGes', () => {
+  it('extrait l’étiquette climat sous ses formes courantes', () => {
+    expect(parseGes('GES : D')).toBe('D');
+    expect(parseGes('GES B')).toBe('B');
+    expect(parseGes('Émissions de gaz à effet de serre : classe C')).toBe('C');
+    expect(parseGes('Étiquette climat A')).toBe('A');
+    expect(parseGes('GES (kgCO2/m².an) : E')).toBe('E');
+    expect(parseGes('B')).toBe('B'); // valeur brute d'un attribut structuré
+  });
+
+  it('rend null sans mention fiable (§17)', () => {
+    expect(parseGes('bel appartement lumineux')).toBeNull();
+    expect(parseGes('')).toBeNull();
+    expect(parseGes(null)).toBeNull();
+    // Le DPE n'est pas un GES : les deux classes divergent, on ne recopie pas.
+    expect(parseGes('DPE : D')).toBeNull();
+    // Mots où « ges » n'est qu'une syllabe, et la référence ParuVendu.
+    expect(parseGes('charges comprises B')).toBeNull();
+    expect(parseGes('Réf. annonce : ParuVendu GES83170023-53 D')).toBeNull();
+    expect(parseGes('GES à venir')).toBeNull();
   });
 });
 

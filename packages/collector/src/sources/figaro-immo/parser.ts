@@ -220,6 +220,7 @@ function toListing(classified: Obj): RawListing | null {
   const location = asObj(classified['location']);
   const { landlord, relais, ...contact } = contactOf(classified);
   const dpe = asStr(asObj(classified['dpe'])?.['energyCategory']);
+  const ges = asStr(asObj(classified['dpe'])?.['gesCategory']);
   const recordLink = asStr(classified['recordLink']);
   // L'annonce s'ouvre chez le portail ; on n'y renvoie que sur son domaine.
   const sourceUrl =
@@ -255,6 +256,7 @@ function toListing(classified: Obj): RawListing | null {
       reference: asStr(classified['reference']),
       quartier: districtOf(location, landlord === 'private'),
       dpe: dpe !== undefined && /^[A-G]$/.test(dpe) ? dpe : undefined,
+      ges: ges !== undefined && /^[A-G]$/.test(ges) ? ges : undefined,
       features: featuresOf(classified['options']),
       landlord,
       previousPrice: previousPriceOf(classified, price),

@@ -295,6 +295,13 @@ const FACTS_GRID = 'mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[
 const FACT_LABEL = 'text-muted-foreground';
 
 /**
+ * « Classe D », ou l'inconnu. Les deux étiquettes du diagnostic — énergie et
+ * climat — s'écrivent pareil, et une fiche ancienne n'en porte aucune.
+ */
+const classeOu = (etiquette: ListingView['dpe']): string =>
+  etiquette?.value != null && etiquette.value !== '' ? `Classe ${etiquette.value}` : UNKNOWN;
+
+/**
  * Photos qu'on ne peut pas afficher, mais qu'on peut ouvrir.
  *
  * Le bulletin abonné de BEP héberge ses photos sur des serveurs qui ne parlent
@@ -527,7 +534,11 @@ export function ListingDetail({
         )}
 
         <dt className={FACT_LABEL}>DPE</dt>
-        <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN}</dd>
+        <dd>{classeOu(listing.dpe)}</dd>
+
+        {/* Le GES vient du même diagnostic : même forme, juste en dessous. */}
+        <dt className={FACT_LABEL}>GES</dt>
+        <dd>{classeOu(listing.ges)}</dd>
 
         <dt className={FACT_LABEL}>Localisation</dt>
         <dd>

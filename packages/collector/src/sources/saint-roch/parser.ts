@@ -176,6 +176,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
 
   // DPE/GES : lettre portée par la classe CSS de la cellule du bilan.
   const dpe = /colorDPE([A-G])\b/.exec(html)?.[1] ?? null;
+  const ges = /colorGES([A-G])\b/.exec(html)?.[1] ?? null;
 
   const imageUrls: string[] = [];
   $('img[src*="/photos/"]').each((_i, el) => {
@@ -216,6 +217,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     extra: {
       reference: parsedUrl.reference,
       ...(dpe !== null ? { dpe: `DPE ${dpe}` } : {}),
+      ...(ges !== null ? { ges: `GES ${ges}` } : {}),
       ...(district !== undefined ? { quartier: district } : {}),
     },
   });

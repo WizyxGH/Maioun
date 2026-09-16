@@ -483,6 +483,41 @@ export function parseDpe(text: string | null | undefined): string | null {
 }
 
 /**
+ * Libellé climat puis lettre, même construction que `DPE_IN_TEXT`.
+ *
+ * `\bges\b` est ce qui protège du bruit : « charges », « images » et la
+ * référence ParuVendu « GES83170023 » n'ont pas de frontière de mot au bon
+ * endroit et ne peuvent pas déclencher la lecture.
+ */
+const GES_IN_TEXT =
+  /\b(?:ges|classe climat\w*|etiquette climat\w*|emissions? de gaz a effet de serre|gaz a effet de serre)(?: (?:classe|cat|categorie|emissions?|climat|ges|de l appartement|du logement|du bien))* ([a-g])(?:\d{1,3})?\b(?! (?:venir|realiser|faire|jour|refaire))/;
+
+/**
+ * Extrait l'étiquette climat (GES) : « A » à « G ». Mêmes règles que `parseDpe`
+ * — `null` si rien de fiable (§17), jamais devinée, et surtout jamais recopiée
+ * du DPE : les deux classes ne coïncident pas.
+ */
+export function parseGes(text: string | null | undefined): string | null {
+  if (text === null || text === undefined || text === '') return null;
+
+  // Valeur brute d'un attribut structuré : une seule lettre A–G.
+  const trimmed = text.trim();
+  if (/^[A-Ga-g]$/.test(trimmed)) return trimmed.toUpperCase();
+
+  const match = GES_IN_TEXT.exec(comparable(text));
+  if (match?.[1] !== undefined) return match[1].toUpperCase();
+
+  // « GES (kg CO2/m²/an) : B » — l'unité entre parenthèses sépare le libellé de
+  // la lettre, et `comparable` l'aplatit en mots que le motif refuse de
+  // franchir. La parenthèse, lue sur le texte brut, borne exactement le saut.
+  const parenthesised =
+    /(?:ges|gaz\s+à?\s*effet\s+de\s+serre|classe\s+climatique)\s*\([^)]*\)\s*[:-]?\s*([A-G])\b/i.exec(
+      text,
+    );
+  return parenthesised?.[1] !== undefined ? parenthesised[1].toUpperCase() : null;
+}
+
+/**
  * Classe DPE depuis ses deux valeurs (kWh/m²/an et kg CO₂/m²/an), en double
  * seuil (méthode de 2021) : la pire des deux classes l'emporte. Sert aux sites
  * qui ne publient que les chiffres.

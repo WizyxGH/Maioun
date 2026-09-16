@@ -37,7 +37,7 @@ describe('parseDetail (Agence Californie)', () => {
     expect(draft?.postalCodeText).toBe('06200');
     expect(draft?.description).toMatch(/^T4 – Nice \(06200\)[\s\S]+viennent compléter ce bien\.$/);
     expect(draft?.imageUrls).toHaveLength(12);
-    expect(draft?.extra).toEqual({ reference: '86586398', dpe: 'D' });
+    expect(draft?.extra).toEqual({ reference: '86586398', dpe: 'D', ges: 'B' });
   });
 
   it('se normalise', () => {

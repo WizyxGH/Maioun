@@ -171,7 +171,8 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     }
   });
 
-  const dpe = energyClass($);
+  const dpe = energyClass($, /\(DPE\)/);
+  const ges = energyClass($, /\(GES\)/);
   const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
@@ -191,7 +192,11 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     phoneText: agencyPhone($),
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls.slice(0, 10) : undefined,
-    extra: { reference: parsedUrl.reference, ...(dpe !== undefined ? { dpe } : {}) },
+    extra: {
+      reference: parsedUrl.reference,
+      ...(dpe !== undefined ? { dpe } : {}),
+      ...(ges !== undefined ? { ges } : {}),
+    },
   });
 
   return { listing, warnings };
@@ -229,11 +234,14 @@ function agencyPhone($: cheerio.CheerioAPI): string | undefined {
   return phone !== undefined && phone !== '' ? phone : undefined;
 }
 
-/** Classe DPE : la seule case agrandie de l'échelle, dont la lettre est visible. */
-function energyClass($: cheerio.CheerioAPI): string | undefined {
+/**
+ * Étiquette du bilan : la seule case agrandie de l'échelle, dont la lettre est
+ * visible. Les deux échelles ont le même gabarit, seul le libellé les sépare.
+ */
+function energyClass($: cheerio.CheerioAPI, kind: RegExp): string | undefined {
   let letter: string | undefined;
   $('.advert-detail-layout__bilan div.text-base').each((_i, label) => {
-    if (letter !== undefined || !/\(DPE\)/.test($(label).text())) return;
+    if (letter !== undefined || !kind.test($(label).text())) return;
     const shown = cleanText($(label).next().find('span.font-bold').first().text());
     if (/^[A-G]$/.test(shown)) letter = shown;
   });

@@ -25,7 +25,7 @@ describe('parseDetail (Crouzet & Breil)', () => {
     expect(draft?.chargesText).toBe('110€');
     expect(draft?.depositText).toBe('885€');
     expect(draft?.feesText).toBe('417.22€');
-    expect(draft?.extra).toEqual({ reference: '86674738', dpe: 'D' });
+    expect(draft?.extra).toEqual({ reference: '86674738', dpe: 'D', ges: 'D' });
     expect(draft?.cityText).toBe('NICE');
     expect(draft?.imageUrls).toHaveLength(7);
   });

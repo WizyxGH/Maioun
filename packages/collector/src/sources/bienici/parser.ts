@@ -127,6 +127,8 @@ export interface BieniciAd {
   readonly publicationDate?: string;
   readonly availableDate?: string;
   readonly energyClassification?: string;
+  /** Étiquette climat, clé jumelle de `energyClassification`. */
+  readonly greenhouseGazClassification?: string;
   readonly floor?: number;
   readonly hasElevator?: boolean;
   readonly hasTerrace?: boolean;
@@ -317,6 +319,7 @@ function toRawListing(ad: BieniciAd): RawListing | null {
       reference: ad.reference ?? id,
       quartier: districtOf(ad),
       dpe: ad.energyClassification,
+      ges: ad.greenhouseGazClassification,
       features: featuresOf(ad),
       landlord: ad.accountType === undefined ? undefined : isPro ? 'agency' : 'private',
     }),

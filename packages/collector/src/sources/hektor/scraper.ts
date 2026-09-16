@@ -17,6 +17,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import { parseDetailPage, parseListPage, type ParsedHektorUrl } from './parser.js';
 
 export interface HektorConfig {
@@ -71,6 +72,8 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
     async run(context: ScrapeContext): Promise<ScrapeResult> {
       const listings: RawListing[] = [];
       const warnings: string[] = [];
+      const parties: GoneDetail[] = [];
+      let detailsRequested = 0;
       let requestCount = 0;
       let pagesFetched = 0;
       let stopReason: StopReason = 'completed';
@@ -148,11 +151,17 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
         try {
           const response = await context.fetch(url.canonicalUrl);
           requestCount += 1;
+          detailsRequested += 1;
           if (response.notModified) continue;
           pagesFetched += 1;
 
           const parsed = parseDetailPage(response.body, url.canonicalUrl, config.name);
           warnings.push(...parsed.warnings);
+          // Fiche retirée : le site sert l'accueil à sa place, en 200. La liste
+          // peut encore la montrer — c'est la fiche qui fait foi.
+          if (parsed.withdrawn === true) {
+            parties.push({ sourceRef: url.reference, url: url.canonicalUrl, status: 200 });
+          }
           if (parsed.listing !== null) listings.push(parsed.listing);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -169,10 +178,23 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
         }
       }
 
+      // Fiches dont le canonique dit qu'elles ne sont plus servies, sous les
+      // garde-fous de `shared/withdrawn.ts` : une salve dénoncerait un gabarit
+      // changé, pas un inventaire loué d'un coup.
+      const withdrawnRefs = withdrawnRefsFrom(
+        context,
+        { gone: parties, detailsRequested },
+        stopReason,
+      );
+      const eteintes = new Set(withdrawnRefs);
+
       return {
         sourceId: config.id,
-        listings,
-        confirmedRefs,
+        listings: listings.filter((listing) => !eteintes.has(listing.sourceRef)),
+        // Une référence retirée n'est pas confirmée par la liste qui l'affiche
+        // encore : sinon on la réécrirait vivante juste avant de l'éteindre.
+        confirmedRefs: confirmedRefs.filter((reference) => !eteintes.has(reference)),
+        withdrawnRefs,
         requestCount,
         pagesFetched,
         stopReason,

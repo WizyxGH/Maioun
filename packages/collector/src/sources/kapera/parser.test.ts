@@ -25,7 +25,12 @@ describe('parseDetail (Kapera)', () => {
     expect(draft?.depositText).toBe('1190 €');
     expect(draft?.feesText).toBe('676 €');
     expect(draft?.furnishedText).toBe('meublé');
-    expect(draft?.extra).toEqual({ reference: '212 PB', district: 'Vernier', dpe: 'D' });
+    expect(draft?.extra).toEqual({
+      reference: '212 PB',
+      district: 'Vernier',
+      dpe: 'D',
+      ges: 'D',
+    });
   });
 
   it('se normalise, le loyer tel que le site le qualifie', () => {

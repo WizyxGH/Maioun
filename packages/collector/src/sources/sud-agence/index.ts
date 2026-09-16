@@ -2,10 +2,18 @@
  * Source : Sud Agence (sudagence.fr) — 25 rue Arson, 06300 Nice. Plateforme
  * La Boîte Immo : adaptateur générique `../hektor/`.
  *
- * Vérifié le 2026-09-15 : robots.txt standard de la plateforme (seuls /stats,
- * /phpmv2, /fonctions, /templates, /admin, /images/clients interdits). 9
- * locations, toutes à Nice (6 logements, 3 stationnements), sur une seule
- * page. L'agence a aussi des secteurs Perpignan et Toulouse, hors zone.
+ * Vérifié le 2026-09-16 : robots.txt standard de la plateforme (seuls /stats,
+ * /phpmv2, /fonctions, /templates, /admin, /images/clients interdits). La liste
+ * annonce 10 biens, tous à Nice, sur une seule page : 7 logements, 2
+ * stationnements, et une fiche retirée que la liste montre encore (son adresse
+ * redirige vers l'accueil, et le sitemap ne la porte plus). Pas d'autre
+ * rubrique de location résidentielle : « Location Immobilier Professionnel »
+ * est un filtre de locaux, et les secteurs Perpignan, Toulouse et Var sont hors
+ * zone. Le sitemap préfixe TOUTES les fiches de `/vente/`, locations comprises :
+ * inutilisable ici, comme sur le reste de la plateforme.
+ *
+ * Ce que le site ne publie pas : date de parution, coordonnées du bien, et le
+ * DPE, servi en image sous /admin (interdit par robots) — laissés inconnus.
  * Demandée par l'utilisateur.
  */
 

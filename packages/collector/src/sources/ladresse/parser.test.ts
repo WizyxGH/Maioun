@@ -115,7 +115,7 @@ describe('parseDetail — montants, DPE et téléphone (L’Adresse)', () => {
     expect(draft?.depositText).toBe('1700 €');
     expect(draft?.chargesText).toBe('50 €');
     expect(draft?.feesText).toBe('598.00 €');
-    expect(draft?.extra).toEqual({ dpe: 'C' });
+    expect(draft?.extra).toEqual({ dpe: 'C', ges: 'A' });
     expect(draft?.phoneText).toBe('0600000061');
   });
 

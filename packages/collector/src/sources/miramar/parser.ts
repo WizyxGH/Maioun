@@ -104,6 +104,8 @@ export function parseDetail(html: string): RawDraft | null {
   if (district !== undefined) extra['quartier'] = district;
   const dpe = get('classe énergétique');
   if (dpe !== undefined && /^[A-G]$/i.test(dpe)) extra['dpe'] = dpe.toUpperCase();
+  const ges = get('classe ges');
+  if (ges !== undefined && /^[A-G]$/i.test(ges)) extra['ges'] = ges.toUpperCase();
   const features = page
     .find('.miramar-plus-bien-pill')
     .toArray()

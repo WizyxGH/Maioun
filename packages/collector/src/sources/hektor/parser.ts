@@ -15,6 +15,8 @@
  *     texte (`bubble_dpe_b bubble--active`) : lu là, et là seulement.
  *   - ni rue ni date de disponibilité structurées : seul le texte libre en
  *     parle, et la normalisation l'y lit.
+ *   - une fiche RETIRÉE ne rend pas 404 : elle redirige vers l'accueil, qui
+ *     répond 200. Seul le `<link rel="canonical">` dit quelle page est servie.
  */
 
 import * as cheerio from 'cheerio';
@@ -160,6 +162,38 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
 export interface ParsedDetail {
   readonly listing: RawListing | null;
   readonly warnings: readonly string[];
+  /** La fiche demandée n'est plus servie : l'occurrence peut s'éteindre. */
+  readonly withdrawn?: boolean;
+}
+
+/**
+ * La fiche d'une annonce retirée ne répond pas 404 : la plateforme REDIRIGE
+ * vers l'accueil, qui répond 200. Sans garde, cette page d'accueil était lue
+ * comme une fiche et fabriquait une annonce dont le titre valait le nom de
+ * l'agence et dont tout le reste était vide, affichée comme un bien à visiter
+ * (sudagence.fr, fiche 282, relevée le 2026-09-16 : absente du sitemap, encore
+ * sur la liste, sa fiche menant à l'accueil).
+ *
+ * Le `<link rel="canonical">` du gabarit dit quelle page est réellement servie.
+ * S'il désigne autre chose que la fiche demandée, on ne lit rien : mieux vaut
+ * une annonce absente qu'une annonce inventée (§17).
+ *
+ * Deux prudences : sans canonique, on ne conclut rien ; et une canonique
+ * d'un AUTRE domaine (réseau qui canonise vers son siège) ne dit rien non plus
+ * de la présence du bien.
+ */
+function servedElsewhere($: cheerio.CheerioAPI, parsedUrl: ParsedHektorUrl): boolean {
+  const href = cleanText($('link[rel="canonical"]').first().attr('href') ?? '');
+  if (href === '') return false;
+  let canonical: URL;
+  try {
+    canonical = new URL(href, parsedUrl.canonicalUrl);
+  } catch {
+    return false;
+  }
+  if (canonical.hostname !== new URL(parsedUrl.canonicalUrl).hostname) return false;
+  const served = parseListingUrl(canonical.href, parsedUrl.canonicalUrl);
+  return served === null || served.reference !== parsedUrl.reference;
 }
 
 /** Libellés de la table sans classe de clé, ramenés aux clés des autres gabarits. */
@@ -267,6 +301,31 @@ function readLabels($: cheerio.CheerioAPI): LabelledValues {
  * commune (« Nice », « La ville de Nice (06000) ») sur les anciens gabarits.
  */
 const JUNK_H1 = /recherche de biens|^la ville de |^[\p{L}' -]{2,30}$/iu;
+
+/**
+ * Les trois titres d'une fiche : celui de la plateforme, celui de l'agence, et
+ * celui qu'on retient.
+ *
+ * Le `<title>` « Location appartement Nice 3 pièces 54.25m² 1460€ | Agence »,
+ * généré, est riche ; le h1 est le titre libre de l'annonce, et le gabarit
+ * éditorial y préfixe la commune dans un premier `span`.
+ *
+ * LE NOM DE L'AGENCE N'EST PAS UN TITRE D'ANNONCE : c'est le `<title>` de ses
+ * pages d'habillage. Garde de dernier recours, si une page sans fiche passait
+ * malgré la canonique.
+ */
+function readTitles(
+  $: cheerio.CheerioAPI,
+  agencyName: string,
+): { pageTitle: string; h1: string; title: string } {
+  const pageTitle = cleanText($('title').first().text()).split('|')[0]?.trim() ?? '';
+  const rawH1 = cleanText(
+    ($('h1 .title__content-2').first().text() || $('h1').first().text()).replace(/\s+/g, ' '),
+  );
+  const h1 = JUNK_H1.test(rawH1) ? '' : rawH1;
+  const fromTitle = slugify(pageTitle) === slugify(agencyName) ? '' : pageTitle;
+  return { pageTitle, h1, title: h1 !== '' ? h1 : fromTitle };
+}
 
 /** Les codes postaux 06000 à 06300 ne desservent que Nice. */
 function cityFromPostalCode(postalCode: string | undefined): string | undefined {
@@ -376,9 +435,15 @@ const STREET =
 
 function readDetailContent($: cheerio.CheerioAPI): DetailContent {
   // « Référence : 19 » en paragraphe `.ref` sur l'ancien gabarit (AA Gestion).
+  // LA RÉFÉRENCE PEUT CONTENIR DES ESPACES : les agences y écrivent le nom du
+  // bien (« T2 MEUBLE DIA », « T3 meuble BOUCHER-1 »). Exiger un seul mot la
+  // perdait, et l'identifiant d'URL prenait sa place — un numéro qui ne
+  // retrouve l'annonce ni au téléphone ni sur les portails (3 fiches sur 9 chez
+  // Sud Agence, relevé du 2026-09-16).
   const reference =
     cleanText($('.id_ref_item').first().text()) ||
-    (/^R[ée]f[ée]rence\s*:?\s*(\S+)$/i.exec(cleanText($('p.ref').first().text()))?.[1] ?? '');
+    (/^R[ée]f[ée]rence\s*:?\s*(.+)$/i.exec(cleanText($('p.ref').first().text()))?.[1]?.trim() ??
+      '');
   const location = /^(.+?)\s*\((\d{5})\)$/.exec(cleanText($('.text_location_item').first().text()));
   const rawItems = $('.list_items .list_item')
     .filter((_i, el) => $(el).closest('[class*="property-more"]').length === 0)
@@ -463,8 +528,14 @@ function parseTypeAndCity(
   // Titre libre (« Location Magnifique F1 Aperçu Mer ») : le type est dans l'URL
   // (`/2-appartement/` ou `/appartement/`). Sans lui, inconnu : l'adresse de la
   // fiche n'est pas un type.
+  //
+  // Le DERNIER segment le porte aussi, quand il vaut exactement un type
+  // (`/553-appartement`, `/282-garage`) : cinq fiches de Sud Agence sur neuf
+  // n'avaient aucun type, leur `<title>` étant un titre libre. Le segment doit
+  // valoir le type ENTIER : « /282-garage-saint-roch » est un titre en slug,
+  // pas une catégorie.
   const fromUrl =
-    /\/(?:\d{1,3}-)?(appartement|studio|maison|villa|parking|garage|local|chambre)\//i.exec(
+    /\/(?:\d{1,7}-)?(appartement|studio|maison|villa|parking|garage|local|chambre)(?:\.html)?(?:\/|$)/i.exec(
       new URL(parsedUrl.canonicalUrl).pathname,
     )?.[1];
   return {
@@ -499,18 +570,23 @@ function readFigures(
       ? `${loyerCc} CC`
       : (loyerHc ?? pageTitle.match(/[\d\s.,]+\s*€/)?.[0] ?? undefined);
 
-  // Surface : d'abord le titre (le plus courant), sinon la table — certaines
-  // agences ne la mettent pas dans le titre mais la déclarent en loi Boutin ou
-  // Carrez (immobiliere-nicoise.com : clé `surf_carrez_loi_boutin`).
-  const areaFromTable = ['surface', 'surf_carrez_loi_boutin', 'surf_habitable', 'surface_habitable']
-    .map((key) => table.get(key))
-    .find((value) => value !== undefined && /\d/.test(value));
+  // Surface. La SURFACE HABITABLE déclarée passe avant le titre : un titre est
+  // arrondi à la main (« Grand studio vide de 33 m² » pour 33,26 m² déclarés,
+  // sudagence.fr), quand la case l'est rarement. Les surfaces Carrez/Boutin
+  // restent APRÈS le titre : elles mesurent autre chose, et certaines agences
+  // ne remplissent qu'elles (immobiliere-nicoise.com : `surf_carrez_loi_boutin`).
+  const measured = (...keys: readonly string[]): string | undefined => {
+    const value = keys.map((key) => table.get(key)).find((v) => v !== undefined && /\d/.test(v));
+    return value !== undefined ? `${value.replace(/[^\d.,]/g, '')} m²` : undefined;
+  };
+  const habitable = measured('surface', 'surf_habitable', 'surface_habitable');
   // Le h1 engendré (« Appartement 1 pièce(s) 27.46 m² ») passe avant le titre
   // libre, qui peut nommer une autre surface (« terrasse de 8 m² »).
   const areaText =
     /pièce\(s\).*?(\d+(?:[.,]\d+)?\s*m²)/i.exec(h1)?.[1] ??
+    habitable ??
     `${pageTitle} ${h1}`.match(/\d+(?:[.,]\d+)?\s*m²/i)?.[0] ??
-    (areaFromTable !== undefined ? `${areaFromTable.replace(/[^\d.,]/g, '')} m²` : undefined) ??
+    measured('surf_carrez_loi_boutin') ??
     (labels.area !== undefined ? `${labels.area} m²` : undefined);
   const roomsFromTable = table.get('nbpiecees') ?? labels.rooms;
   // Titre libre sans pièces (englimmo.com) : le h1 engendré « Studio 1 pièce(s) » les donne.
@@ -537,9 +613,9 @@ function readFigures(
   return { priceText, areaText, roomsText, furnishedText };
 }
 
-/** Classe énergie du gabarit « pastilles » : la lettre marquée active. */
-function energyClass($: cheerio.CheerioAPI): string | undefined {
-  const letter = cleanText($('[class*="bubble_dpe_"].bubble--active').first().text());
+/** Étiquette du gabarit « pastilles » : la lettre marquée active. */
+function energyClass($: cheerio.CheerioAPI, kind: 'dpe' | 'ges'): string | undefined {
+  const letter = cleanText($(`[class*="bubble_${kind}_"].bubble--active`).first().text());
   return /^[A-G]$/i.test(letter) ? letter.toUpperCase() : undefined;
 }
 
@@ -569,7 +645,11 @@ function hektorExtra(
   table: Map<string, string>,
   content: DetailContent,
   urlReference: string,
-  declared: { readonly district: string | undefined; readonly dpe: string | undefined },
+  declared: {
+    readonly district: string | undefined;
+    readonly dpe: string | undefined;
+    readonly ges: string | undefined;
+  },
 ): Record<string, string> {
   const vue = table.get('vue');
   const exposition = table.get('exposition');
@@ -586,6 +666,7 @@ function hektorExtra(
   if (featureList.length > 0) extra['features'] = featureList.join(' · ');
   if (declared.district !== undefined) extra['quartier'] = declared.district;
   if (declared.dpe !== undefined) extra['dpe'] = declared.dpe;
+  if (declared.ges !== undefined) extra['ges'] = declared.ges;
   const floor = declaredFloor(table) ?? content.floor;
   if (floor !== undefined) extra['etage'] = floor;
   return extra;
@@ -608,19 +689,14 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   if (isDemoFiche(pageUrl, pageUrl)) return { listing: null, warnings: [] };
 
   const $ = cheerio.load(html);
+  // Page servie à la place de la fiche (redirection d'une annonce retirée) :
+  // rien à lire, et l'occurrence peut s'éteindre dans le passage même.
+  if (servedElsewhere($, parsedUrl)) return { listing: null, warnings: [], withdrawn: true };
+
   const warnings: string[] = [];
   const table = readAriaTable($);
 
-  // <title> « Location appartement Nice 3 pièces 54.25m² 1460€ | Agence » —
-  // généré par la plateforme, riche ; le h1 est le titre libre de l'annonce.
-  const pageTitle = cleanText($('title').first().text()).split('|')[0]?.trim() ?? '';
-  // Le gabarit éditorial préfixe le titre de la commune (« Nice (06000) ») dans
-  // un premier `span` : le titre de l'annonce est le second.
-  const rawH1 = cleanText(
-    ($('h1 .title__content-2').first().text() || $('h1').first().text()).replace(/\s+/g, ' '),
-  );
-  const h1 = JUNK_H1.test(rawH1) ? '' : rawH1;
-  const title = h1 !== '' ? h1 : pageTitle;
+  const { pageTitle, h1, title } = readTitles($, agencyName);
   const labels = readLabels($);
   const content = readDetailContent($);
 
@@ -699,7 +775,8 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     imageUrls: imageUrls.length > 0 ? ownGallery(imageUrls) : undefined,
     extra: hektorExtra(table, content, parsedUrl.reference, {
       district: declaredDistrict($, table, content),
-      dpe: energyClass($),
+      dpe: energyClass($, 'dpe'),
+      ges: energyClass($, 'ges'),
     }),
   });
 

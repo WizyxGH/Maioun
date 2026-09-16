@@ -55,6 +55,9 @@ describe('parseDetailPage', () => {
     expect((listing?.imageUrls ?? []).length).toBeGreaterThan(0);
     expect(listing?.phoneText).toBeDefined();
     expect(listing?.extra?.['reference']).toBe('87252043');
+    // Les deux étiquettes sont dans la classe CSS de leur bloc, pas dans le SVG.
+    expect(listing?.extra?.['dpe']).toBe('DPE C');
+    expect(listing?.extra?.['ges']).toBe('GES C');
   });
 
   it('se normalise avec le bon loyer, la surface et la ville', () => {

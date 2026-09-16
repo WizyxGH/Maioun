@@ -39,6 +39,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { parseChargesFromText, parsePrice } from '../../normalization/parse-listing-fields.js';
 import { cleanText, comparable } from '../../normalization/text.js';
+import { NICE_AREA_SLUGS, portalCommunes } from '../shared/communes.js';
 import { htmlToText } from '../shared/html-text.js';
 import type { RawDraft } from '../shared/raw-listing.js';
 
@@ -80,30 +81,19 @@ export const PRICE_BANDS: readonly { readonly min?: number; readonly max?: numbe
 /**
  * Les communes suivies, ÉCRITES COMME LE PORTAIL LES ÉCRIT.
  *
- * Nice s'écrit sans code postal ; les autres le portent. Contrairement à la
- * FNAIM, le portail n'abrège pas « saint ». Les douze slugs ont été vérifiés un
- * à un le 2026-09-16 sur le titre que rend la page.
+ * Elles portent leur code postal, et contrairement à la FNAIM le portail
+ * n'abrège pas « saint ». Les douze écritures ont été vérifiées une à une le
+ * 2026-09-16 sur le titre que rend la page.
+ *
+ * NICE EST À PART : elle se cherche sans code postal, et par bandes de loyer
+ * plutôt qu'en une requête — voir `SEARCHES`. Le périmètre lui-même vit dans
+ * `shared/communes.ts`.
  */
-const COMMUNE_SLUGS = [
-  'cagnes-sur-mer-06800',
-  'saint-laurent-du-var-06700',
-  'villefranche-sur-mer-06230',
-  'villeneuve-loubet-06270',
-  'cap-d-ail-06320',
-  'carros-06510',
-  'beaulieu-sur-mer-06310',
-  'la-trinite-06340',
-  'colomars-06670',
-  'saint-andre-de-la-roche-06730',
-  'drap-06340',
-  'contes-06390',
-] as const;
+const COMMUNES = portalCommunes({ withPostalCode: true, omit: ['nice'] });
 
 /** Les communes du périmètre, dans la forme que portent les cartes. */
 const PERIMETER_CITIES: ReadonlySet<string> = new Set(
-  ['nice', ...COMMUNE_SLUGS.map((slug) => slug.replace(/-\d{5}$/, ''))].map((name) =>
-    comparable(name.replace(/-/g, ' ')),
-  ),
+  NICE_AREA_SLUGS.map((slug) => comparable(slug.replace(/-/g, ' '))),
 );
 
 /** `true` si la commune de cette annonce fait partie du périmètre suivi. */
@@ -176,10 +166,10 @@ export const SEARCHES: readonly Search[] = [
     ...(band.min !== undefined ? { minPrice: band.min } : {}),
     ...(band.max !== undefined ? { maxPrice: band.max } : {}),
   })),
-  ...COMMUNE_SLUGS.map((slug) => ({
-    label: slug,
-    path: `/immobilier/recherche/location/appartement/${slug}/`,
-    commune: slug.replace(/-\d{5}$/, ''),
+  ...COMMUNES.map((commune) => ({
+    label: commune.slug,
+    path: `/immobilier/recherche/location/appartement/${commune.slug}/`,
+    commune: commune.name,
     mayBeEmpty: true,
   })),
   {
@@ -479,6 +469,11 @@ export function parseDetail(html: string, priceText?: string): RawDraft | null {
   // Le DPE de la fiche, quand la carte n'en portait pas.
   const dpe = /DPE_consEnerNote\s+NoteEnerg_([A-G])\b/.exec(html)?.[1];
   if (dpe !== undefined) extra['dpe'] = dpe;
+
+  // Le GES, dans le bloc jumeau. Il n'existe QUE sur la fiche : les cartes de
+  // liste n'affichent que l'étiquette énergie.
+  const ges = /DPE_effSerreNote\s+NoteGES\d*_([A-G])\b/.exec(html)?.[1];
+  if (ges !== undefined) extra['ges'] = ges;
 
   // L'ANNONCEUR, nommé exactement : « Citya Baie Des Anges - Citya Helios »
   // là où le logo de la carte abrège, un pseudonyme pour un particulier.

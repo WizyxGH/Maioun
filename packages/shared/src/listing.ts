@@ -176,6 +176,15 @@ export interface ListingOccurrence {
   /** Classe énergétique (DPE) en majuscule « A »–« G », ou `null` (§17). */
   readonly dpe: Maybe<string>;
   /**
+   * Étiquette climat (GES) en majuscule « A »–« G », ou `null` (§17).
+   *
+   * Le pendant du DPE : même diagnostic, même échelle, deuxième étiquette. Les
+   * sources qui publient l'une publient presque toujours l'autre au même
+   * endroit, et on la jetait. Jamais déduite du DPE — les deux classes
+   * divergent d'un cran ou deux dès qu'un logement chauffe à l'électricité.
+   */
+  readonly ges: Maybe<string>;
+  /**
    * Loyer PRÉCÉDENT, quand la source annonce elle-même une baisse.
    *
    * SeLoger envoie de vrais messages « Baisse de prix » et y barre l'ancien
@@ -289,6 +298,8 @@ export interface AggregatedListing {
   readonly furnished: MergedField<Maybe<boolean>>;
   readonly flatShare: MergedField<Maybe<boolean>>;
   readonly dpe: MergedField<Maybe<string>>;
+  /** Étiquette climat (GES), ou `null` (§17). */
+  readonly ges: MergedField<Maybe<string>>;
   /** Nombre maximal d'occupants annoncé, ou `null` (§17). */
   readonly maxOccupants: MergedField<Maybe<number>>;
   /** Union dédoublonnée des atouts de toutes les sources. */

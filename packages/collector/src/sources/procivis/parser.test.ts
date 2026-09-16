@@ -30,7 +30,7 @@ describe('parseDetail (Procivis)', () => {
     expect(draft?.depositText).toBe('2 320 €');
     expect(draft?.feesText).toBe('590,4 €');
     expect(draft?.agencyName).toBe('Immo de France');
-    expect(draft?.extra).toEqual({ reference: '1478', dpe: 'C' });
+    expect(draft?.extra).toEqual({ reference: '1478', dpe: 'C', ges: 'B' });
     expect(draft?.imageUrls?.[0]).toMatch(/^https:\/\/www\.procivis\.fr\/medias\//);
   });
 

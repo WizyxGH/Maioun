@@ -71,6 +71,7 @@ export function parseDetail(html: string): RawDraft | null {
     .get();
   const rooms = fields.get('Pièce(s)');
   const dpe = fields.get('Classe énergétique');
+  const ges = fields.get('Classe GES');
   const reference = fields.get('Référence');
   const district = fields.get('Quartier');
   const imageUrls = [
@@ -99,6 +100,7 @@ export function parseDetail(html: string): RawDraft | null {
       ...(reference !== undefined ? { reference } : {}),
       ...(district !== undefined ? { district } : {}),
       ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
+      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
     },
   };
 }

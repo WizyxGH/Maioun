@@ -79,6 +79,7 @@ export function parseDetail(html: string): RawDraft | null {
   const city = LEADING_CITY.exec(description)?.[1];
 
   const dpe = detail($, 'Énergie - Consommation conventionnelle');
+  const ges = detail($, 'Énergie - Estimation des émissions');
   const imageUrls = [
     ...new Set(
       html.match(
@@ -106,6 +107,7 @@ export function parseDetail(html: string): RawDraft | null {
     extra: {
       reference: reference ?? '',
       ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
+      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
     },
   };
 }

@@ -817,19 +817,22 @@ export async function regroupAndScore(
      * dit d'ou il vient — c'est un diagnostic officiel trouve a l'adresse, pas
      * une valeur annoncee par le bailleur, et la fiche ne doit pas laisser
      * croire l'inverse.
+     *
+     * LE GES VIENT AVEC, sans un appel de plus : le meme diagnostic porte les
+     * deux etiquettes, et le cache les gardait toutes les deux depuis le debut.
+     * Il ne remplace pas un GES publie par la source, meme regle que le DPE.
      */
     const diagnostic = dpeByListing.get(listing.id);
+    const stamp = { sourceId: 'ademe', observedAt: new Date(nowMs).toISOString(), conflicts: [] };
     const complete =
       diagnostic === undefined
         ? enriched
         : {
             ...enriched,
-            dpe: {
-              value: diagnostic.label,
-              sourceId: 'ademe',
-              observedAt: new Date(nowMs).toISOString(),
-              conflicts: [],
-            },
+            dpe: { value: diagnostic.label, ...stamp },
+            ...(diagnostic.gesLabel !== null && enriched.ges.value === null
+              ? { ges: { value: diagnostic.gesLabel, ...stamp } }
+              : {}),
           };
 
     const transitMinutes = transitByListing.get(listing.id);

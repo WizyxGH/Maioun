@@ -95,6 +95,7 @@ export function parseDetail(html: string): RawDraft | null {
 
   const reference = /,\s*(\d+),\s*Barbera/.exec($('title').text())?.[1];
   const dpe = row($, /^DPE\b/);
+  const ges = row($, /^GES\b/);
   const rooms = row($, /^Nombre de pièces$/i);
   const imageUrls = [
     ...new Set(
@@ -121,6 +122,7 @@ export function parseDetail(html: string): RawDraft | null {
       ...(reference !== undefined ? { reference } : {}),
       ...(district !== undefined && district !== '' ? { quartier: district } : {}),
       ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
+      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
     },
   };
 }

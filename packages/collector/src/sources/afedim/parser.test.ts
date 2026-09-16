@@ -121,6 +121,7 @@ describe('parseDetail', () => {
     expect(detail?.extra).toMatchObject({
       reference: '0028370',
       dpe: 'B',
+      ges: 'B',
       etage: '3',
       ascenseur: '1',
       loyerHorsCharges: '704 €',
@@ -145,8 +146,9 @@ describe('parseDetail', () => {
     expect(parseDetail(OUVERTE, '0070421')?.extra?.['applicationStatus']).toBe('open');
   });
 
-  it('laisse le DPE inconnu quand la fiche n’en a pas', () => {
+  it('laisse le DPE et le GES inconnus quand la fiche n’en a pas', () => {
     expect(parseDetail(OUVERTE, '0070421')?.extra?.['dpe']).toBeUndefined();
+    expect(parseDetail(OUVERTE, '0070421')?.extra?.['ges']).toBeUndefined();
   });
 
   it('rend null pour une autre référence ou une page « bien non trouvé »', () => {

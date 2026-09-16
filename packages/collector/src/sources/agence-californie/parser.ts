@@ -77,12 +77,14 @@ export function parseDetail(html: string): RawDraft | null {
     ),
   ].filter((url) => url.startsWith('https://'));
   const dpe = /\bdpe-([A-G])\b/.exec($('.details-dpe').first().attr('class') ?? '')?.[1];
+  const ges = /\bges-([A-G])\b/.exec($('.details-ges').first().attr('class') ?? '')?.[1];
   const rooms = details.get('nombre de pièces');
 
   const extra: Record<string, string> = {};
   const reference = details.get('référence');
   if (reference !== undefined) extra['reference'] = reference;
   if (dpe !== undefined) extra['dpe'] = dpe;
+  if (ges !== undefined) extra['ges'] = ges;
 
   return {
     title: title === '' ? undefined : title,

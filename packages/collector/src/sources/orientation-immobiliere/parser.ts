@@ -89,7 +89,9 @@ export function parseDetail(html: string): RawDraft | null {
   ]
     .filter((src) => src !== '')
     .map((src) => new URL(src, `${SITE}/`).toString());
-  const dpe = /nouveau-dpe-([A-G])-/.exec($('img[src*="dpe.ics.fr"]').attr('src') ?? '')?.[1];
+  const etiquettes = $('img[src*="dpe.ics.fr"]').attr('src') ?? '';
+  const dpe = /nouveau-dpe-([A-G])-/.exec(etiquettes)?.[1];
+  const ges = /nouveau-dpe-[A-G]-[\d.,]+-([A-G])-/.exec(etiquettes)?.[1];
   const rooms = details.get('nombre de pièce(s)');
   const reference = cleanText($('.print-block-ref-neocs--fiche span').eq(1).text()).replace(
     /^Réf\.\s*/,
@@ -99,6 +101,7 @@ export function parseDetail(html: string): RawDraft | null {
   const extra: Record<string, string> = {};
   if (reference !== '') extra['reference'] = reference;
   if (dpe !== undefined) extra['dpe'] = dpe;
+  if (ges !== undefined) extra['ges'] = ges;
 
   return {
     title: title === '' ? undefined : title,

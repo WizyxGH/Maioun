@@ -140,12 +140,21 @@ export function parseDetail(html: string): RawDraft | null {
   const dpe = /\bdpe-([a-g])\b/i.exec(
     $('#annonce-description .dpe').first().attr('class') ?? '',
   )?.[1];
+  const ges = /\bges-([a-g])\b/i.exec(
+    $('#annonce-description .ges').first().attr('class') ?? '',
+  )?.[1];
   const phone = $('#annonce-contact a[href^="tel:"]').first().attr('href')?.slice('tel:'.length);
   const draft = compactListing({
     description: description !== '' ? description : undefined,
     ...summaryAmounts(cleanText($('.annonce-caracteristiques').first().text())),
     phoneText: phone !== undefined && phone.trim() !== '' ? phone.trim() : undefined,
-    extra: dpe !== undefined ? { dpe: dpe.toUpperCase() } : undefined,
+    extra:
+      dpe === undefined && ges === undefined
+        ? undefined
+        : {
+            ...(dpe !== undefined ? { dpe: dpe.toUpperCase() } : {}),
+            ...(ges !== undefined ? { ges: ges.toUpperCase() } : {}),
+          },
   });
   return Object.keys(draft).length > 0 ? draft : null;
 }

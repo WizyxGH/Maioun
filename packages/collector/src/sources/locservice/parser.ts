@@ -154,14 +154,16 @@ export function parseDetail(html: string): RawDraft | null {
     .map((_i, li) => $(li).text().replace(/\s+/g, ' ').trim())
     .get();
 
-  // La PREMIÈRE barre est le DPE, la seconde le GES : on ne lit que la
-  // première, et seulement la lettre de l'élément marqué actif.
-  const dpe = $('.energy-bar')
-    .first()
-    .find('.energy-bar-item--active .energy-bar-letter')
-    .first()
-    .text()
-    .trim();
+  /**
+   * Les deux étiquettes, dans deux barres jumelles : `energy-bar` pour le DPE,
+   * `pollution-bar` pour le GES. Seule la lettre de l'élément ACTIF compte —
+   * les six autres sont l'échelle. « NA » y est une vraie réponse (« le GES
+   * n'a pas été renseigné ») et le filtre `/^[A-G]$/` la laisse tomber.
+   */
+  const lettreActive = (barre: string): string =>
+    $(`.${barre}`).first().find(`.${barre}-item--active .${barre}-letter`).first().text().trim();
+  const dpe = lettreActive('energy-bar');
+  const ges = lettreActive('pollution-bar');
 
   const disponibilite = traits.find((trait) => /^disponible\b/i.test(trait));
   const meuble = traits.find((trait) => /^(non[ -])?meubl[ée]e?$|^vide$/i.test(trait));
@@ -169,6 +171,7 @@ export function parseDetail(html: string): RawDraft | null {
 
   const extra: Record<string, string> = {};
   if (/^[A-G]$/.test(dpe)) extra['dpe'] = dpe;
+  if (/^[A-G]$/.test(ges)) extra['ges'] = ges;
   if (bailleur !== undefined) {
     extra['landlord'] = /^particulier$/i.test(bailleur) ? 'private' : 'agency';
   }

@@ -150,6 +150,9 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.furnished,
     listing.flatShare,
     listing.dpe,
+    // Omis quand inconnu, comme le depot : sans cela, l'arrivee du GES
+    // changerait l'empreinte des 3 795 occurrences actives d'un coup.
+    ...(listing.ges !== null ? [`ges:${listing.ges}`] : []),
     // Le loyer precedent ANNONCE par la source : il apparait le jour ou le
     // portail signale la baisse, et rien d'autre ne change ce jour-la. Sans lui
     // ici, l'occurrence serait jugee inchangee et la baisse jamais consignee.
@@ -212,6 +215,9 @@ export function listingHash(listing: ScoredListing): string {
     listing.imageUrls.length,
     listing.imageUrls[0] ?? null,
     listing.dpe.value,
+    // Le GES s'affiche à côté du DPE, donc il est ici. Omis quand inconnu :
+    // seules les fiches qui en gagnent un seront réécrites, une fois.
+    ...(listing.ges.value !== null ? [`ges:${listing.ges.value}`] : []),
     listing.maxOccupants.value,
     listing.features,
     ...(listing.applicationStatus != null ? [listing.applicationStatus] : []),
@@ -2510,6 +2516,7 @@ function serializeListing(listing: ScoredListing): Record<string, unknown> {
     furnished: listing.furnished,
     flatShare: listing.flatShare,
     dpe: listing.dpe,
+    ges: listing.ges,
     maxOccupants: listing.maxOccupants,
     features: listing.features,
     requirements: listing.requirements,
@@ -2709,6 +2716,7 @@ function occurrencePayload(listing: NormalizedListing): Record<string, unknown> 
     deposit: listing.deposit,
     tenantFees: listing.tenantFees,
     dpe: listing.dpe,
+    ges: listing.ges,
     previousPrice: listing.previousPrice,
     maxOccupants: listing.maxOccupants,
     district: listing.district,
@@ -2751,6 +2759,7 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     furnished: bool('furnished'),
     flatShare: bool('flat_share'),
     dpe: (payload['dpe'] as string | null) ?? null,
+    ges: (payload['ges'] as string | null) ?? null,
     previousPrice: (payload['previousPrice'] as number | null) ?? null,
     maxOccupants: (payload['maxOccupants'] as number | null) ?? null,
     features: Array.isArray(payload['features']) ? (payload['features'] as string[]) : [],

@@ -54,7 +54,12 @@ describe('parseDetail (Miramar)', () => {
     expect(draft?.propertyTypeText).toBe('Appartement');
     expect(draft?.cityText).toBe('Nice');
     expect(draft?.title).toBe('3 PIECES PORT DE NICE');
-    expect(draft?.extra).toMatchObject({ reference: '5239376', quartier: 'Le Port', dpe: 'B' });
+    expect(draft?.extra).toMatchObject({
+      reference: '5239376',
+      quartier: 'Le Port',
+      dpe: 'B',
+      ges: 'A',
+    });
     expect(draft?.description).toMatch(/^Port de Nice\.[\s\S]+Garage et 2 caves\.$/);
     expect(draft?.imageUrls).toHaveLength(9);
   });
@@ -71,6 +76,7 @@ describe('parseDetail (Miramar)', () => {
     expect(normalized?.bedrooms).toBe(2);
     expect(normalized?.city).toBe('nice');
     expect(normalized?.dpe).toBe('B');
+    expect(normalized?.ges).toBe('A');
   });
 
   it('laisse la normalisation écarter un tarif à la semaine', () => {

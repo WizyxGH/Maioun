@@ -154,8 +154,10 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   const description = asString(property['description']);
   const photos = imageUrls(property);
   const price = priceFields($, html, property['offers'] as JsonLdNode | undefined);
-  // DPE : lettre portée par la classe CSS du bloc bilan (`dpe dpe-C`).
+  // DPE et GES : lettre portée par la classe CSS du bloc bilan (`dpe dpe-C`,
+  // `ges ges-C`). Le SVG qu'il contient est décoratif — on n'y lit rien.
   const dpe = /class="dpe dpe-([A-G])"/i.exec(html)?.[1];
+  const ges = /class="ges ges-([A-G])"/i.exec(html)?.[1];
 
   const listing = compactListing({
     sourceRef: asString(property['identifier']) ?? parsedUrl.reference,
@@ -181,7 +183,11 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     publishedAtText: asString(property['datePosted']),
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: photos.length > 0 ? photos : undefined,
-    extra: { reference: parsedUrl.reference, ...(dpe !== undefined ? { dpe: `DPE ${dpe}` } : {}) },
+    extra: {
+      reference: parsedUrl.reference,
+      ...(dpe !== undefined ? { dpe: `DPE ${dpe}` } : {}),
+      ...(ges !== undefined ? { ges: `GES ${ges}` } : {}),
+    },
   });
 
   const warnings = price.priceText === undefined ? [`Fiche sans loyer lisible : ${pageUrl}`] : [];

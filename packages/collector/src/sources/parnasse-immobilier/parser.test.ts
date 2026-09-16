@@ -37,7 +37,7 @@ describe('parseDetail (Parnasse Immobilier)', () => {
     expect(draft?.postalCodeText).toBe('06100');
     expect(draft?.description).toMatch(/^Nice Nord , Gorbella[\s\S]+Géorisques/);
     expect(draft?.imageUrls).toHaveLength(12);
-    expect(draft?.extra).toEqual({ reference: '87277026', dpe: 'C' });
+    expect(draft?.extra).toEqual({ reference: '87277026', dpe: 'C', ges: 'D' });
   });
 
   it('se normalise', () => {

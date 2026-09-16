@@ -35,6 +35,7 @@ function listing(overrides: Partial<NormalizedListing> & { id: string }): Normal
     furnished: null,
     flatShare: null,
     dpe: null,
+    ges: null,
     previousPrice: null,
     maxOccupants: null,
     features: [],

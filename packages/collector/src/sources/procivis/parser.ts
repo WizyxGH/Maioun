@@ -91,6 +91,7 @@ export function parseDetail(html: string): RawDraft | null {
   }
   const text = flatText($);
   const dpe = /DPE\s*:\s*([A-G])\b/.exec(text)?.[1];
+  const ges = climatClass($);
   const reference = /Réf\.\s*:\s*(\w+)/.exec(text)?.[1];
   const imageUrls = galleryUrls($);
   const description = cleanMultiline(jsonLdString(listing['description']) ?? '');
@@ -108,8 +109,23 @@ export function parseDetail(html: string): RawDraft | null {
     extra: {
       ...(reference !== undefined ? { reference } : {}),
       ...(dpe !== undefined ? { dpe } : {}),
+      ...(ges !== undefined ? { ges } : {}),
     },
   };
+}
+
+/**
+ * Étiquette climat : la case marquée active de l'échelle qui suit le libellé.
+ * Contrairement au DPE, elle n'est écrite nulle part dans le texte.
+ */
+function climatClass($: cheerio.CheerioAPI): string | undefined {
+  const echelle = $('p')
+    .filter((_i, el) => /émissions de gaz/i.test($(el).text()))
+    .first()
+    .next('ul');
+  // La case active porte la lettre PUIS sa valeur (« B 7 CO2/m²/an ») :
+  // seule la lettre de tête est l'étiquette.
+  return /^\s*([A-G])\b/.exec(echelle.find('li.is-active').first().text())?.[1];
 }
 
 /** Le bien lui-même, tel que le décrit `mainEntity`. */

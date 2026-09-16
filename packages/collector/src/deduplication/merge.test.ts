@@ -28,6 +28,7 @@ function occurrence(id: string, applicationStatus?: ApplicationStatus | null): N
     furnished: null,
     flatShare: null,
     dpe: null,
+    ges: null,
     previousPrice: null,
     maxOccupants: null,
     features: [],

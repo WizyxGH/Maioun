@@ -93,6 +93,18 @@ export function detailUrl(listing: RawListing): string | null {
   return slug !== undefined && ZONE_SLUGS.has(slug) ? listing.sourceUrl : null;
 }
 
+/**
+ * Les deux étiquettes du tableau, chacune écrite « 122 (C) ». Les lignes
+ * « Non communiqué » ne livrent aucune lettre, et n'en inventent donc pas.
+ */
+function etiquettes(table: ReadonlyMap<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    ['dpe', 'ges']
+      .map((key) => [key, /\(([A-G])\)/.exec(table.get(key) ?? '')?.[1]])
+      .filter(([, letter]) => letter !== undefined),
+  ) as Record<string, string>;
+}
+
 /** Ce que la fiche apprend ; `null` sans loyer mensuel. */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
@@ -121,13 +133,11 @@ export function parseDetail(html: string): RawDraft | null {
   const office = cleanText(presenter.find('span.text-uppercase').first().text());
   const phone = (presenter.find('a[href^="tel:"]').first().attr('href') ?? '').replace(/^tel:/, '');
   const rooms = table.get('pièces');
-  const dpe = /\(([A-G])\)/.exec(table.get('dpe') ?? '')?.[1];
   const floor = table.get('étage');
 
-  const extra: Record<string, string> = {};
+  const extra: Record<string, string> = { ...etiquettes(table) };
   const reference = table.get('référence');
   if (reference !== undefined && reference !== '') extra['reference'] = reference;
-  if (dpe !== undefined) extra['dpe'] = dpe;
   if (floor !== undefined && floor !== '') extra['etage'] = floor;
   if (office !== '') extra['agence'] = office;
 

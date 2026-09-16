@@ -276,6 +276,7 @@ export function parseDetail(html: string, expectedReference: string): RawDraft |
     extra: compactExtra({
       reference: expectedReference,
       dpe: str(data['IndiceDpe']),
+      ges: str(data['IndiceGes']),
       etage: floorOf(data['Etage']),
       ascenseur: data['Ascenceur'] === true ? '1' : undefined,
       features: features.length > 0 ? features.join(' · ') : undefined,

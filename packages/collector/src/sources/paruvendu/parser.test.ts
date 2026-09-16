@@ -23,6 +23,61 @@ const PAGE = fixture('nice.html');
 const REFERENCE = SEARCHES[0]!;
 const URL_PAGE = searchUrl(REFERENCE, 1);
 
+describe('SEARCHES (ParuVendu)', () => {
+  /**
+   * LA LISTE ENTIÈRE, FIGÉE. Le portail répond 200 en servant sa recherche
+   * départementale pour une commune qu'il ne reconnaît pas : une écriture
+   * fausse ne se voit nulle part ailleurs. Le test échoue si la fabrique change
+   * d'écriture, et dit du même coup ce qui est demandé à chaque passage.
+   */
+  it('construit exactement ces adresses', () => {
+    expect(SEARCHES.map((search) => searchUrl(search, 1))).toEqual([
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/nice/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/nice/?px1=500',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/nice/?px0=501&px1=700',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/nice/?px0=701&px1=1000',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/nice/?px0=1001&px1=1500',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/nice/?px0=1501',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/saint-laurent-du-var-06700/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/cagnes-sur-mer-06800/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/villeneuve-loubet-06270/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/beaulieu-sur-mer-06310/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/cap-d-ail-06320/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/villefranche-sur-mer-06230/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/la-trinite-06340/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/saint-andre-de-la-roche-06730/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/drap-06340/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/carros-06510/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/contes-06390/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/appartement/colomars-06670/',
+      'https://www.paruvendu.fr/immobilier/recherche/location/maison/alpes-maritimes-06/',
+    ]);
+  });
+
+  it('n’abrège pas « saint », contrairement à la FNAIM', () => {
+    expect(SEARCHES.some((search) => search.path.includes('/st-'))).toBe(false);
+  });
+
+  it('attend de chaque commune qu’elle se nomme dans le titre de sa page', () => {
+    // C'est le seul garde-fou contre le repli départemental.
+    const communes = SEARCHES.filter((search) => search.mayBeEmpty === true);
+    expect(communes.map((search) => search.commune)).toEqual([
+      'saint-laurent-du-var',
+      'cagnes-sur-mer',
+      'villeneuve-loubet',
+      'beaulieu-sur-mer',
+      'cap-d-ail',
+      'villefranche-sur-mer',
+      'la-trinite',
+      'saint-andre-de-la-roche',
+      'drap',
+      'carros',
+      'contes',
+      'colomars',
+    ]);
+  });
+});
+
 describe('parseSearchPage', () => {
   const { listings, hasNextPage } = parseSearchPage(PAGE, URL_PAGE);
   const particulier = listings.find((l) => l.sourceRef === '1295002360');
@@ -265,6 +320,12 @@ describe('parseDetail', () => {
     it('lit le DPE de la fiche', () => {
       expect(agence?.extra?.['dpe']).toBe('D');
       expect(normaliser('fiche-agence-complete.html', '959 € CC*')?.dpe).toBe('D');
+    });
+
+    it('lit le GES du bloc jumeau, que la carte de liste n’a jamais', () => {
+      expect(agence?.extra?.['ges']).toBe('B');
+      expect(part?.extra?.['ges']).toBe('B');
+      expect(normaliser('fiche-agence-complete.html', '959 € CC*')?.ges).toBe('B');
     });
   });
 });

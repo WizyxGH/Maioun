@@ -62,6 +62,8 @@ export interface ListingView {
   readonly flatShare?: MergedField<boolean | null>;
   /** Classe énergétique (DPE) — absent sur les fiches anciennes. */
   readonly dpe?: MergedField<string | null>;
+  /** Étiquette climat (GES) — absent sur les fiches anciennes. */
+  readonly ges?: MergedField<string | null>;
   /**
    * Nombre maximal d'occupants annoncé — absent sur les fiches anciennes.
    * Décisif quand on cherche à plusieurs, et publié par les meublés.

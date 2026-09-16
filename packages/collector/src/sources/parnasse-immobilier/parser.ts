@@ -76,12 +76,14 @@ export function parseDetail(html: string): RawDraft | null {
       .text(),
   );
   const dpe = /DPE \(Diagnostic de Performance Energétique\) : ([A-G])\b/.exec(details)?.[1];
+  const ges = /GES \(Gaz à Effet de Serre\) : ([A-G])\b/.exec(details)?.[1];
   const rooms = afterLabel(detail($, '.property_default_rooms'), 'Pièces', NUMBER);
   const title = cleanText($('h1.entry-title').first().text());
 
   const extra: Record<string, string> = {};
   if (apimoRef !== '') extra['reference'] = apimoRef;
   if (dpe !== undefined) extra['dpe'] = dpe;
+  if (ges !== undefined) extra['ges'] = ges;
 
   return {
     title: title === '' ? undefined : title,

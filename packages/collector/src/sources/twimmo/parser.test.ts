@@ -66,7 +66,7 @@ describe('parseTwimmoDetail', () => {
     expect(draft?.depositText).toBe('1 980 €');
     expect(draft?.cityText).toBe('Nice');
     expect(draft?.postalCodeText).toBe('06100');
-    expect(draft?.extra).toEqual({ dpe: 'C' });
+    expect(draft?.extra).toEqual({ dpe: 'C', ges: 'C' });
     expect(draft?.imageUrls?.[0]).toMatch(/^https:\/\/medias\.twimmopro\.com\//);
 
     const normalized = normalizeListing(

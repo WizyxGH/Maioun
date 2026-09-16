@@ -122,7 +122,10 @@ export function parseDetail(html: string): RawDraft | null {
   const agency = cleanText(block.find('.contact-agence .name').first().text());
   const phone = cleanText(block.find('a.agency-phone-link').first().text());
   const reference = /Réf\s*:\s*(\S+)/.exec(cleanText($('.code').first().text()))?.[1];
-  const dpe = /Note\s*:\s*([A-G])\b/.exec($('img[src*="/dpe-ges/dpe/"]').first().attr('alt') ?? '');
+  const alt = (folder: string): string =>
+    $(`img[src*="/dpe-ges/${folder}/"]`).first().attr('alt') ?? '';
+  const dpe = /Note\s*:\s*([A-G])\b/.exec(alt('dpe'));
+  const ges = /Note\s*:\s*([A-G])\b/.exec(alt('ges'));
   const imageUrls = [
     ...new Set(
       $('[data-fancybox="images"][href^="https://"]')
@@ -141,6 +144,7 @@ export function parseDetail(html: string): RawDraft | null {
   const extra: Record<string, string> = {};
   if (reference !== undefined) extra['reference'] = reference;
   if (dpe?.[1] !== undefined) extra['dpe'] = dpe[1];
+  if (ges?.[1] !== undefined) extra['ges'] = ges[1];
   if (features !== '') extra['features'] = features;
 
   return {

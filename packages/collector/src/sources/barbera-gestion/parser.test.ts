@@ -35,7 +35,12 @@ describe('parseDetail (Barbera Gestion)', () => {
     expect(draft?.feesText).toBe('553,00 €');
     expect(draft?.roomsText).toBe('2 pièces');
     expect(draft?.imageUrls).toHaveLength(7);
-    expect(draft?.extra).toEqual({ reference: '87299221', quartier: 'Le Port', dpe: 'E' });
+    expect(draft?.extra).toEqual({
+      reference: '87299221',
+      quartier: 'Le Port',
+      dpe: 'E',
+      ges: 'C',
+    });
     expect(draft?.description).toMatch(
       /^Appartement meublé - Quartier du Port, Nice\n\nSitué au 39/,
     );

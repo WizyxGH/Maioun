@@ -92,6 +92,7 @@ export function parseTwimmoDetail(html: string): RawDraft | null {
     ),
   ];
   const dpe = pick(text, String.raw`Classe énergie \(dpe\) ([A-G])\b`);
+  const ges = pick(text, String.raw`Classe climat \(ges\) ([A-G])\b`);
   const contact = negotiator($);
 
   return {
@@ -109,6 +110,12 @@ export function parseTwimmoDetail(html: string): RawDraft | null {
     contactName: contact.name,
     phoneText: contact.phone,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-    extra: dpe !== undefined ? { dpe: dpe.toUpperCase() } : undefined,
+    extra:
+      dpe === undefined && ges === undefined
+        ? undefined
+        : {
+            ...(dpe !== undefined ? { dpe: dpe.toUpperCase() } : {}),
+            ...(ges !== undefined ? { ges: ges.toUpperCase() } : {}),
+          },
   };
 }

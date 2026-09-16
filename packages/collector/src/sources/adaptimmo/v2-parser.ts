@@ -139,6 +139,8 @@ interface ApiBien {
   readonly secteur?: string;
   readonly mandat?: string | number;
   readonly dpe_lettre_consom_energ?: string;
+  /** Étiquette climat, clé jumelle. */
+  readonly dpe_lettre_emissions_ges?: string;
   readonly [key: string]: unknown;
 }
 
@@ -167,6 +169,7 @@ export function parseV2Detail(body: string): RawDraft | null {
   const area = positive(bien.surfhab);
   const rooms = positive(bien.piece);
   const dpe = bien.dpe_lettre_consom_energ;
+  const ges = bien.dpe_lettre_emissions_ges;
   const imageUrls = Object.keys(bien)
     .filter((key) => /^photo\d+$/.test(key))
     .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
@@ -193,6 +196,7 @@ export function parseV2Detail(body: string): RawDraft | null {
         : {}),
       ...(secteur !== '' ? { quartier: secteur } : {}),
       ...(dpe !== undefined && /^[A-G]$/.test(dpe) ? { dpe } : {}),
+      ...(ges !== undefined && /^[A-G]$/.test(ges) ? { ges } : {}),
     },
   };
 }

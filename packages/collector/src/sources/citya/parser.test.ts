@@ -124,6 +124,8 @@ describe('parseDetailPage — montants, DPE et agence référente', () => {
 
   it('prend la case agrandie du DPE et le numéro de l’agence, pas celui du service qualité', () => {
     expect(listing?.extra?.['dpe']).toBe('C');
+    // Le bloc « (GES) » a le même gabarit : sa case agrandie est l'autre étiquette.
+    expect(listing?.extra?.['ges']).toBe('C');
     expect(listing?.phoneText).toBe('0600000051');
   });
 
