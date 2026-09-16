@@ -26,8 +26,9 @@ export interface NotificationPreferences {
   /** Une annonce entre dans vos critères. C'est la raison d'être de l'outil. */
   readonly newListings: boolean;
   /**
-   * Une annonce JUSTE au-dessus des critères — 10 % de budget en plus, ou 10 %
-   * de surface en moins.
+   * Une annonce JUSTE à côté des critères. Chaque critère a sa propre marge
+   * (`NEAR_MATCH_MARGINS`) : 5 % de budget, 5 % de surface, une pièce, cinq
+   * minutes de trajet, une semaine de disponibilité.
    *
    * Éteinte par défaut, contrairement aux autres. Ce n'est pas un canal de
    * plus, c'est un ÉLARGISSEMENT de ce qu'on cherche : l'allumer d'office

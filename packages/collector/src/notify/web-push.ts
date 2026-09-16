@@ -214,9 +214,14 @@ export function reminderContentFor(listing: NotifiableListing, siteUrl: string):
  * quand on a fixé 700 € passerait pour un défaut du filtre si rien ne
  * l'expliquait — et la première réaction serait de couper les notifications.
  *
- * « Proche » et non « juste au-dessus » : l'écart peut porter sur le loyer
- * comme sur la surface, et « au-dessus » ne veut alors rien dire dans le bon
- * sens — une surface proche est en dessous du minimum, pas au-dessus.
+ * « Proche » et non « juste au-dessus » : l'écart peut porter sur le loyer, la
+ * surface, le trajet, les pièces ou la date, et « au-dessus » ne veut alors
+ * rien dire dans le bon sens — une surface proche est EN DESSOUS du minimum.
+ *
+ * LE CORPS NOMME LE CRITÈRE, il ne résume pas. Chaque critère ayant sa propre
+ * marge (`NEAR_MATCH_MARGINS`), une phrase générique laisserait deviner lequel
+ * a bougé : `overshoot` dit « 735 € pour un budget de 700 € » ou « 52 min de
+ * trajet pour 45 », et c'est exactement la question qu'on se pose en lisant.
  */
 export function nearMatchContentFor(
   listing: NotifiableListing & { readonly overshoot: string },
@@ -335,6 +340,21 @@ async function deliver(deps: PushDeps, payloads: readonly PushPayload[]): Promis
  * regrouper sous « + 3 autres » ferait perdre la seule information qui compte :
  * LAQUELLE.
  */
+/**
+ * Une notification qui ne parle PAS d'une annonce : la santé des sources.
+ *
+ * Même boucle d'envoi, donc même nettoyage des abonnements morts (410) — la
+ * recopier aurait garanti que seule la première continue de purger.
+ *
+ * @returns le nombre d'envois réussis.
+ */
+export async function sendOperatorPush(
+  deps: Omit<PushDeps, 'listings'>,
+  payloads: readonly PushPayload[],
+): Promise<number> {
+  return deliver({ ...deps, listings: [] }, payloads);
+}
+
 export async function sendListingAlerts(
   deps: PushDeps,
   compose: (listing: NotifiableListing, siteUrl: string) => PushPayload,

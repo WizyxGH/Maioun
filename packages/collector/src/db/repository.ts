@@ -22,7 +22,12 @@ import type {
   SourceId,
   SourceRuntimeState,
 } from '@maioun/shared';
-import { canonicalDistrict, CURRENT_USER, NEAR_MATCH_MARGIN } from '@maioun/shared';
+import {
+  canonicalDistrict,
+  CURRENT_USER,
+  describeOvershoot,
+  nearMatchBounds,
+} from '@maioun/shared';
 import {
   OPEN_TO_APPLICATIONS_SQL,
   traitConditions,
@@ -292,6 +297,47 @@ export interface DailyStat {
   readonly activeSources: number;
 }
 
+/**
+ * Les champs dont la disparition SOUDAINE trahit un gabarit qui a changé.
+ *
+ * Trois, et pas quinze : ce sont ceux qu'une agence publie toujours quand elle
+ * publie quelque chose. Un DPE ou une date de disponibilité manquent chez la
+ * moitié des sources en régime normal — leur absence n'apprendrait rien.
+ */
+export type WatchedField = 'phone' | 'price' | 'photo';
+
+/** Combien d'annonces portaient le champ, sur combien. */
+export interface FieldFill {
+  readonly total: number;
+  readonly filled: number;
+}
+
+/** Comment se lit « le champ est là », colonne par colonne. */
+const WATCHED_FIELD_SQL: readonly (readonly [WatchedField, string])[] = [
+  ['phone', "contact_phone IS NOT NULL AND contact_phone != ''"],
+  ['price', 'price IS NOT NULL'],
+  ['photo', "json_array_length(json_extract(payload, '$.imageUrls')) > 0"],
+];
+
+/** Le passé récent d'une source, tel que la surveillance le lit. */
+export interface SourceObservation {
+  readonly sourceId: string;
+  /** Annonces neuves par journée (clé `AAAA-MM-JJ`). */
+  readonly newByDay: ReadonlyMap<string, number>;
+  /** Raisons d'arrêt des derniers passages, du plus ANCIEN au plus récent. */
+  readonly stopReasons: readonly string[];
+  /**
+   * Occurrences vivantes aujourd'hui.
+   *
+   * C'est CE CHIFFRE qui sépare l'agence en panne de l'agence qui n'a rien à
+   * louer : trente sources n'ont aucune annonce active, et elles vont très
+   * bien.
+   */
+  readonly activeCount: number;
+  /** Remplissage de chaque champ surveillé, avant et depuis la coupure. */
+  readonly fields: ReadonlyMap<WatchedField, { older: FieldFill; recent: FieldFill }>;
+}
+
 export interface Repository {
   /**
    * Fait vieillir les annonces d'une source qui ne les re-liste jamais (§32).
@@ -329,6 +375,22 @@ export interface Repository {
 
   /** Combien d'occurrences vivantes cette source compte aujourd'hui. */
   readonly activeOccurrenceCount: (sourceId: string) => Promise<number>;
+
+  /**
+   * Le passé récent de chaque source, pour juger qu'elle va mal.
+   *
+   * TROIS LECTURES D'UN COUP, et pas une par source : la surveillance regarde
+   * deux cent douze sources à chaque passage, et deux cent douze allers-retours
+   * coûteraient plus cher que la collecte elle-même.
+   *
+   * @param recentSince limite entre « ce que la source publiait » et « ce
+   *   qu'elle publie depuis » pour la disparition d'un champ.
+   * @param passes nombre de derniers passages dont on veut la raison d'arrêt.
+   */
+  readonly sourceObservations: (
+    recentSince: string,
+    passes: number,
+  ) => Promise<readonly SourceObservation[]>;
 
   /**
    * Abonnements Web Push d'UN compte (§29).
@@ -763,16 +825,29 @@ function defaultState(sourceId: SourceId): SourceRuntimeState {
  * aurait garanti que les trois divergent.
  */
 
-/** Ce qu'il faut savoir des critères pour juger de la proximité. */
+/**
+ * Ce qu'il faut savoir des critères pour juger de la proximité.
+ *
+ * LES BORNES CHIFFRÉES, TOUTES : chacune a sa marge (`NEAR_MATCH_MARGINS`) et
+ * chacune peut être celle qui dépasse. N'en passer que deux revenait à ne
+ * savoir relâcher — et surtout à ne savoir NOMMER — que le loyer et la surface.
+ * Le plancher de loyer figure ici bien qu'il ne se relâche jamais : sans lui,
+ * l'élargissement de la surface laissait entrer les caves.
+ */
 export interface NearMatchCriteria {
   readonly cities: readonly string[];
   readonly maxPrice: number;
   readonly minArea: number;
+  readonly minPrice?: number;
+  readonly minRooms?: number;
+  readonly maxRooms?: number;
+  readonly maxCommuteMinutes?: number;
+  readonly availableBy?: string;
 }
 
 /** Une annonce proche, et EN QUOI elle dépasse. */
 export interface NearMatch extends NotifiableListing {
-  /** Phrase courte reprise dans la notification : « 730 € (+30 € sur 700 €) ». */
+  /** Phrase reprise dans la notification : « 735 € pour un budget de 700 € ». */
   readonly overshoot: string;
 }
 
@@ -1607,6 +1682,92 @@ export function createRepository(db: Database): Repository {
       return Number(result.rows[0]?.['n'] ?? 0);
     },
 
+    async sourceObservations(recentSince, passes) {
+      const [daily, reasons, fields] = await db.batch(
+        [
+          {
+            sql: `SELECT source_id AS src, substr(started_at, 1, 10) AS day,
+                         SUM(listings_new) AS n
+                    FROM collection_runs GROUP BY src, day ORDER BY day`,
+            args: [],
+          },
+          {
+            // Les N derniers passages de CHAQUE source. Sans la numérotation
+            // par source, un `LIMIT` global ne rendrait que les passages des
+            // sources les plus bavardes.
+            sql: `SELECT src, stop_reason FROM (
+                    SELECT source_id AS src, stop_reason, started_at,
+                           ROW_NUMBER() OVER (
+                             PARTITION BY source_id ORDER BY started_at DESC
+                           ) AS rang
+                      FROM collection_runs
+                  ) WHERE rang <= ? ORDER BY src, started_at`,
+            args: [passes],
+          },
+          {
+            // Les annonces ÉTEINTES comptent dans la référence : ce qu'une
+            // source publiait il y a dix jours dit ce qu'elle sait publier,
+            // que le bien soit encore libre ou non.
+            sql: `SELECT source_id AS src,
+                     SUM(CASE WHEN lifecycle != 'inactive' THEN 1 ELSE 0 END) AS actifs,
+                     SUM(CASE WHEN first_seen_at > ?1 THEN 1 ELSE 0 END) AS recentN,
+                     SUM(CASE WHEN first_seen_at <= ?1 THEN 1 ELSE 0 END) AS olderN,
+                     ${WATCHED_FIELD_SQL.map(
+                       ([name, predicate]) => `
+                     SUM(CASE WHEN first_seen_at > ?1 AND ${predicate} THEN 1 ELSE 0 END)
+                       AS recent_${name},
+                     SUM(CASE WHEN first_seen_at <= ?1 AND ${predicate} THEN 1 ELSE 0 END)
+                       AS older_${name}`,
+                     ).join(',')}
+                   FROM occurrences GROUP BY src`,
+            args: [recentSince],
+          },
+        ],
+        'read',
+      );
+
+      interface Accumulator {
+        newByDay: Map<string, number>;
+        stopReasons: string[];
+        activeCount: number;
+        fields: Map<WatchedField, { older: FieldFill; recent: FieldFill }>;
+      }
+      const observations = new Map<string, Accumulator>();
+      const of = (sourceId: string): Accumulator => {
+        const found = observations.get(sourceId);
+        if (found !== undefined) return found;
+        const fresh: Accumulator = {
+          newByDay: new Map(),
+          stopReasons: [],
+          activeCount: 0,
+          fields: new Map(),
+        };
+        observations.set(sourceId, fresh);
+        return fresh;
+      };
+
+      for (const row of daily?.rows ?? []) {
+        of(String(row['src'])).newByDay.set(String(row['day']), Number(row['n'] ?? 0));
+      }
+      for (const row of reasons?.rows ?? []) {
+        of(String(row['src'])).stopReasons.push(String(row['stop_reason']));
+      }
+      for (const row of fields?.rows ?? []) {
+        const entry = of(String(row['src']));
+        entry.activeCount = Number(row['actifs'] ?? 0);
+        const recentTotal = Number(row['recentN'] ?? 0);
+        const olderTotal = Number(row['olderN'] ?? 0);
+        for (const [name] of WATCHED_FIELD_SQL) {
+          entry.fields.set(name, {
+            recent: { total: recentTotal, filled: Number(row[`recent_${name}`] ?? 0) },
+            older: { total: olderTotal, filled: Number(row[`older_${name}`] ?? 0) },
+          });
+        }
+      }
+
+      return [...observations].map(([sourceId, entry]) => ({ sourceId, ...entry }));
+    },
+
     /**
      * LES ABONNEMENTS D'UN COMPTE — et d'aucun autre.
      *
@@ -1991,20 +2152,82 @@ export function createRepository(db: Database): Repository {
     async nearMatches(userId, criteria, traits = {}) {
       const cities = criteria.cities.filter((city) => city !== '');
       if (cities.length === 0) return [];
-      const maxPrice = criteria.maxPrice * (1 + NEAR_MATCH_MARGIN);
-      const minArea = criteria.minArea * (1 - NEAR_MATCH_MARGIN);
+      // UNE MARGE PAR CRITÈRE, définie et justifiée dans `criteria.ts`.
+      const bounds = nearMatchBounds(criteria);
       const placeholders = cities.map(() => '?').join(',');
-      // Les mêmes exclusions que la liste : élargir le budget n'est pas rouvrir
-      // ce qu'on a écarté.
-      const preferences = traitConditions(traits);
+
+      /**
+       * Les mêmes exclusions que la liste : élargir le budget n'est pas rouvrir
+       * ce qu'on a écarté. Seuls le TRAJET et la DATE y prennent leur borne
+       * élargie — ce sont des quantités, elles ont un voisinage ; colocation,
+       * bail étudiant, bailleur, ameublement et quartier n'en ont pas et
+       * passent tels quels (`NEAR_MATCH_NEVER_RELAXED`).
+       */
+      const preferences = traitConditions({
+        ...traits,
+        ...(traits.maxCommuteMinutes !== undefined && bounds.maxCommuteMinutes !== undefined
+          ? { maxCommuteMinutes: bounds.maxCommuteMinutes }
+          : {}),
+        ...(traits.availableBy !== undefined &&
+        traits.availableBy !== '' &&
+        bounds.availableBy !== undefined
+          ? { availableBy: bounds.availableBy }
+          : {}),
+      });
       const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+
+      /**
+       * AU MOINS UN CRITÈRE DÉPASSÉ, sinon l'annonce est « proche » de rien et
+       * la notification n'aurait pas de phrase à porter. Une seule liste, dans
+       * le même ordre que celle des marges.
+       */
+      const beyond = ['listings.price > ?', '(listings.area IS NOT NULL AND listings.area < ?)'];
+      const beyondArgs: (string | number)[] = [criteria.maxPrice, criteria.minArea];
+      if (criteria.maxCommuteMinutes !== undefined) {
+        beyond.push('(sc.commute_minutes IS NOT NULL AND sc.commute_minutes > ?)');
+        beyondArgs.push(criteria.maxCommuteMinutes);
+      }
+      if (criteria.availableBy !== undefined && criteria.availableBy !== '') {
+        beyond.push('(listings.available_at IS NOT NULL AND listings.available_at > ?)');
+        beyondArgs.push(`${criteria.availableBy}T23:59:59.999Z`);
+      }
+      if (criteria.minRooms !== undefined) {
+        beyond.push('(listings.rooms IS NOT NULL AND listings.rooms < ?)');
+        beyondArgs.push(criteria.minRooms);
+      }
+      if (criteria.maxRooms !== undefined) {
+        beyond.push('(listings.rooms IS NOT NULL AND listings.rooms > ?)');
+        beyondArgs.push(criteria.maxRooms);
+      }
+
+      /**
+       * Les bornes élargies qui ne tiennent pas dans un `?` fixe : un critère
+       * absent n'ajoute rien, et une valeur INCONNUE ne disqualifie jamais — un
+       * nombre de pièces non publié n'est pas un nombre de pièces insuffisant.
+       */
+      const within: string[] = [];
+      const withinArgs: number[] = [];
+      if (bounds.minRooms !== undefined) {
+        within.push('AND (listings.rooms IS NULL OR listings.rooms >= ?)');
+        withinArgs.push(bounds.minRooms);
+      }
+      if (bounds.maxRooms !== undefined) {
+        within.push('AND (listings.rooms IS NULL OR listings.rooms <= ?)');
+        withinArgs.push(bounds.maxRooms);
+      }
+
+      // LE PLANCHER DE LOYER NE SE RELÂCHE PAS : il écarte les parkings et les
+      // caves étiquetés « appartement » (~100 €). Il manquait ici, et une cave
+      // de 19 m² à 150 € passait pour un logement presque assez grand.
+      const floor = criteria.minPrice === undefined ? '' : 'AND listings.price >= ?';
 
       const result = await db.execute({
         // LA VILLE RESTE ÉLIMINATOIRE. Un logement dans une autre commune n'est
         // pas « proche des critères », il est ailleurs — l'élargissement porte
-        // sur le budget et la surface, pas sur la géographie.
+        // sur des quantités, pas sur la géographie.
         sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
-                     listings.city, listings.postal_code, sc.action_priority, listings.payload
+                     listings.city, listings.postal_code, sc.action_priority,
+                     sc.commute_minutes, listings.payload
               FROM listings
               JOIN listing_user_score AS sc
                 ON sc.listing_id = listings.id AND sc.user_id = ?
@@ -2017,32 +2240,37 @@ export function createRepository(db: Database): Repository {
                 AND listings.rented = 0
                 AND LOWER(listings.city) IN (${placeholders})
                 AND listings.price IS NOT NULL AND listings.price <= ?
+                ${floor}
                 AND (listings.area IS NULL OR listings.area >= ?)
-                AND (listings.price > ? OR (listings.area IS NOT NULL AND listings.area < ?))
+                ${within.join('\n                ')}
+                AND (${beyond.join(' OR ')})
                 ${extra}
               ORDER BY sc.action_priority DESC`,
         args: [
           userId,
           userId,
           ...cities.map((city) => city.toLowerCase()),
-          maxPrice,
-          minArea,
-          criteria.maxPrice,
-          criteria.minArea,
+          bounds.maxPrice,
+          ...(criteria.minPrice === undefined ? [] : [criteria.minPrice]),
+          bounds.minArea,
+          ...withinArgs,
+          ...beyondArgs,
           ...preferences.args,
         ],
       });
 
       return result.rows.map((row) => {
-        const listing = toNotifiable(row as Record<string, unknown>);
-        const parts: string[] = [];
-        if (listing.price !== null && listing.price > criteria.maxPrice) {
-          parts.push(`${listing.price} € au lieu de ${criteria.maxPrice} € max`);
-        }
-        if (listing.area !== null && listing.area < criteria.minArea) {
-          parts.push(`${listing.area} m² au lieu de ${criteria.minArea} m² min`);
-        }
-        return { ...listing, overshoot: parts.join(' · ') };
+        const record = row as Record<string, unknown>;
+        const listing = toNotifiable(record);
+        const commute = record['commute_minutes'];
+        return {
+          ...listing,
+          // CE QUI DÉPASSE, NOMMÉ : « 735 € pour un budget de 700 € ».
+          overshoot: describeOvershoot(
+            { ...listing, commuteMinutes: typeof commute === 'number' ? commute : null },
+            criteria,
+          ),
+        };
       });
     },
 
