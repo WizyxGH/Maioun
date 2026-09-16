@@ -262,7 +262,6 @@ export function ListingCard({
   profile,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
-  const isHot = listing.actionPriority >= PRIORITY_HOT;
   const archived = isArchived(listing);
   const rented = listing.rented === true;
   const uncertain = listing.lifecycle === 'possiblyInactive';
@@ -313,11 +312,11 @@ export function ListingCard({
       // Le survol soulève d'un pixel et l'appui l'enfonce : sur téléphone,
       // où il n'y a pas de survol, `active:` est le seul retour qui dise que
       // le doigt a été reçu — la fiche met un instant à s'ouvrir.
+      // PAS DE BORDURE DE PRIORITÉ : l'encadré orange criait sur une carte sur
+      // trois. La flamme et la barre de priorité le disent déjà, sans bruit.
       className={`${rank === undefined ? '' : 'rf-rise '}relative cursor-pointer overflow-hidden transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-md active:translate-y-0 active:shadow-sm has-[>button:focus-visible]:ring-2 has-[>button:focus-visible]:ring-ring ${
-        isHot && !isUnavailable(listing) ? 'border-2 border-hot' : ''
-      } ${archived ? 'opacity-60' : uncertain ? 'opacity-70' : ''} ${
-        isUnavailable(listing) ? 'grayscale' : ''
-      }`}
+        archived ? 'opacity-60' : uncertain ? 'opacity-70' : ''
+      } ${isUnavailable(listing) ? 'grayscale' : ''}`}
       data-testid="listing-card"
       {...(rank === undefined
         ? {}
