@@ -31,7 +31,7 @@ export interface QuickFilterValues {
 }
 
 /** Aucun filtre : ce que pose « Effacer tout ». */
-const EMPTY_QUICK_FILTERS: QuickFilterValues = {
+export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   minPrice: null,
   maxPrice: null,
   minArea: null,
@@ -153,12 +153,32 @@ export const ROOM_PRESETS = [1, 2, 3, 4, 5] as const;
 /** Tailles de groupe courantes. Au-delà de 4, l'offre niçoise est anecdotique. */
 export const OCCUPANT_PRESETS = [1, 2, 3, 4] as const;
 
+/** Une restriction posée ailleurs que dans les filtres rapides, montrée ici. */
+export interface ExtraChip {
+  readonly label: string;
+  readonly onRemove: () => void;
+}
+
 interface QuickFiltersProps {
   readonly values: QuickFilterValues;
   readonly onChange: (next: QuickFilterValues) => void;
+  /**
+   * Ce qui restreint la liste sans passer par ces filtres : recherche texte,
+   * sources retenues, bascules d'affichage. Elles filtraient sans se montrer,
+   * et « Effacer tout » les laissait en place — on effaçait donc « tout » sans
+   * que la liste change.
+   */
+  readonly extras?: readonly ExtraChip[];
+  /** Efface les filtres rapides ET les restrictions ci-dessus. */
+  readonly onClearAll?: () => void;
 }
 
-export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX.Element {
+export function QuickFilters({
+  values,
+  onChange,
+  extras = [],
+  onClearAll,
+}: QuickFiltersProps): React.JSX.Element {
   const patch = (part: Partial<QuickFilterValues>): void => onChange({ ...values, ...part });
 
   const toggleType = (type: PropertyType): void => {
@@ -174,7 +194,7 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX
         bouton « Réinitialiser » : on montre ce qui filtre la liste, y compris
         le budget et la surface d'ouverture, et non ce qui s'écarte de
         l'ouverture. Voir `hasAppliedQuickFilters`. */}
-      {hasAppliedQuickFilters(values) && (
+      {(hasAppliedQuickFilters(values) || extras.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {/* UNE SEULE PUCE POUR LE BUDGET, parce que c'est une fourchette.
             `minPrice` n'en avait aucune — le plancher anti-parking à 250 €
@@ -214,10 +234,13 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX
               onRemove={() => toggleType(type)}
             />
           ))}
+          {extras.map((chip) => (
+            <FilterChip key={chip.label} label={chip.label} onRemove={chip.onRemove} />
+          ))}
           <Button
             variant="link"
             size="inline"
-            onClick={() => onChange(EMPTY_QUICK_FILTERS)}
+            onClick={onClearAll ?? ((): void => onChange(EMPTY_QUICK_FILTERS))}
             className="ml-1 min-h-9 text-sm text-muted-foreground hover:text-foreground"
           >
             Effacer tout

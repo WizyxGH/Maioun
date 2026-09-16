@@ -89,7 +89,9 @@ import { ProfileSummary } from './components/ProfileSummary.js';
 import {
   QuickFilters,
   DEFAULT_QUICK_FILTERS,
+  EMPTY_QUICK_FILTERS,
   hasActiveQuickFilters,
+  type ExtraChip,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';
@@ -2290,6 +2292,52 @@ function AppView(): React.JSX.Element {
     toggles: [favoritesOnly, showArchived, hideUncertain],
   });
 
+  /**
+   * Les restrictions qui ne sont pas des filtres rapides, en puces retirables.
+   *
+   * Le résumé des sources reprend les mots du menu : nommer les exclues quand
+   * elles sont peu nombreuses dit le choix réel, là où « 18 sources » le cache.
+   */
+  const otherRestrictions: ExtraChip[] = [];
+  if (search.trim() !== '') {
+    otherRestrictions.push({ label: `« ${search.trim()} »`, onRemove: () => setSearch('') });
+  }
+  if (selectedSources.size > 0) {
+    const absentes = availableSources.filter((id) => !selectedSources.has(id));
+    otherRestrictions.push({
+      label:
+        absentes.length > 0 && absentes.length <= 3
+          ? `Sauf ${absentes.map(formatSourceName).join(', ')}`
+          : `${selectedSources.size} source${selectedSources.size > 1 ? 's' : ''}`,
+      onRemove: () => setSelectedSources(new Set()),
+    });
+  }
+  if (favoritesOnly) {
+    otherRestrictions.push({
+      label: 'Favoris uniquement',
+      onRemove: () => setFavoritesOnly(false),
+    });
+  }
+  if (showArchived) {
+    otherRestrictions.push({ label: 'Annonces archivées', onRemove: () => setShowArchived(false) });
+  }
+  if (hideUncertain) {
+    otherRestrictions.push({
+      label: 'Sans les annonces à vérifier',
+      onRemove: () => setHideUncertain(false),
+    });
+  }
+
+  /** « Effacer tout » : tout ce qui restreint, y compris ce qui vient d'ailleurs. */
+  const clearEveryFilter = (): void => {
+    setQuickFilters(EMPTY_QUICK_FILTERS);
+    setSelectedSources(new Set());
+    setSearch('');
+    setFavoritesOnly(false);
+    setShowArchived(false);
+    setHideUncertain(false);
+  };
+
   const resetSortAndFilters = (): void => {
     setSort('priority');
     setQuickFilters(DEFAULT_QUICK_FILTERS);
@@ -2498,8 +2546,16 @@ function AppView(): React.JSX.Element {
             onCriteriaSaved={() => void load(true)}
           />
 
-          {/* Rangée des filtres rapides. */}
-          <QuickFilters values={quickFilters} onChange={setQuickFilters} />
+          {/* Rangée des filtres rapides, ET de tout ce qui restreint la liste
+            sans se montrer : le texte cherché, les sources retenues, les
+            bascules. « Effacer tout » les efface aussi — sinon on l'actionnait
+            sans que la liste bouge. */}
+          <QuickFilters
+            values={quickFilters}
+            onChange={setQuickFilters}
+            extras={otherRestrictions}
+            onClearAll={clearEveryFilter}
+          />
         </div>
       )}
 
