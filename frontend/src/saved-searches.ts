@@ -91,13 +91,6 @@ export function toQuickFilters(view: Partial<SavedView> | undefined): QuickFilte
   };
 }
 
-/**
- * Une phrase qui dit ce que la recherche cherche.
- *
- * C'est ce qu'on lit dans la liste des recherches pour reconnaître la sienne :
- * elle doit tenir sur une ligne et ne citer que ce qui est RÉGLÉ. Un critère
- * laissé à sa valeur d'usine n'apprend rien et n'y figure pas.
- */
 /** Ce qu'un critère de recherche désigne : sert à lui choisir une icône. */
 export type SearchPartKind =
   | 'place'
@@ -199,6 +192,13 @@ export function searchParts(search: SavedSearch): readonly SearchPart[] {
   return parts;
 }
 
+/**
+ * Une phrase qui dit ce que la recherche cherche.
+ *
+ * C'est ce qu'on lit dans la liste des recherches pour reconnaître la sienne :
+ * elle doit tenir sur une ligne et ne citer que ce qui est RÉGLÉ. Un critère
+ * laissé à sa valeur d'usine n'apprend rien et n'y figure pas.
+ */
 export function describeSearch(search: SavedSearch): string {
   const parts = searchParts(search);
   return parts.length === 0 ? 'Tous les logements' : parts.map((part) => part.label).join(' · ');

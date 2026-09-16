@@ -23,6 +23,16 @@ export function isUnavailable(listing: Availability): boolean {
   return reason === 'rented' || reason === 'offline';
 }
 
+/**
+ * « À vérifier » : absente de sa source depuis quelques passages, sans que ce
+ * soit encore un retrait. Elle reste affichée — d'où son absence de
+ * `archiveReasonOf` —, mais le compteur de la liste, le badge de la carte et le
+ * bandeau de la fiche doivent s'accorder sur qui elle désigne.
+ */
+export function isUncertain(listing: Availability): boolean {
+  return listing.lifecycle === 'possiblyInactive';
+}
+
 /** Archivée d'office : la désarchiver n'aurait aucun effet. */
 export function isArchivedBySource(listing: Availability): boolean {
   const reason = archiveReasonOf(listing);

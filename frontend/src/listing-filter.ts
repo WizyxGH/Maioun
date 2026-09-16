@@ -8,6 +8,7 @@
  */
 
 import type { ListingView } from './types.js';
+import { isUncertain } from './availability.js';
 import {
   hasActiveQuickFilters,
   matchesQuickFilters,
@@ -37,6 +38,6 @@ export function filterListings(
         listing.occurrences.some((occurrence) => filter.sources.has(occurrence.sourceId))) &&
       (quick === null || matchesQuickFilters(listing, quick)) &&
       matchesSearch(listing, filter.search) &&
-      !(filter.hideUncertain && listing.lifecycle === 'possiblyInactive'),
+      !(filter.hideUncertain && isUncertain(listing)),
   );
 }

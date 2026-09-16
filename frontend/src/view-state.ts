@@ -9,7 +9,7 @@
  *
  * Ils sont donc conservés dans ce navigateur, et uniquement là : ce sont des
  * préférences d'affichage, pas des données (les critères de COLLECTE, eux,
- * vivent en base et suivent l'appareil — voir `api/turso.ts`).
+ * vivent en base et suivent le compte — voir `api/client.ts`).
  *
  * TOLÉRANT PAR CONCEPTION. Stockage refusé, valeur corrompue par une version
  * antérieure, champ manquant : on repart des valeurs par défaut sans bruit.
@@ -64,7 +64,12 @@ interface StoredViewState {
   displayMode?: unknown;
 }
 
-const SORTS: readonly SortMode[] = ['priority', 'recent', 'price'];
+/**
+ * Tous les tris du menu, et pas trois d'entre eux : la liste avait été figée
+ * avant « Le plus proche » et « Surface décroissante », si bien que l'un de ces
+ * deux choix disparaissait au rechargement, sans rien dire.
+ */
+const SORTS: readonly SortMode[] = ['priority', 'recent', 'price', 'closest', 'area'];
 
 function numberOrNull(value: unknown, fallback: number | null): number | null {
   if (value === null) return null;

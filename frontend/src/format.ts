@@ -140,14 +140,6 @@ function capitalizeAddressWord(word: string, isFirst: boolean): string {
 }
 
 /**
- * Adresse lisible, quelle que soit la forme publiée par la source :
- * « 260 BOULEVARD DE LA MADELEINE » → « 260 Boulevard de la Madeleine »,
- * « 26/30 BLD NAPOLEON III » → « 26/30 Boulevard Napoleon III », « 144 rue
- * France » → « 144 Rue France ». Les particules restent minuscules, les
- * chiffres romains en capitales, les abréviations de voies sont dépliées. Les
- * accents absents ne sont PAS restaurés — on n'invente pas de donnée (§17).
- */
-/**
  * Mots par lesquels une DESCRIPTION commence, et qu'aucune voie ne porte.
  *
  * Plusieurs sources déversent le début de l'annonce dans le champ adresse —
@@ -183,6 +175,14 @@ function trimDescriptionBleed(address: string): string {
   return head.split(/\s+/).length >= 2 ? head : withoutGlue;
 }
 
+/**
+ * Adresse lisible, quelle que soit la forme publiée par la source :
+ * « 260 BOULEVARD DE LA MADELEINE » → « 260 Boulevard de la Madeleine »,
+ * « 26/30 BLD NAPOLEON III » → « 26/30 Boulevard Napoleon III », « 144 rue
+ * France » → « 144 Rue France ». Les particules restent minuscules, les
+ * chiffres romains en capitales, les abréviations de voies sont dépliées. Les
+ * accents absents ne sont PAS restaurés — on n'invente pas de donnée (§17).
+ */
 export function formatAddress(address: string | null): string {
   if (address === null || address.trim() === '') return UNKNOWN;
 

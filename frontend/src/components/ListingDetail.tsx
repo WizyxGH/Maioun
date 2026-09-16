@@ -8,7 +8,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { StoredReferencePoint, TenantProfile } from '@maioun/shared';
 import { fetchReferencePoints } from '../api/client.js';
-import { isArchivedBySource } from '../availability.js';
+import { archiveReasonOf, isArchivedBySource, isUncertain } from '../availability.js';
 import { directionsUrl } from '../directions.js';
 import type { ListingView, TrackingStatus } from '../types.js';
 import {
@@ -217,6 +217,11 @@ function lastSeenDay(iso: string): string {
  * On arrive souvent ici par un lien — notification, recherche partagée,
  * favori ancien — sans être passé par la liste qui l'aurait écarté : la fiche
  * doit dire d'emblée qu'il est trop tard, et pourquoi, avant photos et prix.
+ *
+ * La RAISON vient d'`archiveReasonOf`, celle qui range l'annonce avec les
+ * archivées : recopier sa cascade ici aurait permis à la fiche d'annoncer
+ * autre chose que ce que la liste a décidé. Seul « peut-être retirée » lui est
+ * propre — elle reste affichée, donc `archiveReasonOf` ne la retient pas.
  */
 function AvailabilityNotice({
   listing,
@@ -226,23 +231,24 @@ function AvailabilityNotice({
   let title: string;
   let detail: string;
   let variant: 'destructive' | 'warning' | 'default' = 'warning';
+  const reason = archiveReasonOf(listing);
 
-  if (listing.rented === true) {
+  if (reason === 'rented') {
     variant = 'destructive';
     title = 'Ce logement est loué';
     detail = 'L’annonceur l’a indiqué comme loué : il n’est plus possible de candidater.';
-  } else if (listing.lifecycle === 'inactive') {
+  } else if (reason === 'offline') {
     variant = 'destructive';
     title = 'Cette annonce n’est plus en ligne';
     detail = `Elle a disparu de sa source — vue pour la dernière fois${lastSeenDay(listing.lastSeenAt)}. Le bien est très probablement loué ou retiré.`;
-  } else if (listing.applicationStatus === 'full') {
+  } else if (reason === 'applicationsFull') {
     title = 'Candidatures fermées';
     detail =
       'L’annonceur n’accepte plus de dossier pour ce bien pour le moment (plafond de candidatures atteint ou dépôts suspendus). L’annonce est rangée avec les archivées et reviendra d’elle-même si les candidatures rouvrent.';
-  } else if (listing.lifecycle === 'possiblyInactive') {
+  } else if (isUncertain(listing)) {
     title = 'Peut-être plus disponible';
     detail = `Absente de sa source lors des derniers passages — vue pour la dernière fois${lastSeenDay(listing.lastSeenAt)}. Vérifiez sur l’annonce d’origine avant de contacter.`;
-  } else if (listing.archived === true) {
+  } else if (reason === 'user') {
     variant = 'default';
     title = 'Annonce archivée';
     detail = 'Vous l’avez archivée : elle n’apparaît plus dans la liste ni dans les alertes.';
@@ -458,13 +464,14 @@ export function ListingDetail({
         </span>
       </header>
 
+      {/* AVANT LES PHOTOS ET LE PRIX : trop tard se dit d'emblée. */}
+      <AvailabilityNotice listing={listing} />
+
       {/* Photos : affichées directement depuis le site d'origine (§11 : jamais
           téléchargées ni stockées). Le même carrousel que la carte de liste —
           flèches, points, une image à la fois — plutôt qu'un bandeau à faire
           glisser, dont rien n'indiquait qu'il continuait hors de l'écran.
           Quand aucune n'est affichable, `Photos` propose les liens. */}
-      <AvailabilityNotice listing={listing} />
-
       <Photos urls={listing.imageUrls} />
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>

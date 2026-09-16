@@ -30,7 +30,7 @@ export interface QuickFilterValues {
   readonly types: ReadonlySet<PropertyType>;
 }
 
-/** Aucun filtre. Sert de base au calcul de « ce qui a été modifié ». */
+/** Aucun filtre : ce que pose « Effacer tout ». */
 const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   minPrice: null,
   maxPrice: null,
@@ -94,13 +94,6 @@ export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
  *   « Effacer tout », sur lequel on pouvait recliquer indéfiniment sans que
  *   rien ne bouge.
  */
-/** L'intitulé de la puce « budget », selon les bornes réellement posées. */
-export function priceLabel(min: number | null, max: number | null): string {
-  if (min !== null && max !== null) return `${min} – ${max} €`;
-  if (max !== null) return `≤ ${max} €`;
-  return `≥ ${min ?? 0} €`;
-}
-
 export function hasAppliedQuickFilters(v: QuickFilterValues): boolean {
   return (
     v.minPrice !== null ||
@@ -110,6 +103,13 @@ export function hasAppliedQuickFilters(v: QuickFilterValues): boolean {
     v.minOccupants !== null ||
     v.types.size > 0
   );
+}
+
+/** L'intitulé de la puce « budget », selon les bornes réellement posées. */
+export function priceLabel(min: number | null, max: number | null): string {
+  if (min !== null && max !== null) return `${min} – ${max} €`;
+  if (max !== null) return `≤ ${max} €`;
+  return `≥ ${min ?? 0} €`;
 }
 
 /** Champs d'une annonce que les filtres rapides inspectent (§17). */

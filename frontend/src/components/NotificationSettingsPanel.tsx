@@ -52,19 +52,11 @@ interface KindInfo {
  * Les rythmes proposés.
  *
  * « EN TEMPS RÉEL » AURAIT ÉTÉ UN MENSONGE. La collecte tourne deux fois par
- * heure : une annonce parue à 10 h 10 est signalée à 10 h 37. C'est bien le
- * réglage le plus rapide possible, et il reste celui par défaut — sur ce
- * marché, une heure d'avance décide d'une visite —, mais l'intitulé dit ce
- * qu'il fait plutôt que ce qui sonnerait bien (§17).
+ * heure : une annonce parue à 10 h 10 est signalée à 10 h 37. « Dès que
+ * possible » dit ce que le réglage fait plutôt que ce qui sonnerait bien.
  *
- * CHAQUE LIGNE DIT CE QU'ON Y GAGNE ET CE QU'ON Y PERD, parce que c'est un
- * arbitrage et non une préférence : plus vite prévenu, plus souvent dérangé.
- */
-/**
- * L'intitulé se suffit : « Dès que possible », « Une fois par heure », « Une
- * fois par jour » disent déjà tout. La phrase qui les accompagnait ne faisait
- * que les paraphraser, et trois paragraphes sous trois boutons radio donnaient
- * à un choix évident l'air d'une décision à peser.
+ * L'intitulé se suffit, et rien ne l'accompagne : une phrase sous chacun des
+ * trois boutons radio ne faisait que les paraphraser.
  */
 const FREQUENCIES: readonly {
   readonly value: NotificationFrequency;

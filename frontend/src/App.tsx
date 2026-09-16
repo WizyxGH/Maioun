@@ -53,7 +53,7 @@ import {
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
-import { archiveReasonOf } from './availability.js';
+import { archiveReasonOf, isUncertain } from './availability.js';
 import { formatSourceName } from './format.js';
 import { useDocumentMeta } from './document-title.js';
 import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
@@ -379,7 +379,7 @@ function Shell({
  * bouton « Réinitialiser » utile. Hors du composant : ce n'est qu'un calcul,
  * et l'y laisser alourdissait `App` au-delà de la complexité tolérée.
  */
-function isDefaultView(view: {
+function viewDiffersFromDefault(view: {
   readonly sort: SortMode;
   readonly quickFilters: QuickFilterValues;
   readonly sourceCount: number;
@@ -395,11 +395,6 @@ function isDefaultView(view: {
   );
 }
 
-/**
- * Nombre de réglages qui écartent l'affichage de son état d'ouverture — c'est
- * la pastille du bouton « Filtres ». Hors du composant : ce n'est
- * qu'un décompte, et l'y laisser alourdissait `App` sans rien apprendre.
- */
 /**
  * `true` si un réglage DU NAVIGATEUR restreint la liste.
  *
@@ -485,6 +480,11 @@ function SessionPending(): React.JSX.Element {
   );
 }
 
+/**
+ * Nombre de réglages qui écartent l'affichage de son état d'ouverture — c'est
+ * la pastille du bouton « Filtres ». Hors du composant : ce n'est qu'un
+ * décompte, et l'y laisser alourdissait `App` sans rien apprendre.
+ */
 function countActiveSettings(view: {
   readonly sort: SortMode;
   readonly sourceCount: number;
@@ -1734,19 +1734,6 @@ function AppView(): React.JSX.Element {
   );
 
   /**
-   * CE QUI PASSE AVANT L'APPLICATION.
-   *
-   * Trois écrans se succèdent avant qu'il y ait quoi que ce soit à naviguer :
-   * on ne sait pas encore qui regarde, personne n'est connecté, ou le compte
-   * vient d'être créé. Aucun ne porte de coquille ni d'onglets — proposer
-   * d'aller ailleurs pendant qu'on demande un mot de passe ou qu'on présente
-   * deux réglages reviendrait à ne rien demander du tout.
-   *
-   * Regroupés ici plutôt qu'en trois sorties anticipées : le corps d'`App`
-   * dépassait sinon le seuil de complexité, et ces trois-là forment une seule
-   * question — « peut-on afficher l'application ? ».
-   */
-  /**
    * Ce qu'il se passe une fois la session ouverte, quel qu'en soit le chemin.
    *
    * `'inconnu'` est posé AVANT la relecture pour que l'application apparaisse
@@ -1771,6 +1758,19 @@ function AppView(): React.JSX.Element {
       .catch(() => setCurrentUser(null));
   };
 
+  /**
+   * CE QUI PASSE AVANT L'APPLICATION.
+   *
+   * Plusieurs écrans se succèdent avant qu'il y ait quoi que ce soit à
+   * naviguer : on ne sait pas encore qui regarde, personne n'est connecté, ou
+   * le compte vient d'être créé. Aucun ne porte de coquille ni d'onglets —
+   * proposer d'aller ailleurs pendant qu'on demande un mot de passe
+   * reviendrait à ne rien demander du tout.
+   *
+   * Regroupés ici plutôt qu'en autant de sorties anticipées : le corps d'`App`
+   * dépassait sinon le seuil de complexité, et ils forment une seule question
+   * — « peut-on afficher l'application ? ».
+   */
   const entranceScreen = (): React.JSX.Element | null => {
     // AVANT TOUT LE RESTE : sans adresse d'API, il n'y a rien à charger et rien
     // à connecter. L'application se croyait connectée et affichait une liste
@@ -2277,12 +2277,12 @@ function AppView(): React.JSX.Element {
 
   // Le total est ce que la liste affiche ; la part « à vérifier » (disparue de
   // sa source depuis quelques passages) est précisée à côté.
-  const uncertainCount = filtered.filter((l) => l.lifecycle === 'possiblyInactive').length;
+  const uncertainCount = filtered.filter(isUncertain).length;
   // RÉINITIALISATION. « Par défaut » = le tri par priorité, les critères de
   // recherche dans les champs, aucune bascule, toutes les sources — c'est-à-dire
   // exactement l'écran d'ouverture. La recherche textuelle en fait partie : la
   // laisser en place après un « Réinitialiser » surprendrait.
-  const somethingChanged = isDefaultView({
+  const somethingChanged = viewDiffersFromDefault({
     sort,
     quickFilters,
     sourceCount: selectedSources.size,

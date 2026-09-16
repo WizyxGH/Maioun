@@ -4,25 +4,11 @@
  * UN SEUL CHEMIN : le Worker, joint par `VITE_API_URL`, avec un cookie de
  * session. Plus le mode démonstration, réservé aux tests.
  *
- * IL Y AVAIT UN ACCÈS DIRECT À TURSO : le navigateur ouvrait la base lui-même,
- * avec une adresse et un jeton saisis à la première visite et gardés dans
- * `localStorage`. Il a été retiré, pour trois raisons qui se répondent.
- *
- * Ce jeton ouvrait TOUTE la base, en lecture et en écriture. Aucun mot de passe
- * ne pouvait donc être vérifié devant : les comptes n'existaient pas sur ce
- * chemin-là, et le laisser à côté d'un vrai écran de connexion revenait à
- * laisser une porte ouverte à côté d'une porte fermée.
- *
- * Il redemandait ces identifiants à chaque vidage de cache — une adresse
- * `libsql://` et un jeton de deux cents caractères qu'il fallait retrouver.
- *
- * Enfin il n'était jamais complet : ni pièces du dossier, ni abonnement aux
- * notifications, ni — jusqu'à récemment — recherches enregistrées. Deux chemins
- * pour le même écran, dont l'un savait faire moins, c'était deux fois les mêmes
- * cas à tenir.
- *
- * Ce retrait sort aussi `@libsql/client` du bundle : le navigateur n'a plus de
- * client de base de données à télécharger.
+ * ET PAS D'ACCÈS DIRECT À LA BASE. Le navigateur a un temps ouvert Turso
+ * lui-même, avec un jeton gardé dans `localStorage` : ce jeton ouvrait TOUTE la
+ * base en lecture et en écriture, aucun mot de passe ne pouvait être vérifié
+ * devant, et ce second chemin savait faire moins que le premier. Tout passe
+ * désormais par le Worker, qui sait qui demande.
  */
 
 import type {
@@ -322,7 +308,6 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
   return request<ListingsResponse>(`/api/listings?${params.toString()}`);
 }
 
-/** Marque une annonce comme consultée (posé automatiquement à l'ouverture). */
 /**
  * UNE fiche, entière.
  *
@@ -342,6 +327,7 @@ export async function fetchListing(id: string): Promise<ListingView> {
   return request<ListingView>(`/api/listings/${encodeURIComponent(id)}`);
 }
 
+/** Marque une annonce comme consultée (posé automatiquement à l'ouverture). */
 export async function markViewed(id: string): Promise<void> {
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ viewed: true }) });

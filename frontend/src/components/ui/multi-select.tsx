@@ -2,8 +2,8 @@
  * Menu déroulant à choix MULTIPLES, avec recherche facultative.
  *
  * POURQUOI IL EXISTE. Deux réglages de la modale de filtres étaient des listes
- * dépliées en permanence : les quatre bascules d'affichage, et surtout les
- * cinquante sources. À elles seules, celles-ci occupaient plus de place que
+ * dépliées en permanence : les bascules d'affichage, et surtout les cinquante
+ * sources. À elles seules, celles-ci occupaient plus de place que
  * tout le reste, et l'on faisait défiler une demi-page pour atteindre le bouton
  * qui compte. Replié, chacun de ces blocs tient sur une ligne et dit ce qu'il
  * contient.

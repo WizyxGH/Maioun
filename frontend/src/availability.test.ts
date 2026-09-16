@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { archiveReasonOf, isArchivedBySource, isUnavailable } from './availability.js';
+import { archiveReasonOf, isArchivedBySource, isUnavailable, isUncertain } from './availability.js';
 
 const base = { lifecycle: 'active' as const, archived: false, rented: false };
 
@@ -9,6 +9,12 @@ describe('archivage d’office', () => {
     expect(archiveReasonOf({ ...base, lifecycle: 'inactive' })).toBe('offline');
     expect(archiveReasonOf({ ...base, lifecycle: 'possiblyInactive' })).toBeNull();
     expect(isUnavailable({ ...base, lifecycle: 'possiblyInactive' })).toBe(false);
+  });
+
+  it('« à vérifier » ne vaut ni retirée ni archivée', () => {
+    expect(isUncertain({ ...base, lifecycle: 'possiblyInactive' })).toBe(true);
+    expect(isUncertain({ ...base, lifecycle: 'inactive' })).toBe(false);
+    expect(isUncertain(base)).toBe(false);
   });
 
   it('distingue le geste du lecteur de la décision de la source', () => {

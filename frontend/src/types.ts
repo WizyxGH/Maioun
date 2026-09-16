@@ -171,7 +171,6 @@ export interface DailyStat {
   readonly activeSources: number;
 }
 
-/** Statistiques de suivi (§33). */
 /**
  * Durée de vie des annonces, mesurée sur l'inventaire (§31).
  *
@@ -193,6 +192,7 @@ export interface SurvivalData {
   }[];
 }
 
+/** Statistiques de suivi de l'inventaire, pour l'écran dédié. */
 export interface StatsData {
   /** Évolution jour par jour — absente des API anciennes. */
   readonly history?: readonly DailyStat[];

@@ -1,10 +1,10 @@
 /**
  * Modale « Filtres » (§36).
  *
- * Regroupe en un seul endroit ce qui était éparpillé en trois menus déroulants
- * de la barre d'outils : le tri, les options d'affichage et le filtre par
- * source. Sur mobile, trois menus côte à côte tenaient mal ; et rien n'indiquait
- * qu'ils formaient un même réglage.
+ * Regroupe en un seul endroit ce qui RESTREINT la liste : budget, surface,
+ * pièces, type, options d'affichage et filtre par source. Ces réglages étaient
+ * éparpillés dans la barre d'outils, où rien n'indiquait qu'ils formaient un
+ * même geste — régler sa recherche.
  *
  * UNE SEULE LISTE DE FILTRES. On avait un temps séparé « ce qui s'affiche » de
  * « ce qui est collecté », avec deux titres et un encadré. La distinction était
@@ -173,8 +173,8 @@ export function SortFilterModal({
     [sources, sourceCounts],
   );
 
-  // Les bascules d'affichage deviennent une sélection multiple : ce sont
-  // quatre booléens indépendants, exactement ce qu'un tel menu représente.
+  // Les bascules d'affichage deviennent une sélection multiple : ce sont des
+  // booléens indépendants, exactement ce qu'un tel menu représente.
   const toggleOptions = useMemo(
     () => toggles.map(([label]) => ({ value: label, label })),
     [toggles],
@@ -367,7 +367,7 @@ export function SortFilterModal({
               </fieldset>
             )}
 
-            {/* AFFICHAGE ET SOURCES, REPLIÉS. Quatre cases et cinquante lignes
+            {/* AFFICHAGE ET SOURCES, REPLIÉS. Les bascules et cinquante lignes
               de sources dépliées remplaçaient à elles seules deux écrans de
               défilement, pour des réglages qu'on touche rarement. Repliés,
               chacun tient sur une ligne et dit ce qu'il contient. */}

@@ -7,7 +7,7 @@
  */
 
 import type { ListingView } from '../types.js';
-import { archiveReasonOf, isUnavailable } from '../availability.js';
+import { archiveReasonOf, isUnavailable, isUncertain } from '../availability.js';
 import {
   formatAddress,
   formatAge,
@@ -58,14 +58,6 @@ interface ListingCardProps {
 }
 
 /**
- * Palier de priorité → libellé. La COULEUR, elle, ne varie plus : la barre est
- * verte partout, et c'est sa LONGUEUR qui compare deux annonces. Un dégradé de
- * teintes ajoutait un second code à déchiffrer pour la même information.
- *
- * Verte, parce qu'une priorité haute est une BONNE nouvelle — une annonce à
- * saisir, pas une alerte.
- */
-/**
  * Score de risque à partir duquel l'annonce mérite un avertissement.
  *
  * Volontairement haut : un badge « suspect » posé à tort sur une annonce
@@ -73,6 +65,14 @@ interface ListingCardProps {
  */
 const SUSPICIOUS_RISK = 40;
 
+/**
+ * Palier de priorité → libellé. La COULEUR, elle, ne varie plus : la barre est
+ * verte partout, et c'est sa LONGUEUR qui compare deux annonces. Un dégradé de
+ * teintes ajoutait un second code à déchiffrer pour la même information.
+ *
+ * Verte, parce qu'une priorité haute est une BONNE nouvelle — une annonce à
+ * saisir, pas une alerte.
+ */
 function priorityLabel(priority: number): string {
   if (priority >= PRIORITY_HOT) return 'à contacter';
   if (priority >= PRIORITY_WORTH_SEEING) return 'à voir';
@@ -163,9 +163,7 @@ function StatusBadges({
       {rented && <Badge variant="bad">Loué</Badge>}
       {archiveReasonOf(listing) === 'offline' && <Badge variant="bad">Plus en ligne</Badge>}
       {/* Absente de sa source au dernier passage : probablement retirée (§32). */}
-      {listing.lifecycle === 'possiblyInactive' && !rented && (
-        <Badge variant="warning">Peut-être retirée</Badge>
-      )}
+      {isUncertain(listing) && !rented && <Badge variant="warning">Peut-être retirée</Badge>}
       {archived && !isUnavailable(listing) && <Badge variant="warning">Archivée</Badge>}
       {listing.tracking !== 'new' ? (
         <Badge>{formatTracking(listing.tracking)}</Badge>
@@ -268,7 +266,7 @@ export function ListingCard({
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const archived = isArchived(listing);
   const rented = listing.rented === true;
-  const uncertain = listing.lifecycle === 'possiblyInactive';
+  const uncertain = isUncertain(listing);
   const favorite = listing.favorite === true;
   const publishedAt = listing.publishedAt.value;
   const postal = listing.postalCode?.value ?? null;
