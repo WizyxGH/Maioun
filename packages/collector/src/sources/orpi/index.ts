@@ -103,7 +103,11 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
   kind: 'agencyNetwork',
   method: 'html',
   priority: 2,
-  schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 45 }),
+  // SOIXANTE MINUTES, ET NON QUARANTE-CINQ : lire les treize communes et les
+  // fiches coûte seize à vingt-huit requêtes par passage au lieu de cinq. On
+  // paie l'exhaustivité par l'espacement plutôt qu'en renonçant à des communes ;
+  // l'adaptation du rythme resserre d'elle-même quand la source publie.
+  schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 60 }),
   budget: budgetFor('agencyNetwork', {
     // Le budget compte TOUTES les requêtes, pages de liste et fiches. Seize
     // pages de liste en pratique (quatre pour Nice, une par autre commune),
