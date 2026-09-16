@@ -133,6 +133,42 @@ function ApplicationsFullBadge({
 }
 
 /**
+ * Ce que les conditions du bailleur disent de CE dossier, en un mot.
+ *
+ * LE DOSSIER NE PASSE PAS, ET ON LE DIT AVANT LE CLIC. Sans ce repère, on ouvre
+ * la fiche, on lit, on appelle, on envoie son dossier — et le refus tombe sur
+ * un critère écrit dès l'annonce. Rien n'est masqué pour autant : le bailleur
+ * peut faire une exception, et c'est à l'utilisateur de juger.
+ */
+function RequirementBadges({
+  listing,
+  profile,
+}: {
+  readonly listing: ListingView;
+  readonly profile: TenantProfile | null | undefined;
+}): React.JSX.Element | null {
+  const requirements = listing.requirements;
+  if (requirements === undefined) return null;
+
+  const verdict =
+    profile != null
+      ? checkEligibility(requirements, profile, listing.price.value).verdict
+      : 'unknown';
+
+  if (verdict === 'income') return <Badge variant="warning">Revenu exigé</Badge>;
+  if (verdict === 'situation') return <Badge variant="warning">Situation non listée</Badge>;
+  if (verdict === 'guarantee') return <Badge variant="warning">Garantie refusée</Badge>;
+
+  /**
+   * LA GLI N'EST PAS UN REFUS, C'EST UNE EXIGENCE : un repère neutre, et rien
+   * de plus quand un autre badge dit déjà ce qui coince. Elle compte parce que
+   * c'est alors l'assureur qui fixe les critères, sans exception possible.
+   */
+  if (requirements.insuredRent === true) return <Badge>Garantie loyers impayés</Badge>;
+  return null;
+}
+
+/**
  * Pastilles de statut, empilées par ordre de priorité. « Loué » prime sur tout
  * (§32) ; le suivi n'affiche qu'un seul statut, le plus avancé (« Consultée »
  * seulement si aucune action n'a suivi). Isolé de `ListingCard` pour la clarté.
@@ -148,16 +184,6 @@ function StatusBadges({
   readonly archived: boolean;
   readonly profile: TenantProfile | null | undefined;
 }): React.JSX.Element {
-  /**
-   * LE DOSSIER NE PASSE PAS, ET ON LE DIT AVANT LE CLIC. Sans ce repère, on
-   * ouvre la fiche, on lit, on appelle, on envoie son dossier — et le refus
-   * tombe sur un critère écrit dès l'annonce. Rien n'est masqué pour autant :
-   * le bailleur peut faire une exception, et c'est à l'utilisateur de juger.
-   */
-  const barre =
-    listing.requirements !== undefined && profile != null
-      ? checkEligibility(listing.requirements, profile).verdict
-      : 'unknown';
   return (
     <>
       {rented && <Badge variant="bad">Loué</Badge>}
@@ -172,8 +198,7 @@ function StatusBadges({
       )}
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
       <ApplicationsFullBadge listing={listing} rented={rented} />
-      {barre === 'income' && <Badge variant="warning">Revenu exigé</Badge>}
-      {barre === 'situation' && <Badge variant="warning">Situation non listée</Badge>}
+      <RequirementBadges listing={listing} profile={profile} />
       {/* « Trop beau pour être vrai ? » — le doute, pas le verdict, d'où le
         point d'interrogation : la fiche en donne les raisons, ligne à ligne.
         Ce badge attendait que le score cesse de se tromper. Il désignait 57

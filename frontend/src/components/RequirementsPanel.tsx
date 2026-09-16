@@ -16,14 +16,35 @@
 import type { ListingView } from '../types.js';
 import {
   checkEligibility,
+  formatMultiplier,
   guaranteeLabel,
   hasRequirements,
   situationLabel,
+  type TenancyRequirements,
   type TenantProfile,
 } from '@maioun/shared';
 import { Card } from '@/components/ui/card.js';
 import { ShieldCheck, TriangleAlert } from './icons.js';
 import { Alert, AlertDescription } from './ui/alert.js';
+
+/**
+ * Le revenu exigé, dans les termes de l'annonce.
+ *
+ * Un multiple du loyer se convertit en euros — mais on le dit, et l'on dit
+ * « environ » : l'annonce ne précise presque jamais si le loyer compté est
+ * celui des charges comprises. Sans loyer connu, le multiple reste nu.
+ */
+function incomeLine(requirements: TenancyRequirements, rent: number | null): string | null {
+  if (requirements.minIncome !== null) {
+    return `${Math.round(requirements.minIncome)} € net / mois`;
+  }
+  const multiple = requirements.incomeMultiplier;
+  if (multiple === null) return null;
+  const facteur = `${formatMultiplier(multiple)} × le loyer`;
+  return rent !== null && rent > 0
+    ? `${facteur}, soit environ ${Math.round(multiple * rent)} € net / mois`
+    : facteur;
+}
 
 export function RequirementsPanel({
   listing,
@@ -37,8 +58,10 @@ export function RequirementsPanel({
   // dire. C'est le cas de la grande majorité des annonces.
   if (requirements === undefined || !hasRequirements(requirements)) return null;
 
-  const { verdict, reason } = checkEligibility(requirements, profile);
-  const bloque = verdict === 'income' || verdict === 'situation';
+  const rent = listing.price.value;
+  const { verdict, reason } = checkEligibility(requirements, profile, rent);
+  const bloque = verdict === 'income' || verdict === 'situation' || verdict === 'guarantee';
+  const revenu = incomeLine(requirements, rent);
 
   return (
     <Card className="my-4" aria-labelledby="conditions-title" role="region">
@@ -52,10 +75,10 @@ export function RequirementsPanel({
       </h3>
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
-        {requirements.minIncome !== null && (
+        {revenu !== null && (
           <>
             <dt className="text-muted-foreground">Revenu minimum</dt>
-            <dd>{Math.round(requirements.minIncome)} € net / mois</dd>
+            <dd>{revenu}</dd>
           </>
         )}
         {requirements.insuredRent === true && (
@@ -65,6 +88,12 @@ export function RequirementsPanel({
               l'assureur qui fixe les critères, et il n'accorde pas
               d'exception. */}
             <dd>Loyers impayés — critères fixés par l’assureur</dd>
+          </>
+        )}
+        {requirements.refusedGuarantees.length > 0 && (
+          <>
+            <dt className="text-muted-foreground">Garanties refusées</dt>
+            <dd>{requirements.refusedGuarantees.map(guaranteeLabel).join(', ')}</dd>
           </>
         )}
         {requirements.situations.length > 0 && (
@@ -95,6 +124,16 @@ export function RequirementsPanel({
             à coup sûr.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* UN GARANT NE REMPLACE PAS LE DOSSIER sous assurance : l'assureur
+        compare son seuil aux revenus du locataire, et demande au garant de
+        couvrir le sien à part. C'est ce que personne ne sait avant le refus. */}
+      {requirements.insuredRent === true && (
+        <p className="text-muted-foreground mt-3 text-[0.9rem]">
+          Sous assurance loyers impayés, un garant ne remplace pas vos revenus : l’assureur compare
+          son seuil aux vôtres, puis demande au garant les siens.
+        </p>
       )}
 
       {verdict === 'unknown' && profile === null && (

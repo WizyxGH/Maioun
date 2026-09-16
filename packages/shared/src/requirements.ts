@@ -35,6 +35,15 @@ export interface TenancyRequirements {
    */
   readonly minIncome: number | null;
   /**
+   * Le même seuil écrit en MULTIPLE DU LOYER : « il faut percevoir 3 fois le
+   * montant du loyer », « revenus 2,7 x supérieurs au loyer ».
+   *
+   * C'est la forme la plus courante là où la GLI est nommée, et elle ne donne
+   * aucun montant : seul le loyer de l'annonce permet de la convertir, ce que
+   * fait `checkEligibility` — et seulement si le loyer est connu.
+   */
+  readonly incomeMultiplier: number | null;
+  /**
    * `true` si le bailleur a souscrit une assurance loyers impayés.
    *
    * Ce n'est pas un détail administratif : c'est l'ASSUREUR qui fixe alors les
@@ -44,6 +53,16 @@ export interface TenancyRequirements {
   readonly insuredRent: boolean | null;
   /** Garanties nommées dans l'annonce. Vide = rien n'est dit. */
   readonly guarantees: readonly GuaranteeKind[];
+  /**
+   * Garanties que l'annonce REFUSE nommément — « pas de visale, pas de
+   * garant », « nous n'acceptons pas les garanties Visale ou GarantMe ».
+   *
+   * Un refus n'est pas l'absence d'une mention : il rend le logement
+   * inaccessible à un dossier qui ne tient que par cette garantie-là, et c'est
+   * précisément ce qu'on veut dire avant le clic. Vide = rien n'est refusé
+   * explicitement, ce qui est le cas de presque toutes les annonces.
+   */
+  readonly refusedGuarantees: readonly GuaranteeKind[];
   /** Situations professionnelles nommées. Vide = rien n'est dit. */
   readonly situations: readonly AcceptedSituation[];
 }
@@ -51,8 +70,10 @@ export interface TenancyRequirements {
 /** Aucune condition connue : ce que rend une annonce qui n'en énonce aucune. */
 export const NO_REQUIREMENTS: TenancyRequirements = {
   minIncome: null,
+  incomeMultiplier: null,
   insuredRent: null,
   guarantees: [],
+  refusedGuarantees: [],
   situations: [],
 };
 
@@ -60,14 +81,16 @@ export const NO_REQUIREMENTS: TenancyRequirements = {
 export function hasRequirements(requirements: TenancyRequirements): boolean {
   return (
     requirements.minIncome !== null ||
+    requirements.incomeMultiplier !== null ||
     requirements.insuredRent !== null ||
     requirements.guarantees.length > 0 ||
+    requirements.refusedGuarantees.length > 0 ||
     requirements.situations.length > 0
   );
 }
 
 /** Ce qu'on peut dire d'un dossier face à une annonce. */
-export type EligibilityVerdict = 'unknown' | 'eligible' | 'income' | 'situation';
+export type EligibilityVerdict = 'unknown' | 'eligible' | 'income' | 'situation' | 'guarantee';
 
 export interface Eligibility {
   readonly verdict: EligibilityVerdict;
@@ -106,32 +129,76 @@ function netMonthlyIncome(profile: TenantProfile): number | null {
 }
 
 /**
+ * Le seuil de revenu, en euros, tel qu'on peut l'établir.
+ *
+ * Écrit en euros, il vaut tel quel. Écrit en multiple du loyer — la forme la
+ * plus courante sous GLI —, il ne vaut que multiplié par le loyer, et l'on ne
+ * tranche donc rien quand le loyer est inconnu.
+ *
+ * `approximate` retient que la BASE du multiple est incertaine : les annonces
+ * disent tantôt « 3 fois le loyer hors charges », tantôt « 2,7 fois le loyer
+ * charges comprises », et notre loyer n'est pas toujours celui-là.
+ */
+function requiredIncome(
+  requirements: TenancyRequirements,
+  rent: number | null,
+): { readonly amount: number; readonly approximate: boolean } | null {
+  if (requirements.minIncome !== null) {
+    return { amount: requirements.minIncome, approximate: false };
+  }
+  if (requirements.incomeMultiplier === null || rent === null || rent <= 0) return null;
+  return { amount: requirements.incomeMultiplier * rent, approximate: true };
+}
+
+/** Les garanties du profil, dans le vocabulaire des annonces. */
+function profileGuarantees(profile: TenantProfile): readonly GuaranteeKind[] {
+  const kinds: GuaranteeKind[] = [];
+  for (const guarantor of profile.guarantors) {
+    // « autre » n'est comparable à rien : on ne sait pas de quel dispositif il
+    // s'agit, et le compter pour refusé condamnerait un dossier à tort.
+    if (guarantor.kind !== 'other') kinds.push(guarantor.kind);
+  }
+  return kinds;
+}
+
+/**
  * Ce que ce dossier peut espérer de cette annonce.
  *
- * TROIS RÉPONSES SEULEMENT, et « on ne sait pas » en est une. Elle domine :
+ * QUATRE RÉPONSES SEULEMENT, et « on ne sait pas » en est une. Elle domine :
  * la plupart des annonces n'énoncent aucune condition, et prétendre trancher
  * reviendrait à écarter des logements sur une supposition.
  *
  * LE DOUTE PROFITE AU CANDIDAT. Un revenu à un pour cent du seuil ne se déclare
  * pas insuffisant : le calcul brut → net est approximatif, les primes ne sont
  * pas dans le profil, et un refus affiché à tort coûte un logement.
+ *
+ * @param rent loyer de l'annonce, seul moyen de convertir « 3 fois le loyer »
+ *             en euros. Absent, un seuil écrit sous cette forme ne conclut rien.
  */
 export function checkEligibility(
   requirements: TenancyRequirements,
   profile: TenantProfile | null,
+  rent: number | null = null,
 ): Eligibility {
   if (profile === null || !hasRequirements(requirements)) {
     return { verdict: 'unknown', reason: null };
   }
 
   const income = netMonthlyIncome(profile);
-  if (requirements.minIncome !== null && income !== null) {
+  const required = requiredIncome(requirements, rent);
+  if (required !== null && income !== null) {
     // Cinq pour cent de marge : le passage du brut au net est approximatif, et
-    // le profil ne porte ni prime ni treizième mois.
-    if (income < requirements.minIncome * 0.95) {
+    // le profil ne porte ni prime ni treizième mois. Quinze pour cent quand le
+    // seuil vient d'un multiple, dont la base — avec ou sans les charges —
+    // n'est pas dite.
+    const margin = required.approximate ? 0.85 : 0.95;
+    if (income < required.amount * margin) {
+      const seuil = required.approximate
+        ? `${formatMultiplier(requirements.incomeMultiplier)} × le loyer, soit environ ${Math.round(required.amount)} €`
+        : `${Math.round(required.amount)} € net`;
       return {
         verdict: 'income',
-        reason: `${Math.round(requirements.minIncome)} € net exigés, ${Math.round(income)} € déclarés`,
+        reason: `${seuil} exigés, ${Math.round(income)} € déclarés`,
       };
     }
   }
@@ -148,7 +215,31 @@ export function checkEligibility(
     }
   }
 
+  /**
+   * TOUTES LES GARANTIES DU DOSSIER REFUSÉES, ET RIEN D'AUTRE POUR TENIR.
+   *
+   * En dernier, parce qu'un revenu insuffisant est plus décisif. Et seulement
+   * si le refus les couvre TOUTES : un candidat dont la Visale est refusée
+   * mais qui a un garant physique reste un candidat.
+   */
+  const mine = profileGuarantees(profile);
+  if (
+    requirements.refusedGuarantees.length > 0 &&
+    mine.length > 0 &&
+    mine.every((kind) => requirements.refusedGuarantees.includes(kind))
+  ) {
+    return {
+      verdict: 'guarantee',
+      reason: `l’annonce refuse ${[...new Set(mine)].map(guaranteeLabel).join(', ')}`,
+    };
+  }
+
   return { verdict: 'eligible', reason: null };
+}
+
+/** « 2,7 » et non « 2.7 » : un multiple s'écrit à la française. */
+export function formatMultiplier(multiplier: number | null): string {
+  return multiplier === null ? '' : String(multiplier).replace('.', ',');
 }
 
 /** L'intitulé d'une situation acceptée, tel qu'on l'écrit à l'écran. */

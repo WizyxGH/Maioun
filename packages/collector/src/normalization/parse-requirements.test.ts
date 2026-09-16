@@ -36,6 +36,82 @@ describe('revenu minimum exigé', () => {
     expect(parseRequirements('Revenu minimum de 200 €').minIncome).toBeNull();
     expect(parseRequirements('Revenu minimum de 45 000 €').minIncome).toBeNull();
   });
+
+  it('lit les tournures que la phrase de GLI emploie ailleurs', () => {
+    expect(
+      parseRequirements(
+        'Il faut un minimum de 1858€ net/mois sans heures supplémentaires, ' +
+          'ni primes (assurance garantie des loyers impayés).',
+      ).minIncome,
+    ).toBe(1858);
+    expect(
+      parseRequirements(
+        'Location soumise à la garantie des loyers impayés : revenu minimum pour y accéder : 3800€',
+      ).minIncome,
+    ).toBe(3800);
+    expect(
+      parseRequirements('Revenus minimum exigés (Garantie des Loyers Impayés) : 1850 €/mois')
+        .minIncome,
+    ).toBe(1850);
+    expect(
+      parseRequirements('Dossier en Garantie loyers impayés, revenus exigés de 2.430 € par mois.')
+        .minIncome,
+    ).toBe(2430);
+    expect(
+      parseRequirements('Selon la GLI il faut avoir des revenus nets de 4050 €').minIncome,
+    ).toBe(4050);
+  });
+
+  it('ne prend pas « un minimum de X € » pour un revenu sans le mot « net »', () => {
+    expect(parseRequirements('Il faut un minimum de 1 200 € de travaux').minIncome).toBeNull();
+  });
+});
+
+describe('revenu exigé en multiple du loyer', () => {
+  it('lit les tournures rencontrées sous GLI', () => {
+    expect(
+      parseRequirements(
+        'Appartement soumis à la GLI, de ce fait il faut percevoir 3 fois le montant du loyer.',
+      ).incomeMultiplier,
+    ).toBe(3);
+    expect(
+      parseRequirements('Bien soumis à la GLI, revenus 2,7 x supérieurs au loyer exigés')
+        .incomeMultiplier,
+    ).toBe(2.7);
+    expect(
+      parseRequirements(
+        'Assurance loyers impayés : revenu net mensuel imposable impérativement ' +
+          '2.7 fois supérieur au montant du loyer charges comprises.',
+      ).incomeMultiplier,
+    ).toBe(2.7);
+    expect(
+      parseRequirements(
+        'devront justifier de revenus nets mensuels équivalents à trois fois le montant du loyer',
+      ).incomeMultiplier,
+    ).toBe(3);
+  });
+
+  it('n’attribue pas au candidat un multiple exigé du garant', () => {
+    // « Garants avec des revenus 3 fois supérieurs au loyer » ne dit rien des
+    // revenus du locataire : l'appliquer le déclarerait hors dossier à tort.
+    expect(
+      parseRequirements('Garants avec des revenus 3 fois supérieurs au loyer').incomeMultiplier,
+    ).toBeNull();
+    expect(
+      parseRequirements('Ressources ou garant gagnant 2,5 fois le loyer requis.').incomeMultiplier,
+    ).toBeNull();
+  });
+
+  it('s’efface devant un montant que l’annonce a calculé elle-même', () => {
+    const texte = 'GARANTIE LOYERS IMPAYES : Revenu minimum de 2 400 € net, soit 3 fois le loyer';
+    expect(parseRequirements(texte).minIncome).toBe(2400);
+    expect(parseRequirements(texte).incomeMultiplier).toBeNull();
+  });
+
+  it('refuse un multiple hors des bornes plausibles', () => {
+    expect(parseRequirements('ménage 1 fois le loyer').incomeMultiplier).toBeNull();
+    expect(parseRequirements('10 fois le montant du loyer').incomeMultiplier).toBeNull();
+  });
 });
 
 describe('assurance loyers impayés', () => {
@@ -45,8 +121,50 @@ describe('assurance loyers impayés', () => {
     expect(parseRequirements('Profil éligible et accepté en GLI').insuredRent).toBe(true);
   });
 
+  it('la reconnaît quand l’annonce n’écrit qu’« assurance »', () => {
+    // Cinq annonces actives n'emploient jamais le mot « garantie ».
+    expect(parseRequirements('PROXIMITE TRAMWAY / ASSURANCE LOYERS IMPAYES').insuredRent).toBe(
+      true,
+    );
+    expect(
+      parseRequirements('Assurance loyers impayés : le locataire doit gagner 3 fois le loyer')
+        .insuredRent,
+    ).toBe(true);
+  });
+
   it('reste inconnue quand rien ne la mentionne (§17)', () => {
     expect(parseRequirements('Beau studio proche tram').insuredRent).toBeNull();
+  });
+});
+
+describe('garanties refusées', () => {
+  it('relève les refus nommés', () => {
+    const texte =
+      'dossier par mail complet avant toute visite garantie loyer impayé exigée, ' +
+      'pas de visale, pas de garant.';
+    expect(parseRequirements(texte).refusedGuarantees).toEqual(['visale', 'physical']);
+    expect(
+      parseRequirements('Nous n’acceptons pas les garanties Visale ou GarantMe.').refusedGuarantees,
+    ).toEqual(['visale', 'garantme']);
+  });
+
+  it('ne compte pas une garantie refusée parmi les garanties acceptées', () => {
+    // « pas de visale » contient « visale » : sans le retrait, l'annonce
+    // passerait pour accueillante à l'inverse de ce qu'elle dit.
+    expect(parseRequirements('garantie loyer impayé exigée, pas de visale').guarantees).toEqual([]);
+  });
+
+  it('ne prend pas une EXIGENCE de garant pour un refus', () => {
+    // « inutile d'appeler si vous n'avez pas de garant » exige un garant.
+    const texte = 'Caution obligatoire (inutile d’appeler si vous n’avez pas de garant)';
+    expect(parseRequirements(texte).refusedGuarantees).toEqual([]);
+  });
+
+  it('ne refuse rien quand l’annonce ne refuse rien', () => {
+    expect(
+      parseRequirements('Garantie VISALE acceptée, bien soumis à la garantie des loyers impayés.')
+        .refusedGuarantees,
+    ).toEqual([]);
   });
 });
 
@@ -102,8 +220,10 @@ describe('une annonce ordinaire n’énonce rien', () => {
   it('rend un objet vide plutôt que des suppositions', () => {
     expect(parseRequirements('Studio de 25 m² avec parking, disponible immédiatement.')).toEqual({
       minIncome: null,
+      incomeMultiplier: null,
       insuredRent: null,
       guarantees: [],
+      refusedGuarantees: [],
       situations: [],
     });
     expect(parseRequirements(null).minIncome).toBeNull();

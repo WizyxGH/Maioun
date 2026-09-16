@@ -39,36 +39,90 @@ const INCOME_BOUNDS = { min: 500, max: 20_000 };
  */
 const ESPACES_MILLIERS = '\\s\\u00a0\\u202f';
 
+/** Le montant, avec ses séparateurs, suivi de sa monnaie. */
+const MONTANT = `([\\d${ESPACES_MILLIERS}.,]+)\\s*(?:\\u20ac|eur\\b|euros?\\b|eur\\w*)`;
+
 /**
  * Le revenu minimum exigé, et lui seul.
  *
- * QUATRE FORMES RELEVÉES sur les annonces réelles du 2026-09-10, toutes
- * DIRIGÉES — le montant doit être attribué au revenu, jamais simplement voisin
- * du mot :
+ * FORMES RELEVÉES sur les annonces actives, toutes DIRIGÉES — le montant doit
+ * être attribué au revenu, jamais simplement voisin du mot. On essaie dans
+ * l'ordre et l'on retient la première qui donne un montant plausible.
  *
  *   « Revenus minimum requis : 1 971 € nets / mois »
- *   « Revenu minimum de 4 540€ »
- *   « revenus minimum requis de 4 216 EUR »
- *   « Revenu minimum NET de 3 530€ »
+ *   « Revenu minimum de 4 540€ » / « Revenu minimum NET de 3 530€ »
+ *   « Il faut un minimum de 1 858 € net/mois »
+ *   « revenu minimum pour y accéder : 3 800€ »
+ *   « Revenus minimum exigés (Garantie des Loyers Impayés) : 1 850 €/mois »
+ *   « revenus exigés de 2.430 € par mois »
+ *   « il faut avoir des revenus nets de 4 050 € »
  *
  * Le « NET » qui s'intercale entre « minimum » et « de » est la raison pour
- * laquelle les qualificatifs sont optionnels ET répétables dans l'expression.
+ * laquelle les qualificatifs sont optionnels ET répétables dans la première.
+ *
+ * « ressources minimales (salaire de 3 600€ pour une personne ou 4 000€ pour
+ * un couple) » reste DEHORS : deux seuils, et rien ne dit lequel s'applique.
  */
-const MIN_INCOME = new RegExp(
-  'revenus?\\s+(?:mensuels?\\s+)?(?:minimum|minimal\\w*)' +
-    '\\s*(?:net\\w*|requis|exig\\w*|\\s)*[:\\s]*(?:de\\s+)?(?:net\\w*\\s+)?(?:de\\s+)?' +
-    `([\\d${ESPACES_MILLIERS}.,]+)\\s*(?:\\u20ac|eur\\b|euros?\\b)`,
-  'i',
-);
+const MIN_INCOME_FORMS: readonly RegExp[] = [
+  new RegExp(
+    'revenus?\\s+(?:mensuels?\\s+)?(?:minimum|minimal\\w*)' +
+      `\\s*(?:net\\w*|requis|exig\\w*|\\s)*[:\\s]*(?:de\\s+)?(?:net\\w*\\s+)?(?:de\\s+)?${MONTANT}`,
+    'i',
+  ),
+  // « net » après le montant est indispensable : sans lui, « il faut un
+  // minimum de 500 € » parlerait de n'importe quoi.
+  new RegExp(`il\\s+faut\\s+un\\s+minimum\\s+de\\s+${MONTANT}\\s*net`, 'i'),
+  new RegExp(`revenus?\\s+minimum\\s+pour\\s+y\\s+acc[ée]der\\s*:?\\s*${MONTANT}`, 'i'),
+  new RegExp(`revenus?\\s+minimum\\s+exig[ée]*s?\\s*\\([^)]{0,80}\\)\\s*:\\s*${MONTANT}`, 'i'),
+  new RegExp(`revenus?\\s+(?:nets?\\s+)?exig[ée]*s?\\s+de\\s+${MONTANT}`, 'i'),
+  new RegExp(`revenus?\\s+nets?\\s+de\\s+${MONTANT}`, 'i'),
+];
 
 /**
- * L'assurance loyers impayés, sous ses trois écritures.
+ * Le seuil écrit en MULTIPLE DU LOYER, la forme dominante sous GLI.
+ *
+ *   « il faut percevoir 3 fois le montant du loyer »
+ *   « revenus 2,7 x supérieurs au loyer »
+ *   « revenus nets mensuels équivalents à trois fois le montant du loyer »
+ *
+ * Il ne donne aucun euro : c'est le loyer de l'annonce qui le convertira, et
+ * seulement là où il est connu.
+ */
+const RENT_MULTIPLE =
+  /(\d(?:[.,]\d+)?|deux|trois|quatre)\s*(?:fois|x)\s+(?:sup[ée]rieurs?\s+au\s+(?:montant\s+du\s+)?loyer|le\s+montant\s+du\s+loyer|le\s+loyer)/i;
+
+/** Les multiples écrits en toutes lettres, tels qu'on les rencontre. */
+const MULTIPLE_WORDS: Readonly<Record<string, number>> = { deux: 2, trois: 3, quatre: 4 };
+
+/**
+ * Bornes de plausibilité d'un multiple du loyer.
+ *
+ * Deux et demi à trois est la règle du marché, trois et demi chez les assureurs
+ * les plus stricts. En dehors, on lit autre chose — « 3 fois par semaine ».
+ */
+const MULTIPLE_BOUNDS = { min: 2, max: 4 };
+
+/**
+ * UN MULTIPLE ATTRIBUÉ AU GARANT N'EST PAS EXIGÉ DU CANDIDAT.
+ *
+ * « Garants avec des revenus 3 fois supérieurs au loyer » ne dit rien des
+ * revenus du locataire ; le lui appliquer le déclarerait hors dossier à tort.
+ * On regarde donc les quarante caractères qui précèdent.
+ */
+const GUARANTOR_INCOME = /\bgarant/i;
+const GUARANTOR_LOOKBACK = 40;
+
+/**
+ * L'assurance loyers impayés, sous ses écritures courantes.
  *
  * CE N'EST PAS UN DÉTAIL ADMINISTRATIF. Quand elle est là, c'est l'ASSUREUR qui
  * fixe les critères, et il n'accorde pas d'exception : un dossier hors grille
  * est refusé avant d'arriver au bailleur.
+ *
+ * « assurance » compte autant que « garantie » : cinq annonces n'écrivent que
+ * « ASSURANCE LOYERS IMPAYES », et elles posent la même exigence.
  */
-const INSURED_RENT = /garantie\s+(?:des\s+)?loyers?\s+impay|\bGLI\b/i;
+const INSURED_RENT = /(?:garantie|assurance)\s+(?:des\s+)?loyers?\s+impay|\bGLI\b/i;
 
 /**
  * Les garanties nommément citées.
@@ -85,6 +139,39 @@ const GUARANTEES: readonly (readonly [RegExp, GuaranteeKind])[] = [
     /\bgarants?\s+(?:obligatoire|exig|requis|demand)|\bavec\s+garants?\b|\bcaution\s+solidaire\b|\bse\s+porter\s+caution\b/i,
     'physical',
   ],
+];
+
+/**
+ * Les tournures par lesquelles une annonce REFUSE une garantie.
+ *
+ * « pas de visale, pas de garant », « nous n'acceptons pas les garanties Visale
+ * ou GarantMe ». Deux annonces sur les actives, et ce sont exactement celles
+ * qu'un dossier Visale ne doit pas viser.
+ */
+const REFUSAL = /(?:pas\s+de|n['’]accept\w+\s+pas(?:\s+(?:les?|la)\s+garanties?)?)/gi;
+
+/**
+ * CE QUI PRÉCÈDE FAIT TOUT. « inutile d'appeler si vous n'avez pas de garant »
+ * EXIGE un garant — c'est l'inverse d'un refus. Le verbe « avoir » juste avant
+ * la négation la retourne, et suffit à l'écarter.
+ */
+const REFUSAL_INVERTED = /av(?:ez|ons|oir)|disposez|poss[eè]d/i;
+const REFUSAL_LOOKBACK = 40;
+
+/**
+ * Longueur de la négation, en caractères.
+ *
+ * « pas de visale, pas de garant » : chaque refus nomme sa garantie dans la
+ * foulée. Au-delà, on ramasserait la phrase suivante.
+ */
+const REFUSAL_WINDOW = 60;
+
+/** Les garanties telles qu'elles se nomment dans un refus, sans exigence. */
+const REFUSED_NAMES: readonly (readonly [RegExp, GuaranteeKind])[] = [
+  [/\bvisale\b/i, 'visale'],
+  [/\bgarant\s?me\b/i, 'garantme'],
+  [/\bstudapart\b/i, 'studapart'],
+  [/\bgarants?\b/i, 'physical'],
 ];
 
 /**
@@ -123,6 +210,52 @@ const SITUATIONS: readonly (readonly [RegExp, AcceptedSituation])[] = [
  */
 const CRITERIA_WINDOW = 200;
 
+/** Le revenu exigé en euros, et l'endroit du texte où il est écrit. */
+function findMinIncome(text: string): { amount: number; index: number } | null {
+  for (const form of MIN_INCOME_FORMS) {
+    const match = form.exec(text);
+    if (match?.[1] === undefined) continue;
+    const parsed = parseFrenchNumber(match[1]);
+    if (parsed !== null && parsed >= INCOME_BOUNDS.min && parsed <= INCOME_BOUNDS.max) {
+      return { amount: parsed, index: match.index };
+    }
+  }
+  return null;
+}
+
+/** Le multiple du loyer exigé du CANDIDAT, et l'endroit où il est écrit. */
+function findMultiplier(text: string): { value: number; index: number } | null {
+  const match = RENT_MULTIPLE.exec(text);
+  if (match?.[1] === undefined) return null;
+
+  const avant = text.slice(Math.max(0, match.index - GUARANTOR_LOOKBACK), match.index);
+  if (GUARANTOR_INCOME.test(avant)) return null;
+
+  const value =
+    MULTIPLE_WORDS[match[1].toLowerCase()] ?? parseFrenchNumber(match[1].replace('.', ','));
+  if (value === null || value < MULTIPLE_BOUNDS.min || value > MULTIPLE_BOUNDS.max) return null;
+  return { value, index: match.index };
+}
+
+/** Les garanties que le texte refuse nommément. */
+function findRefused(text: string): readonly GuaranteeKind[] {
+  const refused = new Set<GuaranteeKind>();
+  for (const match of text.matchAll(REFUSAL)) {
+    const avant = text.slice(Math.max(0, match.index - REFUSAL_LOOKBACK), match.index);
+    if (REFUSAL_INVERTED.test(avant)) continue;
+
+    let fenetre = text.slice(match.index, match.index + REFUSAL_WINDOW);
+    for (const [pattern, kind] of REFUSED_NAMES) {
+      if (!pattern.test(fenetre)) continue;
+      refused.add(kind);
+      // « GarantMe » contient « Garant » : sans ce retrait, un refus de
+      // GarantMe passerait aussi pour un refus de garant physique.
+      fenetre = fenetre.replace(new RegExp(pattern.source, 'gi'), ' ');
+    }
+  }
+  return [...refused];
+}
+
 /**
  * Les conditions d'accès lues dans un texte libre.
  *
@@ -133,16 +266,20 @@ export function parseRequirements(text: string | null | undefined): TenancyRequi
   const cleaned = cleanText(text);
   if (cleaned === '') return NO_REQUIREMENTS;
 
-  const match = MIN_INCOME.exec(cleaned);
-  const parsed = match?.[1] !== undefined ? parseFrenchNumber(match[1]) : null;
-  const minIncome =
-    parsed !== null && parsed >= INCOME_BOUNDS.min && parsed <= INCOME_BOUNDS.max ? parsed : null;
+  const income = findMinIncome(cleaned);
+  // Le multiple ne sert qu'à DÉFAUT d'un montant : quand l'annonce écrit les
+  // deux, c'est le montant qu'elle a calculé elle-même qui fait foi.
+  const multiplier = income === null ? findMultiplier(cleaned) : null;
 
   const insuredRent = INSURED_RENT.test(cleaned) ? true : null;
 
-  const guarantees = GUARANTEES.filter(([pattern]) => pattern.test(cleaned)).map(
-    ([, kind]) => kind,
-  );
+  const refusedGuarantees = findRefused(cleaned);
+  // Une garantie refusée n'est pas une garantie acceptée : « pas de visale »
+  // contient « visale », et l'annonce serait rendue accueillante à l'inverse
+  // de ce qu'elle dit.
+  const guarantees = GUARANTEES.filter(
+    ([pattern, kind]) => pattern.test(cleaned) && !refusedGuarantees.includes(kind),
+  ).map(([, kind]) => kind);
 
   /**
    * LES SITUATIONS NE SE LISENT QUE DANS LEUR PHRASE. « étudiant » apparaît
@@ -151,11 +288,18 @@ export function parseRequirements(text: string | null | undefined): TenancyRequi
    * qui suit la mention du revenu ou de l'assurance, c'est-à-dire là où le
    * bailleur énumère ses critères.
    */
-  const debut = match?.index ?? INSURED_RENT.exec(cleaned)?.index ?? null;
+  const debut = income?.index ?? multiplier?.index ?? INSURED_RENT.exec(cleaned)?.index ?? null;
   const segment = debut === null ? '' : cleaned.slice(debut, debut + CRITERIA_WINDOW);
   const situations = SITUATIONS.filter(([pattern]) => pattern.test(segment)).map(
     ([, kind]) => kind,
   );
 
-  return { minIncome, insuredRent, guarantees, situations };
+  return {
+    minIncome: income?.amount ?? null,
+    incomeMultiplier: multiplier?.value ?? null,
+    insuredRent,
+    guarantees,
+    refusedGuarantees,
+    situations,
+  };
 }
