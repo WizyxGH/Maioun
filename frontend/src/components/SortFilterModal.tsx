@@ -38,6 +38,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchPriceHistogram, type PriceHistogram } from '../api/client.js';
 import { X } from './icons.js';
 import type { PropertyType } from '@maioun/shared';
+import type { FilterConfig } from '../types.js';
 import { formatPropertyType, formatSourceName } from '../format.js';
 import {
   OCCUPANT_PRESETS,
@@ -104,9 +105,10 @@ export interface SortFilterModalProps {
   readonly onReset: () => void;
   /**
    * Recharge la liste après un changement de CRITÈRE, qui s'applique côté
-   * serveur. Sans lui, le compteur du pied resterait celui d'avant.
+   * serveur. Sans lui, le compteur du pied resterait celui d'avant. Reçoit les
+   * critères écrits : la barre de puces les montre sans les redemander.
    */
-  readonly onCriteriaSaved?: () => void;
+  readonly onCriteriaSaved?: (saved: FilterConfig) => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
   readonly dirty: boolean;
 

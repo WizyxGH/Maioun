@@ -103,6 +103,7 @@ import {
   type ExtraChip,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
+import { criteriaChips } from './criteria-chips.js';
 import { filterListings } from './listing-filter.js';
 import { forgetListing, replaceListing } from './listing-store.js';
 import { loadInStages } from './progressive-load.js';
@@ -495,23 +496,69 @@ function SessionPending(): React.JSX.Element {
 /**
  * Nombre de filtres POSÉS — c'est la pastille du bouton « Filtres ».
  *
- * IL EN OUBLIAIT LA MOITIÉ. On ne comptait que le tri, les sources et les trois
- * bascules : un budget, une surface et un mot cherché donnaient « 1 », et la
- * pastille contredisait la barre de puces juste en dessous.
+ * IL EN OUBLIAIT LA MOITIÉ, PUIS LES CRITÈRES. On ne comptait d'abord que le
+ * tri, les sources et les trois bascules ; ensuite les filtres du navigateur,
+ * mais jamais les CRITÈRES — 87 quartiers, deux exclusions, un plafond de
+ * trajet. L'écran annonçait « 3 » pendant qu'une dizaine de règles écartaient
+ * des annonces.
  *
- * LA RÈGLE EST CELLE DE LA BARRE : une puce affichée, un filtre compté. Le
- * budget vaut donc un — sa fourchette n'a qu'une puce —, et le TRI ne compte
- * pas : il ordonne la liste, il n'en retire rien.
+ * LA RÈGLE EST CELLE DE LA BARRE, ET ELLE VAUT DANS LES DEUX SENS : une puce
+ * affichée, un filtre compté — et tout ce qui restreint a sa puce, critères
+ * compris (voir `criteria-chips.ts`). Le budget vaut un — sa fourchette n'a
+ * qu'une puce, et c'est le FILTRE RAPIDE qui la porte, jamais le critère du
+ * même nom. Le TRI ne compte pas : il ordonne la liste, il n'en retire rien.
  *
  * Hors du composant : ce n'est qu'un décompte, et l'y laisser alourdissait
  * `App` sans rien apprendre.
  */
 export function countActiveSettings(view: {
   readonly quickFilters: QuickFilterValues;
-  /** Ce qui restreint hors filtres rapides : recherche, sources, bascules. */
+  /**
+   * Ce qui restreint hors filtres rapides : recherche, sources, bascules, et
+   * les critères. Une puce non retirable compte comme les autres — elle écarte
+   * des annonces tout autant.
+   */
   readonly extras: readonly ExtraChip[];
 }): number {
   return appliedQuickFilterCount(view.quickFilters) + view.extras.length;
+}
+
+/**
+ * LES CRITÈRES ONT LEURS PUCES, retirables ou non.
+ *
+ * Ils restreignent la liste côté serveur et se règlent dans la même modale que
+ * les filtres rapides : les taire, c'était filtrer sans le dire. Une puce sans
+ * croix — quartiers, plafond de trajet — reste affichée et renvoie au panneau ;
+ * `criteria-chips.ts` dit lesquelles et pourquoi.
+ *
+ * Hors du composant, comme les décomptes voisins : `AppView` est au plafond de
+ * complexité, et ceci n'est qu'une traduction.
+ */
+function criteriaExtras(
+  criteria: FilterConfig | null,
+  relax: (patch: Partial<FilterConfig>) => void,
+): readonly ExtraChip[] {
+  return criteriaChips(criteria).map((chip) => ({
+    label: chip.label,
+    onRemove: chip.patch === null ? null : (): void => relax(chip.patch ?? {}),
+    ...(chip.hint === undefined ? {} : { hint: chip.hint }),
+  }));
+}
+
+/**
+ * CE QUE « EFFACER TOUT » NE FAIT PAS, écrit sous les puces.
+ *
+ * Il efface l'affichage et lui seul. Effacer les critères d'un même clic
+ * changerait ce que la collecte ramène et ce que les alertes signalent, sans
+ * retour possible — 87 quartiers cochés un à un ne se reconstituent pas. Le
+ * silence, lui, laisserait croire que la liste est débarrassée de tout filtre.
+ *
+ * `undefined` quand aucun critère ne restreint : il n'y a alors rien à nuancer.
+ */
+function clearAllNoteFor(criteriaRestrictions: readonly ExtraChip[]): string | undefined {
+  return criteriaRestrictions.length === 0
+    ? undefined
+    : '« Effacer tout » ne touche qu’à l’affichage : vos critères de recherche continuent d’écarter des annonces, ici comme dans les alertes. Ils se lèvent un par un.';
 }
 
 /**
@@ -845,6 +892,14 @@ function AppView(): React.JSX.Element {
   // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
   // liste déjà chargée, sans toucher aux critères de collecte (§66).
   const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(restored.quickFilters);
+  /**
+   * LES CRITÈRES, ICI AUSSI. Ils ne vivaient que dans le panneau de la modale :
+   * la barre de puces et la pastille ne pouvaient donc pas montrer ce qu'ils
+   * écartent — quartiers, trajet, exclusions, bailleur, meublé —, et l'écran
+   * annonçait « 3 » filtres pour une dizaine de règles en vigueur.
+   * `null` tant qu'on ne les a pas : on ne devine pas des filtres.
+   */
+  const [criteria, setCriteria] = useState<FilterConfig | null>(null);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>(restored.displayMode);
   // Au-dessus de 1024 px, annonces et plan tiennent ensemble : la vue
@@ -1253,6 +1308,16 @@ function AppView(): React.JSX.Element {
     markAlertsSeenEverywhere(Date.now());
   }, [view]);
 
+  // Les critères du compte, une fois : ils ne changent ensuite que par le
+  // panneau de la modale, qui rend ce qu'il écrit. Un visiteur sans compte n'en
+  // a pas — la demande n'est même pas émise.
+  useEffect(() => {
+    if (currentUser === undefined || currentUser === null) return;
+    void fetchFilters()
+      .then(setCriteria)
+      .catch(() => undefined);
+  }, [currentUser]);
+
   /**
    * Le profil locataire suit le COMPTE, et non l'appareil.
    *
@@ -1607,6 +1672,8 @@ function AppView(): React.JSX.Element {
       // Les critères repartent en base : ils décident de ce que la PROCHAINE
       // collecte ramènera, pas seulement de ce qu'on regarde aujourd'hui.
       await saveFilters(saved.criteria);
+      // Les puces suivent : ce sont ces critères-là qui filtrent désormais.
+      setCriteria(saved.criteria);
       await load(true);
     } catch {
       setError('Les critères de cette recherche n’ont pas pu être appliqués');
@@ -2349,7 +2416,40 @@ function AppView(): React.JSX.Element {
     });
   }
 
-  /** « Effacer tout » : tout ce qui restreint, y compris ce qui vient d'ailleurs. */
+  /**
+   * Lève un critère, et recharge : c'est le SERVEUR qui filtre là-dessus.
+   *
+   * L'écran change d'abord — la puce doit disparaître sous le doigt — et
+   * revient en arrière si l'écriture échoue : garder une puce retirée ferait
+   * croire à un filtre levé qui filtre encore.
+   */
+  const relaxCriterion = async (patch: Partial<FilterConfig>): Promise<void> => {
+    if (criteria === null) return;
+    const previous = criteria;
+    const next = { ...criteria, ...patch };
+    setCriteria(next);
+    try {
+      await saveFilters(next);
+      await load(true);
+    } catch {
+      setCriteria(previous);
+      setError('Ce critère n’a pas pu être modifié');
+    }
+  };
+
+  const criteriaRestrictions = criteriaExtras(criteria, (patch) => void relaxCriterion(patch));
+  otherRestrictions.push(...criteriaRestrictions);
+
+  /**
+   * « Effacer tout » : tout ce qui filtre DANS LE NAVIGATEUR — filtres rapides,
+   * recherche, sources, bascules.
+   *
+   * PAS LES CRITÈRES, et c'est écrit sous les puces. Les effacer d'un clic
+   * changerait ce que la collecte ramène et ce que les alertes signalent, sans
+   * moyen de revenir en arrière : 87 quartiers choisis un à un ne se
+   * reconstituent pas. Ils se lèvent un par un, par leur puce ou dans le
+   * panneau.
+   */
   const clearEveryFilter = (): void => {
     setQuickFilters(EMPTY_QUICK_FILTERS);
     setSourceFilter(ALL_SOURCES);
@@ -2541,7 +2641,11 @@ function AppView(): React.JSX.Element {
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
-            onCriteriaSaved={() => void load(true)}
+            onCriteriaSaved={(saved) => {
+              // La barre de puces suit le panneau sans redemander les critères.
+              setCriteria(saved);
+              void load(true);
+            }}
           />
 
           {/* Rangée des filtres rapides, ET de tout ce qui restreint la liste
@@ -2553,6 +2657,7 @@ function AppView(): React.JSX.Element {
             onChange={setQuickFilters}
             extras={otherRestrictions}
             onClearAll={clearEveryFilter}
+            clearAllNote={clearAllNoteFor(criteriaRestrictions)}
           />
         </div>
       )}

@@ -168,7 +168,15 @@ export const OCCUPANT_PRESETS = [1, 2, 3, 4] as const;
 /** Une restriction posée ailleurs que dans les filtres rapides, montrée ici. */
 export interface ExtraChip {
   readonly label: string;
-  readonly onRemove: () => void;
+  /**
+   * `null` : la puce se voit mais ne se retire pas d'un clic — un critère qu'on
+   * ne saurait pas refaire (87 quartiers) ou qui reviendrait aussitôt. Elle
+   * reste affichée et dit où se régler (`hint`) : la cacher reviendrait à
+   * filtrer sans le dire.
+   */
+  readonly onRemove: (() => void) | null;
+  /** Où se règle une puce non retirable, écrit à côté de son intitulé. */
+  readonly hint?: string;
 }
 
 interface QuickFiltersProps {
@@ -183,6 +191,15 @@ interface QuickFiltersProps {
   readonly extras?: readonly ExtraChip[];
   /** Efface les filtres rapides ET les restrictions ci-dessus. */
   readonly onClearAll?: () => void;
+  /**
+   * Ce que « Effacer tout » ne touche PAS, écrit sous les puces.
+   *
+   * Le lien efface l'affichage, jamais les critères : les effacer changerait ce
+   * que la collecte ramène et ce que les alertes signalent, d'un clic et sans
+   * retour. Le dire vaut mieux que de le faire en silence — ou de laisser
+   * croire qu'on l'a fait.
+   */
+  readonly clearAllNote?: string;
 }
 
 export function QuickFilters({
@@ -190,6 +207,7 @@ export function QuickFilters({
   onChange,
   extras = [],
   onClearAll,
+  clearAllNote,
 }: QuickFiltersProps): React.JSX.Element {
   const patch = (part: Partial<QuickFilterValues>): void => onChange({ ...values, ...part });
 
@@ -247,7 +265,12 @@ export function QuickFilters({
             />
           ))}
           {extras.map((chip) => (
-            <FilterChip key={chip.label} label={chip.label} onRemove={chip.onRemove} />
+            <FilterChip
+              key={chip.label}
+              label={chip.label}
+              onRemove={chip.onRemove}
+              {...(chip.hint === undefined ? {} : { hint: chip.hint })}
+            />
           ))}
           <Button
             variant="link"
@@ -258,6 +281,10 @@ export function QuickFilters({
             Effacer tout
           </Button>
         </div>
+      )}
+      {/* La portée du lien, écrite là où on le lit. */}
+      {clearAllNote !== undefined && (hasAppliedQuickFilters(values) || extras.length > 0) && (
+        <p className="text-muted-foreground text-[0.78rem]">{clearAllNote}</p>
       )}
     </div>
   );
@@ -280,14 +307,29 @@ export function PillButton({
   );
 }
 
-/** Puce d'un filtre actif, avec croix de retrait. */
+/** Puce d'un filtre actif, avec croix de retrait — ou sans, et elle le dit. */
 function FilterChip({
   label,
   onRemove,
+  hint,
 }: {
   readonly label: string;
-  readonly onRemove: () => void;
+  readonly onRemove: (() => void) | null;
+  readonly hint?: string;
 }): React.JSX.Element {
+  // SANS CROIX, MAIS VISIBLE. Le filtre existe et écarte des annonces : le
+  // taire serait revenir au défaut qu'on corrige. Le renvoi remplace la croix,
+  // à la place qu'elle occupait.
+  if (onRemove === null) {
+    return (
+      <span className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border bg-muted px-2.5 text-sm font-medium text-foreground">
+        {label}
+        {hint !== undefined && (
+          <span className="text-muted-foreground text-[0.72rem] font-normal">{hint}</span>
+        )}
+      </span>
+    );
+  }
   return (
     // LA CIBLE DU « × » FAIT 36 px, PAS 20. Elle est restée petite tant que les
     // puces ne s'affichaient qu'après avoir posé un filtre : on ne la

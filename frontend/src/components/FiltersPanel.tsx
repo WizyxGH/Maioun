@@ -33,6 +33,7 @@ import {
 } from '../api/client.js';
 import {
   convertEstimatedDuration,
+  MVP_CRITERIA,
   REFERENCE_TRAVEL_MODES,
   type ReferenceTravelMode,
 } from '@maioun/shared';
@@ -70,6 +71,32 @@ const STACKED = 'flex flex-col gap-1.5 py-2.5';
  * regarde encore le champ.
  */
 const SAVE_DELAY_MS = 600;
+
+/**
+ * Le plafond de trajet que le SERVEUR applique quand le critère est absent.
+ * Vider le champ ne lève donc pas le plafond : il retombe sur celui-ci, et le
+ * panneau le dit au lieu de laisser croire à une recherche sans limite.
+ */
+const PROJECT_COMMUTE_MINUTES = MVP_CRITERIA.maxCommuteMinutes;
+
+/**
+ * Le plafond à enregistrer pour ce qui vient d'être tapé, dans l'unité de la
+ * collecte.
+ *
+ * VIDER LE CHAMP NE VEUT PAS DIRE ZÉRO. `Number('')` vaut 0, et un plafond de
+ * zéro minute n'accepte aucune annonce localisée : la liste est tombée à 26
+ * annonces sur 67 et les alertes à 10 sur 40, sans un mot à l'écran. Un champ
+ * vide — ou un nombre qui ne garderait rien — vaut « pas de plafond ».
+ */
+function commuteCap(
+  typed: string,
+  from: ReferenceTravelMode,
+  to: ReferenceTravelMode,
+): number | undefined {
+  const minutes = Number(typed.trim());
+  if (typed.trim() === '' || !Number.isFinite(minutes) || minutes < 1) return undefined;
+  return convertEstimatedDuration(minutes, from, to);
+}
 
 /**
  * Choix « nature du bailleur ». Les intitulés portent leur propre explication
@@ -143,7 +170,9 @@ function PillGroup<T extends string>({
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 /**
- * @param onSaved Appelé après chaque enregistrement réussi.
+ * @param onSaved Appelé après chaque enregistrement réussi, AVEC les critères
+ *   écrits : la barre de puces les affiche et la pastille les compte, sans
+ *   avoir à les redemander au serveur.
  *
  * IL MANQUAIT, ET LE COMPTEUR MENTAIT. Ces réglages s'écrivent côté SERVEUR —
  * c'est lui qui filtre la liste. Le site, lui, ne redemandait rien : le nombre
@@ -152,7 +181,11 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
  * navigateur, se répercutaient immédiatement — d'où l'impression que « certains
  * filtres ne comptent pas ».
  */
-export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): React.JSX.Element {
+export function FiltersPanel({
+  onSaved,
+}: {
+  readonly onSaved?: (saved: FilterConfig) => void;
+}): React.JSX.Element {
   const [filters, setFilters] = useState<FilterConfig | null>(null);
   const [status, setStatus] = useState<SaveStatus>('idle');
   /** Les quartiers de l'inventaire. Vide = le bloc « Zone de recherche » se tait. */
@@ -172,6 +205,9 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
    */
   const timer = useRef<number | null>(null);
   const unsaved = useRef<FilterConfig | null>(null);
+  /** Le rappel du moment : l'écriture forcée au démontage doit l'atteindre. */
+  const notify = useRef(onSaved);
+  notify.current = onSaved;
 
   useEffect(() => {
     void fetchFilters().then(setFilters);
@@ -190,7 +226,13 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
   useEffect(
     () => () => {
       if (timer.current !== null) window.clearTimeout(timer.current);
-      if (unsaved.current !== null) void saveFilters(unsaved.current);
+      const last = unsaved.current;
+      if (last === null) return;
+      // La barre de puces vit en dehors de cette modale : elle doit apprendre
+      // ce dernier enregistrement, sinon elle montrerait le critère d'avant.
+      void saveFilters(last)
+        .then(() => notify.current?.(last))
+        .catch(() => undefined);
     },
     [],
   );
@@ -200,11 +242,13 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
   // Le mode de SAISIE, et la durée telle qu on la lit dans ce mode. Le stockage
   // reste dans l unité de la collecte ; on ne convertit qu au bord.
   const commuteMode: ReferenceTravelMode = filters.commuteMode ?? storedMode;
-  const shownMinutes = convertEstimatedDuration(
-    filters.maxCommuteMinutes ?? 60,
-    storedMode,
-    commuteMode,
-  );
+  // VIDE QUAND AUCUN PLAFOND N'EST POSÉ. Le champ affichait « 60 » dans ce cas,
+  // ce qui donnait à lire un critère que personne n'avait choisi — et effaçait
+  // à l'écran la différence entre « une heure » et « pas de limite ».
+  const shownMinutes: number | '' =
+    filters.maxCommuteMinutes === undefined
+      ? ''
+      : convertEstimatedDuration(filters.maxCommuteMinutes, storedMode, commuteMode);
 
   const commit = async (next: FilterConfig): Promise<void> => {
     try {
@@ -213,7 +257,7 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
       setStatus('saved');
       // La liste vient du serveur, et c'est lui qu'on vient de changer : sans
       // ce rappel, l'écran garde la liste d'avant et le compteur avec elle.
-      onSaved?.();
+      onSaved?.(next);
     } catch {
       setStatus('error');
     }
@@ -261,7 +305,12 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
                 const next = e.target.value as ReferenceTravelMode;
                 set({
                   commuteMode: next,
-                  maxCommuteMinutes: convertEstimatedDuration(shownMinutes, next, storedMode),
+                  // Sans plafond saisi, changer de mode n'en invente pas un.
+                  ...(shownMinutes === ''
+                    ? {}
+                    : {
+                        maxCommuteMinutes: convertEstimatedDuration(shownMinutes, next, storedMode),
+                      }),
                 });
               }}
             >
@@ -275,21 +324,27 @@ export function FiltersPanel({ onSaved }: { readonly onSaved?: () => void }): Re
               id="maxCommuteMinutes"
               size="sm"
               type="number"
-              min={0}
+              // UNE MINUTE AU MOINS : un plafond de zéro n'accepte aucune
+              // annonce localisée, et personne ne cherche cela.
+              min={1}
+              placeholder="sans"
               className={FIELD}
               value={shownMinutes}
               onChange={(e) =>
-                set({
-                  maxCommuteMinutes: convertEstimatedDuration(
-                    Number(e.target.value),
-                    commuteMode,
-                    storedMode,
-                  ),
-                })
+                set({ maxCommuteMinutes: commuteCap(e.target.value, commuteMode, storedMode) })
               }
             />
             <span className="text-muted-foreground text-[0.8rem]">min</span>
           </span>
+          {/* CE QUE VIDER LE CHAMP FAIT VRAIMENT. Le serveur comble un plafond
+            absent par celui du projet : annoncer « aucune limite » serait faux,
+            et ne rien dire laisserait chercher pourquoi la liste ne s'élargit
+            pas. */}
+          {shownMinutes === '' && PROJECT_COMMUTE_MINUTES !== undefined && (
+            <span className="text-muted-foreground text-[0.78rem]">
+              Sans plafond ici, celui du projet s’applique : {PROJECT_COMMUTE_MINUTES} min.
+            </span>
+          )}
         </div>
         {/* LA DATE D'EMMÉNAGEMENT, et elle se lit dans les deux sens. Un
           logement libre APRÈS la date qu'on se fixe n'est pas une option ;
