@@ -3,13 +3,13 @@
  *
  * POURQUOI CETTE SOURCE EN DEUXIÈME — voir `docs/sources.md` pour l'étude.
  *
- *   - `robots.txt` (revérifié le 2026-08-15) : `/recherche/*` est interdit,
- *     mais la page ville `/location-immobiliere-nice/` ne l'est pas, et sa
- *     pagination `?page=N` n'apparaît dans aucun Disallow (seuls `agency=`,
- *     `sujet=`, `contact=`, `orderBy=` sont bloqués).
+ *   - `robots.txt` (revérifié le 2026-09-16) : `/recherche/*` est interdit,
+ *     mais les pages ville `/location-immobiliere-{commune}/` ne le sont pas,
+ *     et leur pagination `?page=N` n'apparaît dans aucun Disallow (seuls
+ *     `agency=`, `sujet=`, `contact=`, `orderBy=` sont bloqués).
  *   - Les cartes embarquent prix, surface, pièces, agence, quartier et — fait
  *     rare — les COORDONNÉES GPS : le signal de dédoublonnage le plus fort
- *     après le téléphone (§14). Une requête = ~15 annonces très riches (§6).
+ *     après le téléphone (§14).
  *   - Premier réseau d'agences de France : forte couverture niçoise, biens
  *     parfois absents des grands portails (§3).
  *
@@ -27,47 +27,74 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
 import { enrichNewListings } from '../shared/enrich.js';
-import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
-import { parseDetail, parseSearchPage } from './parser.js';
+import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
+import { compactListing } from '../shared/raw-listing.js';
+import { CHARGES_INCLUDED_KEY, isWithdrawnDetail, parseDetail, parseSearchPage } from './parser.js';
 
 /**
- * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.
+ * Fiches visitées par exécution, pour les annonces NOUVELLES d'abord.
  *
- * Le stock niçois d'Orpi tourne autour de cinquante annonces : douze visites
- * par cycle couvrent une première collecte en quatre passages, puis il n'en
- * reste qu'une poignée à chaque parution (§30).
+ * La fiche est devenue bien plus qu'une description complète : chambres,
+ * étage, dépôt, charges, honoraires, DPE, date de mise en ligne, téléphone et
+ * e-mail de l'agence n'existent QUE là (le tracking de la liste rend
+ * `nbChambres`, `etage` et `dpe` à `null` sur les cinquante-sept cartes
+ * niçoises du 2026-09-16). Douze par passage suffisent à rattraper le stock du
+ * périmètre — environ soixante-dix annonces — en six cycles, puis à absorber
+ * les parutions (§30).
  */
 const MAX_DETAILS = 12;
 
 /**
- * Pages de LISTE parcourues en rattrapage.
+ * Pages de LISTE parcourues par commune.
  *
- * QUATRE NE SUFFISAIENT PAS, et le manque était mesurable. Relevé du
- * 2026-09-09 sur la page ville : la pagination affichée s'arrête à quatre, mais
- * les pages suivantes RÉPONDENT et portent d'autres biens. En dénombrant les
- * références uniques — pages 1 à 4 : 89 annonces ; pages 5 à 8 : 60 de plus,
- * dont 42 inédites ; **131 au total**. Un tiers du stock niçois d'Orpi restait
- * donc invisible, sans que rien ne le signale : la source paraissait complète
- * puisqu'elle atteignait sa propre limite.
- *
- * CELA NE COÛTE RIEN UNE FOIS LE CATALOGUE CONNU. `KNOWN_RATIO_STOP` coupe la
- * pagination dès qu'une page est déjà vue à 80 % : les quatre pages ajoutées ne
- * sont réellement lues qu'au premier rattrapage, puis quand du neuf paraît
- * assez loin dans la liste (§9, §30).
- *
- * Distinct du budget de la source, qui compte toutes les requêtes — pages de
- * liste ET fiches. Les confondre ferait paginer seize pages de résultats dès
- * qu'on augmente le nombre de fiches visitées.
+ * Nice en occupe quatre (57 annonces, 15 par page) ; les douze autres communes
+ * suivies tiennent en une seule. Huit laissent de la marge sans rien coûter :
+ * la lecture s'arrête dès que le total annoncé est atteint.
  */
-const MAX_LIST_PAGES = 8;
+const MAX_PAGES_PER_COMMUNE = 8;
 
 /**
- * Point d'entrée unique : la page ville agrège tous les codes postaux de Nice
- * (06000 à 06300 observés sur la même page), contrairement à Laforêt qui
- * demande une page par code postal.
+ * NE JAMAIS DÉPASSER LA DERNIÈRE PAGE, et c'est une correction, pas une
+ * prudence.
+ *
+ * Le relevé du 2026-09-09 concluait que « les pages 5 à 8 répondent et portent
+ * d'autres biens », et la source paginait jusqu'à huit depuis. Relecture du
+ * 2026-09-16 : ces pages répondent en effet 200, mais leur lien canonique est
+ * `/location-immobiliere-alpes-maritimes/` — le site sert la page du
+ * DÉPARTEMENT dès qu'on dépasse sa dernière page, et la sert à l'identique
+ * pour 5, 6, 7 et 8. Les « quarante-deux annonces inédites » étaient des biens
+ * de Cannes, d'Antibes et de Grasse. Le même repli se produit sur une commune
+ * qu'Orpi ne connaît pas (Cap-d'Ail, Drap et Contes le 2026-09-16).
+ *
+ * C'est pourquoi chaque page est vérifiée : `canonicalPath` doit être celui de
+ * la commune demandée, sinon on ne lit rien de ce qu'elle porte.
  */
-const BASE_URL = 'https://www.orpi.com/location-immobiliere-nice/';
+const COMMUNE_PATH = (slug: string): string => `/location-immobiliere-${slug}/`;
+
+const BASE_URL = (slug: string): string => `https://www.orpi.com${COMMUNE_PATH(slug)}`;
+
+/**
+ * Les communes du périmètre (§20), interrogées une par une.
+ *
+ * ORPI EST UN RÉSEAU NATIONAL ET ON NE LUI DEMANDAIT QUE NICE. Relevé du
+ * 2026-09-16, logements à louer annoncés par le site lui-même : Nice 50,
+ * Cagnes-sur-Mer 7, Saint-Laurent-du-Var 5, Villeneuve-Loubet 4, La Trinité 2,
+ * Beaulieu-sur-Mer 1, Colomars 1, Villefranche-sur-Mer 1 — soit 71 contre 50.
+ * Vingt et une annonces de plus pour douze requêtes, la même arithmétique que
+ * l'élargissement FNAIM.
+ *
+ * La recherche DÉPARTEMENTALE ferait le même travail en neuf pages, mais rien
+ * ne dit qu'elle soit complète — celle de la FNAIM était tronquée de
+ * soixante-sept annonces niçoises. Commune par commune, le total annoncé de
+ * chaque page permet de le VÉRIFIER.
+ *
+ * Les trois communes sans page (Cap-d'Ail, Drap, Contes) restent dans la
+ * liste : elles coûtent une requête, et le jour où Orpi y publiera, la page
+ * existera sans qu'on ait à y penser (§ agences vides suivies quand même).
+ */
+const COMMUNES = NICE_AREA_SLUGS;
 
 export const ORPI_DESCRIPTOR: SourceDescriptor = {
   id: 'orpi',
@@ -78,171 +105,285 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork', { baseIntervalMinutes: 45 }),
   budget: budgetFor('agencyNetwork', {
-    // Une page porte 37 annonces (relevé du 2026-09-09 ; le commentaire disait
-    // ~15), triées nouveautés en tête : en mode live, deux pages absorbent
-    // largement le flux de parutions entre deux runs. C'est le RATTRAPAGE qui
-    // avait besoin d'aller plus loin, pas la veille.
-    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS,
+    // Le budget compte TOUTES les requêtes, pages de liste et fiches. Seize
+    // pages de liste en pratique (quatre pour Nice, une par autre commune),
+    // douze fiches, et de quoi confirmer une fiche absente par une seconde
+    // lecture.
+    maxPagesPerRun: COMMUNES.length + MAX_PAGES_PER_COMMUNE + 2 * MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
   allowedPaths: ['/location-immobiliere-*', '/annonce-location-*'],
   notes:
-    'robots.txt vérifié le 2026-08-15 : /recherche/* interdit, page ville et ' +
+    'robots.txt revérifié le 2026-09-16 : /recherche/* interdit, pages ville et ' +
     'pagination ?page=N autorisées ; les paramètres agency/sujet/contact/orderBy ' +
-    'sont interdits et ne sont jamais utilisés. Cartes riches (GPS, quartier, ' +
-    'agence, date de création) via attribut data-eulerian-action — traité comme ' +
-    'enrichissement fragile, le HTML visible fait foi. Fiches des nouvelles : ' +
-    'description entière et JSON data-estate (dépôt, charges, honoraires, DPE, ' +
-    'téléphone et e-mail de l’agence du bien).',
+    'sont interdits et ne sont jamais utilisés. TREIZE COMMUNES du périmètre, ' +
+    'une page ville chacune (Nice en occupe quatre, 15 annonces par page) : ' +
+    '71 logements annoncés le 2026-09-16 contre 50 pour la seule recherche ' +
+    'niçoise. Le site PUBLIE SON TOTAL par type de bien (attribut ' +
+    'data-eulerian-action des liens de filtre, champ nbResults) : c’est lui qui ' +
+    'dit si l’inventaire a été lu en entier, et non plus la pagination. Au-delà ' +
+    'de sa dernière page, comme pour une commune inconnue, Orpi répond 200 et ' +
+    'sert la page du DÉPARTEMENT — reconnue par son lien canonique, et ignorée. ' +
+    'Un carrousel « communes à proximité » répète six annonces d’autres ' +
+    'communes sur chaque page : seules les cartes du conteneur de résultats ' +
+    'sont lues. Cartes riches (GPS, quartier, agence) via data-eulerian-action — ' +
+    'traité comme enrichissement fragile, le HTML visible fait foi ; ses champs ' +
+    'meuble et dateCreation sont écartés, ils se contredisent. Fiches des ' +
+    'nouvelles : JSON data-estate (description entière, chambres, surface, ' +
+    'étage, dépôt, charges, honoraires, DPE, mise en ligne, photos, téléphone ' +
+    'et e-mail de l’agence du bien). Une fiche retirée répond 410, ou 200 avec ' +
+    'le canonique /louer/biens-loues/.',
 };
 
-/** §9 : au-delà de ce ratio de déjà-vu sur une page, on cesse de paginer. */
-const KNOWN_RATIO_STOP = 0.8;
-
 /**
- * Intervalle des passages complets, qui seuls peuvent retirer une annonce.
- *
- * Un passage courant ne lit que deux pages sur quatre : rendu « completed », il
- * faisait vieillir tout le reste. Relevé du 2026-09-15 : quatorze annonces des
- * pages 3 et 4, toujours en ligne, étaient passées « inactive ».
+ * Manque toléré face au total annoncé avant de tenir l'inventaire pour
+ * incomplet. Le site publie ses totaux à la minute et une annonce peut paraître
+ * ou partir pendant le passage ; exiger l'égalité stricte rendrait la source
+ * incomplète au moindre battement, et rien ne se retirerait plus jamais.
  */
-const FULL_PASS_INTERVAL_MS = 6 * 60 * 60 * 1000;
-
-function isFullPassDue(context: ScrapeContext): boolean {
-  if (context.mode === 'backfill') return true;
-  const last = context.lastFullPassAt === null ? Number.NaN : Date.parse(context.lastFullPassAt);
-  return !Number.isFinite(last) || Date.now() - last >= FULL_PASS_INTERVAL_MS;
+function tolerated(total: number): number {
+  return Math.max(2, Math.ceil(total * 0.03));
 }
 
 export const orpiScraper: Scraper = {
   descriptor: ORPI_DESCRIPTOR,
 
   async run(context: ScrapeContext): Promise<ScrapeResult> {
-    const listings: RawListing[] = [];
+    const byRef = new Map<string, RawListing>();
+    const confirmed = new Set<string>();
     const warnings: string[] = [];
-    // Une même annonce peut apparaître sur deux pages consécutives (le tri
-    // bouge entre deux requêtes) : on ne la compte qu'une fois par run.
-    const seenRefs = new Set<string>();
-    let pagesFetched = 0;
-    let requestCount = 0;
+    const counters = { requestCount: 0, pagesFetched: 0 };
     let stopReason: StopReason = 'completed';
-    /** La pagination est allée jusqu'à la dernière page. */
-    let reachedEnd = false;
+    let incomplete = false;
 
-    // Passage courant : 2 pages ; passage complet : toutes les pages de liste (§8).
-    const fullPassDue = isFullPassDue(context);
-    const maxPages = fullPassDue ? MAX_LIST_PAGES : 2;
-
-    for (let page = 1; page <= maxPages; page += 1) {
-      if (context.shouldStop()) {
-        stopReason = 'maxPages';
-        break;
+    for (const slug of COMMUNES) {
+      const pass = await readCommune(context, slug, counters);
+      for (const listing of pass.listings) {
+        if (!byRef.has(listing.sourceRef)) byRef.set(listing.sourceRef, listing);
       }
-
-      const url = page === 1 ? BASE_URL : `${BASE_URL}?page=${page}`;
-
-      let html: string;
-      try {
-        const response = await context.fetch(url);
-        requestCount += 1;
-
-        if (response.notModified) {
-          // §30 : page inchangée depuis la dernière visite — rien à analyser,
-          // et les pages suivantes n'ont pas bougé non plus.
-          context.log('page.not_modified', { url });
-          break;
-        }
-        html = response.body;
-      } catch (error) {
-        // §69 : un échec de page n'abat pas la source ; un refus ou une
-        // limitation arrête le run proprement.
-        const message = error instanceof Error ? error.message : String(error);
-        warnings.push(`Échec sur ${url} : ${message}`);
-        context.log('page.failed', { url, error: message });
-        if (message.includes('429')) {
-          stopReason = 'rateLimited';
-        } else if (message.includes('refusé')) {
-          stopReason = 'blocked';
-        }
-        break;
-      }
-
-      pagesFetched += 1;
-      const parsed = parseSearchPage(html, url);
-      warnings.push(...parsed.warnings);
-
-      let knownOnPage = 0;
-      for (const listing of parsed.listings) {
-        if (seenRefs.has(listing.sourceRef)) continue;
-        seenRefs.add(listing.sourceRef);
-
-        if (context.isKnown(listing.sourceRef)) knownOnPage += 1;
-        listings.push(listing);
-      }
-
-      context.log('page.parsed', {
-        url,
-        found: parsed.listings.length,
-        known: knownOnPage,
-        total: listings.length,
-      });
-
-      if (listings.length >= ORPI_DESCRIPTOR.budget.maxListingsPerRun) {
-        stopReason = 'maxListings';
-        break;
-      }
-
-      if (!parsed.hasNextPage || parsed.listings.length === 0) {
-        reachedEnd = true;
-        break;
-      }
-
-      // §9 : arrêt anticipé en terrain connu — sauf en passage complet.
-      const ratio = knownOnPage / parsed.listings.length;
-      if (!fullPassDue && ratio >= KNOWN_RATIO_STOP) {
-        context.log('page.known_territory', { url, ratio: Math.round(ratio * 100) });
-        stopReason = 'knownTerritory';
+      for (const ref of pass.confirmedRefs) confirmed.add(ref);
+      warnings.push(...pass.warnings);
+      incomplete ||= pass.incomplete;
+      if (pass.stopReason !== 'completed') {
+        stopReason = pass.stopReason;
         break;
       }
     }
 
-    // Liste lue en partie : ce qui n'a pas été vu n'est pas pour autant retiré.
-    const fullPass = reachedEnd && stopReason === 'completed';
-    if (
-      !reachedEnd &&
-      ['completed', 'knownTerritory', 'maxPages', 'maxListings'].includes(stopReason)
-    ) {
-      stopReason = 'incomplete';
+    // TOUT LE PÉRIMÈTRE MUET N'EST JAMAIS CRÉDIBLE. Une commune inconnue du
+    // portail ne fait pas un trou — elle n'a rien à publier —, mais si AUCUNE
+    // n'a rien rendu alors qu'on connaît déjà des annonces, c'est le gabarit ou
+    // les adresses qui ont changé, et rien ne doit s'éteindre là-dessus.
+    if (byRef.size === 0 && confirmed.size === 0 && context.knownRefs.size > 0) {
+      warnings.push('Aucune annonce sur aucune commune — gabarit probablement modifié');
+      incomplete = true;
     }
+    if (incomplete && stopReason === 'completed') stopReason = 'incomplete';
 
-    // LA CARTE COUPE À CENT CINQUANTE-DEUX CARACTÈRES ; la fiche des annonces
-    // NOUVELLES porte le texte entier, avec l'adresse de rue qu'Orpi ne publie
-    // nulle part ailleurs. Une fois la pagination finie, pour ne visiter chaque
-    // annonce qu'une fois.
-    const enriched = await enrichNewListings(context, listings.splice(0), {
+    // LA CARTE COUPE À CENT CINQUANTE-DEUX CARACTÈRES ; la fiche porte le texte
+    // entier, l'adresse de rue qu'Orpi ne publie nulle part ailleurs, et tout
+    // ce que la liste tait. Une fois la pagination finie, pour ne visiter
+    // chaque annonce qu'une fois.
+    const parties: GoneDetail[] = [];
+    const enriched = await enrichNewListings(context, [...byRef.values()], {
       max: MAX_DETAILS,
       detailUrl: (listing) => listing.sourceUrl,
-      parse: (html) => parseDetail(html),
+      parse: (html, listing) => {
+        // Le site dit lui-même le bien loué, sans passer par un 410.
+        if (isWithdrawnDetail(html)) {
+          parties.push({ sourceRef: listing.sourceRef, url: listing.sourceUrl, status: 200 });
+          return null;
+        }
+        return parseDetail(html);
+      },
     });
-    requestCount += enriched.requestCount;
-    pagesFetched += enriched.pagesFetched;
+    counters.requestCount += enriched.requestCount;
+    counters.pagesFetched += enriched.pagesFetched;
     warnings.push(...enriched.warnings);
 
-    // Fiches que le site dit absentes : éteintes dès ce passage.
-    const partants = withdrawnAfterEnrich(context, enriched, stopReason);
-    const withdrawnRefs = partants.withdrawnRefs;
-    listings.push(...partants.listings);
+    // Fiches que le site dit absentes — par son code, ou par son canonique :
+    // éteintes dès ce passage, sous les garde-fous de `shared/withdrawn.ts`.
+    const withdrawnRefs = withdrawnRefsFrom(
+      context,
+      { gone: [...enriched.gone, ...parties], detailsRequested: enriched.detailsRequested },
+      stopReason,
+    );
+    const eteintes = new Set(withdrawnRefs);
+    const listings = enriched.listings
+      .filter((listing) => !eteintes.has(listing.sourceRef))
+      .map(annonceChargesComprises);
+    const confirmedRefs = [...confirmed].filter((ref) => !byRef.has(ref) && !eteintes.has(ref));
+
+    context.log('list.parsed', {
+      listings: listings.length,
+      confirmed: confirmedRefs.length,
+      communes: COMMUNES.length,
+      pages: counters.pagesFetched,
+      retirees: withdrawnRefs.length,
+    });
 
     return {
       sourceId: ORPI_DESCRIPTOR.id,
       listings,
+      confirmedRefs,
       withdrawnRefs,
-      requestCount,
-      pagesFetched,
+      requestCount: counters.requestCount,
+      pagesFetched: counters.pagesFetched,
       stopReason,
       warnings,
-      fullPass,
+      fullPass: stopReason === 'completed',
     };
   },
 };
+
+/**
+ * Recolle sur le loyer FRAIS de la carte la mention que seule la fiche connaît.
+ *
+ * La fiche prouve le « charges comprises » en additionnant ses montants, mais
+ * son loyer, mémorisé une semaine, figerait le chiffre que la liste republie à
+ * chaque passage. On garde donc le montant de la carte et on lui ajoute la
+ * mention, que la normalisation lit dans le texte du prix.
+ */
+function annonceChargesComprises(listing: RawListing): RawListing {
+  if (listing.extra?.[CHARGES_INCLUDED_KEY] !== '1') return listing;
+  if (listing.priceText === undefined || /charges/i.test(listing.priceText)) return listing;
+  return compactListing({ ...listing, priceText: `${listing.priceText} charges comprises` });
+}
+
+/** §69 : un refus et une limitation s'arrêtent net, un incident se signale. */
+function raisonDArret(message: string): StopReason {
+  if (message.includes('429')) return 'rateLimited';
+  if (message.includes('refusé')) return 'blocked';
+  return 'tooManyErrors';
+}
+
+/**
+ * Page inchangée : ses annonces le sont aussi.
+ *
+ * Ce que la mémoire garde de ce qu'elle portait CONFIRME ces annonces sans les
+ * redemander. Sans mémoire, on ne sait rien d'elle : c'est un trou, et un
+ * inventaire à trou ne retire rien.
+ */
+async function pageInchangee(
+  context: ScrapeContext,
+  url: string,
+  refs: Set<string>,
+): Promise<{ confirmes: readonly string[]; suite: 'continuer' | 'finir' | 'trou' }> {
+  const known = await context.pageRefs.get(url);
+  if (known === null) return { confirmes: [], suite: 'trou' };
+  const inedits = known.filter((ref) => !refs.has(ref));
+  for (const ref of inedits) refs.add(ref);
+  return { confirmes: inedits, suite: known.length === 0 ? 'finir' : 'continuer' };
+}
+
+interface CommunePass {
+  readonly listings: readonly RawListing[];
+  readonly confirmedRefs: readonly string[];
+  readonly warnings: readonly string[];
+  readonly incomplete: boolean;
+  readonly stopReason: StopReason;
+}
+
+/**
+ * Lit une commune jusqu'à son total annoncé.
+ *
+ * TROIS FAÇONS DE S'ARRÊTER, et une seule est une conclusion : avoir lu autant
+ * de cartes que le site en annonce. Les deux autres — plus de page suivante,
+ * plafond de pages — laissent l'inventaire en doute, et le disent.
+ */
+async function readCommune(
+  context: ScrapeContext,
+  slug: string,
+  counters: { requestCount: number; pagesFetched: number },
+): Promise<CommunePass> {
+  const refs = new Set<string>();
+  const listings: RawListing[] = [];
+  const confirmedRefs: string[] = [];
+  const warnings: string[] = [];
+  let announcedTotal: number | null = null;
+  let incomplete = false;
+  /** Le portail ne connaît pas cette commune : zéro annonce, et pas un trou. */
+  let inconnue = false;
+
+  for (let page = 1; page <= MAX_PAGES_PER_COMMUNE; page += 1) {
+    if (context.shouldStop()) {
+      // Le budget coupe au milieu du périmètre : inventaire partiel, et un
+      // inventaire partiel ne condamne rien.
+      return { listings, confirmedRefs, warnings, incomplete: true, stopReason: 'incomplete' };
+    }
+
+    const url = page === 1 ? BASE_URL(slug) : `${BASE_URL(slug)}?page=${page}`;
+    let response;
+    try {
+      response = await context.fetch(url);
+      counters.requestCount += 1;
+    } catch (error) {
+      // §69 : un échec de page n'abat pas la source ; un refus ou une
+      // limitation arrête le run proprement.
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Échec sur ${url} : ${message}`);
+      context.log('page.failed', { url, error: message });
+      return {
+        listings,
+        confirmedRefs,
+        warnings,
+        incomplete: true,
+        stopReason: raisonDArret(message),
+      };
+    }
+
+    if (response.notModified) {
+      const inchangee = await pageInchangee(context, url, refs);
+      confirmedRefs.push(...inchangee.confirmes);
+      if (inchangee.suite === 'continuer') continue;
+      incomplete ||= inchangee.suite === 'trou';
+      break;
+    }
+
+    counters.pagesFetched += 1;
+    const parsed = parseSearchPage(response.body, url);
+
+    if (parsed.canonicalPath !== COMMUNE_PATH(slug)) {
+      // Repli du site : commune inconnue, ou page au-delà de la dernière.
+      // Ce qu'elle porte appartient à d'autres communes — on n'en lit rien.
+      context.log('commune.repli', { url, canonique: parsed.canonicalPath });
+      // Dès la première page, c'est que la commune n'a pas de page chez Orpi :
+      // elle n'a donc rien à publier, et son silence n'est pas un trou. En
+      // faire un trou rendrait la source éternellement incomplète — trois
+      // communes du périmètre étaient dans ce cas le 2026-09-16.
+      if (page === 1) inconnue = true;
+      break;
+    }
+
+    warnings.push(...parsed.warnings);
+    if (page === 1) announcedTotal = parsed.announcedTotal;
+    for (const listing of parsed.listings) {
+      if (refs.has(listing.sourceRef)) continue;
+      listings.push(listing);
+    }
+    for (const ref of parsed.cardRefs) refs.add(ref);
+    await context.pageRefs.set(url, parsed.cardRefs);
+
+    // Le total annoncé est atteint : inutile de demander la page suivante,
+    // le site n'y mettrait que son repli départemental.
+    if (announcedTotal !== null && refs.size >= announcedTotal) break;
+    if (!parsed.hasNextPage || parsed.cardRefs.length === 0) break;
+    if (page === MAX_PAGES_PER_COMMUNE) incomplete = true;
+  }
+
+  if (inconnue) {
+    context.log('commune.inconnue', { slug });
+  } else if (announcedTotal === null) {
+    // Sans total publié, on ne peut plus rien affirmer sur l'exhaustivité :
+    // c'est exactement l'hypothèse qu'on refuse de refaire.
+    warnings.push(`Total non publié par la page de ${slug} — inventaire non vérifiable`);
+    context.log('commune.sans_total', { slug, lues: refs.size });
+    incomplete = true;
+  } else if (announcedTotal - refs.size > tolerated(announcedTotal)) {
+    context.log('commune.incomplete', { slug, lues: refs.size, annoncees: announcedTotal });
+    incomplete = true;
+  }
+
+  return { listings, confirmedRefs, warnings, incomplete, stopReason: 'completed' };
+}

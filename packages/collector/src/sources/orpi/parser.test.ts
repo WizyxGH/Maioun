@@ -7,6 +7,7 @@ import {
   extractAreaText,
   extractPriceText,
   extractRoomsText,
+  isWithdrawnDetail,
   parseDetail,
   parseEulerianData,
   parseListingUrl,
@@ -18,6 +19,7 @@ const PAGE_URL = 'https://www.orpi.com/location-immobiliere-nice/';
 
 const nominal = readFileSync(join(FIXTURES, 'nice-page1.html'), 'utf8');
 const degraded = readFileSync(join(FIXTURES, 'nice-degraded.html'), 'utf8');
+const repli = readFileSync(join(FIXTURES, 'repli-departement.html'), 'utf8');
 
 describe('parseListingUrl', () => {
   it('décompose une URL à référence agence', () => {
@@ -101,6 +103,26 @@ describe('parseSearchPage — fixture nominale', () => {
     expect(page.warnings).toHaveLength(0);
   });
 
+  it('laisse le carrousel « communes à proximité » hors de l’inventaire', () => {
+    // Ses six annonces reviennent sur CHAQUE page de Nice et appartiennent à
+    // d'autres communes : comptées, elles gonflaient l'inventaire niçois de
+    // dix-huit doublons sur quatre pages.
+    expect(page.listings.map((l) => l.sourceRef)).not.toContain('x-000090-990');
+    expect(page.cardRefs).not.toContain('x-000090-990');
+  });
+
+  it('lit le total que le site annonce, et lui seul', () => {
+    // 3 appartements + 1 maison + 1 stationnement. Les liens de QUARTIER
+    // portent le même attribut avec un typeBien vide : les additionner
+    // compterait deux fois les mêmes biens.
+    expect(page.announcedTotal).toBe(5);
+    expect(page.cardRefs).toHaveLength(5);
+  });
+
+  it('rend le chemin canonique, qui seul dit quelle page a été servie', () => {
+    expect(page.canonicalPath).toBe('/location-immobiliere-nice/');
+  });
+
   it('détecte la page suivante via rel="next"', () => {
     expect(page.hasNextPage).toBe(true);
   });
@@ -124,7 +146,6 @@ describe('parseSearchPage — fixture nominale', () => {
     expect(studio?.latitude).toBeCloseTo(43.7017875);
     expect(studio?.longitude).toBeCloseTo(7.2628625);
     expect(studio?.agencyName).toBe('Orpi — Agence Fictive Azur');
-    expect(studio?.publishedAtText).toBe('2026-08-15');
     expect(studio?.extra?.['quartier']).toBe('Quartier Fictif Nord');
     expect(studio?.imageUrls).toEqual([
       'https://img.example.invalid/fixture-orpi/photo-101.jpg?p=estate-result-item',
@@ -165,7 +186,14 @@ describe('parseSearchPage — chaîne complète avec la normalisation', () => {
     // Le tag visible « Meublé » fait foi, pas le champ JSON contradictoire.
     expect(normalized?.furnished).toBe(true);
     expect(normalized?.latitude).toBeCloseTo(43.7017875);
-    expect(normalized?.publishedAt).toBe('2026-08-15T00:00:00.000Z');
+  });
+
+  it('ne date PAS la parution sur la liste, dont la date est celle du rendu', () => {
+    // Le 2026-09-16, les cinquante-sept cartes niçoises portaient toutes
+    // `dateCreation: "2026-09-16"` — y compris un bien en ligne depuis le
+    // 8 juillet selon sa fiche. Prise pour une parution, elle faisait paraître
+    // tout le stock Orpi publié du jour.
+    for (const raw of page.listings) expect(raw.publishedAtText).toBeUndefined();
   });
 
   it('type correctement le T3 hors budget', () => {
@@ -269,13 +297,54 @@ describe('parseDetail — montants, DPE et agence du bien (data-estate)', () => 
     expect(draft?.depositText).toBe('894 €');
     expect(draft?.chargesText).toBe('56 €');
     expect(draft?.feesText).toBe('385 €');
-    expect(draft?.extra).toEqual({ dpe: 'D' });
+    expect(draft?.extra?.['dpe']).toBe('D');
   });
 
   it('prend le contact de l’agence, jamais celui de l’agent', () => {
     const draft = parseDetail(fiche);
     expect(draft?.phoneText).toBe('06 00 00 00 31');
     expect(draft?.emailText).toBe('agence@example.invalid');
+  });
+
+  it('donne les CHAMBRES, que la liste ne publie jamais', () => {
+    // `nbChambres` est `null` sur les cinquante-sept cartes niçoises du
+    // 2026-09-16 ; aucune des cinquante-cinq occurrences Orpi en base n'avait
+    // de chambres. Elles n'existent que dans le JSON de la fiche.
+    expect(parseDetail(fiche)?.roomsText).toBe('2 pièces 1 chambres');
+  });
+
+  it('donne étage, ascenseur, balcon et parking, tous absents de la liste', () => {
+    const extra = parseDetail(fiche)?.extra;
+    expect(extra?.['etage']).toBe('3');
+    expect(extra?.['ascenseur']).toBe('1');
+    expect(extra?.['nbBalcons']).toBe('1');
+    expect(extra?.['nbParking']).toBe('1');
+    expect(extra?.['features']).toContain('Cave');
+    expect(extra?.['features']).toContain('Meublé');
+  });
+
+  it('date la parution sur `onMarketSince`, la seule date vraie d’Orpi', () => {
+    expect(parseDetail(fiche)?.publishedAtText).toBe('2026-07-08T00:00:00+02:00');
+  });
+
+  it('prend toutes les photos de la fiche, là où la carte n’en donne qu’une', () => {
+    expect(parseDetail(fiche)?.imageUrls).toHaveLength(3);
+  });
+
+  it('ne reprend NI le loyer NI les tags de la fiche', () => {
+    // Ce que la fiche apprend est gardé une semaine : repris ici, le loyer
+    // figerait pendant sept jours le seul chiffre que la liste republie à
+    // chaque passage.
+    const draft = parseDetail(fiche);
+    expect(draft?.priceText).toBeUndefined();
+    expect(draft?.furnishedText).toBeUndefined();
+  });
+
+  it('démontre le « charges comprises » par la somme des montants', () => {
+    // 950 = 894 (loyer de base) + 56 (provisions) : c'est ce que le site
+    // affiche, et la seule preuve dont on dispose. Sans elle, toute la source
+    // laissait indéterminé ce que son loyer recouvre.
+    expect(parseDetail(fiche)?.extra?.['orpiChargesComprises']).toBe('1');
   });
 
   it('va jusqu’à la fiche normalisée', () => {
@@ -288,6 +357,8 @@ describe('parseDetail — montants, DPE et agence du bien (data-estate)', () => 
     expect(normalized?.charges).toBe(56);
     expect(normalized?.tenantFees).toBe(385);
     expect(normalized?.dpe).toBe('D');
+    expect(normalized?.bedrooms).toBe(1);
+    expect(normalized?.publishedAt).toBe('2026-07-07T22:00:00.000Z');
     expect(normalized?.contact.phone).not.toBeNull();
   });
 
@@ -296,5 +367,39 @@ describe('parseDetail — montants, DPE et agence du bien (data-estate)', () => 
     expect(dpeLetterOfIndex('7')).toBe('G');
     expect(dpeLetterOfIndex(0)).toBeUndefined();
     expect(dpeLetterOfIndex(null)).toBeUndefined();
+  });
+});
+
+describe('isWithdrawnDetail — la fiche qu’Orpi rend en 200 sans rien dire', () => {
+  const retiree = readFileSync(join(FIXTURES, 'fiche-retiree.html'), 'utf8');
+  const vivante = readFileSync(join(FIXTURES, 'fiche-estate.html'), 'utf8');
+
+  it('reconnaît le canonique « biens loués »', () => {
+    expect(isWithdrawnDetail(retiree)).toBe(true);
+  });
+
+  it('ne retire rien d’une fiche qui porte encore ses données', () => {
+    expect(isWithdrawnDetail(vivante)).toBe(false);
+  });
+
+  it('ne retire rien d’une page simplement inconnue (§17)', () => {
+    // Un 200 ne prouve rien par lui-même : sans la déclaration du site, une
+    // page qu'on ne sait pas lire laisse l'annonce intacte.
+    expect(isWithdrawnDetail('<html><body><p>rien</p></body></html>')).toBe(false);
+  });
+});
+
+describe('parseSearchPage — le repli départemental qu’Orpi sert en 200', () => {
+  const page = parseSearchPage(repli, 'https://www.orpi.com/location-immobiliere-cap-d-ail/');
+
+  it('se trahit par son canonique, jamais par son statut', () => {
+    expect(page.canonicalPath).toBe('/location-immobiliere-alpes-maritimes/');
+  });
+
+  it('porte bien des annonces — d’autres communes', () => {
+    // C'est tout le piège : la page n'est ni vide ni en erreur. Sans la
+    // vérification du canonique, ses biens cannois entraient dans l'inventaire
+    // de la commune demandée.
+    expect(page.listings.length).toBeGreaterThan(0);
   });
 });

@@ -16,10 +16,21 @@
   - liens ?contact=true (doublons d'URL à ignorer)
   - dropdown de quartiers (liens /location-immobiliere-nice-*/ à ignorer)
   - ld+json ItemList + pagination rel="next"
+
+  Relevé du 2026-09-16, reproduit depuis :
+  - les cartes de résultats vivent dans <div data-oncrawl="estate-list"> ;
+  - SOUS la pagination, un carrousel « Biens à louer dans les communes à
+    proximité » répète des annonces D'AUTRES COMMUNES, identiques sur toutes
+    les pages — elles ne font pas partie de l'inventaire de la ville ;
+  - les liens de filtre par type portent leur propre nbResults, dont la somme
+    est le total annoncé de la recherche (ici 3 + 1 + 1 = 5 cartes) ;
+  - les liens de quartier portent le même attribut avec typeBien vide : les
+    additionner compterait plusieurs fois les mêmes biens.
 -->
 <html lang="fr">
   <head>
     <title>Location immobilière Nice | Orpi (fixture)</title>
+    <link rel="canonical" href="https://www.orpi.com/location-immobiliere-nice/" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -68,15 +79,50 @@
       <div class="c-dropdown">
         <ul id="dropdown-location" class="c-dropdown__menu">
           <li class="c-dropdown__item">
-            <a href="/location-immobiliere-nice-acropolis/" class="c-dropdown__link">Acropolis</a>
+            <a
+              href="/location-immobiliere-nice-acropolis/"
+              class="c-dropdown__link"
+              data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;&quot;,&quot;quartierNom&quot;:&quot;Acropolis&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;codePostal&quot;:&quot;06000&quot;,&quot;nbResults&quot;:2}"
+              >Acropolis</a
+            >
           </li>
           <li class="c-dropdown__item">
-            <a href="/location-immobiliere-nice-liberation/" class="c-dropdown__link">Libération</a>
+            <a
+              href="/location-immobiliere-nice-liberation/"
+              class="c-dropdown__link"
+              data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;&quot;,&quot;quartierNom&quot;:&quot;Libération&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;codePostal&quot;:&quot;06000&quot;,&quot;nbResults&quot;:3}"
+              >Libération</a
+            >
           </li>
         </ul>
       </div>
+      <!-- Filtres par type : c'est ici que le site publie SON total. -->
+      <ul class="c-tabs">
+        <li>
+          <a
+            href="/location-immobiliere-nice/louer-appartement/"
+            data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;quartierNom&quot;:&quot;&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;codePostal&quot;:&quot;06000&quot;,&quot;nbResults&quot;:3}"
+            >Appartement</a
+          >
+        </li>
+        <li>
+          <a
+            href="/location-immobiliere-nice/louer-maison/"
+            data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;maison&quot;,&quot;quartierNom&quot;:&quot;&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;codePostal&quot;:&quot;06000&quot;,&quot;nbResults&quot;:1}"
+            >Maison</a
+          >
+        </li>
+        <li>
+          <a
+            href="/location-immobiliere-nice/louer-stationnement/"
+            data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;stationnement&quot;,&quot;quartierNom&quot;:&quot;&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;codePostal&quot;:&quot;06000&quot;,&quot;nbResults&quot;:1}"
+            >Stationnement</a
+          >
+        </li>
+      </ul>
     </article>
 
+    <div class="o-grid o-grid--3 mt-p" data-oncrawl="estate-list">
     <!-- Carte 1 : stationnement — hors périmètre résidentiel, à IGNORER -->
     <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000000-901">
       <div class="c-estate-thumb__banner">
@@ -225,11 +271,48 @@
         <div class="text-sm mt-sm">Maison fictive avec jardin, quartier résidentiel …</div>
       </div>
     </article>
+    </div>
 
     <nav class="c-pagination">
       <a href="/location-immobiliere-nice/?page=2">2</a>
       <a href="/location-immobiliere-nice/?page=3">3</a>
       <a rel="next" href="/location-immobiliere-nice/?page=2">Suivant</a>
     </nav>
+
+    <!--
+      Carrousel HORS LISTE : les mêmes six annonces d'autres communes reviennent
+      sur chaque page de Nice. Les compter gonflait l'inventaire niçois et y
+      faisait entrer des biens de communes voisines sans qu'on les cherche.
+    -->
+    <section class="c-section c-section--secondary">
+      <h2 class="text-center">Biens à louer dans les communes à proximité de Nice</h2>
+      <div class="c-swiper js-swiper-news">
+        <div class="c-swiper__wrapper">
+          <div class="c-swiper__slide">
+            <article
+              class="c-estate-thumb c-box"
+              data-test-estate
+              data-oncrawl="estate-card"
+              data-reference="x-000090-990"
+            >
+              <div class="c-estate-thumb__banner">
+                <span class="h4 font-bold">780&nbsp;&euro;</span> par mois
+              </div>
+              <a
+                href="/annonce-location-appartement-t2-saint-laurent-du-var-06700-x-000090-990/"
+                class="link-unstyled c-overlay__link"
+              >
+                <b>
+                  <span class="text-dark-grey capitalize"> Location Appartement </span>
+                  2 pièces 41 m<sup>2</sup>
+                </b>
+                <br />
+                <span class="c-estate-thumb__infos__location">Saint-Laurent-du-Var</span>
+              </a>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
   </body>
 </html>

@@ -7,20 +7,40 @@
  * data-reference="…">` : on s'ancre sur ces attributs de données, posés pour
  * l'outillage du site lui-même, donc bien plus stables que les classes CSS.
  *
+ * SEULES COMPTENT LES CARTES DU CONTENEUR DE RÉSULTATS. La page en porte
+ * d'autres, et ce n'est pas un détail : sous la pagination, un carrousel
+ * « Biens à louer dans les communes à proximité de Nice » répète SIX annonces
+ * D'AUTRES COMMUNES, identiques sur toutes les pages. Relevé du 2026-09-16 :
+ * 21+21+21+18 cartes sur quatre pages, mais 63 références distinctes seulement,
+ * et la liste niçoise n'en compte que 57. C'est de là que venaient les annonces
+ * de Saint-Laurent-du-Var et de Saint-André dans l'inventaire « Nice », et
+ * c'est ce qui faussait tout décompte.
+ *
+ * LE SITE ANNONCE SON TOTAL, et c'est ce qui permet enfin de savoir si
+ * l'inventaire est complet sans le deviner : les liens de filtre par type
+ * portent un `data-eulerian-action` avec `typeBien` et `nbResults`
+ * (appartement 48, stationnement 7, maison 2 pour Nice le 2026-09-16, soit 57
+ * — exactement le nombre de cartes lues sur les quatre pages).
+ *
  * Chaque carte porte en plus, sur son bouton « favoris », un attribut
  * `data-eulerian-action` contenant un JSON riche (référence, prix, surface,
- * pièces, GPS, quartier, agence, date de création). C'est une AUBAINE pour le
- * dédoublonnage (§14 : les coordonnées GPS sont un signal très fort), mais
- * c'est un attribut de *tracking*, pas une API : il peut disparaître sans
- * préavis. Le parser le traite donc comme un ENRICHISSEMENT — le HTML visible
- * (prix en bannière, titre « N pièces X m² ») reste la source principale, et
- * chaque champ JSON n'est utilisé qu'en secours, champ par champ.
+ * pièces, GPS, quartier, agence). C'est une AUBAINE pour le dédoublonnage
+ * (§14 : les coordonnées GPS sont un signal très fort), mais c'est un attribut
+ * de *tracking*, pas une API : il peut disparaître sans préavis. Le parser le
+ * traite donc comme un ENRICHISSEMENT — le HTML visible (prix en bannière,
+ * titre « N pièces X m² ») reste la source principale, et chaque champ JSON
+ * n'est utilisé qu'en secours, champ par champ.
  *
- * EXCEPTION DOCUMENTÉE : le champ JSON `meuble` est ignoré. Observé le
- * 2026-08-15 : une annonce taguée « Meublé » à l'écran portait `"meuble":0`
- * dans son JSON. En cas de contradiction interne de la source, on se fie à ce
- * que le visiteur voit (les tags), pas au tracking (§17 : ne pas affirmer une
- * donnée douteuse).
+ * DEUX CHAMPS DU TRACKING SONT ÉCARTÉS, tous deux parce qu'ils mentent.
+ *
+ *   - `meuble` : le 2026-08-15, une annonce taguée « Meublé » à l'écran portait
+ *     `"meuble":0`. En cas de contradiction interne, on se fie à ce que le
+ *     visiteur voit (§17).
+ *   - `dateCreation` : le 2026-09-16, les CINQUANTE-SEPT cartes niçoises la
+ *     donnaient au 2026-09-16 — le jour même — y compris un bien dont la fiche
+ *     dit `onMarketSince: 2026-07-08`. Ce n'est pas une date de parution, c'est
+ *     la date du rendu. Prise pour telle, elle faisait paraître tout le stock
+ *     Orpi publié du jour. La vraie date est sur la fiche, et n'y est que là.
  */
 
 import * as cheerio from 'cheerio';
@@ -123,6 +143,9 @@ interface EulerianData {
   readonly nbTerrasses?: number;
   readonly nbParking?: number | null;
   readonly meuble?: number;
+  /** Présent sur les LIENS DE FILTRE, pas sur les cartes : total par type. */
+  readonly typeBien?: string;
+  readonly nbResults?: number;
 }
 
 /**
@@ -166,10 +189,31 @@ export function extractRoomsText(text: string): string | undefined {
 
 /** Résultat du parsing d'une page de résultats. */
 export interface ParsedPage {
+  /** Les LOGEMENTS de la liste : stationnements et locaux écartés. */
   readonly listings: readonly RawListing[];
+  /**
+   * Toutes les cartes de la liste, non résidentielles comprises. C'est le
+   * dénominateur à comparer au total annoncé, qui les compte aussi.
+   */
+  readonly cardRefs: readonly string[];
+  /**
+   * Total annoncé par le site pour cette recherche, tous types de biens
+   * confondus, ou `null` si la page ne le publie plus.
+   */
+  readonly announcedTotal: number | null;
+  /**
+   * Chemin canonique servi par le site. Orpi répond 200 et sert la page du
+   * DÉPARTEMENT pour une commune qu'il ne connaît pas : sans cette
+   * vérification, ses annonces cannoises entraient dans l'inventaire de
+   * Cap-d'Ail.
+   */
+  readonly canonicalPath: string | null;
   readonly hasNextPage: boolean;
   readonly warnings: readonly string[];
 }
+
+/** Conteneur des résultats ; le reste de la page porte d'autres annonces. */
+const RESULTS_CONTAINER = '[data-oncrawl="estate-list"]';
 
 /**
  * Analyse une page `/location-immobiliere-{ville}/` et en extrait les annonces.
@@ -219,11 +263,26 @@ function buildOrpiExtra(eulerian: EulerianData | null, reference: string): Recor
   return extra;
 }
 
-/** Champs de localisation/contact issus du tracking (avec secours sur l'URL). */
-function orpiEulerianFields(eulerian: EulerianData | null, url: ParsedListingUrl): RawDraft {
+/**
+ * Champs de localisation/contact issus du tracking.
+ *
+ * `pageCity` est la commune de la page interrogée, lue sur ses liens de filtre.
+ * Elle sert de secours : une carte sans JSON de tracking n'avait AUCUNE
+ * commune, et huit occurrences sur cinquante-cinq en base étaient dans ce cas
+ * le 2026-09-16 — sans ville, pas de trajet ni de filtre par commune (§20).
+ *
+ * Pas de `publishedAtText` : voir l'en-tête, `dateCreation` est la date du
+ * rendu, pas celle de la parution.
+ */
+function orpiEulerianFields(
+  eulerian: EulerianData | null,
+  url: ParsedListingUrl,
+  pageCity: string | undefined,
+): RawDraft {
+  const city =
+    eulerian?.nomVille !== undefined && eulerian.nomVille !== '' ? eulerian.nomVille : pageCity;
   return {
-    cityText:
-      eulerian?.nomVille !== undefined && eulerian.nomVille !== '' ? eulerian.nomVille : undefined,
+    cityText: city !== undefined && city !== '' ? city : undefined,
     postalCodeText:
       eulerian?.codePostal != null && eulerian.codePostal !== ''
         ? eulerian.codePostal
@@ -234,10 +293,6 @@ function orpiEulerianFields(eulerian: EulerianData | null, url: ParsedListingUrl
       eulerian?.agenceNom !== undefined && eulerian.agenceNom !== ''
         ? `Orpi — ${eulerian.agenceNom}`
         : 'Orpi',
-    publishedAtText:
-      eulerian?.dateCreation !== undefined && eulerian.dateCreation !== ''
-        ? eulerian.dateCreation
-        : undefined,
   };
 }
 
@@ -257,6 +312,7 @@ function parseCard(
   $: cheerio.CheerioAPI,
   card: ReturnType<cheerio.CheerioAPI>,
   pageUrl: string,
+  pageCity: string | undefined,
 ): RawListing | null {
   const url = findCardUrl($, card, pageUrl);
   if (url === null || url.nonResidential) return null;
@@ -306,7 +362,7 @@ function parseCard(
     propertyTypeText: url.typeAndCitySlug.split('-')[0] ?? '',
     // Meublé : tags + titre + description — jamais le champ JSON `meuble`.
     furnishedText: cleanText(`${tagsText} ${titleText} ${description}`),
-    ...orpiEulerianFields(eulerian, url),
+    ...orpiEulerianFields(eulerian, url, pageCity),
     // §21 : la liste ne publie pas de coordonnées directes. Le formulaire de la
     // fiche est le canal prévu ; on ne force aucune requête pour plus.
     contactFormUrl: url.canonicalUrl,
@@ -315,19 +371,64 @@ function parseCard(
   });
 }
 
+/**
+ * Ce que les LIENS DE FILTRE par type apprennent sur la recherche : le total
+ * annoncé, et la commune telle que le site l'écrit.
+ *
+ * Chaque lien porte son propre `nbResults` (appartement, maison,
+ * stationnement…) ; leur somme est l'inventaire entier de la recherche, celui
+ * qu'on compare aux cartes lues pour savoir si l'on a tout vu.
+ */
+function readSearchTotals($: cheerio.CheerioAPI): {
+  announcedTotal: number | null;
+  city: string | undefined;
+} {
+  let announcedTotal: number | null = null;
+  let city: string | undefined;
+  $('[data-eulerian-action*="nbResults"]').each((_index, element) => {
+    const raw = $(element).attr('data-eulerian-action');
+    if (raw === undefined || raw === '') return;
+    let data: EulerianData;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null) return;
+      data = parsed as EulerianData;
+    } catch {
+      return;
+    }
+    // Les liens de QUARTIER portent le même attribut avec un `typeBien` vide :
+    // les additionner compterait plusieurs fois les mêmes biens.
+    if (data.typeBien === undefined || data.typeBien === '') return;
+    if (typeof data.nbResults !== 'number' || !Number.isFinite(data.nbResults)) return;
+    announcedTotal = (announcedTotal ?? 0) + data.nbResults;
+    if (city === undefined && data.nomVille !== undefined && data.nomVille !== '') {
+      city = data.nomVille;
+    }
+  });
+  return { announcedTotal, city };
+}
+
 export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const $ = cheerio.load(html);
   const warnings: string[] = [];
   const byReference = new Map<string, RawListing>();
+  const cardRefs: string[] = [];
+  const { announcedTotal, city } = readSearchTotals($);
 
-  $('article[data-reference]').each((_index, element) => {
-    const listing = parseCard($, $(element), pageUrl);
+  $(`${RESULTS_CONTAINER} article[data-reference]`).each((_index, element) => {
+    const card = $(element);
+    const reference = card.attr('data-reference');
+    if (reference !== undefined && reference !== '' && !cardRefs.includes(reference)) {
+      cardRefs.push(reference);
+    }
+    const listing = parseCard($, card, pageUrl, city);
     if (listing !== null && !byReference.has(listing.sourceRef)) {
       byReference.set(listing.sourceRef, listing);
     }
   });
 
   const listings = [...byReference.values()];
+  const canonical = $('link[rel="canonical"]').first().attr('href');
 
   // §61 : détection d'anomalie structurelle, sans requête supplémentaire.
   if (listings.length > 0) {
@@ -347,7 +448,24 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const hasNextPage =
     $('a[rel="next"]').length > 0 || $(`a[href*="page=${currentPage + 1}"]`).length > 0;
 
-  return { listings, hasNextPage, warnings };
+  return {
+    listings,
+    cardRefs,
+    announcedTotal,
+    canonicalPath: canonicalPathOf(canonical),
+    hasNextPage,
+    warnings,
+  };
+}
+
+/** Le chemin du lien canonique, sans domaine ni querystring. `null` si absent. */
+function canonicalPathOf(href: string | undefined): string | null {
+  if (href === undefined || href === '') return null;
+  try {
+    return new URL(href, 'https://www.orpi.com/').pathname;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -380,14 +498,74 @@ export function parseDetail(html: string): RawDraft | null {
   return Object.keys(draft).length > 0 ? draft : null;
 }
 
-/** Sous-ensemble utile du JSON `data-estate` de la fiche. */
+/**
+ * Chemin canonique que sert Orpi à la place d'une annonce qui n'est plus à
+ * louer. Le nom parle de lui-même — « biens loués ».
+ */
+const RENTED_CANONICAL = '/louer/biens-loues/';
+
+/**
+ * `true` si le site dit lui-même que cette annonce n'est plus à louer.
+ *
+ * ORPI NE RÉPOND PAS TOUJOURS 410. Relevé du 2026-09-16 : une fiche partie a
+ * rendu 200 et servi l'ACCUEIL du site, sans `data-estate`, avec pour seul
+ * signe son lien canonique — `/louer/biens-loues/`. Un 200 ne prouve rien par
+ * lui-même (c'est la règle de `shared/withdrawn.ts`), mais ce chemin-là est une
+ * déclaration explicite de la source, au même titre qu'un bandeau « annonce
+ * introuvable ». Les deux conditions sont exigées ensemble : une fiche qui
+ * porterait encore ses données n'est pas retirée sur la foi d'un lien.
+ */
+export function isWithdrawnDetail(html: string): boolean {
+  const $ = cheerio.load(html);
+  if ($('[data-estate]').length > 0) return false;
+  const canonical = canonicalPathOf($('link[rel="canonical"]').first().attr('href'));
+  return canonical === RENTED_CANONICAL;
+}
+
+/**
+ * Sous-ensemble utile du JSON `data-estate` de la fiche.
+ *
+ * C'EST LA SEULE PAGE QUI DIT TOUT. La carte de résultats ne publie ni
+ * chambres, ni étage, ni dépôt, ni DPE, ni date de parution : le tracking de la
+ * liste rend `nbChambres: null`, `etage: null`, `dpe: null` sur les
+ * cinquante-sept cartes niçoises du 2026-09-16. Tout cela n'existe que dans ce
+ * JSON, dont les valeurs sont exactement celles que la fiche affiche.
+ */
 interface EstateData {
+  readonly price?: number | null;
+  readonly priceHC?: number | null;
   readonly deposit?: number | null;
   readonly chargeReserve?: number | null;
+  /** Honoraires locataire, honoraires d'état des lieux compris. */
   readonly agencyCommission?: number | null;
+  readonly liveableSurface?: number | null;
+  readonly surface?: number | null;
+  readonly nbRooms?: number | null;
+  readonly nbBedrooms?: number | null;
+  readonly storyLocation?: number | null;
+  readonly nbParkingSpaces?: number | null;
+  readonly elevator?: boolean;
+  readonly balcony?: boolean;
+  readonly terrace?: boolean;
+  readonly garden?: boolean;
+  readonly garage?: boolean;
+  readonly cellar?: boolean;
+  readonly swimmingPool?: boolean;
+  /** `['furnished']`, `['air_conditioning']`… : les atouts déclarés. */
+  readonly comfortFeatures?: readonly string[];
+  readonly heatingCoolingFeatures?: readonly string[];
   readonly dpeDisplay?: boolean;
   readonly consumptionIndex?: number | null;
+  /** Mise en ligne réelle, la seule date de parution fiable d'Orpi. */
+  readonly onMarketSince?: string | null;
+  readonly zipCode?: string | null;
+  readonly latitude?: number | null;
+  readonly longitude?: number | null;
+  readonly images?: readonly string[];
+  readonly city?: { readonly name?: string | null } | null;
+  readonly district?: { readonly name?: string | null } | null;
   readonly agency?: {
+    readonly name?: string | null;
     readonly phone?: string | null;
     readonly email?: string | null;
     readonly rentEmail?: string | null;
@@ -418,24 +596,129 @@ const euros = (value: number | null | undefined): string | undefined =>
 const nonEmpty = (value: string | null | undefined): string | undefined =>
   typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
 
+const positive = (value: number | null | undefined): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+
 /**
- * Montants, DPE et coordonnées de l'agence du bien, lus dans `data-estate`.
+ * `true` si les trois montants de la fiche prouvent un loyer CHARGES
+ * COMPRISES.
+ *
+ * Orpi affiche « 1 800 € par mois / Charges comprises / Loyer de base :
+ * 1 610 € / Provisions pour charges : 190 € ». Le JSON donne les mêmes
+ * nombres, et leur somme le démontre : `price = priceHC + chargeReserve`. Sans
+ * cette mention, la source entière laissait `chargesIncluded` indéterminé, et
+ * ses loyers étaient comparés à des loyers hors charges.
+ *
+ * Le MONTANT, lui, ne vient pas d'ici : c'est le seul chiffre que la liste
+ * publie à chaque passage, et la mémoire des fiches le figerait une semaine
+ * — voir `annonceChargesComprises` dans `index.ts`, qui recolle la mention sur
+ * le loyer frais de la carte.
+ */
+function estateChargesIncluded(estate: EstateData): boolean {
+  const price = positive(estate.price);
+  const priceHC = positive(estate.priceHC);
+  const charges = positive(estate.chargeReserve);
+  if (price === undefined || priceHC === undefined || charges === undefined) return false;
+  return Math.abs(price - (priceHC + charges)) < 1;
+}
+
+/** Atouts déclarés par la fiche, dans les mots que la normalisation relit. */
+function estateFeatures(estate: EstateData): string | undefined {
+  const comfort = new Set([
+    ...(estate.comfortFeatures ?? []),
+    ...(estate.heatingCoolingFeatures ?? []),
+  ]);
+  const labels: Array<[boolean, string]> = [
+    [estate.garden === true, 'Jardin'],
+    [estate.garage === true, 'Garage'],
+    [estate.cellar === true, 'Cave'],
+    [estate.swimmingPool === true, 'Piscine'],
+    [comfort.has('furnished'), 'Meublé'],
+    [comfort.has('air_conditioning'), 'Climatisation'],
+  ];
+  const kept = labels.filter(([present]) => present).map(([, label]) => label);
+  return kept.length > 0 ? kept.join(', ') : undefined;
+}
+
+/**
+ * Les attributs que `extractFeatures` relit tels quels, plus quartier et DPE.
+ *
+ * `etage` mérite un mot : la table admet `'0'` pour le rez-de-chaussée, si bien
+ * qu'un étage nul doit passer — d'où le test sur `null`/`undefined` plutôt que
+ * sur la vérité du nombre.
+ */
+function estateExtra(estate: EstateData): Record<string, string> | undefined {
+  const extra: Record<string, string> = {};
+  const dpe = estate.dpeDisplay === false ? undefined : dpeLetterOfIndex(estate.consumptionIndex);
+  if (dpe !== undefined) extra['dpe'] = dpe;
+  const quartier = nonEmpty(estate.district?.name);
+  if (quartier !== undefined) extra['quartier'] = quartier;
+  if (estate.storyLocation != null) extra['etage'] = String(estate.storyLocation);
+  if (estate.elevator !== undefined) extra['ascenseur'] = estate.elevator ? '1' : '0';
+  if (estate.balcony !== undefined) extra['nbBalcons'] = estate.balcony ? '1' : '0';
+  if (estate.terrace !== undefined) extra['nbTerrasses'] = estate.terrace ? '1' : '0';
+  if (estate.nbParkingSpaces != null) extra['nbParking'] = String(estate.nbParkingSpaces);
+  const features = estateFeatures(estate);
+  if (features !== undefined) extra['features'] = features;
+  if (estateChargesIncluded(estate)) extra[CHARGES_INCLUDED_KEY] = '1';
+  return Object.keys(extra).length > 0 ? extra : undefined;
+}
+
+/** Marque posée par la fiche, relue par `index.ts` sur le loyer de la carte. */
+export const CHARGES_INCLUDED_KEY = 'orpiChargesComprises';
+
+/** « 3 pièces 2 chambres » — les chambres n'existent QUE sur la fiche. */
+function estateRoomsText(estate: EstateData): string | undefined {
+  const parts: string[] = [];
+  if (positive(estate.nbRooms) !== undefined) parts.push(`${estate.nbRooms ?? 0} pièces`);
+  if (estate.nbBedrooms != null) parts.push(`${estate.nbBedrooms} chambres`);
+  return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
+/**
+ * Tout ce que la fiche apprend, lu dans `data-estate`.
  *
  * La fiche affiche les mêmes valeurs (« Dépôt de garantie : 894 € ») ; le JSON
  * les donne sans libellé à interpréter. Le contact est celui de l'agence qui
- * porte l'annonce, jamais l'e-mail personnel de l'agent. Le DPE est la classe
- * surlignée sur l'échelle « Consommation énergétique » de la fiche.
+ * porte l'annonce, jamais l'e-mail personnel de l'agent — la fiche publie les
+ * deux, et `agent.email` est nominatif.
+ *
+ * L'ADRESSE DU BIEN N'EST PAS ICI : `agency.address1` est celle de l'agence,
+ * et la poser en `addressText` ferait gagner le bonus « même adresse » à tous
+ * les biens d'une même agence (§14). Seule la description la porte.
+ *
+ * `onMarketSince` REMPLACE la date de la liste. Sur le bien mesuré, la carte
+ * annonçait le 2026-09-16 (le jour du relevé) et la fiche le 2026-07-08.
+ *
+ * NI LE LOYER NI LES TAGS ne sont repris, et pour la même raison : ce que la
+ * fiche apprend est gardé une semaine et réappliqué à chaque passage, donc
+ * tout champ repris ici EFFACE une semaine durant ce que la liste publie de
+ * frais. Pour le loyer, c'est justement le chiffre que la liste donne à chaque
+ * passage ; pour les tags, ils portent le « Meublé » visible que le JSON de la
+ * liste contredit parfois. La fiche passe donc par `extra`, qui se fusionne au
+ * lieu de remplacer : ses atouts s'ajoutent à ceux de la carte.
  */
 function estateFields(estate: EstateData): RawDraft {
   const agency = estate.agency ?? undefined;
-  const dpe = estate.dpeDisplay === false ? undefined : dpeLetterOfIndex(estate.consumptionIndex);
+  const surface = positive(estate.liveableSurface) ?? positive(estate.surface);
+  const agencyName = nonEmpty(agency?.name);
   return compactDraft({
     depositText: euros(estate.deposit),
     chargesText: euros(estate.chargeReserve),
     feesText: euros(estate.agencyCommission),
+    areaText: surface === undefined ? undefined : `${surface} m²`,
+    roomsText: estateRoomsText(estate),
+    cityText: nonEmpty(estate.city?.name),
+    postalCodeText: nonEmpty(estate.zipCode),
+    latitude: positive(estate.latitude),
+    longitude: positive(estate.longitude),
+    agencyName: agencyName === undefined ? undefined : `Orpi — ${agencyName}`,
     phoneText: nonEmpty(agency?.phone),
     emailText: nonEmpty(agency?.rentEmail) ?? nonEmpty(agency?.email),
-    extra: dpe !== undefined ? { dpe } : undefined,
+    publishedAtText: nonEmpty(estate.onMarketSince),
+    // La carte n'en publie qu'une, en vignette ; la fiche les donne toutes.
+    imageUrls: estate.images !== undefined && estate.images.length > 0 ? estate.images : undefined,
+    extra: estateExtra(estate),
   });
 }
 

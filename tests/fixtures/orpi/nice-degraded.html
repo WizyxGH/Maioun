@@ -9,12 +9,25 @@
   - surface absente du titre et du JSON
   - carte dont le seul lien est ?contact=true (l'URL canonique doit être déduite)
   - dernière page : aucune pagination rel="next"
+  - total annoncé cohérent avec les trois cartes de la liste
 -->
 <html lang="fr">
   <head>
     <title>Location immobilière Nice | Orpi (fixture dégradée)</title>
+    <link rel="canonical" href="https://www.orpi.com/location-immobiliere-nice/" />
   </head>
   <body>
+    <ul class="c-tabs">
+      <li>
+        <a
+          href="/location-immobiliere-nice/louer-appartement/"
+          data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;quartierNom&quot;:&quot;&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;codePostal&quot;:&quot;06000&quot;,&quot;nbResults&quot;:3}"
+          >Appartement</a
+        >
+      </li>
+    </ul>
+
+    <div class="o-grid o-grid--3 mt-p" data-oncrawl="estate-list">
     <!-- Carte 1 : aucun prix nulle part, surface absente. -->
     <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000010-110">
       <a
@@ -68,6 +81,8 @@
         </b>
       </a>
     </article>
+
+    </div>
 
     <!-- Pas de pagination : dernière page. -->
   </body>

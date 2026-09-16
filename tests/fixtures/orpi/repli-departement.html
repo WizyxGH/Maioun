@@ -1,0 +1,65 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE du REPLI DÉPARTEMENTAL d'orpi.com, relevé le 2026-09-16.
+  Données fictives — voir tests/fixtures/README.md.
+
+  CE QUE LE SITE FAIT VRAIMENT, et qui n'a rien d'une erreur visible : demandez
+  une page au-delà de la dernière (`/location-immobiliere-nice/?page=5`) ou une
+  commune qu'il ne connaît pas (`/location-immobiliere-cap-d-ail/`), il répond
+  200 et sert la page du DÉPARTEMENT — mêmes octets à chaque fois, quinze
+  annonces de tout le 06, et une pagination qui promet des pages 5 et 10.
+
+  Rien ne le signale, SAUF le lien canonique. C'est ce qui avait fait conclure
+  en septembre que « les pages 5 à 8 portent d'autres biens » : elles en
+  portent, mais ce sont ceux de Cannes et d'Antibes.
+-->
+<html lang="fr">
+  <head>
+    <title>Locations immobilières Alpes-Maritimes | Orpi (fixture)</title>
+    <link rel="canonical" href="https://www.orpi.com/location-immobiliere-alpes-maritimes/" />
+  </head>
+  <body>
+    <h1>Biens à louer dans les Alpes-Maritimes</h1>
+
+    <ul class="c-tabs">
+      <li>
+        <a
+          href="/location-immobiliere-alpes-maritimes/louer-appartement/"
+          data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;quartierNom&quot;:&quot;&quot;,&quot;nomVille&quot;:&quot;&quot;,&quot;codePostal&quot;:&quot;&quot;,&quot;nbResults&quot;:111}"
+          >Appartement</a
+        >
+      </li>
+    </ul>
+
+    <div class="o-grid o-grid--3 mt-p" data-oncrawl="estate-list">
+      <!-- Un bien HORS PÉRIMÈTRE, qui n'a rien à faire dans l'inventaire
+           d'une commune suivie. -->
+      <article
+        class="c-estate-thumb c-box"
+        data-test-estate
+        data-oncrawl="estate-card"
+        data-reference="x-000080-880"
+      >
+        <div class="c-estate-thumb__banner">
+          <span class="h4 font-bold">1&nbsp;450&nbsp;&euro;</span> par mois
+        </div>
+        <a
+          href="/annonce-location-appartement-t3-cannes-06400-x-000080-880/"
+          class="link-unstyled c-overlay__link"
+        >
+          <b>
+            <span class="text-dark-grey capitalize"> Location Appartement </span>
+            3 pièces 68 m<sup>2</sup>
+          </b>
+          <br />
+          <span class="c-estate-thumb__infos__location">Cannes</span>
+        </a>
+      </article>
+    </div>
+
+    <nav class="c-pagination">
+      <a href="/location-immobiliere-alpes-maritimes/?page=2">2</a>
+      <a rel="next" href="/location-immobiliere-alpes-maritimes/?page=2">Suivant</a>
+    </nav>
+  </body>
+</html>

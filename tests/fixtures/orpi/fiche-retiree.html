@@ -1,0 +1,29 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE d'une FICHE RETIRÉE d'orpi.com, relevée le 2026-09-16.
+  Données fictives — voir tests/fixtures/README.md.
+
+  ORPI NE RÉPOND PAS TOUJOURS 410. Cette annonce-là, partie, a rendu 200 et
+  servi l'ACCUEIL du site : aucun `data-estate`, aucun bloc `.s-cms`, aucun
+  titre d'annonce. Son seul signe est le lien canonique — `/louer/biens-loues/`,
+  « biens loués ». Sans lui, la fiche passait pour une page valide qui n'apprend
+  rien, et l'annonce restait affichée jusqu'à ce que trois passages successifs
+  ne la revoient pas.
+-->
+<html lang="fr">
+  <head>
+    <title>Immobilier, agences immobilières Orpi - Petites annonces immobilières</title>
+    <link rel="canonical" href="https://www.orpi.com/louer/biens-loues/" />
+    <meta property="og:url" content="https://www.orpi.com/louer/biens-loues/" />
+  </head>
+  <body>
+    <nav>
+      <a href="/location-immobiliere-nice/">Louer</a>
+      <a href="/annonces-immobilieres-nice/">Acheter</a>
+    </nav>
+    <section>
+      <h2>1 250 agences partout en France</h2>
+      <p>Trouvez votre prochain logement avec Orpi.</p>
+    </section>
+  </body>
+</html>

@@ -1,13 +1,35 @@
 <!doctype html>
+<!--
+  Fixture ANONYMISÉE d'une FICHE orpi.com, relevée le 2026-09-16. Données
+  fictives (téléphone 06 00 00 00 xx, adresses @example.invalid) — voir
+  tests/fixtures/README.md.
+
+  TOUT CE QUE LA LISTE TAIT EST ICI, et nulle part ailleurs : le tracking des
+  cinquante-sept cartes niçoises du 2026-09-16 rendait `nbChambres`, `etage` et
+  `dpe` à `null` sur chacune d'elles. Le JSON `data-estate` de la fiche, lui,
+  porte les chambres, l'étage, la surface habitable, le dépôt, les charges, les
+  honoraires (état des lieux compris), le DPE, les photos en grand, le
+  téléphone et l'e-mail de l'agence.
+
+  DEUX POINTS QUE LA FIXTURE EXISTE POUR FIGER :
+  - `price` = `priceHC` + `chargeReserve` (950 = 894 + 56) : c'est ce que le
+    site affiche par « Charges comprises », et la seule preuve qu'on en ait ;
+  - `onMarketSince` est la VRAIE date de parution (2026-07-08), quand la carte
+    de résultats datait le même bien du jour du relevé.
+-->
 <html lang="fr">
+  <head>
+    <title>Location appartement, 29 m² T-2 à Nice, 950 € | Orpi (fixture)</title>
+    <link
+      rel="canonical"
+      href="https://www.orpi.com/annonce-location-appartement-t2-nice-06000-00000000-0000-4000-8000-000000000301/"
+    />
+  </head>
   <body>
-    <!--
-      Extrait d'une fiche orpi.com du 2026-09-15, réduit au JSON `data-estate`
-      (lui-même élagué) et à la liste des montants affichés. Coordonnées de
-      l'agence remplacées, agent et avis retirés.
-    -->
-    <div data-component="estate-poi-map" data-estate="&#x7B;&quot;id&quot;&#x3A;1470640,&quot;type&quot;&#x3A;&quot;appartement&quot;,&quot;transaction&quot;&#x3A;&quot;rent&quot;,&quot;reference&quot;&#x3A;&quot;00000000-0000-4000-8000-000000000301&quot;,&quot;zipCode&quot;&#x3A;&quot;06000&quot;,&quot;price&quot;&#x3A;950,&quot;priceHC&quot;&#x3A;894,&quot;inventoryOfFixtures&quot;&#x3A;89,&quot;surface&quot;&#x3A;29.42,&quot;nbRooms&quot;&#x3A;1,&quot;dpeDisplay&quot;&#x3A;true,&quot;emissionIndex&quot;&#x3A;2,&quot;emissionValue&quot;&#x3A;10,&quot;consumptionIndex&quot;&#x3A;4,&quot;consumptionValue&quot;&#x3A;50,&quot;deposit&quot;&#x3A;894,&quot;agencyCommission&quot;&#x3A;385,&quot;chargeReserve&quot;&#x3A;56,&quot;agency&quot;&#x3A;&#x7B;&quot;id&quot;&#x3A;1102,&quot;name&quot;&#x3A;&quot;Agence fictive&quot;,&quot;email&quot;&#x3A;&quot;agence@example.invalid&quot;,&quot;rentEmail&quot;&#x3A;&quot;&quot;,&quot;phone&quot;&#x3A;&quot;06 00 00 00 31&quot;,&quot;address1&quot;&#x3A;&quot;1 rue Fictive&quot;,&quot;zipcode&quot;&#x3A;&quot;06000&quot;,&quot;city&quot;&#x3A;&quot;Nice&quot;&#x7D;,&quot;agent&quot;&#x3A;&#x7B;&quot;id&quot;&#x3A;1,&quot;email&quot;&#x3A;&quot;agent@example.invalid&quot;&#x7D;&#x7D;"></div>
+    <div data-component="estate-poi-map" data-estate="&#x7B;&quot;id&quot;&#x3A;1470640,&quot;type&quot;&#x3A;&quot;appartement&quot;,&quot;transaction&quot;&#x3A;&quot;rent&quot;,&quot;reference&quot;&#x3A;&quot;00000000-0000-4000-8000-000000000301&quot;,&quot;zipCode&quot;&#x3A;&quot;06000&quot;,&quot;price&quot;&#x3A;950,&quot;priceHC&quot;&#x3A;894,&quot;inventoryOfFixtures&quot;&#x3A;89,&quot;liveableSurface&quot;&#x3A;29.42,&quot;surface&quot;&#x3A;29.42,&quot;nbRooms&quot;&#x3A;2,&quot;nbBedrooms&quot;&#x3A;1,&quot;nbWashrooms&quot;&#x3A;1,&quot;nbParkingSpaces&quot;&#x3A;1,&quot;elevator&quot;&#x3A;true,&quot;balcony&quot;&#x3A;true,&quot;terrace&quot;&#x3A;false,&quot;garden&quot;&#x3A;false,&quot;garage&quot;&#x3A;false,&quot;cellar&quot;&#x3A;true,&quot;swimmingPool&quot;&#x3A;false,&quot;storyLocation&quot;&#x3A;3,&quot;generalCondition&quot;&#x3A;&quot;good&quot;,&quot;comfortFeatures&quot;&#x3A;[&quot;furnished&quot;],&quot;heatingCoolingFeatures&quot;&#x3A;[&quot;air_conditioning&quot;],&quot;energyFeatures&quot;&#x3A;[],&quot;onMarketSince&quot;&#x3A;&quot;2026-07-08T00&#x3A;00&#x3A;00+02&#x3A;00&quot;,&quot;createdAt&quot;&#x3A;&quot;2026-07-10T18&#x3A;16&#x3A;40+02&#x3A;00&quot;,&quot;updatedAt&quot;&#x3A;&quot;2026-07-24T21&#x3A;38&#x3A;42+02&#x3A;00&quot;,&quot;dpeDisplay&quot;&#x3A;true,&quot;emissionIndex&quot;&#x3A;2,&quot;emissionValue&quot;&#x3A;10,&quot;consumptionIndex&quot;&#x3A;4,&quot;consumptionValue&quot;&#x3A;50,&quot;deposit&quot;&#x3A;894,&quot;agencyCommission&quot;&#x3A;385,&quot;chargeReserve&quot;&#x3A;56,&quot;latitude&quot;&#x3A;43.7046249,&quot;longitude&quot;&#x3A;7.2712465,&quot;city&quot;&#x3A;&#x7B;&quot;id&quot;&#x3A;6088,&quot;name&quot;&#x3A;&quot;Nice&quot;,&quot;slug&quot;&#x3A;&quot;nice&quot;&#x7D;,&quot;district&quot;&#x3A;&#x7B;&quot;id&quot;&#x3A;3000670,&quot;name&quot;&#x3A;&quot;Quartier Fictif Nord&quot;,&quot;slug&quot;&#x3A;&quot;nice-quartier-fictif-nord&quot;&#x7D;,&quot;images&quot;&#x3A;[&quot;https&#x3A;//img.example.invalid/fixture-orpi/301-1.jpg?p=estate-v2&quot;,&quot;https&#x3A;//img.example.invalid/fixture-orpi/301-2.jpg?p=estate-v2&quot;,&quot;https&#x3A;//img.example.invalid/fixture-orpi/301-3.jpg?p=estate-v2&quot;],&quot;agency&quot;&#x3A;&#x7B;&quot;id&quot;&#x3A;1102,&quot;name&quot;&#x3A;&quot;Agence fictive&quot;,&quot;email&quot;&#x3A;&quot;agence@example.invalid&quot;,&quot;rentEmail&quot;&#x3A;&quot;&quot;,&quot;phone&quot;&#x3A;&quot;06 00 00 00 31&quot;,&quot;address1&quot;&#x3A;&quot;1 rue Fictive&quot;,&quot;zipcode&quot;&#x3A;&quot;06000&quot;,&quot;city&quot;&#x3A;&quot;Nice&quot;&#x7D;,&quot;agent&quot;&#x3A;&#x7B;&quot;id&quot;&#x3A;1,&quot;email&quot;&#x3A;&quot;agent@example.invalid&quot;,&quot;fullName&quot;&#x3A;&quot;Prénom Fictif&quot;&#x7D;&#x7D;"></div>
     <ul>
+      <li>950&nbsp;&euro; par mois</li>
+      <li>Charges comprises</li>
       <li>Loyer de base : 894&nbsp;&euro;</li>
       <li>Dépôt de garantie : 894&nbsp;&euro;</li>
       <li>Honoraires TTC à la charge du locataire : 385&nbsp;&euro;</li>
