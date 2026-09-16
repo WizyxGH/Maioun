@@ -173,7 +173,14 @@ describe('parseListPage (FNAIM)', () => {
       slug: '18-location-maison-alpes-maritimes-06',
       beyondPerimeter: true,
     });
-    expect(maisons.listings.map((listing) => listing.cityText)).toEqual(['NICE', 'CAGNES SUR MER']);
+    // « SAINT LAURENT DU VAR » en toutes lettres appartient au périmètre : le
+    // filtre ne connaissait que l'abréviation du portail, « st laurent du var »,
+    // et écartait donc en silence les maisons de cette commune.
+    expect(maisons.listings.map((listing) => listing.cityText)).toEqual([
+      'NICE',
+      'CAGNES SUR MER',
+      'SAINT LAURENT DU VAR',
+    ]);
   });
 
   it('lit les faits, l’agence et son téléphone', () => {

@@ -69,9 +69,17 @@ const COMMUNES = portalCommunes({
   },
 });
 
-/** Les mêmes communes, dans la forme que portent les cartes. */
+/**
+ * Les mêmes communes, dans les DEUX écritures qu'on peut rencontrer.
+ *
+ * Ce filtre décide si un bien de la recherche départementale appartient au
+ * périmètre. Bâti sur les seuls noms du PORTAIL — abrégés —, il contenait
+ * « st laurent du var » et « st andre » : une carte écrivant « SAINT LAURENT
+ * DU VAR » en toutes lettres était silencieusement écartée. On accepte donc
+ * aussi le nom canonique de la commune.
+ */
 const TARGET_CITIES: ReadonlySet<string> = new Set(
-  COMMUNES.map((commune) => comparable(commune.name)),
+  COMMUNES.flatMap((commune) => [comparable(commune.name), comparable(commune.commune)]),
 );
 
 /** Une recherche du portail : un slug d'URL, et de quoi la borner. */

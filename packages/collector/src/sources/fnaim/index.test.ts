@@ -108,6 +108,12 @@ describe('le passage FNAIM', () => {
     const maisons = resultat.listings.filter((listing) =>
       listing.sourceUrl.includes('location-maison'),
     );
-    expect(maisons.map((listing) => listing.cityText)).toEqual(['NICE', 'CAGNES SUR MER']);
+    // Cannes est écartée ; Saint-Laurent-du-Var, que la carte écrit en toutes
+    // lettres là où le portail l'abrège dans ses URL, ne l'est plus.
+    expect(maisons.map((listing) => listing.cityText)).toEqual([
+      'NICE',
+      'CAGNES SUR MER',
+      'SAINT LAURENT DU VAR',
+    ]);
   });
 });
