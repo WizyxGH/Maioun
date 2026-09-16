@@ -91,18 +91,19 @@ const DPE_NETWORK_BUDGET = 120;
 const TRANSIT_MAX_LISTINGS = 120;
 
 /**
- * Construit la requête de géocodage d'un logement : uniquement s'il a une
- * adresse de rue (numéro/voie), jamais sur la seule ville (§17, §20).
+ * L'adresse à géocoder : uniquement une adresse de rue (numéro/voie), jamais la
+ * seule ville (§17, §20).
+ *
+ * La commune n'est PAS collée ici : le géocodeur la reçoit à part, pour la
+ * poser en filtre sur la commune plutôt qu'en mots dans la question. Le code
+ * postal reste dehors — les sources posent souvent 06000 par défaut et la BAN
+ * lui donnerait la priorité sur la rue.
  */
 function geocodeQuery(listing: AggregatedListing): string | null {
   // « 35 Bis Rue de France / » : la ponctuation finale gêne la BAN.
   const address = listing.address.value?.replace(/[\s/,;-]+$/, '') ?? null;
   if (address === null || address.trim().length < 4) return null;
-  // SANS LE CODE POSTAL : les sources posent souvent 06000 par défaut, et la BAN
-  // lui donne la priorité sur la rue. La commune suffit à lever les homonymes.
-  return [address, listing.city.value]
-    .filter((part) => part !== null && part.trim() !== '')
-    .join(' ');
+  return address;
 }
 
 export interface PipelineOptions {
@@ -324,8 +325,8 @@ async function geocodeMissingAddresses(
   });
 
   // Le cache se lit en parallèle ; le réseau reste un appel à la fois.
-  const cached = await mapLimited(candidates, CACHE_READS_AT_ONCE, ({ query }) =>
-    cache.get(geocodeCacheKey(query)),
+  const cached = await mapLimited(candidates, CACHE_READS_AT_ONCE, ({ listing, query }) =>
+    cache.get(geocodeCacheKey(query, listing.city.value)),
   );
   let networkBudget = GEOCODE_NETWORK_BUDGET;
   for (const [index, { listing, query }] of candidates.entries()) {
