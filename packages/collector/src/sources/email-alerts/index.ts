@@ -200,7 +200,7 @@ export const emailAlertsScraper: Scraper = {
       config,
       log,
       sinceDays: 4,
-      bookmark: parseBookmark(context.memo),
+      bookmark: parseBookmark(context.memo ?? null),
     });
     const emails = batch.emails;
 

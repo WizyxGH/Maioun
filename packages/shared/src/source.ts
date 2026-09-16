@@ -412,8 +412,12 @@ export interface ScrapeContext {
    * relisaient les mêmes messages à chaque passage, faute de pouvoir retenir le
    * dernier lu : 12 161 messages téléchargés en quatorze jours pour 140
    * messages réellement reçus.
+   *
+   * FACULTATIF : la collecte le fournit toujours, mais deux cents sources n'en
+   * veulent rien savoir — l'exiger obligeait chaque test de source à écrire
+   * `memo: null` pour un champ qu'il ne lit pas.
    */
-  readonly memo: string | null;
+  readonly memo?: string | null;
 
   /** `true` quand le budget est épuisé : le scraper doit s'arrêter proprement. */
   readonly shouldStop: () => boolean;
