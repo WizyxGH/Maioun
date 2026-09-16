@@ -290,7 +290,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   }, [located]);
 
   return (
-    <div className="relative">
+    <div className="relative lg:flex lg:h-full lg:flex-col">
       {/* LA HAUTEUR SE CALCULE, elle n'est plus devinée.
         `65vh` obligeait à faire défiler la page pour voir le bas de la carte
         sur un téléphone : l'en-tête, la barre de filtres et la barre de
@@ -310,12 +310,15 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
         déborder sur un autre, ce qui est exactement le genre de marge qu'il ne
         faut pas laisser.
 
-        Au-delà de `lg`, la carte est à côté de la liste et colle au haut de
-        l'écran : elle n'a plus que l'en-tête au-dessus d'elle. */}
+        AU-DELÀ DE `lg`, LA HAUTEUR NE SE CALCULE PLUS ICI : la carte REMPLIT la
+        colonne que la page lui donne. Une hauteur écrite ici — `100dvh` moins
+        sept rem — ignorait ce qui la surplombe (en-tête, barre d'outils, puces
+        de filtres) et la note « n annonces localisées » posée dessous : sur un
+        ordinateur, le bas de la carte passait sous l'écran. */}
       <div
         ref={containerRef}
         data-testid="map-view"
-        className="border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-[calc(100dvh-7rem)]"
+        className="border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-auto lg:min-h-0 lg:flex-1"
       />
       {/* En haut à droite : le coin libre, les boutons de zoom sont à gauche.
         Au-dessus des panneaux de Leaflet, qui montent jusqu'à z-index 1000. */}

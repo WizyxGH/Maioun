@@ -635,7 +635,10 @@ function SearchResults({
             />
           ))}
         </div>
-        <div className="lg:sticky lg:top-4">
+        {/* LA COLONNE BORNE LA CARTE, et c'est elle qui connaît la place :
+          collée à un rem du haut, elle s'arrête un rem avant le bas. La carte
+          remplit ce qu'on lui donne, la note de localisation comprise. */}
+        <div className="lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]">
           <Suspense fallback={<MapSkeleton />}>
             <MapView listings={ranked} onOpen={onOpen} />
           </Suspense>
