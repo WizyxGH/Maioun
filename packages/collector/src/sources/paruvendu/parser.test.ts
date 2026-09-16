@@ -166,7 +166,7 @@ describe('parseDetail', () => {
 
 describe('le passage', () => {
   /** Deux pages pleines, puis une page sans lien « suivante » ; les fiches rendent celle de BEP. */
-  const contexte = (connues: boolean, annoncees?: number) => {
+  const contexte = (connues: boolean, annoncees?: number, liste: string = PAGE) => {
     const vues: string[] = [];
     let pages = 0;
     const ctx: ScrapeContext = {
@@ -177,7 +177,7 @@ describe('le passage', () => {
         let body = fixture('fiche-1295274200.html');
         if (url.includes('/recherche/')) {
           pages += 1;
-          body = pages < 3 ? PAGE : PAGE.replace(/\?p=\d/g, '?p=0');
+          body = pages < 3 ? liste : liste.replace(/\?p=\d/g, '?p=0');
           if (annoncees !== undefined) {
             body = body.replace(
               '</body>',
@@ -223,6 +223,31 @@ describe('le passage', () => {
     const { ctx } = contexte(true, 3);
     const resultat = await paruvenduScraper.run(ctx);
     expect(resultat.stopReason).toBe('completed');
+  });
+
+  /**
+   * Une DEMANDE déposée parmi les offres, telle qu'on en a laissé entrer cinq :
+   * la carte est celle d'une location, le texte dit le contraire.
+   */
+  const AVEC_DEMANDE = PAGE.replace(
+    /line-clamp-5 min-h-19">\n[^<]+/,
+    'line-clamp-5 min-h-19">\nRetraitée cherche studio T1. ' +
+      'Urgent, dame seule, revenus de retraite fiables, téléphone 06 00 00 00 03.',
+  );
+
+  it('n’entre pas la demande de logement, et ne lit pas sa fiche', async () => {
+    const { ctx, vues } = contexte(false, undefined, AVEC_DEMANDE);
+    const resultat = await paruvenduScraper.run(ctx);
+    const refs = new Set(resultat.listings.map((listing) => listing.sourceRef));
+    expect(refs).not.toContain('1295002360');
+    expect(refs.size).toBe(2);
+    // Sa fiche n'est pas lue non plus : la carte suffisait à la reconnaître.
+    expect(new Set(vues.filter((url) => url.includes('/immobilier/location/'))).size).toBe(2);
+  });
+
+  it('la compte quand même lue : un inventaire amputé ne retirerait plus rien', async () => {
+    const { ctx } = contexte(false, 3, AVEC_DEMANDE);
+    expect((await paruvenduScraper.run(ctx)).stopReason).toBe('completed');
   });
 
   it('lit la fiche des annonces nouvelles, et en garde les charges', async () => {

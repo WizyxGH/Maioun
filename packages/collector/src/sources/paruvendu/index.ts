@@ -15,6 +15,10 @@
  *
  * LES FICHES des annonces nouvelles sont lues ensuite, pour les charges et la
  * description entière que la carte n'a pas.
+ *
+ * DES DEMANDES DE LOGEMENT se cachent parmi les offres — un particulier qui
+ * cherche, publié dans la rubrique de ceux qui proposent. Le site n'en fait pas
+ * une rubrique à part : rien à éviter à la source, tout à reconnaître au texte.
  */
 import type {
   RawListing,
@@ -25,6 +29,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { isHousingWanted } from '../../normalization/housing-wanted.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { pageUrlFor, parseDetail, parseSearchPage } from './parser.js';
 
@@ -64,7 +69,9 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   notes:
     'robots.txt vérifié le 2026-09-11 : ferme /immobilier/annonceimmofo/, ' +
     '/immobilier/annoncefo/ et les paramètres ?pagv=, ?tri=, ?d=, ?fulltext= ; ' +
-    'la pagination ?p=N et le filtre ?nbpieces= restent ouverts. 165 annonces à Nice, dont 13 de ' +
+    'la pagination ?p=N et le filtre ?nbpieces= restent ouverts. Aucune rubrique ' +
+    'de demandes : les particuliers qui CHERCHENT un logement publient parmi les ' +
+    'offres, et seul leur texte les distingue. 165 annonces à Nice, dont 13 de ' +
     'particuliers ; les deux tiers viennent d’agences déjà collectées, que le ' +
     'dédoublonnage rapproche.',
 };
@@ -104,7 +111,18 @@ export const paruvenduScraper: Scraper = {
       stopReason = 'incomplete';
     }
 
-    const enriched = await enrichNewListings(context, listings, {
+    // DES DEMANDES chez les offres : des particuliers déposent ici leur
+    // recherche de logement, et la rubrique, la carte et la fiche sont celles
+    // d'une location ordinaire — seul le texte les trahit. Écartées APRÈS le
+    // décompte, qui les a bien lues, et AVANT les fiches, qu'elles ne valent pas.
+    const offres = listings.filter(
+      (listing) => !isHousingWanted(listing.title, listing.description),
+    );
+    if (offres.length < listings.length) {
+      context.log('demandes.ecartees', { nombre: listings.length - offres.length });
+    }
+
+    const enriched = await enrichNewListings(context, offres, {
       max: MAX_DETAILS,
       detailUrl: (listing) => listing.sourceUrl,
       parse: (html, listing) => parseDetail(html, listing.priceText),

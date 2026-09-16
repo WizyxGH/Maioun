@@ -17,6 +17,7 @@ import type {
 } from '@maioun/shared';
 import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import { cleanMultiline, cleanText, comparable } from './text.js';
+import { isHousingWanted } from './housing-wanted.js';
 import {
   addressGrade,
   isShortPeriodPrice,
@@ -434,6 +435,10 @@ export function normalizeListing(
   // Tarif à la nuit ou à la semaine : location de vacances, pas un loyer au
   // mois. Écartée ici pour toutes les sources, plutôt que parseur par parseur.
   if (isShortPeriodPrice(raw.priceText)) return null;
+  // Quelqu'un qui CHERCHE un logement, pas qui en propose un : son « loyer »
+  // est un budget et sa surface un souhait. Le filet est ici pour toutes les
+  // sources, car aucun site ne distingue ces annonces de ses offres.
+  if (isHousingWanted(raw.title, raw.description)) return null;
 
   const nowIso = new Date(options.nowMs).toISOString();
   const area = resolveArea(raw);

@@ -67,16 +67,16 @@ qui se réduira, et l'import par alerte e-mail garde donc sa raison d'être.
 
 #### Autres pistes examinées le 2026-09-09
 
-| Piste                                        | Verdict                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Trovit** (trovit.fr)                       | 🔴 Écartée. `robots.txt` interdit `/listing/`, `/details/` et `/rss/` — c'est-à-dire les annonces elles-mêmes. S'ajoute la raison de fond déjà retenue pour MoteurImmo : un agrégateur ne produit que des données de seconde main.                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Immobilière Pujol** (immobiliere-pujol.fr) | ✅ **Implémentée le 2026-09-09** — verdict « écartée » RETOURNÉ. `robots.txt` permissif et plan de site de 4 681 annonces, mais **18 seulement concernent Nice** — l'agence est marseillaise — et celles-ci sont **clôturées** (« Ce bien a été loué »). Aucune location niçoise en cours. À noter tout de même : ces archives portent l'adresse EXACTE et le loyer obtenu, ce qui en ferait une référence de prix, usage différent de la collecte d'annonces.                                                                                                                                                         |
-| **ParuVendu** (paruvendu.fr)                 | ✅ **Implémentée le 2026-09-11.** 150 annonces d'appartements à Nice sur cinq pages ; les deux tiers viennent d'agences déjà collectées (BEP 32, Citya 23, LocService 13, L'Adresse 13, Century 21 11), le reste est l'apport : **13 particuliers** et une douzaine d'agences qu'aucune autre source ne lit (Riviera Boulevard, MCE, A Alliance, BSK, 123loger, Bérénice…). `robots.txt` : ferme `/immobilier/annonceimmofo/`, `/immobilier/annoncefo/` et `?pagv=`, `?tri=`, `?d=`, `?fulltext=` ; la pagination `?p=N` et les fiches restent ouvertes. Tout est sur la carte — DPE et nature de l'annonceur compris. |
-| **ImmoJeune** (immojeune.com)                | 🟡 À faire si la recherche s'ouvre aux étudiants. `robots.txt` permissif, **621 annonces** à Nice — mais la recherche actuelle EXCLUT les locations étudiantes, qui en font l'essentiel. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Location-etudiant.fr**                     | ⚪ Même famille que LocService ; la page Nice est un guide, sans annonces. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Lokaviz** (CROUS)                          | 🔴 Écartée : son `robots.txt` interdit précisément la recherche (`/rechercher-un-logement/…`) et les fiches. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Ibox Immobilier** (agenceibox.com)         | 🔴 Écartée le 2026-09-10 — hors zone. Agence TOULONNAISE : sur les 68 locations d'habitation de son plan de site, **toutes sont dans le Var** (Toulon 37, La Seyne-sur-Mer 9, Saint-Mandrier 4…), **aucune dans les Alpes-Maritimes**. Le seul bien niçois est une maison à vendre. Techniquement ouverte (`robots.txt` « Allow: / », plan de site, JSON-LD) : à reprendre en une heure si la recherche s'étend un jour au Var.                                                                                                                                                                                        |
-| **Réseau Expert Immo**                       | ⚪ Introuvable sous ce nom. `expertimmo.com` est un domaine parqué à vendre ; aucune enseigne niçoise ne correspond. Si vous avez l'adresse exacte, je reprends.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Piste                                        | Verdict                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Trovit** (trovit.fr)                       | 🔴 Écartée. `robots.txt` interdit `/listing/`, `/details/` et `/rss/` — c'est-à-dire les annonces elles-mêmes. S'ajoute la raison de fond déjà retenue pour MoteurImmo : un agrégateur ne produit que des données de seconde main.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Immobilière Pujol** (immobiliere-pujol.fr) | ✅ **Implémentée le 2026-09-09** — verdict « écartée » RETOURNÉ. `robots.txt` permissif et plan de site de 4 681 annonces, mais **18 seulement concernent Nice** — l'agence est marseillaise — et celles-ci sont **clôturées** (« Ce bien a été loué »). Aucune location niçoise en cours. À noter tout de même : ces archives portent l'adresse EXACTE et le loyer obtenu, ce qui en ferait une référence de prix, usage différent de la collecte d'annonces.                                                                                                                                                                                                                                                                                                  |
+| **ParuVendu** (paruvendu.fr)                 | ✅ **Implémentée le 2026-09-11.** 150 annonces d'appartements à Nice sur cinq pages ; les deux tiers viennent d'agences déjà collectées (BEP 32, Citya 23, LocService 13, L'Adresse 13, Century 21 11), le reste est l'apport : **13 particuliers** et une douzaine d'agences qu'aucune autre source ne lit (Riviera Boulevard, MCE, A Alliance, BSK, 123loger, Bérénice…). `robots.txt` : ferme `/immobilier/annonceimmofo/`, `/immobilier/annoncefo/` et `?pagv=`, `?tri=`, `?d=`, `?fulltext=` ; la pagination `?p=N` et les fiches restent ouvertes. Tout est sur la carte — DPE et nature de l'annonceur compris. Des particuliers y déposent aussi leur RECHERCHE de logement, sans que le site les sépare des offres : écartées au texte, voir plus bas. |
+| **ImmoJeune** (immojeune.com)                | 🟡 À faire si la recherche s'ouvre aux étudiants. `robots.txt` permissif, **621 annonces** à Nice — mais la recherche actuelle EXCLUT les locations étudiantes, qui en font l'essentiel. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Location-etudiant.fr**                     | ⚪ Même famille que LocService ; la page Nice est un guide, sans annonces. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Lokaviz** (CROUS)                          | 🔴 Écartée : son `robots.txt` interdit précisément la recherche (`/rechercher-un-logement/…`) et les fiches. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Ibox Immobilier** (agenceibox.com)         | 🔴 Écartée le 2026-09-10 — hors zone. Agence TOULONNAISE : sur les 68 locations d'habitation de son plan de site, **toutes sont dans le Var** (Toulon 37, La Seyne-sur-Mer 9, Saint-Mandrier 4…), **aucune dans les Alpes-Maritimes**. Le seul bien niçois est une maison à vendre. Techniquement ouverte (`robots.txt` « Allow: / », plan de site, JSON-LD) : à reprendre en une heure si la recherche s'étend un jour au Var.                                                                                                                                                                                                                                                                                                                                 |
+| **Réseau Expert Immo**                       | ⚪ Introuvable sous ce nom. `expertimmo.com` est un domaine parqué à vendre ; aucune enseigne niçoise ne correspond. Si vous avez l'adresse exacte, je reprends.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### Portails
 
@@ -310,39 +310,39 @@ de 4 s (5 s pour Netty).
 
 #### Implémentées — La Boîte Immo (adaptateur `hektor`)
 
-| Source                                             | Vérifié    | Locations relevées                                     |
-| -------------------------------------------------- | ---------- | ------------------------------------------------------ |
-| **Immobilière Roseland** (immobiliereroseland.fr)  | 2026-09-14 | 17 sur deux pages, Nice en majorité                    |
-| **SAG Immobilier** (sag-immobilier.com)            | 2026-09-14 | 11, toutes à Nice                                      |
-| **Sud Agence** (sudagence.fr)                      | 2026-09-15 | 9 à Nice (dont 3 stationnements)                       |
-| **AA Gestion** (aagestion.net)                     | 2026-09-14 | 6 (Nice ×5, Grasse)                                    |
-| **Murta Immobilier** (murta-immobilier.com, Drap)  | 2026-09-14 | 6 (Nice ×2, Drap, Contes, arrière-pays)                |
-| **Aurus Immobilier** (aurusimmo.com, Beaulieu)     | 2026-09-14 | 5 (Nice ×3, Beaulieu-sur-Mer, Roquebrune)              |
-| **ANG Immobilier** (agence-nice-gambetta.fr)       | 2026-09-14 | 5 à Nice (dont 2 stationnements)                       |
-| **Agence Passy** (agencepassy.com)                 | 2026-09-14 | 4 (logements et garages)                               |
-| **Immobilier Côté Village** (La Trinité)           | 2026-09-14 | 4 (La Trinité ×3, Nice)                                |
-| **Midem Immobilier** (midem-immobilier.fr)         | 2026-09-14 | 4 (Nice ×3, Villeneuve-Loubet)                         |
-| **Coprogestimmo** (coprogestimmo.fr)               | 2026-09-14 | 4 (Nice ×2, Menton ×2)                                 |
-| **Liberty Agency** (agence-liberty.com)            | 2026-09-14 | 3 à Nice                                               |
-| **Englimmo** (englimmo.com)                        | 2026-09-15 | 3 à Nice, étudiantes ou en colocation                  |
-| **Belgravia** (belgravia.fr)                       | 2026-09-14 | 2 (Nice, Villefranche-sur-Mer)                         |
-| **De Vita Immobilier** (devita.immo)               | 2026-09-14 | 2 à Nice                                               |
-| **L&B Immobilier** (lb-immobilier.fr)              | 2026-09-14 | 2 à Nice                                               |
-| **Sud Contact** (nice-ouest-immobilier.com)        | 2026-09-14 | 2 à Nice (un studio, une chambre en colocation)        |
-| **Maison Quatre** (maisonquatre.la-boite-immo.com) | 2026-09-14 | 2 à Nice                                               |
-| **Riviera Concept** (rivieraconcept.com)           | 2026-09-14 | 2 à Nice                                               |
-| **L’Agence Azuréenne** (lagenceazureenne.com)      | 2026-09-15 | 2 (Nice Californie, Villeneuve-Loubet)                 |
-| **Cabinet AGIR** (agir.immo)                       | 2026-09-14 | 2 (Nice, Le Rouret)                                    |
-| **Cabinet Nardi** (cabinetnardi.com)               | 2026-09-14 | 1 à Nice                                               |
-| **Immo Consult Côté Sud** (immoconsultcotesud.com) | 2026-09-14 | 1 à Nice                                               |
-| **Immobilière Pelou** (Villeneuve-Loubet)          | 2026-09-14 | 1 à l'année ; la page saisonnière n'est jamais lue     |
-| **Agence des Domaines** (Cagnes-sur-Mer)           | 2026-09-14 | 1 garage ; gardée pour les logements à venir           |
-| **Immobilière GTI** (immobilieregti.com, Orpi)     | 2026-09-14 | 16 sur deux pages, dont 14 à Nice                      |
-| **Groupe Marshall** (cabinet-marshall.com)         | 2026-09-14 | 5 dans la zone (Nice ×3, Cagnes, Saint-Laurent-du-Var) |
-| **Méditerranée Immo** (mediterranee-immo.fr)       | 2026-09-14 | 4 à Nice, pour étudiants                               |
-| **Bérénice Immobilier** (berenice-immobilier.com)  | 2026-09-14 | 3 à Nice ; commune tirée du code postal                |
-| **Orpi Agence Contesso** (agence-contesso.com)     | 2026-09-14 | 3 (Nice, Carros ×2)                                    |
-| **Anne-Sophie Lapierre** (lapierre-immobilier.com) | 2026-09-14 | 2 (Nice, Cagnes-sur-Mer)                               |
+| Source                                             | Vérifié    | Locations relevées                                                                                                                   |
+| -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Immobilière Roseland** (immobiliereroseland.fr)  | 2026-09-14 | 17 sur deux pages, Nice en majorité                                                                                                  |
+| **SAG Immobilier** (sag-immobilier.com)            | 2026-09-14 | 11, toutes à Nice                                                                                                                    |
+| **Sud Agence** (sudagence.fr)                      | 2026-09-15 | 9 à Nice (dont 3 stationnements)                                                                                                     |
+| **AA Gestion** (aagestion.net)                     | 2026-09-14 | 6 (Nice ×5, Grasse)                                                                                                                  |
+| **Murta Immobilier** (murta-immobilier.com, Drap)  | 2026-09-14 | 6 (Nice ×2, Drap, Contes, arrière-pays)                                                                                              |
+| **Aurus Immobilier** (aurusimmo.com, Beaulieu)     | 2026-09-14 | 5 (Nice ×3, Beaulieu-sur-Mer, Roquebrune)                                                                                            |
+| **ANG Immobilier** (agence-nice-gambetta.fr)       | 2026-09-14 | 5 à Nice (dont 2 stationnements)                                                                                                     |
+| **Agence Passy** (agencepassy.com)                 | 2026-09-14 | 4 (logements et garages)                                                                                                             |
+| **Immobilier Côté Village** (La Trinité)           | 2026-09-14 | 4 (La Trinité ×3, Nice)                                                                                                              |
+| **Midem Immobilier** (midem-immobilier.fr)         | 2026-09-14 | 4 (Nice ×3, Villeneuve-Loubet)                                                                                                       |
+| **Coprogestimmo** (coprogestimmo.fr)               | 2026-09-14 | 4 (Nice ×2, Menton ×2)                                                                                                               |
+| **Liberty Agency** (agence-liberty.com)            | 2026-09-14 | 3 à Nice                                                                                                                             |
+| **Englimmo** (englimmo.com)                        | 2026-09-15 | 3 à Nice, étudiantes ou en colocation                                                                                                |
+| **Belgravia** (belgravia.fr)                       | 2026-09-14 | 2 (Nice, Villefranche-sur-Mer)                                                                                                       |
+| **De Vita Immobilier** (devita.immo)               | 2026-09-14 | 2 à Nice                                                                                                                             |
+| **L&B Immobilier** (lb-immobilier.fr)              | 2026-09-14 | 2 à Nice                                                                                                                             |
+| **Sud Contact** (nice-ouest-immobilier.com)        | 2026-09-14 | 2 à Nice (un studio, une chambre en colocation)                                                                                      |
+| **Maison Quatre** (maisonquatre.la-boite-immo.com) | 2026-09-14 | 2 à Nice                                                                                                                             |
+| **Riviera Concept** (rivieraconcept.com)           | 2026-09-14 | 2 à Nice                                                                                                                             |
+| **L’Agence Azuréenne** (lagenceazureenne.com)      | 2026-09-15 | 2 (Nice Californie, Villeneuve-Loubet)                                                                                               |
+| **Cabinet AGIR** (agir.immo)                       | 2026-09-16 | 2 (Nice, Le Rouret) — e-mail, chambres et étage gagnés le 2026-09-16 ; DPE en image sous `/admin`, interdit par robots, donc inconnu |
+| **Cabinet Nardi** (cabinetnardi.com)               | 2026-09-14 | 1 à Nice                                                                                                                             |
+| **Immo Consult Côté Sud** (immoconsultcotesud.com) | 2026-09-14 | 1 à Nice                                                                                                                             |
+| **Immobilière Pelou** (Villeneuve-Loubet)          | 2026-09-14 | 1 à l'année ; la page saisonnière n'est jamais lue                                                                                   |
+| **Agence des Domaines** (Cagnes-sur-Mer)           | 2026-09-14 | 1 garage ; gardée pour les logements à venir                                                                                         |
+| **Immobilière GTI** (immobilieregti.com, Orpi)     | 2026-09-14 | 16 sur deux pages, dont 14 à Nice                                                                                                    |
+| **Groupe Marshall** (cabinet-marshall.com)         | 2026-09-14 | 5 dans la zone (Nice ×3, Cagnes, Saint-Laurent-du-Var)                                                                               |
+| **Méditerranée Immo** (mediterranee-immo.fr)       | 2026-09-14 | 4 à Nice, pour étudiants                                                                                                             |
+| **Bérénice Immobilier** (berenice-immobilier.com)  | 2026-09-14 | 3 à Nice ; commune tirée du code postal                                                                                              |
+| **Orpi Agence Contesso** (agence-contesso.com)     | 2026-09-14 | 3 (Nice, Carros ×2)                                                                                                                  |
+| **Anne-Sophie Lapierre** (lapierre-immobilier.com) | 2026-09-14 | 2 (Nice, Cagnes-sur-Mer)                                                                                                             |
 
 #### Implémentées — Apimo (adaptateur `apimo`, sitemap)
 
@@ -350,32 +350,33 @@ Les sitemaps Apimo gardent des fiches louées : le compte ci-dessous est celui
 du sitemap, et l'adaptateur écarte déjà ce qui a plus d'un an ou se déclare
 loué.
 
-| Source                                             | Vérifié    | Locations ciblées au sitemap                             |
-| -------------------------------------------------- | ---------- | -------------------------------------------------------- |
-| **Masséna Immobilier** (massena-immo.com)          | 2026-09-14 | 39, toutes de 2026                                       |
-| **PHT Real Estate** (phtrealestate.com)            | 2026-09-14 | 39 (26 de 2024-2025)                                     |
-| **Immobilier 2 Nice** (immobilier2nice.com)        | 2026-09-14 | 31, surtout 2025 (2 en ligne sur Bien'ici)               |
-| **Reutter Invest** (reutterinvest.fr)              | 2026-09-14 | 28                                                       |
-| **A Alliance Conseil** (allianceconseilimmo.com)   | 2026-09-14 | 25                                                       |
-| **Vizcaya** (vizcaya.fr)                           | 2026-09-14 | 24                                                       |
-| **Cabinet Ventura** (cabinetventura.com)           | 2026-09-14 | 22 (14 logements)                                        |
-| **FDS Carré d'Or** (fdscarredor.com)               | 2026-09-14 | 10                                                       |
-| **Marcele Immobilier** (ballestri-immobilier.com)  | 2026-09-14 | 6 — ex-Ballestri, nommée par les mentions légales        |
-| **Home Pearl** (homepearl.immo)                    | 2026-09-14 | 5 en ligne (104 au sitemap)                              |
-| **Réussite Immo Nice** (immonice06.fr)             | 2026-09-14 | 5                                                        |
-| **Joseph Garnier** (josephgarnier.fr)              | 2026-09-14 | 5                                                        |
-| **Sambroni Immobilier** (agencesambroni.com)       | 2026-09-14 | 5                                                        |
-| **5 Stars Holiday House** (Sima Immobilier)        | 2026-09-14 | 5 à l'année ou étudiantes ; saisonnier sur un autre site |
-| **BôMarché by Lambda** (bomarche.fr)               | 2026-09-14 | 4                                                        |
-| **Provencalpes** (provencalpes.fr)                 | 2026-09-14 | 4 (Nice, Contes, Drap)                                   |
-| **FIT Immobilier** (fit-immobilier.com)            | 2026-09-14 | 3                                                        |
-| **Agence Riviera Real Estate** (agenceriviera.com) | 2026-09-14 | 2 en ligne                                               |
-| **Diffusion Immobilière** (difimmo.com)            | 2026-09-14 | 2                                                        |
-| **La Conca d'Or** (laconcador.com)                 | 2026-09-14 | 1                                                        |
-| **Étude Lotte** (etudelotte.com)                   | 2026-09-14 | 1 en ligne                                               |
-| **Nice Premium Immobilier**                        | 2026-09-14 | 1 ; pas de page de locations, le sitemap seul            |
-| **Immobilière Victor Hugo**                        | 2026-09-14 | 1                                                        |
-| **La Firme** (proazurdagasso.com)                  | 2026-09-14 | 1 (une chambre en colocation)                            |
+| Source                                             | Vérifié    | Locations ciblées au sitemap                                                                                                                                         |
+| -------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Agence Gounod** (agencegounod.com)               | 2026-09-16 | 40 (Nice 39, Saint-Laurent-du-Var) — « l'agence des Musiciens », installée rue Gounod depuis 1980 ; le saisonnier vit sous `/fr/propriete-saisonniere/`, jamais lu   |
+| **Masséna Immobilier** (massena-immo.com)          | 2026-09-14 | 39, toutes de 2026                                                                                                                                                   |
+| **PHT Real Estate** (phtrealestate.com)            | 2026-09-14 | 39 (26 de 2024-2025)                                                                                                                                                 |
+| **Immobilier 2 Nice** (immobilier2nice.com)        | 2026-09-14 | 31, surtout 2025 (2 en ligne sur Bien'ici)                                                                                                                           |
+| **Reutter Invest** (reutterinvest.fr)              | 2026-09-14 | 28                                                                                                                                                                   |
+| **A Alliance Conseil** (allianceconseilimmo.com)   | 2026-09-14 | 25                                                                                                                                                                   |
+| **Vizcaya** (vizcaya.fr)                           | 2026-09-16 | 24 (Nice 22, Cagnes, Villefranche) — position, quartier et DPE en clair depuis le 2026-09-16                                                                         |
+| **Cabinet Ventura** (cabinetventura.com)           | 2026-09-14 | 22 (14 logements)                                                                                                                                                    |
+| **FDS Carré d'Or** (fdscarredor.com)               | 2026-09-14 | 10                                                                                                                                                                   |
+| **Marcele Immobilier** (ballestri-immobilier.com)  | 2026-09-14 | 6 — ex-Ballestri, nommée par les mentions légales                                                                                                                    |
+| **Home Pearl** (homepearl.immo)                    | 2026-09-14 | 5 en ligne (104 au sitemap)                                                                                                                                          |
+| **Réussite Immo Nice** (immonice06.fr)             | 2026-09-14 | 5                                                                                                                                                                    |
+| **Joseph Garnier** (josephgarnier.fr)              | 2026-09-14 | 5                                                                                                                                                                    |
+| **Sambroni Immobilier** (agencesambroni.com)       | 2026-09-14 | 5                                                                                                                                                                    |
+| **5 Stars Holiday House** (Sima Immobilier)        | 2026-09-16 | 58 au sitemap, 5 à l'année ou étudiantes ; saisonnier sur un autre site. C'est le site de **Sima / Simma Immobilier**, rue de la Buffa : l'agence n'en a pas d'autre |
+| **BôMarché by Lambda** (bomarche.fr)               | 2026-09-14 | 4                                                                                                                                                                    |
+| **Provencalpes** (provencalpes.fr)                 | 2026-09-14 | 4 (Nice, Contes, Drap)                                                                                                                                               |
+| **FIT Immobilier** (fit-immobilier.com)            | 2026-09-14 | 3                                                                                                                                                                    |
+| **Agence Riviera Real Estate** (agenceriviera.com) | 2026-09-14 | 2 en ligne                                                                                                                                                           |
+| **Diffusion Immobilière** (difimmo.com)            | 2026-09-14 | 2                                                                                                                                                                    |
+| **La Conca d'Or** (laconcador.com)                 | 2026-09-14 | 1                                                                                                                                                                    |
+| **Étude Lotte** (etudelotte.com)                   | 2026-09-14 | 1 en ligne                                                                                                                                                           |
+| **Nice Premium Immobilier**                        | 2026-09-14 | 1 ; pas de page de locations, le sitemap seul                                                                                                                        |
+| **Immobilière Victor Hugo**                        | 2026-09-14 | 1                                                                                                                                                                    |
+| **La Firme** (proazurdagasso.com)                  | 2026-09-14 | 1 (une chambre en colocation)                                                                                                                                        |
 
 #### Implémentées — Apimo ancien schéma (`apimo/list-scraper.ts`)
 
@@ -610,6 +611,89 @@ au fil du renouvellement des annonces.
 Enseignement à garder : un taux à zéro n'est pas forcément un bug. Trois des
 quatre sources examinées ne publient pas l'information, et seule la famille
 Apimo laissait vraiment passer ce qu'elle affichait.
+
+## Agences demandées par leur nom (2026-09-16)
+
+| Demande                                    | Ce que c'est                                                                                                                                                         | Suite                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| « Simma Immobilier »                       | Sima Immobilier, rue de la Buffa à Nice. Elle n'a pas de site à son nom : son site est `fivestarsholidayhouserealestate.com`, sous l'enseigne 5 Stars Holiday House. | Déjà collectée (`five-stars`). Rien à ajouter.           |
+| « concept patrimoine immobilier musicien » | Le nom complet de l'agence du quartier des Musiciens de Concept Patrimoine, 28 rue Verdi. Le groupe publie ses trois agences sur une seule page `/locations/`.       | Déjà collectée (`concept-patrimoine`), branche comprise. |
+
+La vraie agence DES Musiciens, elle, manquait : **Agence Gounod**, rue Gounod
+depuis 1980, quarante locations dont une quinzaine dans le quartier. Ajoutée.
+Autres agences qui s'en réclament, non retenues faute d'y être installées :
+HBM Immobilier, Cabinet Vogue, Istra, Immo Terrasse (Savi Esteve, Elitimo et
+Winter sont déjà des sources).
+
+## Relecture champ par champ des deux grosses familles (2026-09-16)
+
+Départ : « récupère bien TOUTES les données » de Vizcaya (Apimo) et du Cabinet
+AGIR (La Boîte Immo). Fiches ouvertes à la main, colonne par colonne, contre ce
+que l'adaptateur en tirait. Les manques trouvés étaient ceux de la PLATEFORME,
+donc corrigés une fois pour toutes les agences qui en dépendent.
+
+| Famille                 | Ce que la page publiait sans qu'on le lise                                                                                                                                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Apimo** (~60 agences) | La **position du bien** (`geo` du JSON-LD) — saisie par l'agence, meilleure qu'un géocodage d'adresse. Le **quartier**, écrit dans le titre de partage (« Location Appartement, Nice Carabacel »). Le **DPE en clair** (`class-d`), plus sûr que l'étiquette dessinée : celle-ci restait affichée vide sur les fiches SANS DPE, et on y lisait une lettre inventée. |
+| **La Boîte Immo** (~40) | L'**e-mail de l'agence**, à côté du téléphone du pied de page (la fiche n'offre qu'un formulaire). Les **chambres** et l'**étage**, que seule la table de caractéristiques porte sur plusieurs gabarits. Et « 5 étage(s) », la hauteur de l'IMMEUBLE, qui était prise pour l'étage du logement quand celui-ci n'était pas déclaré.                                  |
+
+Ce qui reste inconnu, faute d'être publié : la date de disponibilité (elle ne
+vit que dans le texte, où la normalisation la lit déjà), la rue chez La Boîte
+Immo, et le DPE de cette même plateforme — servi en image sous `/admin`, que le
+robots.txt interdit. On ne le contourne pas.
+
+## Les annonces de DEMANDE (audit du 2026-09-16)
+
+Des particuliers publient l'annonce inverse : non pas « je loue », mais « je
+cherche ». Elle n'a rien d'une offre — le loyer affiché est leur budget, la
+surface leur souhait, et la contacter ne mène à aucun logement.
+
+**Ce que publie ParuVendu.** Le site n'a **aucune rubrique de demandes** :
+l'annonce est déposée dans la rubrique des locations, servie par la même carte
+(`.blocAnnonce[data-id]`), sous la même adresse de fiche
+(`/immobilier/location/appartement/<id>`), avec le même intitulé composé par le
+site (« Appartement - 1 pièce(s) - 30 m² »). Ni balise, ni classe, ni paramètre
+d'URL ne l'en distingue — la fiche l'annonce seulement dans son `<title>`, qui
+reprend l'intitulé écrit par l'annonceur (« retraitee du corps medical cherche
+studio t1 »). **Seul le texte la trahit**, et il se lit dès la carte : l'extrait
+de description (`p.line-clamp-5`) commence par cet intitulé. Cinq étaient en
+base le 2026-09-16, dont trois passaient les critères et deux ont été notifiées.
+
+**Les autres sources.** Vérification faite sur les 4 993 occurrences en base et
+sur les points d'entrée de chaque source : **aucune autre n'en apporte**.
+
+- **LocService** — son `robots.txt` ferme l'espace où les locataires déposent
+  leur recherche (`Disallow: /locataires/consulter/`, `/locataires/match-*`) ;
+  nous ne lisons que les pages de commune, qui sont des offres. Attention : le
+  site rédige ses offres à la première personne — « Je cherche un locataire
+  pour un studio de 22 m² », « Recherche locataire pour chambre meublée ». Ce
+  sont des OFFRES, et six d'entre elles sont en base.
+- **Studapart** — l'API ne rend que des biens ; sa prose s'adresse au lecteur
+  (« You are looking for a shared apartment », « PROFIL RECHERCHÉ »).
+- **Bien'ici, FNAIM, Figaro Immo, alertes e-mail, Rentumo** — inventaires
+  professionnels ou relais d'offres, sans dépôt par des particuliers.
+- **PAP** — désactivée ; ses points d'entrée sont de toute façon des listes
+  d'offres (`/annonce/locations-nice-06-g8979`).
+- Les ~200 agences publient leur propre stock.
+
+**La règle** (`normalization/housing-wanted.ts`, appliquée à TOUTES les sources
+dans `normalizeListing`, et une deuxième fois chez ParuVendu avant la lecture
+des fiches). Une demande se reconnaît à un **verbe de recherche conjugué dont
+l'objet immédiat est un logement** — « cherche studio », « je recherche un
+appartement », « recherche 3 pièces » — lu dans le titre et les 400 premiers
+caractères de la description. Tout le reste passe :
+
+| Ce qui ressemble à une demande                               | Pourquoi ce n'en est pas une                   |
+| ------------------------------------------------------------ | ---------------------------------------------- |
+| « Je cherche un **locataire** pour un studio »               | l'objet du verbe est une personne              |
+| « secteur très **recherché** »                               | l'adjectif, que l'accent perdu confond         |
+| « **vous êtes à la** recherche d'un appartement »            | le nom, précédé d'un déterminant               |
+| « **votre** demande de location »                            | idem                                           |
+| « **PROFIL** RECHERCHÉ : colocation calme »                  | idem                                           |
+| « notre agence recherche des appartements pour ses clients » | signature d'agence, au-delà des 400 caractères |
+
+Mesure sur les 4 993 occurrences : cinq détections, les cinq vraies, aucune
+fausse.
 
 ## Descriptions complètes (relevé du 2026-09-14)
 
