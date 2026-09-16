@@ -120,6 +120,25 @@ describe('bouton Appeler', () => {
     expect(onRecorded).toHaveBeenCalledWith('phone', '', []);
   });
 
+  it('écrire ouvre le courrier et consigne la démarche', () => {
+    const onRecorded = vi.fn();
+    render(
+      <ContactPanel
+        listing={{
+          ...avecNumero('new'),
+          contact: { ...base.contact, phone: null, email: 'agence@example.invalid' },
+        }}
+        profile={null}
+        onRecorded={onRecorded}
+        onConfigureProfile={vi.fn()}
+      />,
+    );
+    const bouton = screen.getByRole('link', { name: /Écrire à/ });
+    expect(bouton).toHaveAttribute('href', 'mailto:agence@example.invalid');
+    fireEvent.click(bouton);
+    expect(onRecorded).toHaveBeenCalledWith('email', '', []);
+  });
+
   it('ne compte pas une relance à chaque clic', () => {
     const onRecorded = vi.fn();
     render(

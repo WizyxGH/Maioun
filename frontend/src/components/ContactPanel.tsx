@@ -27,7 +27,7 @@ import { SOURCES } from '../sources.generated.js';
 import { canStoreDocuments, fetchDocuments, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink, buttonVariants } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Check, PhoneCall, X } from './icons.js';
+import { Check, Mail, PhoneCall, X } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { dossierSlots, slotOf } from '../dossier.js';
 import { hrefOf } from '../router.js';
@@ -140,12 +140,15 @@ function ContactDetails({
   listing,
   hasAnyContact,
   onCalled,
+  onWritten,
   onOpenSource,
 }: {
   readonly listing: ListingView;
   readonly hasAnyContact: boolean;
   /** Appelé au clic sur « Appeler » : le suivi passe à « contactée ». */
   readonly onCalled: () => void;
+  /** Idem au clic sur « Écrire ». */
+  readonly onWritten: () => void;
   readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
   const { name, agencyName, phone, email, formUrl, reference, providedBy } = listing.contact;
@@ -206,14 +209,6 @@ function ContactDetails({
             <dd data-testid="agency-reference">{reference}</dd>
           </>
         )}
-        {email !== null && (
-          <>
-            <dt className="text-muted-foreground">E-mail</dt>
-            <dd>
-              <a href={`mailto:${email}`}>{email}</a>
-            </dd>
-          </>
-        )}
         {formUrl !== null && !formIsSource && (
           <>
             <dt className="text-muted-foreground">Formulaire</dt>
@@ -272,10 +267,28 @@ function ContactDetails({
         <a
           href={telHref(phone)}
           onClick={onCalled}
-          className={buttonVariants({ className: 'mb-4 w-full gap-2 no-underline' })}
+          className={buttonVariants({ className: 'mb-2 w-full gap-2 no-underline' })}
         >
           <PhoneCall aria-hidden="true" className="size-4" />
           Appeler {formatPhone(phone)}
+        </a>
+      )}
+
+      {/* ÉCRIRE EST UN GESTE AUSSI, et il était une adresse écrite en petit dans
+        un tableau — à viser au doigt, puis à recopier. Même bouton que l'appel,
+        en second parce que le téléphone obtient une visite plus vite. Le
+        message préparé reste plus bas : ici on ouvre son courrier, vide. */}
+      {email !== null && (
+        <a
+          href={`mailto:${email}`}
+          onClick={onWritten}
+          className={buttonVariants({
+            variant: 'outline',
+            className: 'mb-4 w-full gap-2 no-underline',
+          })}
+        >
+          <Mail aria-hidden="true" className="size-4" />
+          Écrire à {email}
         </a>
       )}
 
@@ -474,6 +487,9 @@ export function ContactPanel({
         hasAnyContact={hasAnyContact}
         onCalled={() => {
           if (listing.tracking === 'new') onRecorded('phone', '', []);
+        }}
+        onWritten={() => {
+          if (listing.tracking === 'new') onRecorded('email', '', []);
         }}
         onOpenSource={onOpenSource}
       />
