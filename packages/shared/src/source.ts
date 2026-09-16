@@ -215,6 +215,28 @@ export interface SourceDescriptor {
    * Absent = on ne sait pas, et le texte reste seul juge.
    */
   readonly landlord?: LandlordKind;
+
+  /**
+   * `true` quand des DEMANDES de logement se publient parmi les offres de cette
+   * source — un particulier qui cherche, déposé dans la rubrique de ceux qui
+   * proposent.
+   *
+   * ParuVendu en est le seul cas mesuré (2026-09-16) : son formulaire de dépôt
+   * est libre, et cinq annonces de locataires en quête d'un toit étaient
+   * entrées en base par sa recherche d'appartements. Le site a pourtant une
+   * rubrique dédiée — mais c'est un espace SÉPARÉ, dont aucune annonce ne
+   * ressort dans les offres ; ces cinq-là avaient simplement été déposées au
+   * mauvais endroit par leur auteur.
+   *
+   * Ce drapeau commande une EXCLUSION, et l'exclusion se paie : reconnaître une
+   * demande se fait sur son texte, donc avec un risque. Ailleurs — une agence,
+   * un inventaire professionnel — la formulation est seulement signalée dans le
+   * journal, jamais suivie d'un retrait.
+   *
+   * Ce n'est pas une supposition sur une annonce : c'est un fait sur la source,
+   * comme `relaysListings` et `landlord` au-dessus.
+   */
+  readonly hostsWantedAds?: boolean;
   readonly notes: string;
 }
 

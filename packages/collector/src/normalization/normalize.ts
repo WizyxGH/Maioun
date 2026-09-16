@@ -17,7 +17,7 @@ import type {
 } from '@maioun/shared';
 import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import { cleanMultiline, cleanText, comparable } from './text.js';
-import { isHousingWanted } from './housing-wanted.js';
+import { wantedAdEvidence } from './housing-wanted.js';
 import {
   addressGrade,
   isShortPeriodPrice,
@@ -71,6 +71,18 @@ export interface NormalizeOptions {
    * portent aucune description.
    */
   readonly landlord?: LandlordKind;
+  /**
+   * `true` quand la source laisse des DEMANDES de logement se publier parmi ses
+   * offres — c'est le drapeau du descripteur. Ailleurs, une formulation de
+   * demande est signalée mais l'annonce reste : le risque d'écarter une vraie
+   * offre pèse plus lourd que celui d'en laisser passer une fausse.
+   */
+  readonly hostsWantedAds?: boolean;
+  /**
+   * Prévenu pour CHAQUE annonce reconnue comme une demande, retirée ou non,
+   * avec la formulation qui l'a désignée. Rien ne disparaît en silence.
+   */
+  readonly onWantedAd?: (raw: RawListing, evidence: string, excluded: boolean) => void;
 }
 
 /** Identifiant stable et lisible d'une occurrence. */
@@ -435,10 +447,6 @@ export function normalizeListing(
   // Tarif à la nuit ou à la semaine : location de vacances, pas un loyer au
   // mois. Écartée ici pour toutes les sources, plutôt que parseur par parseur.
   if (isShortPeriodPrice(raw.priceText)) return null;
-  // Quelqu'un qui CHERCHE un logement, pas qui en propose un : son « loyer »
-  // est un budget et sa surface un souhait. Le filet est ici pour toutes les
-  // sources, car aucun site ne distingue ces annonces de ses offres.
-  if (isHousingWanted(raw.title, raw.description)) return null;
 
   const nowIso = new Date(options.nowMs).toISOString();
   const area = resolveArea(raw);
@@ -911,13 +919,30 @@ export function rederiveFromText(
   };
 }
 
-/** Normalise un lot, en écartant silencieusement les annonces inexploitables. */
+/**
+ * Normalise un lot, en écartant les annonces inexploitables.
+ *
+ * LES DEMANDES DE LOGEMENT SE TRAITENT ICI, et non dans `normalizeListing` :
+ * écarter une annonce sur son texte est une décision, et une décision se
+ * journalise. `onWantedAd` la rapporte toujours — qu'elle soit suivie d'un
+ * retrait ou non — pour qu'on puisse la vérifier après coup.
+ *
+ * ET SEULES LES SOURCES CONCERNÉES PERDENT L'ANNONCE. Une agence ne publie pas
+ * la recherche d'un locataire ; y appliquer la règle ne ferait courir qu'un
+ * risque. Ailleurs on signale sans retirer (`hostsWantedAds`).
+ */
 export function normalizeAll(
   raws: readonly RawListing[],
   options: NormalizeOptions,
 ): NormalizedListing[] {
   const results: NormalizedListing[] = [];
   for (const raw of raws) {
+    const evidence = wantedAdEvidence(raw.title, raw.description);
+    if (evidence !== null) {
+      const excluded = options.hostsWantedAds === true;
+      options.onWantedAd?.(raw, evidence, excluded);
+      if (excluded) continue;
+    }
     const normalized = normalizeListing(raw, options);
     if (normalized !== null) results.push(normalized);
   }

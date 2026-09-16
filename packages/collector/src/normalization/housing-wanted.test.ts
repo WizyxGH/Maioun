@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { isHousingWanted } from './housing-wanted.js';
-import { normalizeListing } from './normalize.js';
+import { normalizeAll } from './normalize.js';
 
 describe('une demande de logement', () => {
   it('reconnaît les cinq que ParuVendu nous avait fait entrer', () => {
@@ -120,7 +120,38 @@ describe('une offre qui parle de recherche', () => {
   });
 });
 
-describe('la normalisation', () => {
+/**
+ * Intitulés RECOPIÉS de la rubrique des demandes de ParuVendu
+ * (`/immobilier/demande-de-location/`, relevée le 2026-09-16). Ceux qui sont
+ * reconnus, et surtout ceux qui ne le sont pas — parce qu'ils ne disent rien
+ * qu'une offre ne dirait.
+ */
+describe('la rubrique des demandes, en vrai', () => {
+  it('reconnaît ceux qui nomment ce qu’ils cherchent', () => {
+    const reconnus = [
+      'Recherche studio meublé alpes-maritimes',
+      'Contractuel au département (55 ans) cherche studio a nice',
+      'Recherche studio ou petit 2 pièces sur nice',
+      'Retraite recherche un t 3 avec ascenseur ou de plein pied',
+      'Recherche logement 3 pièces / 2 chambres',
+      'Je cherches un appartement 2 chambres',
+      'Cherche logement t2',
+      'Recherche appartement une chambre le mans louer',
+      'Demande de maison individuelle',
+      'Couple recherche',
+    ];
+    for (const titre of reconnus) expect(isHousingWanted('', titre)).toBe(true);
+  });
+
+  it('en laisse passer la moitié, et c’est voulu', () => {
+    // Ces intitulés-là sont indiscernables de ceux d'une offre : les
+    // reconnaître coûterait de vraies annonces.
+    const manques = ['Maison', 'T 2 vide', 'Appartement 3 pièces', 'Urgent', 'Recherche'];
+    for (const titre of manques) expect(isHousingWanted('', titre)).toBe(false);
+  });
+});
+
+describe('le lot normalisé', () => {
   const brute = (title: string, description: string) => ({
     sourceRef: '1292785316',
     sourceUrl: 'https://www.paruvendu.fr/immobilier/location/appartement/1292785316',
@@ -129,23 +160,47 @@ describe('la normalisation', () => {
     priceText: '700 € CC',
     areaText: '30 m²',
   });
+  const DEMANDE = brute(
+    'Appartement - 1 pièce(s) - 30 m²',
+    'RETRAITEE CHERCHE STUDIO T1 SUR NICE. URGENT. Téléphone 06 00 00 00 04.',
+  );
+  const OFFRE = brute(
+    'Appartement - 1 pièce(s) - 30 m²',
+    'Studio meublé, secteur recherché, libre de suite.',
+  );
 
-  it('n’en fait pas une annonce : une demande n’entre pas en base', () => {
-    const annonce = normalizeListing(
-      brute('Appartement - 1 pièce(s) - 30 m²', 'RETRAITEE CHERCHE STUDIO T1 SUR NICE. URGENT.'),
-      { sourceId: 'paruvendu', nowMs: Date.parse('2026-09-16T10:00:00Z') },
-    );
-    expect(annonce).toBeNull();
+  it('retire la demande de la source qui en héberge, et dit laquelle', () => {
+    const vus: { ref: string; motif: string; retiree: boolean }[] = [];
+    const lot = normalizeAll([DEMANDE, OFFRE], {
+      sourceId: 'paruvendu',
+      nowMs: Date.parse('2026-09-16T10:00:00Z'),
+      hostsWantedAds: true,
+      onWantedAd: (raw, motif, retiree) => vus.push({ ref: raw.sourceRef, motif, retiree }),
+    });
+    expect(lot).toHaveLength(1);
+    expect(lot[0]?.price).toBe(700);
+    expect(vus).toEqual([{ ref: '1292785316', motif: 'cherche studio', retiree: true }]);
   });
 
-  it('laisse passer l’offre voisine', () => {
-    const annonce = normalizeListing(
-      brute(
-        'Appartement - 1 pièce(s) - 30 m²',
-        'Studio meublé, secteur recherché, libre de suite.',
-      ),
-      { sourceId: 'paruvendu', nowMs: Date.parse('2026-09-16T10:00:00Z') },
-    );
-    expect(annonce?.price).toBe(700);
+  it('ailleurs, elle est signalée mais GARDÉE : une agence n’en publie pas', () => {
+    const vus: boolean[] = [];
+    const lot = normalizeAll([DEMANDE], {
+      sourceId: 'laforet',
+      nowMs: Date.parse('2026-09-16T10:00:00Z'),
+      onWantedAd: (_raw, _motif, retiree) => vus.push(retiree),
+    });
+    expect(lot).toHaveLength(1);
+    expect(vus).toEqual([false]);
+  });
+
+  it('une offre ne fait rien dire du tout', () => {
+    const vus: string[] = [];
+    normalizeAll([OFFRE], {
+      sourceId: 'paruvendu',
+      nowMs: Date.parse('2026-09-16T10:00:00Z'),
+      hostsWantedAds: true,
+      onWantedAd: (_raw, motif) => vus.push(motif),
+    });
+    expect(vus).toEqual([]);
   });
 });

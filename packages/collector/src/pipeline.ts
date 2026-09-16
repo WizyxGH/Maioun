@@ -1053,9 +1053,25 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     // que du particulier à particulier. C'est un fait sur la SOURCE, pas une
     // supposition sur l'annonce, et c'est le seul indice disponible pour les
     // digests de portails, qui n'ont aucune description à fouiller (§17).
-    const landlord = scrapers.find((one) => one.descriptor.id === sourceId)?.descriptor.landlord;
+    const descriptor = scrapers.find((one) => one.descriptor.id === sourceId)?.descriptor;
+    const landlord = descriptor?.landlord;
     return withAgencyContact(
-      normalizeAll(raws, { sourceId, nowMs, ...(landlord !== undefined ? { landlord } : {}) }),
+      normalizeAll(raws, {
+        sourceId,
+        nowMs,
+        ...(landlord !== undefined ? { landlord } : {}),
+        hostsWantedAds: descriptor?.hostsWantedAds === true,
+        // Une annonce de quelqu'un qui CHERCHE un logement : nommée dans le
+        // journal, retirée ou non, pour qu'on puisse la retrouver et juger.
+        onWantedAd: (raw, evidence, excluded) => {
+          logger.warn(excluded ? 'listing.wanted_ad_dropped' : 'listing.wanted_ad_seen', {
+            source: sourceId,
+            ref: raw.sourceRef,
+            url: raw.sourceUrl,
+            motif: evidence,
+          });
+        },
+      }),
       sourceId,
       scrapers,
     );

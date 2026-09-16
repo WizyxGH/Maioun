@@ -17,8 +17,20 @@
  * description entière que la carte n'a pas.
  *
  * DES DEMANDES DE LOGEMENT se cachent parmi les offres — un particulier qui
- * cherche, publié dans la rubrique de ceux qui proposent. Le site n'en fait pas
- * une rubrique à part : rien à éviter à la source, tout à reconnaître au texte.
+ * cherche, publié dans la rubrique de ceux qui proposent.
+ *
+ * LA RUBRIQUE DÉDIÉE NE SERT À RIEN POUR LES ÉVITER, et c'est mesuré. Le site
+ * en a bien une, `/immobilier/demande-de-location/` (« avis de recherche »,
+ * rubrique `IDELO000`), cinq pages de trente, que le menu ne montre nulle part
+ * et que le `robots.txt` n'interdit pas. Mais c'est un espace de dépôt SÉPARÉ :
+ * ses 159 annonces ne partagent AUCUN identifiant avec les 221 offres que nous
+ * collectons, et aucune des cinq demandes retrouvées en base n'y figurait. La
+ * relire à chaque passage coûterait cinq pages pour une liste d'exclusion qui,
+ * par construction, ne croise jamais rien. On ne la lit donc pas — elle a servi
+ * de corpus d'essai, pas de garde-fou.
+ *
+ * Reste le texte, lu dès la carte : l'extrait de description commence par
+ * l'intitulé qu'a écrit le déposant, et c'est là que la demande se déclare.
  */
 import type {
   RawListing,
@@ -29,7 +41,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { isHousingWanted } from '../../normalization/housing-wanted.js';
+import { wantedAdEvidence } from '../../normalization/housing-wanted.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { pageUrlFor, parseDetail, parseSearchPage } from './parser.js';
 
@@ -62,6 +74,9 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   // Le portail REPUBLIE des annonces d'agences — LocService, BEP, Citya… Deux
   // annonces de cette source qui partagent une photo sont donc le même bien.
   relaysListings: true,
+  // Formulaire de dépôt libre : des locataires en quête d'un toit publient
+  // parmi les offres. Cinq étaient en base le 2026-09-16.
+  hostsWantedAds: true,
   allowedPaths: [
     '/immobilier/recherche/location/appartement/nice/',
     '/immobilier/location/appartement/*',
@@ -69,9 +84,10 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   notes:
     'robots.txt vérifié le 2026-09-11 : ferme /immobilier/annonceimmofo/, ' +
     '/immobilier/annoncefo/ et les paramètres ?pagv=, ?tri=, ?d=, ?fulltext= ; ' +
-    'la pagination ?p=N et le filtre ?nbpieces= restent ouverts. Aucune rubrique ' +
-    'de demandes : les particuliers qui CHERCHENT un logement publient parmi les ' +
-    'offres, et seul leur texte les distingue. 165 annonces à Nice, dont 13 de ' +
+    'la pagination ?p=N et le filtre ?nbpieces= restent ouverts. La rubrique des ' +
+    'demandes (/immobilier/demande-de-location/, ouverte elle aussi) est un espace ' +
+    'de dépôt séparé, sans identifiant commun avec les offres : inutile pour les ' +
+    'écarter, seul leur texte les distingue. 165 annonces à Nice, dont 13 de ' +
     'particuliers ; les deux tiers viennent d’agences déjà collectées, que le ' +
     'dédoublonnage rapproche.',
 };
@@ -115,12 +131,18 @@ export const paruvenduScraper: Scraper = {
     // recherche de logement, et la rubrique, la carte et la fiche sont celles
     // d'une location ordinaire — seul le texte les trahit. Écartées APRÈS le
     // décompte, qui les a bien lues, et AVANT les fiches, qu'elles ne valent pas.
-    const offres = listings.filter(
-      (listing) => !isHousingWanted(listing.title, listing.description),
-    );
-    if (offres.length < listings.length) {
-      context.log('demandes.ecartees', { nombre: listings.length - offres.length });
-    }
+    // Chacune est NOMMÉE dans le journal, motif compris : une annonce qu'on
+    // retire sur son texte doit pouvoir être revue.
+    const offres = listings.filter((listing) => {
+      const motif = wantedAdEvidence(listing.title, listing.description);
+      if (motif === null) return true;
+      context.log('demande.ecartee', {
+        ref: listing.sourceRef,
+        url: listing.sourceUrl,
+        motif,
+      });
+      return false;
+    });
 
     const enriched = await enrichNewListings(context, offres, {
       max: MAX_DETAILS,

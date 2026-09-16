@@ -648,16 +648,37 @@ Des particuliers publient l'annonce inverse : non pas « je loue », mais « je
 cherche ». Elle n'a rien d'une offre — le loyer affiché est leur budget, la
 surface leur souhait, et la contacter ne mène à aucun logement.
 
-**Ce que publie ParuVendu.** Le site n'a **aucune rubrique de demandes** :
-l'annonce est déposée dans la rubrique des locations, servie par la même carte
-(`.blocAnnonce[data-id]`), sous la même adresse de fiche
-(`/immobilier/location/appartement/<id>`), avec le même intitulé composé par le
-site (« Appartement - 1 pièce(s) - 30 m² »). Ni balise, ni classe, ni paramètre
-d'URL ne l'en distingue — la fiche l'annonce seulement dans son `<title>`, qui
-reprend l'intitulé écrit par l'annonceur (« retraitee du corps medical cherche
-studio t1 »). **Seul le texte la trahit**, et il se lit dès la carte : l'extrait
-de description (`p.line-clamp-5`) commence par cet intitulé. Cinq étaient en
-base le 2026-09-16, dont trois passaient les critères et deux ont été notifiées.
+**Ce que publie ParuVendu.** Le site a bien une rubrique de demandes —
+`/immobilier/demande-de-location/`, « Recherche de logement à louer : annonces
+de locataires », cinq pages de trente, une déclinaison par ville, que le menu ne
+montre nulle part et que le `robots.txt` n'interdit pas. Mais **c'est un espace
+de dépôt séparé**, et c'est ce qui décide de tout :
+
+|                  | rubrique des demandes                                                                 | les cinq trouvées en base               |
+| ---------------- | ------------------------------------------------------------------------------------- | --------------------------------------- |
+| code de rubrique | `IDELO000`, `type=avisrecherche`                                                      | `ILHAP000` — celui d'une offre          |
+| fiche            | aucune : une popin sous `/communfo/popincommunfo/`, **interdite** par le `robots.txt` | `/immobilier/location/appartement/<id>` |
+| identifiants     | 159 relevés le 2026-09-16                                                             | **aucun en commun** avec nos 221 offres |
+
+Autrement dit, une annonce déposée dans la rubrique des demandes n'en sort
+jamais ; les cinq qui nous sont arrivées avaient été déposées **par leur auteur
+dans la rubrique des offres**. Leur fiche est alors celle d'une offre jusqu'au
+dernier octet : même `codeRubrique`, même fil d'Ariane JSON-LD, six photos,
+référence `WI…` de particulier — le préfixe des dépôts de particuliers, offres
+comprises. **Aucun marqueur structurel, ni en liste, ni en fiche.**
+
+Reste le texte, et il se lit dès la carte : l'extrait de description
+(`p.line-clamp-5`) commence par l'intitulé qu'a écrit le déposant (« Retraitee
+du corps medical cherche studio t1. urgent… »), avant le corps de l'annonce.
+Cinq demandes étaient en base le 2026-09-16, dont trois passaient les critères
+et deux ont été notifiées.
+
+**Pourquoi on ne lit PAS la rubrique des demandes à chaque passage.** Elle
+donnerait une liste d'identifiants à exclure d'office — un signal déterministe,
+bien préférable à du texte. Sauf qu'elle ne croise rien : zéro identifiant
+commun sur 159 × 221, et aucune des cinq n'y figurait. Cinq pages par passage
+pour une liste qui, par construction, ne désigne jamais une annonce que nous
+collectons. Elle a servi de corpus d'essai, pas de garde-fou.
 
 **Les autres sources.** Vérification faite sur les 4 993 occurrences en base et
 sur les points d'entrée de chaque source : **aucune autre n'en apporte**.
@@ -676,24 +697,54 @@ sur les points d'entrée de chaque source : **aucune autre n'en apporte**.
   d'offres (`/annonce/locations-nice-06-g8979`).
 - Les ~200 agences publient leur propre stock.
 
-**La règle** (`normalization/housing-wanted.ts`, appliquée à TOUTES les sources
-dans `normalizeListing`, et une deuxième fois chez ParuVendu avant la lecture
-des fiches). Une demande se reconnaît à un **verbe de recherche conjugué dont
-l'objet immédiat est un logement** — « cherche studio », « je recherche un
-appartement », « recherche 3 pièces » — lu dans le titre et les 400 premiers
-caractères de la description. Tout le reste passe :
+**La règle** (`normalization/housing-wanted.ts`). Une demande se reconnaît à un
+**verbe de recherche conjugué dont l'objet immédiat est un logement** —
+« cherche studio », « je recherche un appartement », « recherche 3 pièces » —
+lu dans le titre et les 400 premiers caractères de la description ; et, **en
+tête de l'intitulé seulement**, à un demandeur qui se présente (« Couple
+recherche », « Retraité recherche »). Tout le reste passe :
 
-| Ce qui ressemble à une demande                               | Pourquoi ce n'en est pas une                   |
-| ------------------------------------------------------------ | ---------------------------------------------- |
-| « Je cherche un **locataire** pour un studio »               | l'objet du verbe est une personne              |
-| « secteur très **recherché** »                               | l'adjectif, que l'accent perdu confond         |
-| « **vous êtes à la** recherche d'un appartement »            | le nom, précédé d'un déterminant               |
-| « **votre** demande de location »                            | idem                                           |
-| « **PROFIL** RECHERCHÉ : colocation calme »                  | idem                                           |
-| « notre agence recherche des appartements pour ses clients » | signature d'agence, au-delà des 400 caractères |
+| Ce qui ressemble à une demande                                          | Pourquoi ce n'en est pas une           |
+| ----------------------------------------------------------------------- | -------------------------------------- |
+| « Je cherche un **locataire** pour un studio »                          | l'objet du verbe est une personne      |
+| « secteur très **recherché** »                                          | l'adjectif, que l'accent perdu confond |
+| « **vous êtes à la** recherche d'un appartement »                       | le nom, précédé d'un déterminant       |
+| « **votre** demande de location »                                       | idem                                   |
+| « **PROFIL** RECHERCHÉ : colocation calme »                             | idem                                   |
+| « **notre agence** recherche des appartements pour ses clients »        | la prospection d'un professionnel      |
+| « le propriétaire, un **couple** retraité, **recherche** un locataire » | le demandeur n'est reconnu qu'en tête  |
 
-Mesure sur les 4 993 occurrences : cinq détections, les cinq vraies, aucune
-fausse.
+**Écarter une vraie offre est plus grave que laisser passer une demande**, et
+la règle est réglée dessus :
+
+- **elle n'exclut que là où des demandes se publient** — le drapeau
+  `hostsWantedAds` du descripteur, vrai pour ParuVendu seul. Ailleurs, une
+  formulation de demande est **signalée dans le journal sans retirer
+  l'annonce** : une agence ne publie pas la recherche d'un locataire, et lui
+  appliquer la règle ne ferait courir qu'un risque ;
+- **rien ne disparaît en silence** : chaque annonce reconnue est nommée dans le
+  journal de collecte avec son identifiant, son adresse et **la phrase qui l'a
+  désignée** (`listing.wanted_ad_dropped` / `listing.wanted_ad_seen`, et
+  `demande.ecartee` côté ParuVendu, avant même la lecture de la fiche) ;
+- **`pnpm audit:data` la repasse sur toute la base** et liste ce qu'elle
+  reconnaît, pour qu'on puisse relire ligne à ligne.
+
+**Mesure du 2026-09-16, sur deux corpus étiquetés** — les 159 demandes de la
+rubrique dédiée plus les 5 retrouvées en base, contre les 4 999 occurrences
+stockées :
+
+|                                                        | avant         | après         |
+| ------------------------------------------------------ | ------------- | ------------- |
+| offres écartées à tort (sur 4 999)                     | **0**         | **0**         |
+| demandes reconnues, rubrique entière                   | 78/159 (49 %) | 83/159 (52 %) |
+| demandes reconnues, celles qui portent sur un logement | 78/107 (73 %) | 81/107 (76 %) |
+| les cinq mal classées, réelles                         | 5/5           | 5/5           |
+
+Le rappel plafonne, et ce n'est pas un défaut de la règle : la moitié des
+intitulés de la rubrique ne dit rien qu'une offre ne dirait — « Maison »,
+« T 2 vide », « Appartement 3 pièces », « Urgent », « Recherche » — et l'autre
+moitié des ratés ne parle pas de logement du tout (garage, terrain, camping-car,
+salle des fêtes). Les reconnaître coûterait de vraies annonces.
 
 ## Descriptions complètes (relevé du 2026-09-14)
 

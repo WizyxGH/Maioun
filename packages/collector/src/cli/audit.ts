@@ -15,6 +15,7 @@ import { migrate } from '../db/migrate.js';
 import { createLogger } from '../core/logger.js';
 import { loadDotEnv } from '../config.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
+import { wantedAdEvidence } from '../normalization/housing-wanted.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -235,6 +236,33 @@ async function reportSourceCoverage(db: Database): Promise<void> {
 }
 
 /**
+ * Les annonces de DEMANDE encore en base : quelqu'un qui cherche un logement,
+ * pas qui en propose un.
+ *
+ * Le filet de la collecte les écarte à l'entrée, mais seulement pour les
+ * sources qui en hébergent ; ailleurs il se contente de signaler. Et une règle
+ * qui écarte sur du texte doit se relire : ce tableau est là pour qu'on puisse
+ * vérifier, ligne à ligne, qu'elle n'a pas pris une vraie offre.
+ */
+async function reportWantedAds(db: Database): Promise<void> {
+  const rows = await db.execute(
+    `SELECT id, source_id, source_url, title, json_extract(payload, '$.description') AS texte
+     FROM occurrences WHERE ${ACTIVE}`,
+  );
+  const found = rows.rows
+    .map((r) => ({ row: r, motif: wantedAdEvidence(r['title'] as string, r['texte'] as string) }))
+    .filter((one) => one.motif !== null);
+
+  console.log('\n── Demandes de logement (annonces à l’envers) ────────────────');
+  console.log(line('reconnues parmi les annonces vivantes', found.length, rows.rows.length));
+  for (const { row: r, motif } of found) {
+    console.log(
+      `     ${String(r['source_id']).padEnd(16)} « ${String(motif)} »  ${String(r['source_url'])}`,
+    );
+  }
+}
+
+/**
  * Les réglages posés par compte.
  *
  * Plusieurs écrans ne s'affichent QUE si leur marque est absente — l'accueil
@@ -275,6 +303,7 @@ async function main(): Promise<void> {
     await reportFields(db, total);
     await reportFlatShare(db, total);
     await reportSourceCoverage(db);
+    await reportWantedAds(db);
     await reportSettings(db);
     console.log('');
   } finally {
