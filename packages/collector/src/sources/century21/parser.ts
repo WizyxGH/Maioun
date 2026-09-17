@@ -12,6 +12,13 @@
  * `c-the-property-thumbnail-with-content`), attribut `data-uid`, texte du
  * `h3` (« NICE 06 / 78,27 m² / 3 pièces / Ref : 16862 / … / 3 000 € par mois
  * charges comprises »).
+ *
+ * VINGT PAR PAGE, ET LA PAGE DIT COMBIEN IL Y EN A. Le verdict « une page =
+ * tout le stock » venait d'un relevé de dix-neuf annonces, à une de la taille
+ * de page. Le 2026-09-17, Nice en appartement en annonçait 32 : vingt sur la
+ * première page, douze sur la seconde, jamais lue. Le total est écrit en tête
+ * de liste (« 32 annonces immobilières ») ; c'est lui qui prouve que
+ * l'inventaire a été lu en entier, et non le nombre de cartes.
  */
 
 import * as cheerio from 'cheerio';
@@ -43,7 +50,60 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
 export interface ParsedPage {
   readonly listings: readonly RawListing[];
   readonly hasNextPage: boolean;
+  /** Adresse de la page suivante, ou `null` : celle-ci est la dernière. */
+  readonly nextPageUrl: string | null;
+  /**
+   * Nombre d'annonces que la page déclare elle-même (« 32 annonces
+   * immobilières »), ou `null` si elle ne le dit pas. C'est ce chiffre qui
+   * permet de savoir si l'inventaire a été lu en entier.
+   */
+  readonly announcedTotal: number | null;
+  /** La page dit n'avoir aucun bien pour cette recherche : rien de cassé. */
+  readonly empty: boolean;
+  /** Commune annoncée par le titre de la page (« Appartement à louer Nice »). */
+  readonly headingCity: string | null;
   readonly warnings: readonly string[];
+}
+
+/**
+ * La page suivante, telle que le site la désigne.
+ *
+ * ON NE COMPTE PAS LES LIENS `page-N`, et c'est une correction : au-delà de sa
+ * dernière page, century21.fr répond 200 en SERVANT À NOUVEAU LA PAGE 1 (relevé
+ * du 2026-09-17 : `/v-nice/page-3/` rend les vingt annonces de la page 1 et
+ * repropose un lien vers la page 2). Compter les numéros affichés ferait donc
+ * relire la première page indéfiniment. Seule la flèche « suivant » de la barre
+ * de pagination dit qu'il reste quelque chose : la dernière page n'en a pas.
+ */
+function nextPageUrl($: cheerio.CheerioAPI, pageUrl: string): string | null {
+  const href = $('.c-the-pagination-bar a[aria-label="next"]').first().attr('href');
+  if (href === undefined || href.trim() === '') return null;
+  try {
+    return new URL(href, pageUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+/** « 32 annonces immobilières : », en tête de la liste. */
+function announcedTotal($: cheerio.CheerioAPI): number | null {
+  const text = cleanText(
+    $('.js-the-list-of-properties-number-of-results h2').first().text().replace(/\s+/g, ' '),
+  );
+  const count = /^([\d\s]+)\s*annonces?\s+immobili[èe]re/i.exec(text)?.[1];
+  if (count === undefined) return null;
+  const total = Number(count.replace(/\s/g, ''));
+  return Number.isFinite(total) ? total : null;
+}
+
+/**
+ * La commune que la page dit servir : « Appartement à louer Nice », « Maison à
+ * louer St Laurent Du Var ». Le scraper s'en sert pour refuser une page qui
+ * répondrait 200 en montrant une autre ville.
+ */
+function headingCity($: cheerio.CheerioAPI): string | null {
+  const heading = cleanText($('h1').first().text().replace(/\s+/g, ' '));
+  return /\s[àa]\s+louer\s+(.+)$/i.exec(heading)?.[1]?.trim() ?? null;
 }
 
 /**
@@ -138,7 +198,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       furnishedText: cleanText(`${headText} ${description}`),
       ...(cityMatch?.[1] !== undefined ? { cityText: cleanText(cityMatch[1]) } : {}),
       agencyName: 'Century 21',
-      // §21 : pas de coordonnées directes en liste ; la fiche est le canal.
+      // La carte ne porte ni téléphone ni courriel : la fiche est le seul canal.
       contactFormUrl: url.canonicalUrl,
       ...(imageUrls.length > 0 ? { imageUrls } : {}),
       extra,
@@ -149,7 +209,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
 
   const listings = [...byReference.values()];
 
-  // §61 : détection d'anomalie structurelle.
+  // Un gabarit changé se voit à ce que les cartes cessent de porter un prix.
   if (listings.length > 0) {
     const withPrice = listings.filter((listing) => listing.priceText !== undefined).length;
     if (withPrice === 0) {
@@ -161,9 +221,18 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     }
   }
 
-  // La page ville liste tout le stock d'un coup (19 annonces observées) :
-  // pas de pagination à suivre.
-  return { listings, hasNextPage: false, warnings };
+  const next = nextPageUrl($, pageUrl);
+  return {
+    listings,
+    hasNextPage: next !== null,
+    nextPageUrl: next,
+    announcedTotal: announcedTotal($),
+    // Bandeau « Nos biens actuels ne correspondent pas à votre recherche » :
+    // la commune existe chez Century 21, elle n'a simplement rien à louer.
+    empty: $('.js-the-list-of-properties-no-results').length > 0,
+    headingCity: headingCity($),
+    warnings,
+  };
 }
 
 /**
@@ -174,9 +243,8 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
  * trente-quatre annonces en base — 238 caractères de moyenne, coupés en plein
  * mot (« disponible en location longue dur »). La fiche en porte 577 pour
  * l'annonce mesurée — plus du double — et commence souvent par SON ADRESSE DE
- * RUE (« Nice EST - 23 boulevard saint Roch ») : de quoi géocoder le bien
- * (§20) et le rapprocher de ses jumelles (§14), là où la carte ne laissait
- * qu'une demi-phrase.
+ * RUE (« Nice EST - 23 boulevard saint Roch ») : de quoi géocoder le bien et le
+ * rapprocher de ses jumelles, là où la carte ne laissait qu'une demi-phrase.
  *
  * DEUX LANGUES DANS LE MÊME BLOC, et c'est le piège. Century 21 y range la
  * version française ET sa traduction anglaise, dans deux `span` qu'un script
@@ -186,7 +254,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
  * qui s'affiche au chargement (`x-show="!show"`).
  *
  * @returns le complément à fusionner, ou `null` si la fiche n'apprend rien —
- *          auquel cas on garde ce que la carte avait donné (§17).
+ *          auquel cas on garde ce que la carte avait donné.
  */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);

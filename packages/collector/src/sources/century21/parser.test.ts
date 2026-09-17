@@ -8,7 +8,10 @@ const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/centur
 const PAGE_URL = 'https://www.century21.fr/annonces/location-appartement/v-nice/';
 
 const nominal = readFileSync(join(FIXTURES, 'nice-page1.html'), 'utf8');
+const page2 = readFileSync(join(FIXTURES, 'nice-page2.html'), 'utf8');
+const sansResultat = readFileSync(join(FIXTURES, 'sans-resultat.html'), 'utf8');
 const fiche = readFileSync(join(FIXTURES, 'fiche-description.html'), 'utf8');
+const PAGE2_URL = 'https://www.century21.fr/annonces/location-appartement/v-nice/page-2/';
 
 describe('parseListingUrl', () => {
   it('décompose une URL de fiche', () => {
@@ -21,13 +24,48 @@ describe('parseListingUrl', () => {
   });
 });
 
+describe('parseSearchPage — la liste ne tient pas sur une page', () => {
+  it('annonce son total et désigne sa page suivante', () => {
+    // Le site écrit combien d'annonces il a. Vingt par page : sans ce chiffre,
+    // une première page pleine passait pour tout le stock.
+    const page = parseSearchPage(nominal, PAGE_URL);
+    expect(page.announcedTotal).toBe(5);
+    expect(page.hasNextPage).toBe(true);
+    expect(page.nextPageUrl).toBe(PAGE2_URL);
+    expect(page.headingCity).toBe('Nice');
+    expect(page.empty).toBe(false);
+  });
+
+  it('s’arrête sur la dernière page, qui offre pourtant encore un numéro', () => {
+    // Au-delà de sa dernière page, century21.fr RESSERT la page 1 : suivre les
+    // liens numérotés ferait relire le début de la liste sans fin. Seule la
+    // flèche « suivant » dit qu'il reste quelque chose, et la page 2 n'en a pas.
+    const page = parseSearchPage(page2, PAGE2_URL);
+    expect(page.listings.map((listing) => listing.sourceRef)).toEqual([
+      '16000000004',
+      '16000000005',
+    ]);
+    expect(page.nextPageUrl).toBeNull();
+    expect(page.hasNextPage).toBe(false);
+    expect(page.announcedTotal).toBe(5);
+  });
+
+  it('reconnaît une recherche sans aucun bien', () => {
+    // Une commune sans stock répond 200 avec ce bandeau, et sans total. Le
+    // marqueur la distingue d'un gabarit cassé : c'est un silence, pas un trou.
+    const page = parseSearchPage(sansResultat, PAGE_URL);
+    expect(page.empty).toBe(true);
+    expect(page.listings).toHaveLength(0);
+    expect(page.announcedTotal).toBeNull();
+  });
+});
+
 describe('parseSearchPage — fixture nominale', () => {
   const page = parseSearchPage(nominal, PAGE_URL);
 
-  it('extrait les trois cartes sans warning ni pagination', () => {
+  it('extrait les trois cartes sans warning', () => {
     expect(page.listings).toHaveLength(3);
     expect(page.warnings).toHaveLength(0);
-    expect(page.hasNextPage).toBe(false);
   });
 
   it('extrait la carte complète (prix, surface, pièces, réf agence, ville)', () => {

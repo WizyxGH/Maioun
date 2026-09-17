@@ -11,12 +11,18 @@
   - h3 : « NICE 06 / 78,27 m<sup>2</sup>, 3 pièces / Ref : 16862 /
     Appartement F3 à louer / 3 000 € par mois charges comprises »
   - description tronquée .tw-truncate-safe
+  - total annoncé en tête de liste (.js-the-list-of-properties-number-of-results)
+  - barre de pagination avec la flèche aria-label="next"
 -->
 <html lang="fr">
   <head>
     <title>Location appartement à Nice (fixture C21)</title>
   </head>
   <body>
+    <div class="js-the-list-of-properties-number-of-results">
+      <h1>Appartement à louer Nice</h1>
+      <h2>5 annonces immobilières&nbsp;:</h2>
+    </div>
     <!-- Carte 1 : F3 hors budget, charges comprises. -->
     <div class="js-the-list-of-properties-list-property">
       <div class="c-the-property-thumbnail-with-content" data-uid="16000000001">
@@ -99,5 +105,19 @@
         </div>
       </div>
     </div>
+
+    <section class="c-the-pagination-bar js-the-pagination-bar">
+      <ul>
+        <li>
+          <a href="/annonces/location-appartement/v-nice/" aria-label="pagination">1</a>
+        </li>
+        <li>
+          <a href="/annonces/location-appartement/v-nice/page-2/" aria-label="pagination">2</a>
+        </li>
+        <li>
+          <a href="/annonces/location-appartement/v-nice/page-2/" aria-label="next">›</a>
+        </li>
+      </ul>
+    </section>
   </body>
 </html>

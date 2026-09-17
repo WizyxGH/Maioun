@@ -41,6 +41,75 @@ describe('parseListingUrl', () => {
   });
 });
 
+describe('parseListPage — la page suivante', () => {
+  /**
+   * TROIS HABILLAGES POUR LA MÊME PAGINATION, selon l'âge du gabarit. Les
+   * descripteurs écrivaient leurs pages à la main : giletta-properties.com en
+   * déclarait trois pour six publiées, et vingt-trois annonces n'avaient jamais
+   * été vues.
+   */
+  it('lit la liste à boutons, le bloc à flèches et le lien `rel=next`', () => {
+    const boutons = `<ul class="pagination">
+      <li><span class="btn btn-default active">1</span></li>
+      <li><a href="/location/2" class="btn btn-default">2</a></li>
+    </ul>`;
+    expect(parseListPage(boutons, BASE).nextPageUrl).toBe(
+      'https://www.agence-fictive.fr/location/2',
+    );
+
+    const fleches = `<article class="pagination"><ul class="pagination__items">
+      <li class="pagination__item--active"><span class="pagination__link">1</span></li>
+      <li><a class="pagination__link" href="/location/2" aria-label="Aller à la page 2">2</a></li>
+      <li><a class="pagination__link" href="/location/6" aria-label="Aller à la page 6">6</a></li>
+    </ul></article>`;
+    // Le SUIVANT, et non le plus grand numéro affiché.
+    expect(parseListPage(fleches, BASE).nextPageUrl).toBe(
+      'https://www.agence-fictive.fr/location/2',
+    );
+
+    const entete = '<link rel="next" href="/location/2"/>';
+    expect(parseListPage(entete, BASE).nextPageUrl).toBe(
+      'https://www.agence-fictive.fr/location/2',
+    );
+  });
+
+  it('ne recule jamais, et ne sort pas de sa liste', () => {
+    // Depuis la page 5, les liens vers 1, 3 et 4 ne sont pas des suivants ; la
+    // liste des ventes et un autre domaine ne le sont pas davantage.
+    const page5 = 'https://www.agence-fictive.fr/location/5';
+    const html = `<ul class="pagination">
+      <li><a href="/location/1">1</a></li>
+      <li><a href="/location/3">3</a></li>
+      <li><a href="/location/4">4</a></li>
+      <li><a href="/a-vendre/9">ventes</a></li>
+      <li><a href="https://www.autre-agence.fr/location/6">ailleurs</a></li>
+      <li><a href="/location/6">6</a></li>
+    </ul>`;
+    expect(parseListPage(html, page5).nextPageUrl).toBe('https://www.agence-fictive.fr/location/6');
+  });
+
+  it('ne dit rien de suivant sur la dernière page', () => {
+    const derniere = `<ul class="pagination">
+      <li><a href="/location/1" class="btn btn-default">1</a></li>
+      <li><span class="btn btn-default active">2</span></li>
+    </ul>`;
+    expect(
+      parseListPage(derniere, 'https://www.agence-fictive.fr/location/2').nextPageUrl,
+    ).toBeNull();
+  });
+
+  it('garde le chemin de la liste, même découpée par commune et par type', () => {
+    // agenceimmosud.com : `/location/1-nice/appartement/1`, où le dernier
+    // segment seul est le numéro de page.
+    const url = 'https://www.agence-fictive.fr/location/1-nice/appartement/1';
+    const html =
+      '<ul class="pagination"><li><a href="/location/1-nice/appartement/2">2</a></li></ul>';
+    expect(parseListPage(html, url).nextPageUrl).toBe(
+      'https://www.agence-fictive.fr/location/1-nice/appartement/2',
+    );
+  });
+});
+
 describe('parseListPage', () => {
   it('extrait les fiches du site, dédoublonnées, sans les liens externes', () => {
     const { urls, warnings } = parseListPage(liste, BASE);
@@ -61,7 +130,12 @@ describe('parseListPage', () => {
   it('une liste réduite à la fiche de démonstration est vide (Gestymo, Domi Nice)', () => {
     const untitled = `<article><a href="/location/-/3-boulouparis/2-appartement/t1/2-/" class="item__title">
       <span class="title__content-1">Boulouparis (98812)</span></a><div class="item__reference">Réf : 456</div></article>`;
-    expect(parseListPage(untitled, BASE)).toEqual({ urls: [], warnings: [], empty: true });
+    expect(parseListPage(untitled, BASE)).toEqual({
+      urls: [],
+      warnings: [],
+      empty: true,
+      nextPageUrl: null,
+    });
     const test = '<a href="/location/40-paris/terrain/351-test">test</a>';
     expect(parseListPage(test, BASE)).toMatchObject({ urls: [], empty: true });
     // À côté d'un vrai bien, la fiche de démonstration est seulement ignorée.
@@ -623,5 +697,26 @@ describe('parseDetailPage — caractéristiques en liste, coordonnées du pied d
     ])}</script>`;
     const { listing } = parseDetailPage(page(items, ld), URL, 'Agence');
     expect(listing?.emailText).toBe('agence@example.invalid');
+  });
+});
+
+describe('parseDetailPage — la référence que l’agence affiche', () => {
+  const fiche = readFileSync(join(FIXTURES, 'detail-content-reference.html'), 'utf8');
+  const url =
+    'https://www.agence-fictive.fr/location/1-nice/studio/358-cama-disponible-le-1er-septembre-2027';
+
+  it('lit « Ref : CAMA » là où l’identifiant d’URL prenait sa place', () => {
+    // Relevé du 2026-09-17 : vingt-quatre agences de la plateforme
+    // enregistraient le segment de l'adresse (« 358 ») au lieu de la référence
+    // affichée. Bien'ici publie « CAMA » : les deux fiches du même logement ne
+    // pouvaient pas se reconnaître.
+    const { listing } = parseDetailPage(fiche, url, 'Agence Fictive');
+    expect(listing?.sourceRef).toBe('358');
+    expect(listing?.extra?.['reference']).toBe('CAMA');
+  });
+
+  it('n’emprunte pas la référence des annonces voisines', () => {
+    const { listing } = parseDetailPage(fiche, url, 'Agence Fictive');
+    expect(listing?.extra?.['reference']).not.toBe('AUTRE-BIEN');
   });
 });

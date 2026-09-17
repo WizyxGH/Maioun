@@ -78,3 +78,88 @@ describe('makeHektorScraper — fiches retirées servies en 200', () => {
     expect(result.withdrawnRefs).toEqual([]);
   });
 });
+
+/**
+ * LA PAGE 2 N'ÉTAIT JAMAIS LUE. Le descripteur écrivait ses pages à la main :
+ * giletta-properties.com publiait 53 locations sur six pages pour trois
+ * adresses déclarées le 2026-09-17, soit 23 annonces invisibles. La pagination
+ * du site est maintenant suivie — et elle ne s'arrête pas toute seule, puisque
+ * la plateforme propose encore une page suivante au-delà de la dernière.
+ */
+describe('makeHektorScraper — pagination suivie', () => {
+  const pagine = (page: number, references: readonly string[], suivante: number | null): string =>
+    `<html><body>${references.map((r) => `<div data-url="${ficheUrl(r)}">Détails</div>`).join('')}
+     <ul class="pagination">
+       <li><span class="btn active">${String(page)}</span></li>
+       ${suivante === null ? '' : `<li><a href="/location/${String(suivante)}">${String(suivante)}</a></li>`}
+     </ul></body></html>`;
+
+  function contextePagine(pages: Readonly<Record<string, string>>, trace: string[]): ScrapeContext {
+    return {
+      ...contexte([], []),
+      fetch: (url) => {
+        trace.push(url);
+        // Une fiche porte SA propre canonique, sans quoi elle se dirait retirée.
+        // Toute autre page de liste est un au-delà de la dernière : vide, et
+        // pourtant munie d'un lien « suivant » de plus.
+        const body =
+          pages[url] ??
+          (url.endsWith('-appartement')
+            ? FICHE.replace(/href="[^"]*554-appartement"/, `href="${url}"`)
+            : pagine(99, [], 100));
+        return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
+      },
+    };
+  }
+
+  it('suit la pagination et rend les fiches des pages jamais déclarées', async () => {
+    const trace: string[] = [];
+    const scrapeur = makeHektorScraper({
+      id: 'hektor-pagine',
+      name: 'Agence Fictive',
+      domain: 'agence-fictive.fr',
+      listUrls: [LIST],
+      maxDetailsLive: 9,
+    });
+    const result = await scrapeur.run(
+      contextePagine(
+        {
+          [LIST]: pagine(1, ['1', '2', '3'], 2),
+          [`${ORIGIN}/location/2`]: pagine(2, ['4', '5', '6'], 3),
+          [`${ORIGIN}/location/3`]: pagine(3, ['7'], null),
+        },
+        trace,
+      ),
+    );
+
+    const listes = trace.filter((url) => /\/location\/\d+$/.test(url));
+    expect(listes).toEqual([LIST, `${ORIGIN}/location/2`, `${ORIGIN}/location/3`]);
+    expect(result.listings.map((listing) => listing.sourceRef).sort()).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+    ]);
+  });
+
+  it('s’arrête sur une page sans fiche, qui offre pourtant une suivante', async () => {
+    const trace: string[] = [];
+    const scrapeur = makeHektorScraper({
+      id: 'hektor-fin',
+      name: 'Agence Fictive',
+      domain: 'agence-fictive.fr',
+      listUrls: [LIST],
+    });
+    await scrapeur.run(
+      contextePagine(
+        { [LIST]: pagine(1, ['1'], 2), [`${ORIGIN}/location/2`]: pagine(2, [], 3) },
+        trace,
+      ),
+    );
+    const listes = trace.filter((url) => /\/location\/\d+$/.test(url));
+    expect(listes).toEqual([LIST, `${ORIGIN}/location/2`]);
+  });
+});

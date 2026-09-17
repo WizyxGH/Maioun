@@ -1,0 +1,48 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE : gabarit « content__reference » de la plateforme
+  La Boîte Immo/Hektor, relevé le 2026-09-17 sur giletta-properties.com.
+  Données FICTIVES — voir tests/fixtures/README.md.
+
+  Ce que cette fiche prouve :
+  - la RÉFÉRENCE de l'agence s'écrit « Ref : CAMA » dans `.content__reference`,
+    et non dans `.id_ref_item` ni dans `p.ref` ; faute de la lire, l'identifiant
+    d'URL (358) prenait sa place ;
+  - le bloc « Ces biens peuvent aussi vous intéresser » porte le même libellé
+    pour d'AUTRES annonces : la fiche ne doit pas lui emprunter sa référence.
+-->
+<html lang="fr">
+  <head>
+    <title>Location Studio Nice 1 pièce 21.09m² 550€ | Agence Fictive</title>
+    <link
+      rel="canonical"
+      href="https://www.agence-fictive.fr/location/1-nice/studio/358-cama-disponible-le-1er-septembre-2027"
+    />
+  </head>
+  <body>
+    <div class="property-detail-v1__content">
+      <div class="content__compo"><span>1 pièces - 21,09 m²</span></div>
+      <h1 class="content__text text"><span>CAMA - DISPONIBLE LE 1ER SEPTEMBRE 2027</span></h1>
+      <div class="content__price">
+        <span class="property-detail-v1__price-value">550 €</span>
+        <span class="property-detail-v1__price-charge"> CC* </span>
+      </div>
+      <div class="content__reference"><span>Ref : CAMA</span></div>
+    </div>
+
+    <div class="property-detail-v1__description">
+      <p class="property-detail-v1__description__text">
+        Studio fictif au calme, proche des transports. Libre au 1er septembre.
+      </p>
+    </div>
+
+    <div class="properties-related">
+      <div class="properties-related__item">
+        <div class="content__reference"><span>Ref : AUTRE-BIEN</span></div>
+      </div>
+    </div>
+
+    <div class="coords-phone"><a href="tel: 06 00 00 00 12">06 00 00 00 12</a></div>
+    <div class="coords-mail"><a href="mailto:contact@example.invalid">contact@example.invalid</a></div>
+  </body>
+</html>

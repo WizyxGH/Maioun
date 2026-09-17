@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la DEUXIÈME page de
+  /annonces/location-appartement/v-nice/page-2/ (century21.fr), relevée le
+  2026-09-17. Données FICTIVES — voir tests/fixtures/README.md.
+
+  Ce que cette page prouve :
+  - le site affiche vingt annonces par page, et la seconde porte le reste ;
+  - la DERNIÈRE page n'a PAS de flèche aria-label="next" : c'est le seul
+    marqueur de fin. Elle propose pourtant encore des liens numérotés, dont un
+    « page-3 » — que century21.fr sert en RESERVANT la page 1. Les suivre par
+    leur numéro ferait relire indéfiniment le début de la liste.
+-->
+<html lang="fr">
+  <head>
+    <title>Location appartement à Nice (fixture C21, page 2)</title>
+  </head>
+  <body>
+    <div class="js-the-list-of-properties-number-of-results">
+      <h1>Appartement à louer Nice</h1>
+      <h2>5 annonces immobilières&nbsp;:</h2>
+    </div>
+
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000004">
+        <div class="c-the-property-thumbnail-with-content__col-left">
+          <a href="/trouver_logement/detail/16000000004/" aria-label="Appartement F2 à louer NICE">
+            <img src="/imagesBien/s3/202/579/fixture-c21-photo-4.jpg" alt="Appartement F2" />
+          </a>
+        </div>
+        <div class="c-the-property-thumbnail-with-content__col-right">
+          <h3>
+            <div>
+              NICE&nbsp;06 <br />
+              30,12 m<sup>2</sup>, 2 pièces
+              <div>Ref : 90004</div>
+            </div>
+            <div>
+              <div>Appartement F2 à louer</div>
+              <div>
+                960&nbsp;&euro;
+                <p>par mois charges comprises</p>
+              </div>
+            </div>
+          </h3>
+          <div class="tw-truncate-safe">Deux-pièces fictif, quartier inventé, balcon…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000005">
+        <div class="c-the-property-thumbnail-with-content__col-left">
+          <a href="/trouver_logement/detail/16000000005/" aria-label="Appartement F4 à louer NICE">
+            <img src="/imagesBien/s3/202/579/fixture-c21-photo-5.jpg" alt="Appartement F4" />
+          </a>
+        </div>
+        <div class="c-the-property-thumbnail-with-content__col-right">
+          <h3>
+            <div>
+              NICE&nbsp;06 <br />
+              63 m<sup>2</sup>, 4 pièces
+              <div>Ref : 90005</div>
+            </div>
+            <div>
+              <div>Appartement F4 à louer</div>
+              <div>
+                1 600&nbsp;&euro;
+                <p>par mois charges comprises</p>
+              </div>
+            </div>
+          </h3>
+          <div class="tw-truncate-safe">Quatre-pièces fictif, dernier étage, vue dégagée…</div>
+        </div>
+      </div>
+    </div>
+
+    <section class="c-the-pagination-bar js-the-pagination-bar">
+      <ul>
+        <li>
+          <a href="/annonces/location-appartement/v-nice/" aria-label="pagination">1</a>
+        </li>
+        <li>
+          <a href="/annonces/location-appartement/v-nice/page-3/" aria-label="pagination">3</a>
+        </li>
+      </ul>
+    </section>
+  </body>
+</html>

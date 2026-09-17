@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE : la page qu'une recherche SANS BIEN rend sur century21.fr
+  (relevée le 2026-09-17 sur /annonces/location-appartement/v-la+trinite/).
+  Données FICTIVES — voir tests/fixtures/README.md.
+
+  Elle répond 200, n'a ni carte ni total annoncé, et se reconnaît à son seul
+  bandeau `js-the-list-of-properties-no-results` : la commune existe chez
+  Century 21, elle n'a simplement rien à louer aujourd'hui. Sans ce marqueur,
+  l'absence de total ferait passer un silence normal pour un inventaire douteux.
+-->
+<html lang="fr">
+  <head>
+    <title>Location appartement (fixture C21, aucun résultat)</title>
+  </head>
+  <body>
+    <div class="c-the-list-of-properties-no-results js-the-list-of-properties-no-results">
+      <div class="l-container">
+        <h1>Nos biens actuels ne correspondent pas à votre recherche</h1>
+        <h2>
+          Créez-vous une alerte mail pour être averti quand une annonce est en ligne et consultez la
+          carte pour voir les biens à louer dans ce secteur.
+        </h2>
+      </div>
+    </div>
+  </body>
+</html>

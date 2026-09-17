@@ -1,6 +1,6 @@
 /**
  * Adaptateur générique des sites d'agences sur la plateforme « La Boîte
- * Immo » / Hektor (§5, §47) — un seul parser pour plusieurs agences niçoises.
+ * Immo » / Hektor — un seul parser pour plusieurs agences niçoises.
  *
  * Signature de la plateforme (vérifiée le 2026-08-17 sur 6 sites) :
  *   - robots.txt permissif (interdits : /stats, /phpmv2, /fonctions,
@@ -11,7 +11,7 @@
  *     pièces, meublé, loyer CC, charges…), description
  *     `property-detail-v1__description__text`, photos sur `*.staticlbi.com` ;
  *   - DPE servi en IMAGE générée sous /admin (interdit par robots) → laissé
- *     inconnu, honnêtement (§17). Seul le gabarit « pastilles » l'écrit en
+ *     inconnu, honnêtement. Seul le gabarit « pastilles » l'écrit en
  *     texte (`bubble_dpe_b bubble--active`) : lu là, et là seulement.
  *   - ni rue ni date de disponibilité structurées : seul le texte libre en
  *     parle, et la normalisation l'y lit.
@@ -75,6 +75,74 @@ export interface ParsedList {
   readonly warnings: readonly string[];
   /** `true` si la page dit n'avoir aucun bien : liste vide, pas gabarit cassé. */
   readonly empty: boolean;
+  /** Page suivante de la même liste, ou `null` si celle-ci est la dernière. */
+  readonly nextPageUrl: string | null;
+}
+
+/** Une liste paginée s'écrit `{chemin}/{numéro}` : `/location/2`, `/a-louer/3`. */
+const LIST_PAGE_PATH = /^(.*\/)(\d+)$/;
+
+interface ListPage {
+  readonly prefix: string;
+  readonly number: number;
+}
+
+function listPage(url: URL): ListPage | null {
+  const match = LIST_PAGE_PATH.exec(url.pathname);
+  if (match?.[1] === undefined || match[2] === undefined) return null;
+  return { prefix: match[1], number: Number(match[2]) };
+}
+
+/**
+ * LA PAGE 2 N'ÉTAIT JAMAIS LUE, et rien ne le disait.
+ *
+ * L'adaptateur ne connaissait que les adresses écrites à la main dans son
+ * descripteur. Relevé du 2026-09-17 : giletta-properties.com publie 53
+ * locations sur six pages, trois adresses étaient déclarées — 23 annonces
+ * n'avaient jamais été vues ; immobiliereroseland.fr en publie 21 sur trois
+ * pages pour deux adresses déclarées. Le stock grossit, la liste écrite à la
+ * main reste où elle était.
+ *
+ * TROIS HABILLAGES POUR LA MÊME PAGINATION, selon l'âge du gabarit : le lien
+ * `rel="next"` de l'en-tête, la liste `ul.pagination` à boutons, et le bloc
+ * `pagination__items` à flèches. On les lit tous les trois et on retient le
+ * plus petit numéro au-delà de la page courante — le suivant, quel que soit
+ * l'habillage.
+ *
+ * ON NE SE FIE PAS AU PLUS GRAND NUMÉRO AFFICHÉ : au-delà de sa dernière page,
+ * la plateforme sert une liste vide en continuant d'offrir des liens (page 7
+ * de giletta propose encore une page 8). C'est l'absence de nouvelle fiche qui
+ * ferme la pagination, côté scraper, et non la disparition des liens.
+ */
+function nextPageUrl($: cheerio.CheerioAPI, pageUrl: string): string | null {
+  let current: URL;
+  try {
+    current = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  const here = listPage(current);
+  if (here === null) return null;
+
+  let next: number | null = null;
+  const consider = (href: string | undefined): void => {
+    if (href === undefined) return;
+    let candidate: URL;
+    try {
+      candidate = new URL(href, pageUrl);
+    } catch {
+      return;
+    }
+    if (candidate.hostname !== current.hostname) return;
+    const page = listPage(candidate);
+    if (page === null || page.prefix !== here.prefix || page.number <= here.number) return;
+    if (next === null || page.number < next) next = page.number;
+  };
+
+  consider($('link[rel="next"]').first().attr('href'));
+  $('[class*="pagination"] a[href]').each((_index, anchor) => consider($(anchor).attr('href')));
+
+  return next === null ? null : `${current.origin}${here.prefix}${String(next)}`;
 }
 
 /**
@@ -156,6 +224,7 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
     urls,
     warnings: urls.length === 0 && !empty ? [`Aucune fiche trouvée sur la liste : ${pageUrl}`] : [],
     empty,
+    nextPageUrl: nextPageUrl($, pageUrl),
   };
 }
 
@@ -176,7 +245,7 @@ export interface ParsedDetail {
  *
  * Le `<link rel="canonical">` du gabarit dit quelle page est réellement servie.
  * S'il désigne autre chose que la fiche demandée, on ne lit rien : mieux vaut
- * une annonce absente qu'une annonce inventée (§17).
+ * une annonce absente qu'une annonce inventée.
  *
  * Deux prudences : sans canonique, on ne conclut rien ; et une canonique
  * d'un AUTRE domaine (réseau qui canonise vers son siège) ne dit rien non plus
@@ -444,17 +513,43 @@ const ITEM_BEDROOMS = /^(\d{1,2})\s+chambres?(?:\(s\))?$/i;
 const STREET =
   /^\d{1,4}\s*(?:bis|ter)?\s*,?\s+(?:rue|avenue|av\.?|boulevard|bd|place|chemin|route|impasse|all[ée]e|quai|promenade|square|cours|mont[ée]e|traverse|corniche|esplanade|passage)\s+\S/i;
 
-function readDetailContent($: cheerio.CheerioAPI): DetailContent {
+/**
+ * La référence de l'agence, dans les trois endroits où le gabarit l'écrit.
+ *
+ * LA RÉFÉRENCE PEUT CONTENIR DES ESPACES : les agences y écrivent le nom du
+ * bien (« T2 MEUBLE DIA », « MOSCO Grosso »). Exiger un seul mot la perdait, et
+ * l'identifiant d'URL prenait sa place — un numéro qui ne retrouve l'annonce ni
+ * au téléphone ni sur les portails.
+ *
+ * `content__reference` MANQUAIT, et c'est le gabarit le plus répandu. Relevé du
+ * 2026-09-17 : la fiche 358 de giletta-properties.com affiche « Ref : CAMA », et
+ * nous enregistrions « 358 », le segment de son adresse. Vingt-quatre agences de
+ * la plateforme étaient dans ce cas, environ cent cinquante annonces — dont
+ * toutes celles de Giletta, d'Immobilière GTI et de SAG. Bien'ici, lui, publie
+ * « CAMA » : deux fiches du même logement ne pouvaient donc pas se reconnaître.
+ *
+ * Le bloc « Ces biens peuvent aussi vous intéresser » porte le même libellé pour
+ * d'AUTRES annonces : il est écarté, sans quoi la fiche emprunterait la
+ * référence de sa voisine.
+ */
+function agencyReference($: cheerio.CheerioAPI): string {
+  const fromBlock = $('.content__reference, .id_ref_item')
+    .filter(
+      (_i, el) =>
+        $(el).closest('[class*="properties-related"], [class*="property-more"]').length === 0,
+    )
+    .first()
+    .text();
+  const cleaned = cleanText(fromBlock).replace(/^R[ée]f\.?\s*:?\s*/i, '');
+  if (cleaned !== '') return cleaned;
   // « Référence : 19 » en paragraphe `.ref` sur l'ancien gabarit (AA Gestion).
-  // LA RÉFÉRENCE PEUT CONTENIR DES ESPACES : les agences y écrivent le nom du
-  // bien (« T2 MEUBLE DIA », « T3 meuble BOUCHER-1 »). Exiger un seul mot la
-  // perdait, et l'identifiant d'URL prenait sa place — un numéro qui ne
-  // retrouve l'annonce ni au téléphone ni sur les portails (3 fiches sur 9 chez
-  // Sud Agence, relevé du 2026-09-16).
-  const reference =
-    cleanText($('.id_ref_item').first().text()) ||
-    (/^R[ée]f[ée]rence\s*:?\s*(.+)$/i.exec(cleanText($('p.ref').first().text()))?.[1]?.trim() ??
-      '');
+  return (
+    /^R[ée]f[ée]rence\s*:?\s*(.+)$/i.exec(cleanText($('p.ref').first().text()))?.[1]?.trim() ?? ''
+  );
+}
+
+function readDetailContent($: cheerio.CheerioAPI): DetailContent {
+  const reference = agencyReference($);
   const location = /^(.+?)\s*\((\d{5})\)$/.exec(cleanText($('.text_location_item').first().text()));
   const rawItems = $('.list_items .list_item')
     .filter((_i, el) => $(el).closest('[class*="property-more"]').length === 0)
@@ -611,7 +706,7 @@ function readFigures(
   const roomsText = bedrooms === undefined ? rooms : `${rooms ?? ''} ${bedrooms} chambres`.trim();
 
   // Meublé : la table est explicite (OUI/NON) — un texte fidèle à sa valeur,
-  // jamais un « meublé » par défaut qui inverserait le sens (§17).
+  // jamais un « meublé » par défaut, qui inverserait le sens.
   const meuble = table.get('meuble') ?? labels.furnished;
   // « Non renseigné » ne dit rien : seuls OUI et NON tranchent.
   const furnishedText =
@@ -733,7 +828,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // On ne garde QUE les vraies photos du bien, sous `/images/biens/` — le reste
   // du CDN est de l'habillage (avatar d'agence « contact », logos LBI/FNAIM,
   // panneaux, diaporama d'accueil) qu'il ne faut jamais prendre pour une photo
-  // d'annonce (sinon envoyée à tort dans une alerte, §29).
+  // d'annonce, qui partirait à tort dans une alerte.
   //
   // CHARGEMENT DIFFÉRÉ. La plateforme met un SVG vide dans `src` et la vraie
   // URL dans `data-src` : lire `src` ne ramenait aucune photo sur les fiches
