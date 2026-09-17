@@ -7,11 +7,13 @@
  * Immo » et « Acropolis'immo », « L ADRESSE CEC » et « L'ADRESSE C.E.C.
  * GORBELLA ».
  *
- * TROIS RÈGLES, ET RIEN D'AUTRE :
+ * QUATRE RÈGLES, ET RIEN D'AUTRE :
  *   1. forme comparable — minuscules, sans accent ni ponctuation ;
  *   2. mots distinctifs — les mots du métier (« agence », « immobilier »,
  *      « nice », « gestion »…) ne rapprochent personne, il en reste trop peu ;
- *   3. forme tassée — sans espaces, un nom qui en contient un autre est le même.
+ *   3. forme tassée — sans espaces, un nom qui en contient un autre est le même ;
+ *   4. abréviation — « immobilier » et « immo » sont le même mot, et seule cette
+ *      abréviation-là est reconnue ; elle ne sert qu'à désigner une source.
  *
  * EN CAS DE DOUTE, ON SIGNALE. Manquer une agence non collectée coûte une
  * source ; en signaler une déjà couverte coûte une ligne à relire.
@@ -89,6 +91,24 @@ export function agencySquish(name: string): string {
 }
 
 /**
+ * Forme tassée où « immobilier » et « immobilière » sont ramenés à « immo ».
+ *
+ * C'est le même mot, abrégé : l'enseigne qui s'écrit « MK Immo » sur son site
+ * signe « MK IMMOBILIER » dans un e-mail. Rien d'autre ne sépare ces deux
+ * graphies, mais le sigle « MK » est trop court pour être un mot distinctif et
+ * « mkimmo » trop court pour la règle de containment — le nom restait sans
+ * source, annoncé comme une agence non couverte alors qu'on la collecte.
+ *
+ * SEULE L'ABRÉVIATION EST RAMENÉE. « CDC Habitat », bailleur national, ne
+ * devient pas « CDC Immobilier », agence de la place Wilson : les deux n'ont en
+ * commun que trois lettres, et les rapprocher enverrait chercher une annonce là
+ * où elle n'est pas.
+ */
+export function agencyAbbreviated(name: string): string {
+  return agencySquish(name).replace(/immobiliere?/g, 'immo');
+}
+
+/**
  * Les façons d'écrire une source : son nom, son identifiant et son domaine.
  *
  * Les trois servent, et pas par excès de zèle : « COT'OUEST IMMOBILIER » ne se
@@ -149,14 +169,16 @@ export function createAgencyMatcher(knownNames: readonly string[]): AgencyMatche
  *
  * `createAgencyMatcher` répond « connue ou pas » ; ici il faut NOMMER la
  * source, ce qui demande bien plus de rigueur : une réponse fausse envoie un
- * passage chez la mauvaise agence, et l'annonce attendue n'arrive jamais. Trois
- * règles, de la plus sûre à la plus faible, et `null` dès qu'il reste deux
- * candidates.
+ * passage chez la mauvaise agence, et l'annonce attendue n'arrive jamais.
+ * Quatre règles, de la plus sûre à la plus faible, et `null` dès qu'il reste
+ * deux candidates.
  *
- * Vérifié sur les 487 noms d'annonceur relevés en base, dont 238 dont on
- * connaît la source d'origine : 207 désignations justes, 27 silences, et quatre
+ * Vérifié sur les 487 noms d'annonceur relevés en base, dont 241 dont on
+ * connaît la source d'origine : 207 désignations justes, 29 silences, et cinq
  * écarts qui nomment tous l'agence locale plutôt que son réseau (« Orpi —
- * Immobilière GTI » → `igti`), ce qui est le meilleur choix des deux.
+ * Immobilière GTI » → `igti`), ce qui est le meilleur choix des deux. La règle
+ * d'abréviation n'a rien changé à ce relevé : elle ne rattrape que des graphies
+ * qu'aucun portail n'écrit, et que les e-mails, eux, écrivent.
  */
 export interface AgencySourceResolver {
   /** L'identifiant de la source, ou `null` : aucune, ou plusieurs. */
@@ -179,8 +201,17 @@ export interface AgencyHandle {
  */
 const ID_WORD_MIN = 6;
 
+/**
+ * Longueur d'une forme abrégée qui nomme quelqu'un.
+ *
+ * Six : « immo » seul n'en compte que quatre et ne désigne aucune agence. On
+ * exige deux lettres de plus, ce qui suffit au plus court des sigles réels.
+ */
+const ABBREV_MIN = 6;
+
 export function createAgencySourceResolver(sources: readonly AgencyHandle[]): AgencySourceResolver {
   const bySquish = new Map<string, Set<string>>();
+  const byAbbrev = new Map<string, Set<string>>();
   const byIdWord = new Map<string, Set<string>>();
 
   const record = (index: Map<string, Set<string>>, key: string, id: string): void => {
@@ -193,6 +224,8 @@ export function createAgencySourceResolver(sources: readonly AgencyHandle[]): Ag
     for (const alias of sourceAliases(source)) {
       const squished = agencySquish(alias);
       if (squished.length >= 4) record(bySquish, squished, source.id);
+      const abbreviated = agencyAbbreviated(alias);
+      if (abbreviated.length >= ABBREV_MIN) record(byAbbrev, abbreviated, source.id);
     }
     // L'identifiant d'un seul mot est un nom à lui seul ; celui qui en compte
     // deux ne se reconnaît pas à l'un d'eux.
@@ -234,7 +267,14 @@ export function createAgencySourceResolver(sources: readonly AgencyHandle[]): Ag
         const ids = byIdWord.get(token);
         if (ids !== undefined && ids.size === 1) for (const id of ids) byWord.add(id);
       }
-      return alone(byWord);
+      const named = alone(byWord);
+      if (named !== null) return named;
+
+      // 4. Le même nom à l'abréviation près : « MK IMMOBILIER » est « MK Immo ».
+      //    En dernier, et sur l'égalité seule : aucun containment ici, sans quoi
+      //    la moitié des enseignes se contiendraient par leur « immo ».
+      const abbreviated = agencyAbbreviated(name);
+      return abbreviated.length >= ABBREV_MIN ? alone(byAbbrev.get(abbreviated)) : null;
     },
   };
 }

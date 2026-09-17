@@ -91,6 +91,8 @@ describe('createAgencySourceResolver', () => {
     { id: 'agir', name: 'Cabinet A.G.I.R.', domain: 'agir.immo' },
     { id: 'saint-roch', name: 'Saint Roch Immobilier', domain: 'saintrochimmobilier.com' },
     { id: 'palais-immobilier', name: 'Palais Immobilier', domain: 'palaisimmobilier.com' },
+    { id: 'mk-immo', name: 'MK Immo', domain: 'mk-immo.fr' },
+    { id: 'cdc-immobilier', name: 'CDC Immobilier', domain: 'cdcimmobilier.com' },
   ];
   const resolver = createAgencySourceResolver(SOURCES);
 
@@ -113,11 +115,27 @@ describe('createAgencySourceResolver', () => {
   });
 
   it('ne désigne personne quand aucune source ne porte ce nom', () => {
-    // Trois agences réellement vues par e-mail, qu'on ne collecte pas : elles
+    // Deux agences réellement vues par e-mail, qu'on ne collecte pas : elles
     // ne doivent réveiller aucune source, et surtout pas une voisine.
-    expect(resolver.resolve('MK Immobilier')).toBeNull();
     expect(resolver.resolve('ERA MAC IMMOBILIER')).toBeNull();
     expect(resolver.resolve('PETROVA INVESTISSEMENT IMMOBILIER')).toBeNull();
+  });
+
+  it('reconnaît « Immo » sous sa forme longue', () => {
+    // Le nom lu dans un e-mail ; la source, elle, s'appelle « MK Immo ». Le
+    // sigle « MK » est trop court pour être un mot distinctif et « mkimmo »
+    // trop court pour la règle de containment : sans l'abréviation, l'agence
+    // était annoncée non couverte alors qu'on la collecte.
+    expect(resolver.resolve('MK IMMOBILIER')).toBe('mk-immo');
+    expect(resolver.resolve('MK Immobilière')).toBe('mk-immo');
+  });
+
+  it('n’étend l’abréviation à aucun autre mot du métier', () => {
+    // « CDC Habitat », bailleur national, n'est pas CDC Immobilier, agence de
+    // la place Wilson : trois lettres communes ne font pas une enseigne.
+    expect(resolver.resolve('CDC HABITAT')).toBeNull();
+    // « Immobilier » seul ne nomme personne, même avec des sources en « Immo ».
+    expect(resolver.resolve('IMMOBILIER')).toBeNull();
   });
 
   it('ne se laisse pas prendre à un mot de lieu partagé', () => {

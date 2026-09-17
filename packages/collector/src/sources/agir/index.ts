@@ -6,6 +6,12 @@
  * /phpmv2, /fonctions, /templates, /admin, /images/clients interdits).
  * 2 locations (Nice, Le Rouret). Écartée le 2026-09-05 pour son volume : toute
  * agence qui loue dans la zone est désormais gardée.
+ *
+ * Recompté le 2026-09-17 : le site titre lui-même « 2 annonces de logements à
+ * louer », sans seconde page, et le sitemap n'en référence pas d'autre. Ces
+ * deux-là sont donc tout le catalogue — l'agence loue peu, mais vite : trois
+ * nouveautés en trois semaines pour deux biens affichés. Les deux locaux
+ * commerciaux de `/location-pro/` ne sont pas des logements.
  */
 
 import { makeHektorScraper } from '../hektor/scraper.js';
