@@ -57,7 +57,13 @@ import { archiveReasonOf, isUncertain } from './availability.js';
 import { formatSourceName } from './format.js';
 import { SOURCES } from './sources.generated.js';
 import { useDocumentMeta } from './document-title.js';
-import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
+import {
+  alertBadgeLabel,
+  markAlertRead,
+  readOptIn,
+  readReadAlerts,
+  unreadAlertCount,
+} from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
@@ -329,7 +335,9 @@ function Shell({
                   aria-hidden="true"
                   className="absolute -top-1.5 -right-1.5 flex min-w-4.5 items-center justify-center rounded-full bg-hot px-1 text-[0.65rem] leading-4.5 font-bold text-white"
                 >
-                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                  {/* « 99+ » et non « 9+ » — le plafond et sa mesure vivent
+                    dans `notifications.ts`, avec le reste du décompte. */}
+                  {alertBadgeLabel(unreadAlerts)}
                 </span>
               )}
             </button>
@@ -761,7 +769,10 @@ function SearchResults({
       <section aria-labelledby="all-title">
         {hot.length > 0 && (
           <h2 id="all-title" className="mb-2 text-lg font-bold text-muted-foreground">
-            Toutes les annonces <span className="text-sm font-normal">({ranked.length})</span>
+            {/* LE NOMBRE EST CELUI DE CETTE SECTION, pas de la liste entière :
+              « Toutes les annonces (4) » s'affichait au-dessus d'une seule
+              carte, les trois autres étant remontées juste au-dessus. */}
+            Toutes les annonces <span className="text-sm font-normal">({rest.length})</span>
           </h2>
         )}
         <div className="grid gap-3 lg:grid-cols-2">

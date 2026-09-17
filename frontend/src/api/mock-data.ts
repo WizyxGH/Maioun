@@ -178,7 +178,11 @@ export const MOCK_LISTINGS: readonly ListingView[] = [
     description: field('Studio meublé, cuisine ouverte, proche du port et des transports.'),
     price: field(650),
     charges: field(null),
-    area: field(18),
+    // 22 m² ET NON 18 : cette annonce se dit « dans les critères », et les
+    // critères du projet demandent 20 m² depuis le 2026-09-01. À 18, elle
+    // s'affichait sous une puce « ≥ 20 m² » qui l'aurait écartée — le jeu
+    // d'essai se contredisait lui-même.
+    area: field(22),
     rooms: field(1),
     propertyType: field('studio'),
     furnished: field(true),
@@ -213,7 +217,7 @@ export const MOCK_LISTINGS: readonly ListingView[] = [
         sourceId: 'demo-agence',
         sourceUrl: 'https://agence.example.invalid/bien/2',
         price: 650,
-        area: 18,
+        area: 22,
         lastSeenAt: OBSERVED_AT,
       },
     ],

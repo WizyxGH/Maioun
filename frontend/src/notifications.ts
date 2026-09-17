@@ -162,6 +162,22 @@ export function unreadAlertCount(
 }
 
 /**
+ * Ce que la pastille de la cloche AFFICHE pour un nombre donné.
+ *
+ * ELLE S'ARRÊTAIT À « 9+ », et un arrivage matinal en compte couramment plus
+ * de dix : dix alertes non lues et cent se lisaient pareil. Le plafond passe à
+ * 99. Mesuré à 320 px de large : « 99+ » fait 27 px, la pastille reste dans les
+ * 36 px du bouton, elle est en position absolue et rien ne se décale autour.
+ * Au-delà de trois caractères, en revanche, elle sortirait du bouton — d'où le
+ * plafond, et non un nombre libre.
+ */
+export const ALERT_BADGE_CAP = 99;
+
+export function alertBadgeLabel(count: number): string {
+  return count > ALERT_BADGE_CAP ? `${ALERT_BADGE_CAP}+` : String(count);
+}
+
+/**
  * `true` si l'annonce a été signalée APRÈS la dernière visite de l'historique.
  *
  * C'est l'état « non lue » d'une ligne. Il repose sur l'horodatage posé par la

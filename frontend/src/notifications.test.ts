@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ListingView } from './types.js';
 import {
+  alertBadgeLabel,
+  ALERT_BADGE_CAP,
   diffForNotification,
   isUnreadAlert,
   markAlertRead,
@@ -114,5 +116,21 @@ describe('alertes lues sur un autre appareil', () => {
     const avant = Date.parse('2026-09-15T11:00:00.000Z');
     expect(isUnreadAlert({ ...signalée, viewed: false }, avant)).toBe(true);
     expect(isUnreadAlert({ ...signalée, viewed: true }, avant)).toBe(false);
+  });
+});
+
+// LA PASTILLE S'ARRÊTAIT À « 9+ » : un arrivage de dix annonces et un de cent
+// se lisaient pareil. Mesuré à 320 px, « 99+ » tient dans le bouton.
+describe('pastille de la cloche', () => {
+  it('écrit le nombre tel quel jusqu’au plafond', () => {
+    expect(alertBadgeLabel(1)).toBe('1');
+    expect(alertBadgeLabel(12)).toBe('12');
+    expect(alertBadgeLabel(ALERT_BADGE_CAP)).toBe('99');
+  });
+
+  it('au-delà, elle plafonne — trois caractères, pas plus', () => {
+    expect(alertBadgeLabel(ALERT_BADGE_CAP + 1)).toBe('99+');
+    expect(alertBadgeLabel(1240)).toBe('99+');
+    expect(alertBadgeLabel(1240)).toHaveLength(3);
   });
 });

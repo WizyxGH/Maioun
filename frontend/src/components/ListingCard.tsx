@@ -26,6 +26,7 @@ import { checkEligibility, type TenantProfile } from '@maioun/shared';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
 import {
+  awaitsContact,
   PRIORITY_HOT,
   PRIORITY_WORTH_SEEING,
   rentAllIn,
@@ -74,8 +75,13 @@ const SUSPICIOUS_RISK = 40;
  * Verte, parce qu'une priorité haute est une BONNE nouvelle — une annonce à
  * saisir, pas une alerte.
  */
-function priorityLabel(priority: number): string {
-  if (priority >= PRIORITY_HOT) return 'à contacter';
+function priorityLabel(priority: number, awaits: boolean): string {
+  // « À CONTACTER » SUR UNE ANNONCE DÉJÀ CONTACTÉE : le libellé ne regardait
+  // que la note, si bien qu'une carte portait « Contactée » et « À contacter »
+  // à trois centimètres d'écart — relevé du 2026-09-17. La section « À
+  // contacter maintenant » applique déjà `awaitsContact` ; la carte, non, et
+  // c'est elle qu'on lit dans les autres tris, où la section n'existe pas.
+  if (priority >= PRIORITY_HOT) return awaits ? 'à contacter' : 'priorité haute';
   if (priority >= PRIORITY_WORTH_SEEING) return 'à voir';
   return 'à étudier';
 }
@@ -92,7 +98,14 @@ function priorityLabel(priority: number): string {
  * Une barre plutôt qu'un nombre : deux cartes se comparent d'un coup d'œil,
  * sans lire, ce qu'un anneau de 48 px ne permettait pas.
  */
-function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Element | null {
+function PriorityBar({
+  priority,
+  awaits,
+}: {
+  readonly priority: number;
+  /** `false` dès qu'un geste a été posé : ni flamme ni « à contacter ». */
+  readonly awaits: boolean;
+}): React.JSX.Element | null {
   // SANS COMPTE, IL N'Y A PAS DE PRIORITÉ : elle se calcule sur des critères qui
   // appartiennent à quelqu'un. L'API rend alors zéro, et « 0/100 · à étudier »
   // s'affichait sur toutes les cartes comme un verdict.
@@ -101,8 +114,8 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
     <div className="mt-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide text-good uppercase">
-          {priority >= PRIORITY_HOT && <Flame aria-hidden="true" className="size-3.5" />}
-          {priorityLabel(priority)}
+          {priority >= PRIORITY_HOT && awaits && <Flame aria-hidden="true" className="size-3.5" />}
+          {priorityLabel(priority, awaits)}
         </span>
         {/* « 65/100 » et non « 65 » : le barème est ainsi dit, sans que
           l'utilisateur ait à deviner sur quoi la note est donnée. */}
@@ -205,8 +218,11 @@ function StatusBadges({
         Ce badge attendait que le score cesse de se tromper. Il désignait 57
         annonces, dont 46 colocations dont on divisait le loyer d'une chambre
         par la surface de tout l'appartement, et pas une arnaque. La règle du
-        €/m² ne s'applique plus à elles : il en reste onze, et le seuil de 40
-        n'en retient que les plus douteuses. */}
+        €/m² ne s'applique plus à elles, ni aux communes dont nous n'avons pas
+        le loyer de référence, ni aux biens qui ne sont pas des logements : au
+        2026-09-17 il désigne UNE annonce sur 3 209, un digest SeLoger sans
+        description ni contact. C'est le bon ordre de grandeur pour un badge
+        qu'on croit quand il apparaît. */}
       {listing.scores.risk.value >= SUSPICIOUS_RISK && <Badge variant="bad">Trop beau ?</Badge>}
       {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
       {/* Bail de neuf mois : le logement n'est pas louable l'été. Le taire
@@ -447,7 +463,7 @@ export function ListingCard({
         </span>
       </header>
 
-      <PriorityBar priority={listing.actionPriority} />
+      <PriorityBar priority={listing.actionPriority} awaits={awaitsContact(listing.tracking)} />
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.85rem] text-muted-foreground">
         <span>

@@ -10,7 +10,7 @@
 import type { ListingView } from './types.js';
 import { isUncertain } from './availability.js';
 import {
-  hasActiveQuickFilters,
+  hasAppliedQuickFilters,
   matchesQuickFilters,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
@@ -40,10 +40,16 @@ export function filterListings(
   listings: readonly ListingView[],
   filter: ListingFilter,
 ): ListingView[] {
-  // Les champs rapides AFFICHENT les critères, mais ne filtrent qu'une fois
-  // modifiés : appliqués d'emblée, ils ré-excluraient aussitôt les annonces
-  // demandées par la bascule « hors critères ».
-  const quick = hasActiveQuickFilters(filter.quick) ? filter.quick : null;
+  // UNE PUCE AFFICHÉE FILTRE VRAIMENT. On demandait ici « l'état s'écarte-t-il
+  // de l'ouverture ? », alors que la barre de puces demande « y a-t-il un
+  // filtre posé ? » : à l'arrivée, 250–700 € et ≥ 20 m² s'affichaient en puces,
+  // se comptaient dans la pastille, et n'écartaient rien. Un studio de 18 m²
+  // restait donc dans la liste sous une puce « ≥ 20 m² ».
+  //
+  // Pire, ils s'allumaient d'un coup au premier autre réglage : choisir « 1
+  // personne » — que presque aucune annonce ne renseigne — faisait disparaître
+  // ce studio, et élargir le budget jusqu'à « sans limite » aussi.
+  const quick = hasAppliedQuickFilters(filter.quick) ? filter.quick : null;
   return listings.filter(
     (listing) =>
       // Une annonce reste dès qu'UNE de ses sources passe : la même annonce est
