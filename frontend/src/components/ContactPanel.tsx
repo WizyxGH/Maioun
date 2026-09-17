@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatArea, formatPhone, formatPrice, formatSourceName, telHref } from '../format.js';
 import { safeHref } from '../safe-url.js';
 import {
+  awaitsContact,
   FOLLOW_UP_TEMPLATE,
   portalLabel,
   prepareMessage,
@@ -495,10 +496,10 @@ export function ContactPanel({
         listing={listing}
         hasAnyContact={hasAnyContact}
         onCalled={() => {
-          if (listing.tracking === 'new') onRecorded('phone', '', []);
+          if (awaitsContact(listing.tracking)) onRecorded('phone', '', []);
         }}
         onWritten={() => {
-          if (listing.tracking === 'new') onRecorded('email', '', []);
+          if (awaitsContact(listing.tracking)) onRecorded('email', '', []);
         }}
         onOpenSource={onOpenSource}
       />

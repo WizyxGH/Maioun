@@ -20,6 +20,7 @@
 
 import type { ListingView, SourceStateView } from '../types.js';
 import {
+  awaitsContact,
   NICE_RENT_REFERENCE,
   PRIORITY_HOT,
   RENT_REFERENCE_SOURCE,
@@ -198,7 +199,7 @@ export function HomePanel({
   const toCall = active.filter(
     (listing) =>
       listing.actionPriority >= PRIORITY_HOT &&
-      listing.tracking === 'new' &&
+      awaitsContact(listing.tracking) &&
       listing.archived !== true,
   );
   const favorites = active.filter((listing) => listing.favorite === true);

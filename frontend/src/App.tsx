@@ -13,7 +13,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TenantProfile } from '@maioun/shared';
-import { MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
+import { awaitsContact, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
 import type {
   FilterConfig,
   ListingView,
@@ -1160,13 +1160,17 @@ function AppView(): React.JSX.Element {
   // Pas de section « à contacter maintenant » dans les FAVORIS : on y vient
   // revoir ce qu'on a retenu, pas se faire hiérarchiser sa propre sélection.
   const grouped = sort === 'priority' && !favoritesOnly;
-  const hot = useMemo(
-    () => (grouped ? ranked.filter((l) => l.actionPriority >= PRIORITY_HOT) : []),
-    [ranked, grouped],
+  // L'URGENCE NE SUFFIT PAS : une annonce déjà contactée n'est plus « à
+  // contacter », si pressante soit-elle. Elle reste dans la liste, plus bas.
+  const urgent = useCallback(
+    (listing: ListingView): boolean =>
+      listing.actionPriority >= PRIORITY_HOT && awaitsContact(listing.tracking),
+    [],
   );
+  const hot = useMemo(() => (grouped ? ranked.filter(urgent) : []), [ranked, grouped, urgent]);
   const rest = useMemo(
-    () => (grouped ? ranked.filter((l) => l.actionPriority < PRIORITY_HOT) : ranked),
-    [ranked, grouped],
+    () => (grouped ? ranked.filter((l) => !urgent(l)) : ranked),
+    [ranked, grouped, urgent],
   );
 
   /**

@@ -66,6 +66,21 @@ export type TrackingStatus =
   | 'rented'
   | 'ignored';
 
+/**
+ * `true` si l'annonce attend encore d'être contactée.
+ *
+ * DEUX ÉTATS SEULEMENT, et il faut les deux : `new` parce que rien n'a été
+ * fait, `toContact` parce que c'est précisément ce que l'utilisateur a dit.
+ * Tous les autres racontent un geste déjà posé — ou un renoncement.
+ *
+ * La règle est ici, et non recopiée dans chaque écran : la page de recherche
+ * ne la connaissait pas et rangeait sous « À contacter maintenant » des
+ * annonces déjà contactées, pendant que l'accueil, lui, les écartait.
+ */
+export function awaitsContact(tracking: TrackingStatus): boolean {
+  return tracking === 'new' || tracking === 'toContact';
+}
+
 // ---------------------------------------------------------------------------
 // Étage 1 — sortie brute d'un scraper
 // ---------------------------------------------------------------------------
