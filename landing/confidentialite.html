@@ -53,7 +53,7 @@
     <main class="mx-auto max-w-3xl px-5 pb-20">
       <h1 class="text-3xl font-bold tracking-tight">Politique de confidentialité</h1>
       <p class="mt-2 text-[0.9rem] text-muted-foreground">
-        Dernière mise à jour : 10 septembre 2026.
+        Dernière mise à jour : 17 septembre 2026.
       </p>
 
       <p class="mt-8 text-[0.98rem]">
@@ -81,8 +81,9 @@
             <tr class="border-b border-border">
               <td class="py-2.5 pr-4">Mot de passe</td>
               <td class="py-2.5 pr-4">
-                Vous reconnaître. Jamais stocké en clair : seule une empreinte PBKDF2 à 210 000
-                tours est conservée
+                Vous reconnaître. Jamais stocké en clair : seule une empreinte PBKDF2-SHA-256 à 100
+                000 tours, avec un sel propre à votre compte, est conservée. Les comptes créés avec
+                Google n’ont pas de mot de passe du tout
               </td>
               <td class="py-2.5">Idem</td>
             </tr>
@@ -129,24 +130,66 @@
           <strong>Aucun traceur publicitaire.</strong>
           <span class="text-muted-foreground">
             Pas de Google Analytics, pas de pixel, pas de régie. Le seul cookie posé est celui de
-            votre session : il est indispensable au fonctionnement, et disparaît à la déconnexion.
+            votre session : il est indispensable au fonctionnement, et se retire de votre navigateur
+            dès la déconnexion.
           </span>
         </li>
         <li>
           <strong>Aucune donnée bancaire.</strong>
           <span class="text-muted-foreground">
-            Le jour où une offre payante existera, le paiement se fera sur une page hébergée par le
-            prestataire : numéro de carte, date et cryptogramme ne toucheront jamais nos serveurs.
+            Le paiement d’une éventuelle offre payante se fait sur une page hébergée par Stripe :
+            numéro de carte, date et cryptogramme ne touchent jamais nos serveurs, qui ne gardent
+            que l’état de l’abonnement.
           </span>
         </li>
         <li>
           <strong>Aucune trace personnelle dans les journaux.</strong>
           <span class="text-muted-foreground">
             Les journaux techniques expurgent automatiquement e-mails, numéros de téléphone et
-            jetons avant écriture.
+            jetons avant écriture. Ils ne parlent que des sources et des annonces — jamais de vous —
+            et s’effacent d’eux-mêmes : quatre-vingt-dix jours pour les passages de collecte, cent
+            quatre-vingts pour l’historique des annonces.
           </span>
         </li>
       </ul>
+
+      <h2 class="mt-10 text-xl font-bold tracking-tight">Votre session</h2>
+      <p class="mt-4 text-[0.98rem] text-muted-foreground">
+        Le jeton de session dure trente jours et se renouvelle à chaque ouverture du site. Il est
+        <strong class="text-foreground">lié à une clé cryptographique de votre appareil</strong>,
+        que le navigateur ne laisse pas sortir : recopié ailleurs, il n’ouvre rien.
+      </p>
+      <p class="mt-3 text-[0.98rem] text-muted-foreground">
+        Il faut dire la limite exactement : se déconnecter efface le cookie de votre navigateur,
+        mais <strong class="text-foreground">ne révoque pas le jeton côté serveur</strong>, qui
+        reste techniquement valable jusqu’à son échéance. C’est la liaison à l’appareil qui protège
+        réellement, pas la déconnexion. Sur un ordinateur partagé, déconnectez-vous
+        <em>et</em> fermez la session du navigateur.
+      </p>
+
+      <h2 class="mt-10 text-xl font-bold tracking-tight">Ce qui reste dans votre navigateur</h2>
+      <p class="mt-4 text-[0.98rem] text-muted-foreground">
+        Certaines données ne quittent jamais votre appareil et ne nous sont jamais transmises :
+        votre profil locataire tel que vous le saisissez, vos préférences d’alertes et les alertes
+        déjà lues, le thème clair ou sombre, le fond de carte choisi. Elles vivent dans le stockage
+        local du navigateur. Les effacer se fait depuis les réglages de votre navigateur, ou en
+        supprimant votre compte.
+      </p>
+
+      <h2 class="mt-10 text-xl font-bold tracking-tight">Se connecter avec Google</h2>
+      <p class="mt-4 text-[0.98rem] text-muted-foreground">
+        Si vous choisissez ce mode de connexion, Google nous transmet votre adresse e-mail et votre
+        nom d’affichage, et rien d’autre. Nous ne recevons aucun mot de passe et n’accédons à aucun
+        autre service Google. Nous ne transmettons à Google aucune de vos données : ni vos
+        recherches, ni vos favoris, ni votre profil.
+      </p>
+
+      <h2 class="mt-10 text-xl font-bold tracking-tight">Votre adresse IP</h2>
+      <p class="mt-4 text-[0.98rem] text-muted-foreground">
+        Elle n’est jamais conservée en clair. Pour limiter les tentatives répétées sur
+        l’inscription, la connexion et le mot de passe oublié, seule une empreinte salée et tronquée
+        est gardée, le temps de la fenêtre de comptage.
+      </p>
 
       <h2 class="mt-10 text-xl font-bold tracking-tight">Où vivent ces données</h2>
       <ul class="mt-4 flex flex-col gap-3 text-[0.98rem] text-muted-foreground">
@@ -199,8 +242,10 @@
         </li>
         <li>
           <strong class="text-foreground">Effacement</strong> — Paramètres → Supprimer mon compte.
-          La suppression est immédiate et définitive : compte, profil, pièces, favoris et suivi
-          partent ensemble.
+          La suppression est immédiate et définitive, sans corbeille ni délai : compte, adresse,
+          profil, pièces du dossier, favoris, suivi, recherches enregistrées, abonnements aux
+          notifications, identifiants de sources et scores de correspondance partent ensemble. Les
+          comptes sans mot de passe confirment en retapant leur adresse.
         </li>
       </ul>
       <p class="mt-3 text-[0.98rem] text-muted-foreground">
