@@ -426,12 +426,15 @@ export function anyClientFilter(view: {
   readonly sources: SourceSelection;
   readonly search: string;
   readonly hideUncertain: boolean;
+  /** « Nouvelles uniquement » : il vide la liste dès qu'on a tout dépouillé. */
+  readonly newOnly: boolean;
 }): boolean {
   return (
     hasActiveQuickFilters(view.quickFilters) ||
     restrictsSources(view.sources) ||
     view.search.trim() !== '' ||
-    view.hideUncertain
+    view.hideUncertain ||
+    view.newOnly
   );
 }
 
@@ -521,6 +524,20 @@ export function countActiveSettings(view: {
   readonly extras: readonly ExtraChip[];
 }): number {
   return appliedQuickFilterCount(view.quickFilters) + view.extras.length;
+}
+
+/**
+ * Les bascules d'affichage POSÉES, en puces retirables.
+ *
+ * Une liste plutôt qu'un `if` par bascule : `AppView` est au plafond de
+ * complexité, et chaque bascule ajoutée y empilait le sien — c'est d'ailleurs
+ * en oubliant l'un d'eux qu'un filtre s'est retrouvé à restreindre la liste
+ * sans puce ni décompte. Ici, une bascule ne peut plus entrer sans sa puce.
+ */
+function activeToggleChips(
+  toggles: readonly (readonly [string, boolean, () => void])[],
+): ExtraChip[] {
+  return toggles.filter(([, on]) => on).map(([label, , onRemove]) => ({ label, onRemove }));
 }
 
 /**
@@ -621,6 +638,7 @@ function SearchResults({
   split,
   favoritesOnly,
   emptyBecauseFiltered,
+  newOnly,
   onResetFilters,
   nowMs,
   profile,
@@ -637,6 +655,14 @@ function SearchResults({
   readonly favoritesOnly: boolean;
   /** `true` si le vide vient d'un filtre, et non d'un inventaire vide. */
   readonly emptyBecauseFiltered: boolean;
+  /**
+   * `true` si « Nouvelles uniquement » est en vigueur.
+   *
+   * Ce filtre-là VIDE LA LISTE QUAND TOUT VA BIEN — avoir traité chaque annonce
+   * est le but, pas une panne. « Aucune annonce ne correspond à ces filtres »
+   * laisserait chercher ce qui cloche ; on nomme le filtre en cause à la place.
+   */
+  readonly newOnly: boolean;
   /** Remet tri, filtres, sources et recherche à zéro. */
   readonly onResetFilters?: () => void;
   readonly nowMs: number;
@@ -652,9 +678,11 @@ function SearchResults({
       <p className="text-muted-foreground">
         {favoritesOnly
           ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
-          : emptyBecauseFiltered
-            ? 'Aucune annonce ne correspond à ces filtres.'
-            : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
+          : newOnly
+            ? 'Plus rien de nouveau : chaque annonce de cette liste porte déjà un statut. Retirez la puce « Nouvelles uniquement » pour toutes les revoir.'
+            : emptyBecauseFiltered
+              ? 'Aucune annonce ne correspond à ces filtres.'
+              : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
       </p>
       {/* UNE SORTIE, ET IL N'Y EN AVAIT AUCUNE. Un filtre qui vide la liste
         laissait devant une page vide sans rien à faire : le terme de recherche
@@ -867,6 +895,14 @@ function AppView(): React.JSX.Element {
   const [hideUncertain, setHideUncertain] = useState(restored.hideUncertain);
   const [showArchived, setShowArchived] = useState(restored.showArchived);
   /**
+   * « Nouvelles uniquement » : les annonces dont on n'a encore rien fait.
+   *
+   * Le suivi, et non la date de découverte — voir `listing-filter.ts`. Mémorisé
+   * comme les autres bascules : on le pose le matin pour dépouiller l'arrivage,
+   * et il ne doit pas se perdre en rouvrant l'onglet.
+   */
+  const [newOnly, setNewOnly] = useState(restored.newOnly);
+  /**
    * L'ADRESSE FAIT FOI sur la liste : `/favoris` ouvre les favoris, `/recherche`
    * tout le reste. Ailleurs — dans les paramètres, sur une fiche — c'est le
    * dernier choix mémorisé qui reprend, faute d'adresse pour le dire.
@@ -1078,6 +1114,7 @@ function AppView(): React.JSX.Element {
         hideUncertain,
         showArchived,
         favoritesOnly,
+        newOnly,
         displayMode,
       });
     }, 300);
@@ -1090,6 +1127,7 @@ function AppView(): React.JSX.Element {
     hideUncertain,
     showArchived,
     favoritesOnly,
+    newOnly,
     displayMode,
   ]);
   const unreadAlerts = useMemo(
@@ -1132,6 +1170,15 @@ function AppView(): React.JSX.Element {
       [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
     [listings],
   );
+  /**
+   * « Nouvelles uniquement » RESTE INERTE DANS LES FAVORIS.
+   *
+   * La barre de puces disparaît entièrement sur cet écran : le filtre y
+   * restreindrait sans rien afficher, sans pastille et sans croix pour le
+   * retirer — le défaut que la barre vient précisément de corriger. La bascule
+   * n'est pas perdue pour autant, elle reprend en revenant à la recherche.
+   */
+  const newOnlyApplies = newOnly && !favoritesOnly;
   const filtered = useMemo(
     () =>
       filterListings(listings, {
@@ -1139,8 +1186,9 @@ function AppView(): React.JSX.Element {
         quick: quickFilters,
         search,
         hideUncertain,
+        newOnly: newOnlyApplies,
       }),
-    [listings, sourceFilter, quickFilters, search, hideUncertain],
+    [listings, sourceFilter, quickFilters, search, hideUncertain, newOnlyApplies],
   );
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
@@ -1167,6 +1215,9 @@ function AppView(): React.JSX.Element {
       listing.actionPriority >= PRIORITY_HOT && awaitsContact(listing.tracking),
     [],
   );
+  // « Nouvelles uniquement » RÉTRÉCIT AUSSI CETTE SECTION, et c'est voulu : les
+  // annonces marquées « À contacter » ont déjà reçu une décision, elles sortent
+  // donc de la liste entière, en-tête compris.
   const hot = useMemo(() => (grouped ? ranked.filter(urgent) : []), [ranked, grouped, urgent]);
   const rest = useMemo(
     () => (grouped ? ranked.filter((l) => !urgent(l)) : ranked),
@@ -1808,6 +1859,7 @@ function AppView(): React.JSX.Element {
       quick: toQuickFilters(saved.view),
       search: saved.view.search ?? '',
       hideUncertain,
+      newOnly: newOnlyApplies,
     }).length;
 
   // Les bandeaux d'alerte flottent AU-DESSUS de la vue courante, quelle qu'elle
@@ -2383,7 +2435,7 @@ function AppView(): React.JSX.Element {
     quickFilters,
     sourcesRestricted: restrictsSources(sourceFilter),
     search,
-    toggles: [favoritesOnly, showArchived, hideUncertain],
+    toggles: [favoritesOnly, showArchived, hideUncertain, newOnly],
   });
 
   /**
@@ -2404,21 +2456,14 @@ function AppView(): React.JSX.Element {
       onRemove: () => setSourceFilter(ALL_SOURCES),
     });
   }
-  if (favoritesOnly) {
-    otherRestrictions.push({
-      label: 'Favoris uniquement',
-      onRemove: () => setFavoritesOnly(false),
-    });
-  }
-  if (showArchived) {
-    otherRestrictions.push({ label: 'Annonces archivées', onRemove: () => setShowArchived(false) });
-  }
-  if (hideUncertain) {
-    otherRestrictions.push({
-      label: 'Sans les annonces à vérifier',
-      onRemove: () => setHideUncertain(false),
-    });
-  }
+  otherRestrictions.push(
+    ...activeToggleChips([
+      ['Favoris uniquement', favoritesOnly, () => setFavoritesOnly(false)],
+      ['Annonces archivées', showArchived, () => setShowArchived(false)],
+      ['Sans les annonces à vérifier', hideUncertain, () => setHideUncertain(false)],
+      ['Nouvelles uniquement', newOnly, () => setNewOnly(false)],
+    ]),
+  );
 
   /**
    * Lève un critère, et recharge : c'est le SERVEUR qui filtre là-dessus.
@@ -2461,6 +2506,7 @@ function AppView(): React.JSX.Element {
     setFavoritesOnly(false);
     setShowArchived(false);
     setHideUncertain(false);
+    setNewOnly(false);
   };
 
   const resetSortAndFilters = (): void => {
@@ -2471,6 +2517,7 @@ function AppView(): React.JSX.Element {
     setFavoritesOnly(false);
     setShowArchived(false);
     setHideUncertain(false);
+    setNewOnly(false);
   };
 
   const toolbarBadge = countActiveSettings({ quickFilters, extras: otherRestrictions });
@@ -2632,6 +2679,8 @@ function AppView(): React.JSX.Element {
             }}
             toggles={[
               ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
+              // Dépouiller l'arrivage : ne garder que ce dont on n'a rien fait.
+              ['Nouvelles uniquement', newOnly, setNewOnly],
               ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
               ['Annonces archivées', showArchived, setShowArchived],
             ]}
@@ -2693,7 +2742,9 @@ function AppView(): React.JSX.Element {
           sources: sourceFilter,
           search,
           hideUncertain,
+          newOnly: newOnlyApplies,
         })}
+        newOnly={newOnlyApplies}
         onResetFilters={resetSortAndFilters}
         nowMs={nowMs}
         profile={profile}

@@ -10,6 +10,7 @@ describe('filterListings', () => {
     quick: DEFAULT_QUICK_FILTERS,
     search: '',
     hideUncertain: false,
+    newOnly: false,
   };
 
   /** Une annonce venue d'une source apparue APRÈS le réglage du filtre. */
@@ -41,5 +42,29 @@ describe('filterListings', () => {
   it('en mode « seulement », une source apparue depuis reste écartée', () => {
     const filter = { ...base, sources: { mode: 'only' as const, ids: new Set(['locservice']) } };
     expect(filterListings([nouvelle], filter)).toEqual([]);
+  });
+
+  // « Nouvelle » = le SUIVI, pas la date de découverte : tout statut posé —
+  // y compris « À contacter », que l'utilisateur a choisi lui-même — sort.
+  it('« nouvelles uniquement » ne garde que les annonces sans statut de suivi', () => {
+    const contactee = { ...MOCK_LISTINGS[0]!, id: 'contactee', tracking: 'contacted' as const };
+    const aContacter = { ...MOCK_LISTINGS[0]!, id: 'a-contacter', tracking: 'toContact' as const };
+    const listings = [MOCK_LISTINGS[0]!, contactee, aContacter];
+
+    expect(filterListings(listings, base)).toHaveLength(3);
+    expect(filterListings(listings, { ...base, newOnly: true }).map((one) => one.id)).toEqual([
+      MOCK_LISTINGS[0]!.id,
+    ]);
+  });
+
+  // La fraîcheur ne doit PAS s'en mêler : une annonce découverte il y a un mois
+  // et jamais traitée reste « nouvelle ».
+  it('ne regarde pas la date de découverte', () => {
+    const ancienne = {
+      ...MOCK_LISTINGS[0]!,
+      id: 'ancienne',
+      firstSeenAt: '2020-01-01T00:00:00.000Z',
+    };
+    expect(filterListings([ancienne], { ...base, newOnly: true })).toHaveLength(1);
   });
 });

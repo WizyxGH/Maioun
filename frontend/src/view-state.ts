@@ -33,6 +33,8 @@ export interface ViewState {
   readonly hideUncertain: boolean;
   readonly showArchived: boolean;
   readonly favoritesOnly: boolean;
+  /** Ne montrer que les annonces dont on n'a rien fait (suivi « Nouvelle »). */
+  readonly newOnly: boolean;
   readonly displayMode: 'list' | 'map';
 }
 
@@ -44,6 +46,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   hideUncertain: false,
   showArchived: false,
   favoritesOnly: false,
+  newOnly: false,
   displayMode: 'list',
 };
 
@@ -66,6 +69,7 @@ interface StoredViewState {
   hideUncertain?: unknown;
   showArchived?: unknown;
   favoritesOnly?: unknown;
+  newOnly?: unknown;
   displayMode?: unknown;
 }
 
@@ -116,6 +120,7 @@ export function readViewState(): ViewState {
     hideUncertain: stored.hideUncertain === true,
     showArchived: stored.showArchived === true,
     favoritesOnly: stored.favoritesOnly === true,
+    newOnly: stored.newOnly === true,
     displayMode: stored.displayMode === 'map' ? 'map' : 'list',
   };
 }

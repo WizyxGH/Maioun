@@ -420,6 +420,7 @@ describe('anyClientFilter', () => {
     sources: ALL_SOURCES,
     search: '',
     hideUncertain: false,
+    newOnly: false,
   };
 
   it('ne signale rien quand rien ne filtre', () => {
@@ -436,6 +437,11 @@ describe('anyClientFilter', () => {
     expect(anyClientFilter({ ...base, hideUncertain: true })).toBe(true);
   });
 
+  // Sans quoi une liste vidée par ce filtre accuserait la collecte.
+  it('compte « nouvelles uniquement »', () => {
+    expect(anyClientFilter({ ...base, newOnly: true })).toBe(true);
+  });
+
   it('compte les sources et les filtres rapides', () => {
     expect(anyClientFilter({ ...base, sources: { mode: 'except', ids: new Set(['fnaim']) } })).toBe(
       true,
@@ -443,5 +449,52 @@ describe('anyClientFilter', () => {
     expect(
       anyClientFilter({ ...base, quickFilters: { ...DEFAULT_QUICK_FILTERS, minRooms: 3 } }),
     ).toBe(true);
+  });
+});
+
+/**
+ * « NOUVELLES UNIQUEMENT » PASSE PAR LE MÊME MÉCANISME QUE LES AUTRES FILTRES.
+ *
+ * Un filtre qui restreignait la liste sans puce, sans être compté par la
+ * pastille et sans qu'« Effacer tout » le touche a déjà été livré une fois. Ce
+ * scénario rejoue les trois obligations d'affilée, du clic jusqu'au retour en
+ * arrière.
+ */
+describe('filtre « Nouvelles uniquement »', () => {
+  /**
+   * Le nombre porté par la pastille du bouton « Filtres », `0` s'il n'y en a
+   * pas. On le lit plutôt que de l'écrire en dur : la pastille compte aussi le
+   * budget, la surface et les critères, dont le nombre n'est pas le sujet ici.
+   */
+  function filtersBadge(): number {
+    const digits = within(screen.getByRole('button', { name: 'Filtres' })).queryAllByText(/^\d+$/);
+    const last = digits.at(-1);
+    return last === undefined ? 0 : Number(last.textContent);
+  }
+
+  it('écarte les annonces suivies, se montre en puce, se compte et s’efface', async () => {
+    const user = userEvent.setup();
+    await renderSearch();
+    // Quatre annonces dans les critères, dont une déjà contactée.
+    expect(await screen.findAllByTestId('listing-card')).toHaveLength(4);
+    const before = filtersBadge();
+
+    await user.click(screen.getByRole('button', { name: 'Filtres' }));
+    await user.click(screen.getByRole('button', { name: /^Afficher/ }));
+    await user.click(screen.getByRole('checkbox', { name: 'Nouvelles uniquement' }));
+    await user.click(screen.getByRole('button', { name: 'Fermer' }));
+
+    expect(await screen.findAllByTestId('listing-card')).toHaveLength(3);
+    // La puce, et sa croix : le filtre se voit et se retire d'un clic.
+    expect(
+      screen.getByRole('button', { name: 'Retirer le filtre Nouvelles uniquement' }),
+    ).toBeInTheDocument();
+    // UNE PUCE = UN FILTRE COMPTÉ, et un seul.
+    expect(filtersBadge()).toBe(before + 1);
+
+    await user.click(screen.getByRole('button', { name: 'Effacer tout' }));
+
+    expect(await screen.findAllByTestId('listing-card')).toHaveLength(4);
+    expect(screen.queryByText('Nouvelles uniquement')).not.toBeInTheDocument();
   });
 });
