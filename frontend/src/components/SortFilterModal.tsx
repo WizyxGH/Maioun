@@ -44,6 +44,7 @@ import {
   OCCUPANT_PRESETS,
   PillButton,
   ROOM_PRESETS,
+  SELECTABLE_PROPERTY_TYPES,
   type QuickFilterValues,
 } from './QuickFilters.js';
 import { FiltersPanel } from './FiltersPanel.js';
@@ -80,8 +81,6 @@ export interface SortFilterModalProps {
   /** Budget, surface, pièces et type : les mêmes réglages que les pills. */
   readonly quickFilters: QuickFilterValues;
   readonly onQuickFiltersChange: (next: QuickFilterValues) => void;
-  /** Types réellement présents dans la liste, pour ne proposer qu'eux. */
-  readonly availableTypes: readonly PropertyType[];
 
   /** Sources présentes dans la liste chargée — les autres ne filtreraient rien. */
   readonly sources: readonly string[];
@@ -140,7 +139,6 @@ export function SortFilterModal({
   toggles,
   quickFilters,
   onQuickFiltersChange,
-  availableTypes,
   sources,
   sourceCounts,
   sourceFilter,
@@ -201,6 +199,14 @@ export function SortFilterModal({
   const activeToggles = useMemo(
     () => new Set(toggles.filter(([, checked]) => checked).map(([label]) => label)),
     [toggles],
+  );
+
+  // Les types proposés ne bougent pas d'une ouverture à l'autre. Un type
+  // retenu qui n'y figurerait pas — une recherche enregistrée d'avant ce
+  // réglage — s'ajoute quand même : il filtre, il doit pouvoir se retirer ici.
+  const offeredTypes = useMemo(
+    () => [...new Set([...SELECTABLE_PROPERTY_TYPES, ...quickFilters.types])],
+    [quickFilters.types],
   );
 
   const patch = (part: Partial<QuickFilterValues>): void =>
@@ -361,30 +367,35 @@ export function SortFilterModal({
               </div>
             </fieldset>
 
-            {availableTypes.length > 1 && (
-              <fieldset className="mb-4">
-                <FieldLabel>Type de bien</FieldLabel>
-                {/* Pilules plutôt que cases à cocher : même geste que « Pièces »
-                  juste au-dessus, et une sélection lisible d'un coup d'œil. */}
-                <div className="flex flex-wrap gap-1.5">
+            <fieldset className="mb-4">
+              <FieldLabel>Type de bien</FieldLabel>
+              {/* Pilules plutôt que cases à cocher : même geste que « Pièces »
+                juste au-dessus, et une sélection lisible d'un coup d'œil. */}
+              <div className="flex flex-wrap gap-1.5">
+                <PillButton
+                  selected={quickFilters.types.size === 0}
+                  onClick={() => patch({ types: new Set() })}
+                >
+                  Tous
+                </PillButton>
+                {offeredTypes.map((type) => (
                   <PillButton
-                    selected={quickFilters.types.size === 0}
-                    onClick={() => patch({ types: new Set() })}
+                    key={type}
+                    selected={quickFilters.types.has(type)}
+                    onClick={() => toggleType(type)}
                   >
-                    Tous
+                    {formatPropertyType(type)}
                   </PillButton>
-                  {availableTypes.map((type) => (
-                    <PillButton
-                      key={type}
-                      selected={quickFilters.types.has(type)}
-                      onClick={() => toggleType(type)}
-                    >
-                      {formatPropertyType(type)}
-                    </PillButton>
-                  ))}
-                </div>
-              </fieldset>
-            )}
+                ))}
+              </div>
+              {/* CE QUE LA LISTE NE CONTIENDRA JAMAIS, écrit ici. Stationnements
+                et locaux professionnels sont écartés en amont — ce ne sont pas
+                des logements. Leur absence de ce choix se lisait sinon comme un
+                oubli, et l'on pouvait chercher longtemps où régler ça. */}
+              <p className="mt-1.5 text-[0.8rem] text-muted-foreground">
+                Les stationnements et les locaux professionnels ne sont jamais listés.
+              </p>
+            </fieldset>
 
             {/* AFFICHAGE ET SOURCES, REPLIÉS. Les bascules et cinquante lignes
               de sources dépliées remplaçaient à elles seules deux écrans de

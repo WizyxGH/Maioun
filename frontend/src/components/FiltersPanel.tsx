@@ -34,17 +34,23 @@ import {
 import {
   convertEstimatedDuration,
   MVP_CRITERIA,
+  normalizeTravelMode,
   REFERENCE_TRAVEL_MODES,
   type ReferenceTravelMode,
 } from '@maioun/shared';
 import { Select } from '@/components/ui/select.js';
 
-/** Les modes, dits comme on les dit — « à pied », et non « walking ». */
+/**
+ * Les modes, dits comme on les dit — « à pied », et non « walking ».
+ *
+ * `train` n'est plus proposé : bus, tram et TER sont un seul choix. L'intitulé
+ * reste pour un critère enregistré du temps où c'en était un.
+ */
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
   cycling: 'à vélo',
-  transit: 'en bus ou tram',
-  train: 'en train (TER)',
+  transit: 'en transports en commun',
+  train: 'en transports en commun',
   driving: 'en voiture',
 };
 import { PanelSkeleton } from './Skeletons.js';
@@ -241,7 +247,9 @@ export function FiltersPanel({
 
   // Le mode de SAISIE, et la durée telle qu on la lit dans ce mode. Le stockage
   // reste dans l unité de la collecte ; on ne convertit qu au bord.
-  const commuteMode: ReferenceTravelMode = filters.commuteMode ?? storedMode;
+  // `normalizeTravelMode` : un critère enregistré « en train » retomberait
+  // sinon sur un menu qui ne propose plus cette valeur, donc sur un choix vide.
+  const commuteMode: ReferenceTravelMode = normalizeTravelMode(filters.commuteMode ?? storedMode);
   // VIDE QUAND AUCUN PLAFOND N'EST POSÉ. Le champ affichait « 60 » dans ce cas,
   // ce qui donnait à lire un critère que personne n'avait choisi — et effaçait
   // à l'écran la différence entre « une heure » et « pas de limite ».

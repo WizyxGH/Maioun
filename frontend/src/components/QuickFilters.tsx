@@ -172,6 +172,34 @@ export function matchesQuickFilters(listing: QuickFilterable, v: QuickFilterValu
   return v.types.size === 0 || v.types.has(listing.propertyType.value);
 }
 
+/**
+ * Les types de bien PROPOSABLES, une fois pour toutes.
+ *
+ * LA LISTE DÉPENDAIT DE CE QUI ÉTAIT CHARGÉ : elle se déduisait des annonces
+ * présentes à l'écran, et la liste arrive en deux temps (cinquante d'abord,
+ * tout ensuite). Les choix changeaient donc sous les doigts une seconde après
+ * l'ouverture — « Loft » n'existait pas, puis apparaissait. Les options d'un
+ * filtre ne doivent pas dépendre de ce qui a fini d'arriver.
+ *
+ * NI PARKING NI LOCAL PROFESSIONNEL : ce ne sont pas des logements, et ils sont
+ * écartés en amont — du catalogue comme des critères. Les proposer donnerait
+ * des filtres qui ne ramènent jamais rien. La modale le dit à l'écran plutôt
+ * que de laisser chercher où ils sont passés.
+ *
+ * `unknown` non plus : « Type inconnu » n'est pas un type qu'on cherche, et
+ * aucune annonce active n'y reste — la normalisation les range toutes.
+ *
+ * Dans l'ordre de ce que Nice propose, le plus courant d'abord.
+ */
+export const SELECTABLE_PROPERTY_TYPES: readonly PropertyType[] = [
+  'apartment',
+  'studio',
+  'house',
+  'room',
+  'loft',
+  'other',
+];
+
 export const ROOM_PRESETS = [1, 2, 3, 4, 5] as const;
 
 /** Tailles de groupe courantes. Au-delà de 4, l'offre niçoise est anecdotique. */

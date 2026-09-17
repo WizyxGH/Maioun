@@ -1165,11 +1165,6 @@ function AppView(): React.JSX.Element {
       ),
     [sourceCounts, sourceFilter],
   );
-  const availableTypes = useMemo(
-    () =>
-      [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
-    [listings],
-  );
   /**
    * « Nouvelles uniquement » RESTE INERTE DANS LES FAVORIS.
    *
@@ -2686,7 +2681,6 @@ function AppView(): React.JSX.Element {
             ]}
             quickFilters={quickFilters}
             onQuickFiltersChange={setQuickFilters}
-            availableTypes={availableTypes}
             sources={availableSources}
             sourceCounts={sourceCounts}
             sourceFilter={sourceFilter}

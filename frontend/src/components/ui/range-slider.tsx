@@ -19,6 +19,21 @@
 
 import { useId } from 'react';
 
+/**
+ * Retrait, en pixels, entre le bord de la piste et le point le plus extrême
+ * qu'un CENTRE de poignée atteint.
+ *
+ * LA PORTION RETENUE NE TOMBAIT PAS EN FACE DES POIGNÉES : elle se plaçait en
+ * pourcentage de la largeur ENTIÈRE, alors que le centre d'une poignée s'arrête
+ * à une demi-poignée du bord, plus le retrait que le navigateur ménage autour
+ * de la piste. À 360 px et au budget d'ouverture, le bandeau coloré débordait à
+ * gauche du minimum et s'arrêtait 19 px avant le maximum.
+ *
+ * Valeur MESURÉE sous Chrome pour cette poignée, en la tirant d'un nombre connu
+ * de pixels. L'histogramme se cale sur le même retrait.
+ */
+const HANDLE_INSET_PX = 18;
+
 export interface RangeSliderProps {
   readonly min: number;
   readonly max: number;
@@ -75,6 +90,18 @@ export function RangeSlider({
     .filter((bucket) => bucketInRange(bucket, lowValue, highValue))
     .reduce((sum, bucket) => sum + bucket.count, 0);
 
+  /**
+   * QUAND LES DEUX BORNES SE REJOIGNENT, LES POIGNÉES SE SUPERPOSENT et seule
+   * celle du dessus reste saisissable. En HAUT DE L'ÉCHELLE elle n'a plus où
+   * aller — le maximum ne descend pas sous le minimum, déjà au maximum : à 2500
+   * – 2500, ni le doigt ni la flèche gauche ne rouvraient la fourchette, seul
+   * « Réinitialiser » s'en sortait.
+   *
+   * On fait donc passer devant la poignée qui peut ENCORE bouger. Sans coût le
+   * reste du temps : seules les poignées reçoivent le pointeur.
+   */
+  const lowOnTop = lowValue >= highValue && lowValue > min;
+
   /** Classes communes aux deux `range` : piste effacée, poignée conservée. */
   const thumb =
     'pointer-events-none absolute inset-x-0 top-0 h-9 w-full appearance-none bg-transparent ' +
@@ -96,9 +123,14 @@ export function RangeSlider({
 
       {tallest > 0 && (
         <>
-          {/* Placées sur la même échelle que la piste, pour qu'une barre soit
-            exactement au-dessus des loyers qu'elle compte. */}
-          <div aria-hidden="true" data-testid="range-histogram" className="relative h-12 px-2.5">
+          {/* Placées sur la même échelle que les poignées, pour qu'une barre
+            soit exactement au-dessus des loyers qu'elle compte. */}
+          <div
+            aria-hidden="true"
+            data-testid="range-histogram"
+            className="relative h-12"
+            style={{ paddingInline: HANDLE_INSET_PX }}
+          >
             <div className="relative h-full">
               {bars.map((bucket) => {
                 const left = ((Math.max(bucket.from, min) - min) / span) * 100;
@@ -129,16 +161,19 @@ export function RangeSlider({
       )}
 
       <div className="relative h-9">
-        {/* La piste, et la portion retenue par-dessus. */}
+        {/* La piste, et la portion retenue par-dessus. Toutes deux dans le
+          retrait des poignées : c'est là que leurs centres se déplacent. */}
         <span
           aria-hidden="true"
-          className="absolute top-4 right-0 left-0 h-1.5 rounded-full bg-border"
-        />
-        <span
-          aria-hidden="true"
-          className="absolute top-4 h-1.5 rounded-full bg-primary"
-          style={{ left: `${leftPercent}%`, right: `${100 - rightPercent}%` }}
-        />
+          className="absolute top-4 h-1.5"
+          style={{ left: HANDLE_INSET_PX, right: HANDLE_INSET_PX }}
+        >
+          <span className="absolute inset-0 rounded-full bg-border" />
+          <span
+            className="absolute inset-y-0 rounded-full bg-primary"
+            style={{ left: `${leftPercent}%`, right: `${100 - rightPercent}%` }}
+          />
+        </span>
 
         <input
           id={`${id}-low`}
@@ -150,6 +185,7 @@ export function RangeSlider({
           value={lowValue}
           onChange={(event) => onChange(Math.min(Number(event.target.value), highValue), highValue)}
           className={thumb}
+          style={{ zIndex: lowOnTop ? 2 : 1 }}
         />
         <input
           id={`${id}-high`}
@@ -161,6 +197,7 @@ export function RangeSlider({
           value={highValue}
           onChange={(event) => onChange(lowValue, Math.max(Number(event.target.value), lowValue))}
           className={thumb}
+          style={{ zIndex: lowOnTop ? 1 : 2 }}
         />
       </div>
     </div>

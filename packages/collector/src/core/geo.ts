@@ -7,7 +7,7 @@
  * ville de la taille de Nice.
  */
 
-import { TRAVEL_SPEED_KMH, type ReferenceTravelMode } from '@maioun/shared';
+import { estimateTravelMinutes, type ReferenceTravelMode } from '@maioun/shared';
 
 /** Rayon moyen de la Terre en kilomètres. */
 const EARTH_RADIUS_KM = 6371;
@@ -38,14 +38,12 @@ export function haversineKm(a: Coordinates, b: Coordinates): number {
 export type TravelMode = ReferenceTravelMode;
 
 /**
- * Facteur appliqué à la distance à vol d'oiseau pour approcher la distance
- * réellement parcourue en milieu urbain. 1,3 est la valeur usuellement retenue
- * pour un tissu urbain dense.
+ * Estime une durée de trajet, en minutes.
+ *
+ * LE CALCUL LUI AUSSI EST PARTAGÉ : les transports en commun n'ont plus une
+ * vitesse unique — bus en deçà de quelques kilomètres, TER au-delà — et
+ * l'interface doit pouvoir dire la même chose que la collecte.
  */
-const URBAN_DETOUR_FACTOR = 1.3;
-
-/** Estime une durée de trajet, en minutes. */
 export function estimateDurationMinutes(distanceKm: number, mode: TravelMode): number {
-  const realDistance = distanceKm * URBAN_DETOUR_FACTOR;
-  return Math.round((realDistance / TRAVEL_SPEED_KMH[mode]) * 60);
+  return estimateTravelMinutes(distanceKm, mode);
 }

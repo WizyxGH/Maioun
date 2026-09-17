@@ -1,10 +1,13 @@
 /**
  * Les barres au-dessus du budget : celles de la fourchette ressortent, les
  * autres restent là pour montrer ce qu'élargir apporterait.
+ *
+ * Et la fourchette elle-même : deux poignées superposées ne doivent jamais
+ * enfermer l'utilisateur dans un réglage qu'il ne peut plus défaire.
  */
 
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { bucketInRange, RangeSlider } from './range-slider.js';
 
 const buckets = [
@@ -29,6 +32,31 @@ const slider = (histogram?: typeof buckets) =>
       describeHistogram={(inRange, total) => `${inRange} sur ${total}`}
     />,
   );
+
+/** La fourchette seule, aux bornes du budget réel, sans histogramme. */
+function budget(lowValue: number, highValue: number, onChange = (): void => undefined) {
+  return render(
+    <RangeSlider
+      min={200}
+      max={2500}
+      step={25}
+      lowValue={lowValue}
+      highValue={highValue}
+      onChange={onChange}
+      lowLabel="Loyer minimum"
+      highLabel="Loyer maximum"
+      format={(value) => `${value} €`}
+    />,
+  );
+}
+
+/** Rang d'empilement des deux poignées : la plus grande valeur est devant. */
+function stacking(): { readonly low: number; readonly high: number } {
+  return {
+    low: Number(screen.getByLabelText('Loyer minimum').style.zIndex),
+    high: Number(screen.getByLabelText('Loyer maximum').style.zIndex),
+  };
+}
 
 describe('RangeSlider — histogramme', () => {
   it('retient une tranche dont le milieu est dans la fourchette', () => {
@@ -59,5 +87,36 @@ describe('RangeSlider — histogramme', () => {
     expect(screen.queryByTestId('range-histogram')).toBeNull();
     slider(buckets.map((bucket) => ({ ...bucket, count: 0 })));
     expect(screen.queryByTestId('range-histogram')).toBeNull();
+  });
+});
+
+describe('RangeSlider — poignées superposées', () => {
+  it('laisse la poignée du maximum devant tant qu’elle peut bouger', () => {
+    budget(250, 700);
+    const { low, high } = stacking();
+    expect(high).toBeGreaterThan(low);
+  });
+
+  it('fait passer le minimum devant quand les deux bornes se rejoignent', () => {
+    // EN HAUT DE L'ÉCHELLE, le maximum n'a plus où aller : il ne peut pas
+    // descendre sous le minimum, qui est déjà au maximum. Si la poignée du
+    // maximum reste devant, elle masque l'autre et la fourchette se bloque —
+    // au doigt comme à la flèche gauche.
+    budget(2500, 2500);
+    const { low, high } = stacking();
+    expect(low).toBeGreaterThan(high);
+  });
+
+  it('rouvre la fourchette bloquée en haut de l’échelle', () => {
+    const onChange = vi.fn();
+    budget(2500, 2500, onChange);
+    fireEvent.change(screen.getByLabelText('Loyer minimum'), { target: { value: '1000' } });
+    expect(onChange).toHaveBeenCalledWith(1000, 2500);
+  });
+
+  it('garde le maximum devant en bas de l’échelle, où c’est lui qui peut bouger', () => {
+    budget(200, 200);
+    const { low, high } = stacking();
+    expect(high).toBeGreaterThan(low);
   });
 });

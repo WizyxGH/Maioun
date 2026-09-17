@@ -30,7 +30,6 @@ function ouvrir(sourceFilter: SourceSelection = ALL_SOURCES) {
       toggles={[]}
       quickFilters={DEFAULT_QUICK_FILTERS}
       onQuickFiltersChange={vi.fn()}
-      availableTypes={[]}
       sources={['orpi', 'locservice', 'agence-sans-annonce']}
       sourceCounts={new Map([['orpi', 12]])}
       sourceFilter={sourceFilter}
