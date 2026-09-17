@@ -9,7 +9,7 @@
  * doublon avec la modale.
  */
 
-import { MVP_CRITERIA, type PropertyType } from '@maioun/shared';
+import { MVP_CRITERIA, rentForBudget, type PropertyType } from '@maioun/shared';
 import { formatPropertyType } from '../format.js';
 import { Button } from '@/components/ui/button.js';
 import { Toggle } from '@/components/ui/toggle.js';
@@ -127,6 +127,9 @@ export function priceLabel(min: number | null, max: number | null): string {
 /** Champs d'une annonce que les filtres rapides inspectent (§17). */
 export interface QuickFilterable {
   readonly price: { readonly value: number | null };
+  readonly charges?: { readonly value: number | null };
+  /** Non enveloppé, contrairement aux autres : c'est ainsi que la fiche l'expose. */
+  readonly chargesIncluded?: boolean | null;
   readonly area: { readonly value: number | null };
   readonly rooms: { readonly value: number | null };
   readonly propertyType: { readonly value: PropertyType };
@@ -138,7 +141,16 @@ export interface QuickFilterable {
  * peut pas satisfaire un seuil → l'annonce est écartée quand ce filtre est posé.
  */
 export function matchesQuickFilters(listing: QuickFilterable, v: QuickFilterValues): boolean {
-  if (v.maxPrice !== null && (listing.price.value === null || listing.price.value > v.maxPrice)) {
+  // LE BUDGET SE JUGE CHARGES COMPRISES, comme côté serveur : une annonce
+  // publiée en deux morceaux — 566 € plus 158 € de provision — coûte 724 €, et
+  // le curseur doit voir ce nombre-là. Le plancher, lui, reste sur le montant
+  // publié : il sert à reconnaître un box à 100 €, pas à juger un total.
+  const allIn = rentForBudget({
+    price: listing.price.value,
+    charges: listing.charges?.value ?? null,
+    chargesIncluded: listing.chargesIncluded ?? null,
+  });
+  if (v.maxPrice !== null && (allIn === null || allIn > v.maxPrice)) {
     return false;
   }
   if (v.minPrice !== null && (listing.price.value === null || listing.price.value < v.minPrice)) {
