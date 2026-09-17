@@ -199,3 +199,14 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
 function isFrequency(value: unknown): value is NotificationFrequency {
   return value === 'each-run' || value === 'hourly' || value === 'daily';
 }
+
+/**
+ * Combien d'alertes l'historique garde, au plus.
+ *
+ * LE PLAFOND ÉTAIT MUET, et l'utilisateur l'a découvert en comptant : la liste
+ * s'arrêtait net autour de deux cents sans que rien ne le dise, ce qui laisse
+ * croire à une panne ou à un oubli. Le chiffre est ici pour que l'écran puisse
+ * l'annoncer quand il est atteint, et pour que la requête et l'écran ne
+ * puissent plus se contredire.
+ */
+export const ALERT_HISTORY_LIMIT = 200;

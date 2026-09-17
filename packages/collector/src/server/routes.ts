@@ -33,6 +33,7 @@ import type { Client } from '@libsql/client';
 import { OPEN_TO_APPLICATIONS_SQL, traitConditions } from '../core/trait-filters.js';
 import { shareAlive, survivalCurve } from '../core/survival.js';
 import {
+  ALERT_HISTORY_LIMIT,
   ANONYMOUS_USER,
   CURRENT_USER,
   MVP_CRITERIA,
@@ -967,7 +968,7 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
             COALESCE(us.notified_at, ''),
             COALESCE(us.gone_notified_at, ''),
             COALESCE(us.reminded_at, '')
-          ) DESC LIMIT 200`,
+          ) DESC LIMIT ${ALERT_HISTORY_LIMIT}`,
     args: [userId, userId],
   });
   return {
