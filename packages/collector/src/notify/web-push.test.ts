@@ -33,13 +33,29 @@ const listing = (over: Record<string, unknown> = {}): never =>
 describe('loadVapidConfig', () => {
   it('rend null tant que le canal n’est pas configuré', () => {
     // Sans clés, le canal reste silencieusement inactif.
-    expect(loadVapidConfig({})).toBeNull();
-    expect(loadVapidConfig({ VAPID_PUBLIC_KEY: 'abc' })).toBeNull();
-    expect(loadVapidConfig({ VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: 'x' })).toBeNull();
+    expect(loadVapidConfig({ MAIOUN_ALERTS: 'on' })).toBeNull();
+    expect(loadVapidConfig({ MAIOUN_ALERTS: 'on', VAPID_PUBLIC_KEY: 'abc' })).toBeNull();
+    expect(
+      loadVapidConfig({ MAIOUN_ALERTS: 'on', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: 'x' }),
+    ).toBeNull();
+  });
+
+  it('se tait quand l’interrupteur des alertes manque, clés ou pas', () => {
+    // Les clés vivent dans le .env : sans cet interrupteur, un essai lancé à la
+    // main sur la machine enverrait de vraies notifications sur le téléphone.
+    const keys = { VAPID_PUBLIC_KEY: 'pub', VAPID_PRIVATE_KEY: 'priv' };
+    expect(loadVapidConfig(keys)).toBeNull();
+    expect(loadVapidConfig({ ...keys, MAIOUN_ALERTS: '' })).toBeNull();
+    expect(loadVapidConfig({ ...keys, MAIOUN_ALERTS: '1' })).toBeNull();
+    expect(loadVapidConfig({ ...keys, MAIOUN_ALERTS: 'on' })).not.toBeNull();
   });
 
   it('lit les clés et se donne un sujet par défaut', () => {
-    const config = loadVapidConfig({ VAPID_PUBLIC_KEY: 'pub', VAPID_PRIVATE_KEY: 'priv' });
+    const config = loadVapidConfig({
+      MAIOUN_ALERTS: 'on',
+      VAPID_PUBLIC_KEY: 'pub',
+      VAPID_PRIVATE_KEY: 'priv',
+    });
     expect(config).toEqual({
       publicKey: 'pub',
       privateKey: 'priv',

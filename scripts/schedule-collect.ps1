@@ -57,8 +57,13 @@ $Pnpm = @("$PnpmDir\pnpm.cmd", "$PnpmDir\pnpm.exe", $PnpmCommand.Source) |
 
 # La tâche lance `pnpm collect` via cmd.exe (fiable pour les shims .cmd), en
 # journalisant dans data\collect.log (gitignoré) pour pouvoir diagnostiquer.
+#
+# MAIOUN_ALERTS=on : l'interrupteur qui autorise les notifications. Les cles
+# VAPID vivent dans le .env du depot, donc une collecte lancee a la main en
+# envoyait aussi ; seules cette tache et la forge posent la variable, et un
+# essai ne peut plus rien emettre.
 $Action = New-ScheduledTaskAction -Execute 'cmd.exe' `
-  -Argument "/c `"`"$Pnpm`" collect >> data\collect.log 2>&1`"" `
+  -Argument "/c `"set MAIOUN_ALERTS=on && `"$Pnpm`" collect >> data\collect.log 2>&1`"" `
   -WorkingDirectory $RepoRoot
 
 # Déclencheur : maintenant, puis toutes les N minutes, indéfiniment.

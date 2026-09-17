@@ -90,6 +90,12 @@ jobs:
 
           # Web Push (§29) : la collecte émet elle-même vers les navigateurs
           # abonnés. Sans ces clés, le canal reste silencieusement inactif.
+          #
+          # L'interrupteur ci-dessous distingue une VRAIE collecte d'un essai :
+          # les clés vivent aussi dans le .env de la machine de développement,
+          # et un essai y faisait partir de vraies notifications. Seules la
+          # forge et la tâche planifiée le posent.
+          MAIOUN_ALERTS: 'on'
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}

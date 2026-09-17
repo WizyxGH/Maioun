@@ -31,8 +31,21 @@ export interface VapidConfig {
   readonly subject: string;
 }
 
+/**
+ * L'INTERRUPTEUR QUE SEULES LES VRAIES COLLECTES POSSÈDENT.
+ *
+ * Les clés VAPID vivent dans le `.env` du dépôt : n'importe quelle collecte
+ * lancée à la main sur cette machine envoyait donc de vraies notifications sur
+ * le téléphone. Un essai de source non validée en a fait partir six, pour des
+ * annonces qu'il a fallu effacer ensuite. Les deux collectes légitimes — la
+ * tâche planifiée et la forge — posent cette variable ; un essai ne l'a pas, et
+ * ne peut plus rien émettre, ni notification, ni courriel.
+ */
+export const ALERTS_SWITCH = 'MAIOUN_ALERTS';
+
 /** Lit la configuration VAPID ; `null` si le canal n'est pas configuré. */
 export function loadVapidConfig(env: NodeJS.ProcessEnv = process.env): VapidConfig | null {
+  if (env[ALERTS_SWITCH] !== 'on') return null;
   const publicKey = env['VAPID_PUBLIC_KEY'];
   const privateKey = env['VAPID_PRIVATE_KEY'];
   if (
