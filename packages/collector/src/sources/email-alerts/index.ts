@@ -19,6 +19,7 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { alertAddressTemplate, loadImapConfig } from '../../config.js';
 import { fetchAlertEmails, parseBookmark } from '../../core/email-import.js';
 import { acceptsRecipients, forwardingToken } from '../../core/alert-recipients.js';
+import { awaitedAgenciesAfter, parseAwaitedAgencies } from './agency-refresh.js';
 import { locationFromUrl, parseAlertEmail, referenceFromUrl } from './parser.js';
 
 export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
@@ -295,6 +296,18 @@ export const emailAlertsScraper: Scraper = {
     const stopReason =
       accepted.length > 0 && all.length === 0 ? ('empty' as const) : ('completed' as const);
 
+    /**
+     * LES AGENCES QUE CE COURRIER VIENT DE NOMMER, gardées dans le repère.
+     *
+     * Le scraper ne connaît ni la base ni les autres sources : il écrit le nom,
+     * le cœur en tire — s'il la collecte — la source à faire passer en tête au
+     * cycle suivant (voir `agency-refresh.ts`).
+     */
+    const agencies = awaitedAgenciesAfter(parseAwaitedAgencies(context.memo), listings, Date.now());
+    if (agencies.length > 0) {
+      context.log('email.agencies_named', { agencies: agencies.map((one) => one.name) });
+    }
+
     return {
       sourceId: EMAIL_ALERTS_DESCRIPTOR.id,
       listings,
@@ -304,8 +317,15 @@ export const emailAlertsScraper: Scraper = {
       stopReason,
       warnings,
       // Pas de repère rendu : le passage n'a rien pu conclure, le cœur garde le
-      // précédent et la fenêtre sera relue — jamais l'inverse.
-      ...(batch.bookmark !== null ? { memo: JSON.stringify(batch.bookmark) } : {}),
+      // précédent — donc aussi les agences attendues — et la fenêtre sera relue.
+      ...(batch.bookmark !== null
+        ? {
+            memo: JSON.stringify({
+              ...batch.bookmark,
+              ...(agencies.length > 0 ? { agencies } : {}),
+            }),
+          }
+        : {}),
     };
   },
 };

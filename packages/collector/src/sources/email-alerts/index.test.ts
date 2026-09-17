@@ -142,6 +142,60 @@ describe('emailAlertsScraper', () => {
     });
   });
 
+  /**
+   * L'AGENCE NOMMÉE PAR LE MESSAGE VOYAGE DANS LE REPÈRE, et c'est par là que
+   * le cœur saura quel catalogue relire en priorité. Sur vingt et un jours de
+   * boîte, vingt-trois messages sur deux cent soixante-quatre nomment leur
+   * agence : le silence est donc le cas ORDINAIRE, et il doit rester silencieux.
+   */
+  const digest = (bloc: string): string =>
+    `<table><tbody><tr><td>${bloc}<a href="https://www.seloger.com/annonce/262DQEQC5SVU">` +
+    'Appartement • 2 pièces • 41 m² — Nice (06000) 780 €</a></td></tr></tbody></table>';
+
+  it('garde dans son repère l’agence que le message nomme', async () => {
+    vi.stubEnv('IMAP_USER', 'boite@exemple.invalid');
+    vi.stubEnv('IMAP_APP_PASSWORD', 'secret');
+    vi.stubEnv('ALERT_ADDRESS_TEMPLATE', '');
+    fetchAlertEmails.mockResolvedValue({
+      emails: [
+        {
+          body: digest(
+            '<p><b>Immobilière GTI</b> vous propose une nouvelle annonce en partenariat avec SeLoger</p>',
+          ),
+          recipients: [],
+        },
+      ],
+      bookmark: { uidValidity: '1', lastUid: 9, senders: 'seloger' },
+      fullRead: false,
+    });
+
+    const memo = JSON.parse((await emailAlertsScraper.run(contexte())).memo ?? 'null') as {
+      agencies?: { name: string }[];
+    };
+    expect(memo.agencies?.map((one) => one.name)).toEqual(['Immobilière GTI']);
+  });
+
+  it('n’invente aucune agence quand le message n’en nomme pas', async () => {
+    vi.stubEnv('IMAP_USER', 'boite@exemple.invalid');
+    vi.stubEnv('IMAP_APP_PASSWORD', 'secret');
+    vi.stubEnv('ALERT_ADDRESS_TEMPLATE', '');
+    fetchAlertEmails.mockResolvedValue({
+      emails: [
+        { body: digest('<p>1 nouvelle annonce pourrait vous intéresser</p>'), recipients: [] },
+      ],
+      bookmark: { uidValidity: '1', lastUid: 9, senders: 'seloger' },
+      fullRead: false,
+    });
+
+    const result = await emailAlertsScraper.run(contexte());
+    expect(result.listings).toHaveLength(1);
+    expect(JSON.parse(result.memo ?? 'null')).toEqual({
+      uidValidity: '1',
+      lastUid: 9,
+      senders: 'seloger',
+    });
+  });
+
   it('un message de service sans annonce ne fait pas passer la source pour cassée', async () => {
     vi.stubEnv('IMAP_USER', 'boite@exemple.invalid');
     vi.stubEnv('IMAP_APP_PASSWORD', 'secret');

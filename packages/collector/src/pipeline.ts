@@ -31,6 +31,8 @@ import type { Logger } from './core/logger.js';
 import { BlockedError, createHttpClient, RateLimitedError } from './core/http-client.js';
 import type { SourceRegistry } from './core/registry.js';
 import { planRun } from './scheduler/scheduler.js';
+import { awaitedSources } from './sources/email-alerts/agency-refresh.js';
+import { EMAIL_ALERTS_DESCRIPTOR } from './sources/email-alerts/index.js';
 import { normalizeAll } from './normalization/normalize.js';
 import { dedupe } from './deduplication/dedupe.js';
 import { mergeGroup } from './deduplication/merge.js';
@@ -1011,13 +1013,28 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     })),
   );
 
+  /**
+   * CE QU'UNE ALERTE E-MAIL A NOMMÉ. Le digest d'un portail dit parfois de
+   * quelle agence vient l'annonce ; si nous collectons cette agence, son
+   * catalogue en dit bien plus — adresse, téléphone, charges, DPE — et il est
+   * déjà à jour au moment où le message arrive. On avance son tour, sans
+   * requête hors cadence ni budget touché.
+   */
+  const expected = awaitedSources(
+    entries.find((entry) => entry.descriptor.id === EMAIL_ALERTS_DESCRIPTOR.id)?.state.memo ?? null,
+    entries.map((entry) => entry.descriptor),
+    clock.now(),
+  );
+
   const plan = planRun(entries, clock.now(), {
     maxSourcesPerRun: options.force === true ? entries.length : config.maxSourcesPerRun,
     ...(options.force === true ? { force: true } : {}),
+    ...(expected.size > 0 ? { expected } : {}),
   });
   logger.info('scheduler.plan', {
     selected: plan.selected.map((decision) => decision.sourceId),
     skipped: plan.skipped.length,
+    ...(expected.size > 0 ? { awaitedByMail: [...expected.keys()] } : {}),
   });
 
   // --- 2. Collecte, source par source, en isolation -------------------------

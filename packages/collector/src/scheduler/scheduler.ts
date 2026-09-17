@@ -158,6 +158,20 @@ export interface PlanOptions {
    * jamais « ignore ce que le site a répondu ».
    */
   readonly force?: boolean;
+  /**
+   * Sources ATTENDUES, et depuis quel instant : une alerte e-mail vient de
+   * nommer leur agence, leur catalogue a donc quelque chose de neuf à montrer.
+   *
+   * Elles passent en tête de la file et n'attendent pas la fin de leur
+   * intervalle — mais rien d'autre ne change : une source bloquée, mise au
+   * repos ou désactivée le reste, et ses budgets et délais sont les siens. Une
+   * alerte dit « c'est le moment », jamais « insiste ».
+   *
+   * L'INSTANT REND L'ATTENTE JETABLE : dès que la source a tourné APRÈS lui,
+   * elle a déjà relu son catalogue et repasse dans le rang. Sans cette borne,
+   * la même agence reviendrait en tête à chaque cycle.
+   */
+  readonly expected?: ReadonlyMap<string, string>;
 }
 
 export interface SchedulePlan {
@@ -175,6 +189,24 @@ export interface SchedulePlan {
  * un seuil absolu punirait la seconde pour la lenteur qu'on lui a choisie.
  */
 const STARVATION_FACTOR = 4;
+
+/**
+ * Cette source a-t-elle du retard sur une attente ?
+ *
+ * `false` dès qu'elle a tourné après l'alerte : le catalogue a été relu, il n'y
+ * a plus rien à rattraper.
+ */
+function stillAwaited(state: SourceRuntimeState, since: string | undefined): boolean {
+  if (since === undefined) return false;
+  if (state.lastRunAt === null) return true;
+  const lastRun = Date.parse(state.lastRunAt);
+  const alert = Date.parse(since);
+  if (!Number.isFinite(alert)) return false;
+  return !Number.isFinite(lastRun) || lastRun < alert;
+}
+
+/** Ce qui ne retient une source que par l'heure — le seul refus qui se lève. */
+const WAITING_ITS_TURN = /prochaine exécution/i;
 
 /**
  * De combien de fois son intervalle une source a-t-elle dépassé son tour.
@@ -223,19 +255,40 @@ export function planRun(
     const decision = decideForSource(descriptor, state, nowMs);
     // Le ciblage manuel ne force QUE l'attente : un refus ou une mise au repos
     // vient du site, et lui passer outre serait insister là où il a dit non.
-    const forced =
-      options.force === true && !decision.shouldRun && /prochaine exécution/i.test(decision.reason);
-    return {
-      decision: forced ? { ...decision, shouldRun: true, reason: 'ciblée manuellement' } : decision,
-      state,
-    };
+    const waiting = !decision.shouldRun && WAITING_ITS_TURN.test(decision.reason);
+    const forced = options.force === true && waiting;
+    // Une alerte e-mail lève la même chose, et rien de plus.
+    const awaited = stillAwaited(state, options.expected?.get(descriptor.id));
+    if (forced) {
+      return {
+        decision: { ...decision, shouldRun: true, reason: 'ciblée manuellement' },
+        state,
+        awaited,
+      };
+    }
+    if (awaited && waiting) {
+      return {
+        decision: {
+          ...decision,
+          shouldRun: true,
+          reason: 'une alerte e-mail nomme cette agence : catalogue relu sans attendre',
+        },
+        state,
+        awaited,
+      };
+    }
+    return { decision, state, awaited };
   });
 
   const eligible = decisions
     .filter((entry) => entry.decision.shouldRun)
     .map((entry) => ({ ...entry, overdue: overdueRatio(entry.decision, entry.state, nowMs) }))
     .sort((a, b) => {
-      // La bande de famine d'abord, la plus affamée en tête.
+      // L'agence qu'une alerte vient de nommer passe devant : son annonce est
+      // déjà en ligne, et c'est le seul moment où la devancer sert à quelque
+      // chose. Elles sont au plus une poignée, la famine ne s'en aggrave pas.
+      if (a.awaited !== b.awaited) return a.awaited ? -1 : 1;
+      // La bande de famine ensuite, la plus affamée en tête.
       const aStarving = a.overdue >= STARVATION_FACTOR;
       const bStarving = b.overdue >= STARVATION_FACTOR;
       if (aStarving !== bStarving) return aStarving ? -1 : 1;

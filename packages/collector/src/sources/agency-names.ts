@@ -144,6 +144,101 @@ export function createAgencyMatcher(knownNames: readonly string[]): AgencyMatche
   };
 }
 
+/**
+ * DÉSIGNER LA SOURCE QUI COLLECTE CETTE AGENCE — et se taire au moindre doute.
+ *
+ * `createAgencyMatcher` répond « connue ou pas » ; ici il faut NOMMER la
+ * source, ce qui demande bien plus de rigueur : une réponse fausse envoie un
+ * passage chez la mauvaise agence, et l'annonce attendue n'arrive jamais. Trois
+ * règles, de la plus sûre à la plus faible, et `null` dès qu'il reste deux
+ * candidates.
+ *
+ * Vérifié sur les 487 noms d'annonceur relevés en base, dont 238 dont on
+ * connaît la source d'origine : 207 désignations justes, 27 silences, et quatre
+ * écarts qui nomment tous l'agence locale plutôt que son réseau (« Orpi —
+ * Immobilière GTI » → `igti`), ce qui est le meilleur choix des deux.
+ */
+export interface AgencySourceResolver {
+  /** L'identifiant de la source, ou `null` : aucune, ou plusieurs. */
+  resolve(name: string): string | null;
+}
+
+/** Ce qu'il faut savoir d'une source pour la reconnaître sous un nom d'agence. */
+export interface AgencyHandle {
+  readonly id: string;
+  readonly name: string;
+  readonly domain: string;
+}
+
+/**
+ * Longueur d'un mot d'identifiant qui suffit à désigner une source.
+ *
+ * Six lettres, et un identifiant d'un seul mot : « optimmo » nomme une agence,
+ * « saint » ou « invest » ne nomment qu'un morceau de la moitié du parc — ils
+ * rapprochaient « AEQUALIS SAINT LAURENT DU VAR » de Saint Roch Immobilier.
+ */
+const ID_WORD_MIN = 6;
+
+export function createAgencySourceResolver(sources: readonly AgencyHandle[]): AgencySourceResolver {
+  const bySquish = new Map<string, Set<string>>();
+  const byIdWord = new Map<string, Set<string>>();
+
+  const record = (index: Map<string, Set<string>>, key: string, id: string): void => {
+    const ids = index.get(key) ?? new Set<string>();
+    ids.add(id);
+    index.set(key, ids);
+  };
+
+  for (const source of sources) {
+    for (const alias of sourceAliases(source)) {
+      const squished = agencySquish(alias);
+      if (squished.length >= 4) record(bySquish, squished, source.id);
+    }
+    // L'identifiant d'un seul mot est un nom à lui seul ; celui qui en compte
+    // deux ne se reconnaît pas à l'un d'eux.
+    const words = agencyTokens(source.id.replace(/-/g, ' '));
+    const word = words.length === 1 ? words[0] : undefined;
+    if (word !== undefined && word.length >= ID_WORD_MIN) record(byIdWord, word, source.id);
+  }
+
+  const alone = (ids: Set<string> | undefined): string | null =>
+    ids !== undefined && ids.size === 1 ? (ids.values().next().value ?? null) : null;
+
+  return {
+    resolve(name) {
+      const squished = agencySquish(name);
+      if (squished === '') return null;
+
+      // 1. Même forme tassée : « IMMO DE FRANCE COTE D AZUR » est la source.
+      const exact = alone(bySquish.get(squished));
+      if (exact !== null) return exact;
+
+      // 2. L'un contient l'autre, à partir de huit caractères : « CONCEPT
+      //    PATRIMOINE IMMOBILIER MUSICIENS » porte le nom de son agence.
+      if (squished.length >= 8) {
+        const near = new Set<string>();
+        for (const [key, ids] of bySquish) {
+          if (key.length < 8) continue;
+          if (squished.includes(key) || key.includes(squished)) for (const id of ids) near.add(id);
+        }
+        const one = alone(near);
+        if (one !== null) return one;
+        // Plusieurs sources contenues dans le même nom : on ne tranche pas, et
+        // surtout on ne redescend pas à la règle plus faible.
+        if (near.size > 1) return null;
+      }
+
+      // 3. Un mot d'identifiant, seul de son espèce : « OPTIMMO NICE NORD ».
+      const byWord = new Set<string>();
+      for (const token of agencyTokens(name)) {
+        const ids = byIdWord.get(token);
+        if (ids !== undefined && ids.size === 1) for (const id of ids) byWord.add(id);
+      }
+      return alone(byWord);
+    },
+  };
+}
+
 /** Une agence vue dans les annonces d'un portail. */
 export interface AgencySighting {
   readonly name: string;

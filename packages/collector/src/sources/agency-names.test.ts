@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   agencyCoverage,
   createAgencyMatcher,
+  createAgencySourceResolver,
   groupAgencyNames,
   sourceAliases,
 } from './agency-names.js';
@@ -71,6 +72,63 @@ describe('agencyCoverage', () => {
     ]);
     expect(coverage.uncovered[0]?.listings).toBe(13);
     expect(coverage.studied.map((one) => one.names[0])).toEqual(['123loger.com']);
+  });
+});
+
+describe('createAgencySourceResolver', () => {
+  // Les vraies sources concernées, avec leurs vrais noms et domaines : ce sont
+  // les formes que les digests d'exclusivité ont réellement écrites.
+  const SOURCES = [
+    { id: 'century21', name: 'Century 21', domain: 'century21.fr' },
+    { id: 'procivis', name: 'Immo de France Côte d’Azur', domain: 'procivis.fr' },
+    {
+      id: 'concept-patrimoine',
+      name: 'Concept Patrimoine Immobilier',
+      domain: 'conceptpatrimoine.fr',
+    },
+    { id: 'am-concept', name: 'AM Concept Patrimoine Immobilier', domain: 'amconcept.fr' },
+    { id: 'optimmo', name: 'Optimmo', domain: 'groupe-optimmo.fr' },
+    { id: 'agir', name: 'Cabinet A.G.I.R.', domain: 'agir.immo' },
+    { id: 'saint-roch', name: 'Saint Roch Immobilier', domain: 'saintrochimmobilier.com' },
+    { id: 'palais-immobilier', name: 'Palais Immobilier', domain: 'palaisimmobilier.com' },
+  ];
+  const resolver = createAgencySourceResolver(SOURCES);
+
+  it('désigne la source malgré la casse, la ponctuation et les mots en trop', () => {
+    expect(resolver.resolve('IMMO DE FRANCE COTE D AZUR')).toBe('procivis');
+    expect(resolver.resolve('A.G.I.R')).toBe('agir');
+    expect(resolver.resolve('CENTURY 21 - AGENCE IMMOBILIERE LAFAGE')).toBe('century21');
+    expect(resolver.resolve('GROUPE PALAIS IMMOBILIER VIEUX NICE')).toBe('palais-immobilier');
+  });
+
+  it('préfère le nom le plus complet quand deux sources se ressemblent', () => {
+    // « AM Concept… » contient « Concept Patrimoine Immobilier » : c'est la
+    // graphie exacte qui départage, pas le hasard de l'ordre.
+    expect(resolver.resolve('CONCEPT PATRIMOINE IMMOBILIER MUSICIENS')).toBe('concept-patrimoine');
+    expect(resolver.resolve('AM CONCEPT PATRIMOINE IMMOBILIER')).toBe('am-concept');
+  });
+
+  it('accepte un identifiant d’un seul mot comme nom', () => {
+    expect(resolver.resolve('OPTIMMO NICE NORD')).toBe('optimmo');
+  });
+
+  it('ne désigne personne quand aucune source ne porte ce nom', () => {
+    // Trois agences réellement vues par e-mail, qu'on ne collecte pas : elles
+    // ne doivent réveiller aucune source, et surtout pas une voisine.
+    expect(resolver.resolve('MK Immobilier')).toBeNull();
+    expect(resolver.resolve('ERA MAC IMMOBILIER')).toBeNull();
+    expect(resolver.resolve('PETROVA INVESTISSEMENT IMMOBILIER')).toBeNull();
+  });
+
+  it('ne se laisse pas prendre à un mot de lieu partagé', () => {
+    // « saint » est dans « Saint Roch Immobilier » sans désigner cette agence.
+    expect(resolver.resolve('AEQUALIS SAINT LAURENT DU VAR')).toBeNull();
+    expect(resolver.resolve('AGENCES DE FRANCE')).toBeNull();
+  });
+
+  it('se tait sur un nom qui ne dit que le métier', () => {
+    expect(resolver.resolve('Agence Immobilière')).toBeNull();
+    expect(resolver.resolve('')).toBeNull();
   });
 });
 

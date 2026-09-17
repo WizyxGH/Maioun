@@ -306,3 +306,86 @@ describe('planRun — aucune source ne doit mourir de faim', () => {
     expect(plan.selected.map((d) => d.sourceId)).toEqual(['a', 'm', 'z']);
   });
 });
+
+/**
+ * L'AGENCE QU'UNE ALERTE VIENT DE NOMMER.
+ *
+ * Le digest d'un portail dit parfois de quelle agence vient l'annonce. Quand
+ * c'est une agence que nous collectons, son catalogue porte l'adresse, le
+ * téléphone, les charges et le DPE que le message tait — et il est à jour à
+ * l'instant même où le message arrive. On avance son tour d'un cycle : pas une
+ * requête de plus, pas un budget touché.
+ */
+describe('planRun — l’agence nommée par une alerte', () => {
+  const attendue = (id: string): { descriptor: SourceDescriptor; state: SourceRuntimeState } => ({
+    descriptor: descriptor({
+      id,
+      kind: 'localAgency',
+      priority: 3,
+      schedule: scheduleFor('localAgency'),
+    }),
+    state: state({ sourceId: id, lastRunAt: minutesAgo(10), lastSuccessAt: minutesAgo(10) }),
+  });
+  const alerte = new Date(NOW - 5 * 60_000).toISOString();
+
+  it('la fait tourner sans attendre la fin de son intervalle', () => {
+    const entries = [attendue('igti')];
+    expect(planRun(entries, NOW, { maxSourcesPerRun: 6 }).selected).toHaveLength(0);
+
+    const plan = planRun(entries, NOW, {
+      maxSourcesPerRun: 6,
+      expected: new Map([['igti', alerte]]),
+    });
+    expect(plan.selected.map((d) => d.sourceId)).toEqual(['igti']);
+    expect(plan.selected[0]?.reason).toContain('alerte e-mail');
+  });
+
+  it('la place en tête, devant les prioritaires et les affamées', () => {
+    const entries = [
+      { descriptor: descriptor({ id: 'prio1', priority: 1 }), state: state({ sourceId: 'prio1' }) },
+      attendue('igti'),
+    ];
+    const plan = planRun(entries, NOW, {
+      maxSourcesPerRun: 1,
+      expected: new Map([['igti', alerte]]),
+    });
+    expect(plan.selected.map((d) => d.sourceId)).toEqual(['igti']);
+  });
+
+  it('cesse de la réveiller dès qu’elle a relu son catalogue', () => {
+    // Le repère cite encore l'agence au cycle suivant : sans cette borne, elle
+    // repasserait en tête indéfiniment — c'est-à-dire qu'on la martèlerait.
+    const dejaVue = {
+      descriptor: attendue('igti').descriptor,
+      state: state({ sourceId: 'igti', lastRunAt: minutesAgo(2), lastSuccessAt: minutesAgo(2) }),
+    };
+    const plan = planRun([dejaVue], NOW, {
+      maxSourcesPerRun: 6,
+      expected: new Map([['igti', alerte]]),
+    });
+    expect(plan.selected).toHaveLength(0);
+  });
+
+  it('ne réveille pas une source bloquée, au repos ou désactivée', () => {
+    // L'alerte dit « c'est le moment », jamais « insiste » : ce que le site a
+    // répondu continue de commander.
+    const cas = [
+      { ...attendue('bloquee'), state: state({ sourceId: 'bloquee', health: 'blocked' }) },
+      {
+        ...attendue('repos'),
+        state: state({ sourceId: 'repos', cooldownUntil: new Date(NOW + 600_000).toISOString() }),
+      },
+      {
+        descriptor: descriptor({ id: 'eteinte', enabled: false }),
+        state: state({ sourceId: 'eteinte' }),
+      },
+    ];
+    for (const entry of cas) {
+      const plan = planRun([entry], NOW, {
+        maxSourcesPerRun: 6,
+        expected: new Map([[entry.descriptor.id, alerte]]),
+      });
+      expect(plan.selected).toHaveLength(0);
+    }
+  });
+});
