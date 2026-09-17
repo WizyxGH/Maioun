@@ -1685,3 +1685,99 @@ gabarit. Revérifier alors le `robots.txt` — Netty écrit `Crawl-delay: 5`, qu
 respecte tel quel — et relever l'adresse réelle du sitemap. Rien n'est écrit
 maintenant parce que cette adresse serait inventée, et parce qu'une source
 braquée sur un domaine mort dépense son budget en erreurs à chaque passage.
+
+**Le retour n'est plus à guetter à la main** : l'agence est le premier candidat
+de la veille décrite plus bas, et son sitemap est relu tous les vingt-trois
+jours.
+
+## La veille des candidats endormis (2026-09-17)
+
+Les deux tiers des refus de ce document sont **datés et réversibles** : un site
+en maintenance rouvre, un pare-feu se lève, un `robots.txt` change, un
+inventaire vide se remplit. Chaque étude se terminait par « à resonder dans
+quelques semaines », et personne ne le faisait. `sources/dormant.ts` transforme
+ces verdicts en vérifications : pour chaque candidat, son motif, la date du
+relevé, et **la preuve qui dirait que la situation a changé**.
+
+**Vingt-trois candidats**, tirés des fiches ci-dessus :
+
+| Motif                        | Candidats                                                                                                          | Ce qu'on relit                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| site mort ou en maintenance  | Confiance Immobilière, Locat'me, Somhome, Louervite, LesParticuliers, Annoncesjaunes, Webmycar, Annonces de France | le sitemap déclaré par le `robots.txt`                |
+| anti-bot                     | PAP, Entreparticuliers, La Carte des Colocs, SeLoger                                                               | la page relevée comme autorisée — SeLoger, son robots |
+| `robots.txt` fermé           | Manda, Marche.fr, Leboncoin, Nextdoor, Facebook, Square Habitat                                                    | **le `robots.txt`, et rien d'autre**                  |
+| volume nul dans le périmètre | 123Loger, Qasa, Vivastreet, Wunderflats, Coliving.com                                                              | le sitemap ou la page de commune                      |
+
+**Le coût, mesuré.** Un candidat par jour au plus, jamais deux fois le même dans
+la quinzaine : le tour complet dure vingt-trois jours. Sondage réel des
+vingt-trois le 2026-09-17, user-agent du collecteur, `robots.txt` lu d'abord,
+quatre secondes entre deux requêtes : **27 requêtes au total**, soit **1,2 par
+candidat** et **2 au maximum** (lecture du `robots.txt` puis du sitemap qu'il
+déclare). Dix candidats n'en ont coûté aucune au-delà du `robots.txt`.
+
+**Zéro réveil sur vingt-trois**, ce qui était le résultat attendu : aucun de ces
+sites n'a changé depuis son relevé. C'est la mesure qui compte, parce que le
+risque n'est pas de manquer un réveil, **c'est d'en annoncer un qui n'existe
+pas**. Un 200 ne prouve rien : Confiance Immobilière répond 200 avec
+« Maintenance », `vendre-louer.fr` répond 200 avec le parking de son hébergeur,
+PAP répond 403 sous un défi Cloudflare. Un réveil se déclare donc sur :
+
+- **trois adresses d'annonces** qui nomment ensemble une location, une commune
+  du périmètre et une référence d'annonce — un code postal `06xxx` ne compte pas
+  pour une référence, sinon l'index d'une ville passerait pour un inventaire ;
+- ou, pour un refus de `robots.txt`, la **disparition de la règle** qui fermait,
+  à trois conditions : le fichier en est un, un groupe nous concerne, et il ne
+  porte **aucune interdiction écrite en clair** — c'est celle de Leboncoin, que
+  la lecture des règles seule ne verrait pas.
+
+Le réveil emprunte le canal d'exploitation existant (`notify/source-health.ts`,
+étiquette `maioun-sources`) et **ne sonne qu'une fois** : le candidat est ensuite
+retiré du tour.
+
+**Ce que la veille ne saura pas voir**, et c'est assumé : un site revenu dont
+l'accueil ne montre aucune annonce, un sitemap servi en `.gz` (123Loger),
+un inventaire publié uniquement en JavaScript (Coliving, Badi), et un anti-bot
+levé pour un navigateur mais pas pour nous. Dans tous ces cas elle se tait,
+et le candidat reste au tour suivant.
+
+## Les agences qu'on voit sans les collecter (relevé du 2026-09-17)
+
+Confiance Immobilière était dans nos données depuis des semaines — son nom signe
+treize annonces Bien'ici et FNAIM — sans être une source. Personne ne l'a su
+avant qu'on la demande par son nom. `pnpm audit:data` porte désormais la liste
+complète : les agences nommées dans les annonces **des portails**, rapprochées
+des sources déjà en place.
+
+**Le relevé du 2026-09-17** : 311 couples source–agence, **293 graphies**
+distinctes, **51 agences sans source directe**. Les premières, par nombre
+d'annonces apportées :
+
+| Agence                                         | Annonces | Vues par           |
+| ---------------------------------------------- | -------: | ------------------ |
+| IMMOBILIERE GESTION TRANSACTION INVESTISSEMENT |       16 | fnaim              |
+| ERA MARESOL IMMOBILIER                         |       14 | bienici, paruvendu |
+| CAPGEST                                        |        6 | bienici            |
+| AGENCE DE LA PLAGE                             |        5 | fnaim              |
+| AGENCE REGIONALE                               |        5 | fnaim              |
+| HABITAT ET EXPERTISE                           |        5 | bienici            |
+| HATON IMMOBILIER                               |        5 | bienici            |
+| Syngestone Immo                                |        5 | bienici, fnaim     |
+
+**Comment les noms sont rapprochés**, puisque aucun portail ne publie
+d'identifiant d'agence : forme comparable (minuscules, sans accent ni
+ponctuation), puis **mots distinctifs** — « agence », « immobilier », « nice »,
+« gestion », « habitat » et une vingtaine d'autres ne rapprochent personne —,
+puis **forme tassée** avec containment à partir de huit caractères. C'est ce qui
+réunit « Syngestone Immo » et « SYNGESTONE IMMO », « L ADRESSE CEC » et
+« L'ADRESSE C.E.C.GORBELLA ».
+
+**Le tri penche du côté du signalement** : manquer une agence coûte une source,
+en signaler une déjà couverte coûte une ligne à relire. La contrepartie se voit
+dans le relevé — « BEP ANTIBES » y figure alors que BEP est collectée, parce que
+son seul mot distinctif est « antibes ». À l'inverse, deux fautes de frappe
+restent deux entrées (« CITYA DALBERA » et « CITYA DALBERRA ») : il n'y a pas
+d'orthographe de référence pour trancher.
+
+**Trois candidats déjà étudiés y apparaissaient** et sont renvoyés à la veille
+plutôt que présentés comme des sources manquantes : 123Loger (27 annonces via
+ParuVendu), Confiance Immobilière (13) et Square Habitat (8).

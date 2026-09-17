@@ -349,4 +349,29 @@ describe('la notification', () => {
   it('ne compose rien quand il n’y a rien à dire', () => {
     expect(sourceHealthPush([], 'https://exemple.test')).toBeNull();
   });
+
+  it('n’annonce pas une panne quand un candidat endormi se réveille', () => {
+    const payload = sourceHealthPush(
+      [{ sourceId: 'confiance-immobiliere', kind: 'awake', detail: 'son sitemap rend 4 annonces' }],
+      'https://exemple.test',
+    );
+    expect(payload?.title).toContain('candidat');
+    expect(payload?.title).not.toContain('à vérifier');
+    // Même étiquette : un seul avis d'exploitation en attente, quel qu'il soit.
+    expect(payload?.tag).toBe('maioun-sources');
+  });
+
+  it('parle d’abord des pannes quand les deux arrivent ensemble', () => {
+    const payload = sourceHealthPush(
+      [
+        { sourceId: 'confiance-immobiliere', kind: 'awake', detail: 'réveillée' },
+        { sourceId: 'foncia', kind: 'interrupted', detail: 'bloquée' },
+      ],
+      'https://exemple.test',
+    );
+    expect(payload?.title).toContain('1 source');
+    expect(payload?.body.indexOf('foncia')).toBeLessThan(
+      payload?.body.indexOf('confiance-immobiliere') ?? 0,
+    );
+  });
 });

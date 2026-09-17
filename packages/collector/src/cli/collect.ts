@@ -61,7 +61,11 @@ import {
   sendListingAlerts,
   sendWebPush,
 } from '../notify/web-push.js';
-import { reportSourceHealth } from '../notify/source-health.js';
+import { reportSourceHealth, type SourceAlert } from '../notify/source-health.js';
+import { probeDormant, withReadableRobots } from '../sources/dormant.js';
+import { createHttpClient, createMemoryCacheStore } from '../core/http-client.js';
+import { createRobotsGate } from '../core/robots.js';
+import { budgetFor } from '../core/budgets.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { sendEmailAlert } from '../notify/email-alerts.js';
 import { mailerConfigured } from '../notify/mailer.js';
@@ -482,6 +486,46 @@ async function reportUndiscoveredAgencies(logger: Logger): Promise<void> {
   }
 }
 
+/**
+ * LA VEILLE DES CANDIDATS ENDORMIS.
+ *
+ * Les sources écartées pour un motif réversible — maintenance, anti-bot,
+ * `robots.txt`, volume nul — ne sont jamais resondées à la main. Un candidat par
+ * jour au plus, deux requêtes, et on ne parle que sur une preuve de contenu.
+ *
+ * Le client est à part, avec son propre budget : ces sites ne sont pas des
+ * sources, ils n'ont ni descripteur ni cadence, et une seule requête lente ne
+ * doit pas passer devant une collecte.
+ */
+async function watchDormantCandidates(
+  repository: Repository,
+  criteria: SearchCriteria,
+  logger: Logger,
+): Promise<readonly SourceAlert[]> {
+  const userAgent = collectorUserAgent();
+  const http = createHttpClient({
+    // Une seule tentative : un domaine mort est le cas normal ici, pas un raté.
+    budget: budgetFor('localAgency', { retryLimit: 0 }),
+    userAgent,
+    clock: systemClock,
+    logger,
+    cache: createMemoryCacheStore(),
+    robots: withReadableRobots(createRobotsGate({ userAgent })),
+  });
+  return probeDormant({
+    readSetting: (key) => repository.readSetting(key),
+    writeSetting: (key, value) => repository.writeSetting(key, value),
+    fetchText: async (url) => {
+      const result = await http.get(url, { conditional: false });
+      return { url, status: result.status, body: result.body };
+    },
+    cities: criteria.cities,
+    userAgent,
+    logger,
+    nowMs: systemClock.now(),
+  });
+}
+
 async function main(): Promise<void> {
   // Charge la configuration privée locale (.env) avant toute lecture d'env.
   loadDotEnv();
@@ -656,6 +700,7 @@ async function main(): Promise<void> {
       vapid,
       userId: CURRENT_USER,
       nowMs: systemClock.now(),
+      extraAlerts: await watchDormantCandidates(repository, config.criteria, logger),
     });
 
     // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne

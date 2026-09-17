@@ -16,6 +16,8 @@ import { createLogger } from '../core/logger.js';
 import { loadDotEnv } from '../config.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
 import { wantedAdEvidence } from '../normalization/housing-wanted.js';
+import { agencyCoverage, sourceAliases } from '../sources/agency-names.js';
+import { DORMANT_CANDIDATES } from '../sources/dormant.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -373,6 +375,82 @@ async function reportWantedAds(db: Database): Promise<void> {
 }
 
 /**
+ * LES AGENCES QU'ON VOIT SANS LES COLLECTER.
+ *
+ * Confiance Immobilière était dans nos données depuis des semaines — son nom
+ * signe des annonces Bien'ici — sans être une source. Personne ne l'a su avant
+ * qu'on la demande par son nom. Or une source directe publie plus tôt qu'un
+ * portail et rend des champs que le portail coupe.
+ *
+ * À LA DEMANDE, PAS EN ALERTE : c'est une liste de travail, pas un incident.
+ *
+ * Seules comptent les annonces vues par un PORTAIL ou un agrégateur. Le site
+ * d'une agence nomme évidemment cette agence : la compter dirait seulement
+ * qu'on la collecte déjà.
+ *
+ * Le rapprochement des noms est celui de `sources/agency-names.ts`, et il
+ * penche du côté du signalement : en montrer une déjà couverte coûte une ligne,
+ * en manquer une coûte une source.
+ */
+async function reportAgencyCoverage(db: Database): Promise<void> {
+  const portals = ALL_SCRAPERS.map((one) => one.descriptor)
+    .filter((one) => one.kind === 'portal' || one.kind === 'aggregator')
+    .map((one) => `'${one.id}'`);
+
+  const rows = await db.execute(
+    `SELECT source_id AS src, contact_agency AS nom,
+            COUNT(DISTINCT group_id) AS total,
+            COUNT(DISTINCT CASE WHEN ${ACTIVE} THEN group_id END) AS vivantes
+       FROM occurrences
+      WHERE contact_agency IS NOT NULL AND TRIM(contact_agency) != ''
+        AND source_id IN (${portals.join(',') || "''"})
+      GROUP BY source_id, contact_agency`,
+  );
+
+  const sightings = rows.rows.map((row) => ({
+    name: String(row['nom']),
+    sourceId: String(row['src']),
+    listings: Number(row['total'] ?? 0),
+  }));
+  const active = new Map<string, number>();
+  for (const row of rows.rows) {
+    const key = String(row['nom']);
+    active.set(key, (active.get(key) ?? 0) + Number(row['vivantes'] ?? 0));
+  }
+
+  const coverage = agencyCoverage(
+    sightings,
+    ALL_SCRAPERS.flatMap((one) => sourceAliases(one.descriptor)),
+    DORMANT_CANDIDATES.flatMap((one) =>
+      sourceAliases({ name: one.name, id: one.id, domain: new URL(one.origin).hostname }),
+    ),
+  );
+
+  console.log('\n── Agences vues par les portails, sans source directe ─────────');
+  console.log(
+    `   ${sightings.length} couple(s) source–agence, ` +
+      `${coverage.uncovered.length} agence(s) sans source directe.`,
+  );
+  console.log(
+    `   ${'agence'.padEnd(46)} ${'annonces'.padStart(8)} ${'dont vivantes'.padStart(13)}`,
+  );
+  for (const group of coverage.uncovered) {
+    const live = group.names.reduce((sum, name) => sum + (active.get(name) ?? 0), 0);
+    const label = group.names.join(' / ').slice(0, 46);
+    console.log(
+      `   ${label.padEnd(46)} ${String(group.listings).padStart(8)} ${String(live).padStart(13)}` +
+        `   [${group.sources.join(' ')}]`,
+    );
+  }
+  if (coverage.studied.length > 0) {
+    console.log(
+      `\n   Déjà étudiées et en veille (voir sources/dormant.ts) : ` +
+        coverage.studied.map((one) => one.names[0] ?? '').join(', '),
+    );
+  }
+}
+
+/**
  * Les réglages posés par compte.
  *
  * Plusieurs écrans ne s'affichent QUE si leur marque est absente — l'accueil
@@ -414,6 +492,7 @@ async function main(): Promise<void> {
     await reportFlatShare(db, total);
     await reportSourceCoverage(db);
     await reportAilingSources(db);
+    await reportAgencyCoverage(db);
     await reportWantedAds(db);
     await reportSettings(db);
     console.log('');

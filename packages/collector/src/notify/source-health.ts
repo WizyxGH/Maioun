@@ -117,7 +117,15 @@ export type SourceAlertKind =
   /** Les derniers passages se sont tous interrompus. */
   | 'interrupted'
   /** Un champ clé a disparu des nouvelles annonces. */
-  | 'field';
+  | 'field'
+  /**
+   * Un candidat écarté pour un motif réversible ne l'est plus.
+   *
+   * Ce n'est pas une panne : c'est une source à étudier de nouveau. Elle passe
+   * par ce canal parce qu'il existe déjà, qu'il ne sonne qu'une fois et qu'il
+   * remplace sa propre notification au lieu de l'empiler.
+   */
+  | 'awake';
 
 export interface SourceAlert {
   readonly sourceId: string;
@@ -384,6 +392,7 @@ const SEVERITY: readonly SourceAlertKind[] = [
   'template',
   'silent',
   'field',
+  'awake',
   'recovered',
 ];
 
@@ -410,13 +419,20 @@ export function sourceHealthPush(
   );
   const named = ordered.slice(0, PUSH_MAX_NAMED);
   const rest = ordered.length - named.length;
-  const broken = ordered.filter((alert) => alert.kind !== 'recovered').length;
+  const broken = ordered.filter(
+    (alert) => alert.kind !== 'recovered' && alert.kind !== 'awake',
+  ).length;
+  const awake = ordered.filter((alert) => alert.kind === 'awake').length;
 
   return {
+    // Un candidat réveillé n'est pas une panne : le titre ne doit pas alarmer
+    // pour ce qui est une bonne nouvelle.
     title:
-      broken === 0
-        ? '🩺 Sources rétablies'
-        : `🩺 ${broken} source${broken > 1 ? 's' : ''} à vérifier`,
+      broken > 0
+        ? `🩺 ${broken} source${broken > 1 ? 's' : ''} à vérifier`
+        : awake > 0
+          ? `🌱 ${awake} candidat${awake > 1 ? 's' : ''} à resonder`
+          : '🩺 Sources rétablies',
     body: [
       ...named.map((alert) => `• ${alert.sourceId} — ${alert.detail}`),
       rest > 0 ? `… et ${rest} autre${rest > 1 ? 's' : ''}` : null,
@@ -439,6 +455,12 @@ export interface SourceHealthDeps {
   /** Le compte de l'exploitant — c'est lui qui répare, pas les autres. */
   readonly userId: string;
   readonly nowMs: number;
+  /**
+   * Alertes calculées ailleurs et signalées par le même canal — la veille des
+   * candidats endormis. Un second système de notification aurait sa propre
+   * étiquette, donc sa propre pile d'avis en attente.
+   */
+  readonly extraAlerts?: readonly SourceAlert[];
 }
 
 /**
@@ -452,12 +474,15 @@ export async function reportSourceHealth(deps: SourceHealthDeps): Promise<readon
   try {
     const recentSince = new Date(nowMs - FIELD_RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const observations = await repository.sourceObservations(recentSince, BROKEN_PASSES);
-    const alerts = detectSourceAlerts({
-      transitions: deps.transitions,
-      lifecycleSkips: deps.lifecycleSkips,
-      observations,
-      nowMs,
-    });
+    const alerts = [
+      ...detectSourceAlerts({
+        transitions: deps.transitions,
+        lifecycleSkips: deps.lifecycleSkips,
+        observations,
+        nowMs,
+      }),
+      ...(deps.extraAlerts ?? []),
+    ];
     const { fresh, memory } = deduplicate(
       alerts,
       parseReported(await repository.readSetting(SOURCE_HEALTH_SETTING)),
