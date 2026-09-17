@@ -52,6 +52,8 @@ import type { Scraper, SearchCriteria } from '@maioun/shared';
 import type { NearMatch, NotifiableListing, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
+  ALERTS_SWITCH,
+  alertsAllowed,
   FAVORITE_GONE_TITLE,
   goneContentFor,
   loadVapidConfig,
@@ -676,6 +678,19 @@ async function main(): Promise<void> {
     const vapid = loadVapidConfig();
     if (vapid !== null) {
       await notifyAll({ repository, vapid, logger, config });
+    } else {
+      /**
+       * LE SILENCE SE DIT, il ne se devine pas.
+       *
+       * Le canal éteint ne laissait aucune trace : une tâche planifiée mal
+       * réglée a collecté deux heures et demie sans rien signaler, et c'est
+       * l'utilisateur qui s'en est aperçu. La ligne distingue les deux causes,
+       * parce qu'elles ne se corrigent pas au même endroit.
+       */
+      logger.warn('notify.disabled', {
+        reason: alertsAllowed() ? 'clés VAPID absentes' : `${ALERTS_SWITCH} non posé`,
+        newListings: report.written,
+      });
     }
 
     /**

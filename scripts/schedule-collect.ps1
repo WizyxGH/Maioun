@@ -62,8 +62,12 @@ $Pnpm = @("$PnpmDir\pnpm.cmd", "$PnpmDir\pnpm.exe", $PnpmCommand.Source) |
 # VAPID vivent dans le .env du depot, donc une collecte lancee a la main en
 # envoyait aussi ; seules cette tache et la forge posent la variable, et un
 # essai ne peut plus rien emettre.
+#
+# LES GUILLEMETS AUTOUR DE L'AFFECTATION SONT INDISPENSABLES : `set NOM=on &&`
+# range « on » AVEC l'espace qui precede le `&&`, et la collecte a tourne deux
+# heures et demie sans rien signaler a cause de cette espace.
 $Action = New-ScheduledTaskAction -Execute 'cmd.exe' `
-  -Argument "/c `"set MAIOUN_ALERTS=on && `"$Pnpm`" collect >> data\collect.log 2>&1`"" `
+  -Argument "/c `"set `"MAIOUN_ALERTS=on`" && `"$Pnpm`" collect >> data\collect.log 2>&1`"" `
   -WorkingDirectory $RepoRoot
 
 # Déclencheur : maintenant, puis toutes les N minutes, indéfiniment.

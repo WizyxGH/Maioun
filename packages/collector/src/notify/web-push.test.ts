@@ -50,6 +50,20 @@ describe('loadVapidConfig', () => {
     expect(loadVapidConfig({ ...keys, MAIOUN_ALERTS: 'on' })).not.toBeNull();
   });
 
+  it('ne se coupe pas sur une espace ni sur une majuscule', () => {
+    // `set NOM=on && commande` sous cmd.exe range « on » AVEC l'espace qui
+    // précède le `&&` : la tâche planifiée a ainsi collecté deux heures et
+    // demie sans rien signaler.
+    const keys = { VAPID_PUBLIC_KEY: 'pub', VAPID_PRIVATE_KEY: 'priv' };
+    for (const value of ['on ', ' on', 'ON', 'On ', '\ton\n']) {
+      expect(loadVapidConfig({ ...keys, MAIOUN_ALERTS: value })).not.toBeNull();
+    }
+    // Tolérer les espaces n'est pas tout accepter.
+    for (const value of ['', 'off', 'onon', 'o n']) {
+      expect(loadVapidConfig({ ...keys, MAIOUN_ALERTS: value })).toBeNull();
+    }
+  });
+
   it('lit les clés et se donne un sujet par défaut', () => {
     const config = loadVapidConfig({
       MAIOUN_ALERTS: 'on',

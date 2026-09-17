@@ -43,9 +43,22 @@ export interface VapidConfig {
  */
 export const ALERTS_SWITCH = 'MAIOUN_ALERTS';
 
+/**
+ * La comparaison TOLÈRE les espaces et la casse, et ce n'est pas du confort.
+ *
+ * `set NOM=on && commande` sous cmd.exe range « on » AVEC l'espace qui précède
+ * le `&&`. La tâche planifiée posait donc « on » et l'égalité stricte refusait :
+ * la machine a collecté sans rien signaler pendant deux heures et demie, sans
+ * une ligne de journal pour le dire. Un interrupteur de sécurité qui se coupe
+ * sur une espace protège surtout contre lui-même.
+ */
+export function alertsAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env[ALERTS_SWITCH] ?? '').trim().toLowerCase() === 'on';
+}
+
 /** Lit la configuration VAPID ; `null` si le canal n'est pas configuré. */
 export function loadVapidConfig(env: NodeJS.ProcessEnv = process.env): VapidConfig | null {
-  if (env[ALERTS_SWITCH] !== 'on') return null;
+  if (!alertsAllowed(env)) return null;
   const publicKey = env['VAPID_PUBLIC_KEY'];
   const privateKey = env['VAPID_PRIVATE_KEY'];
   if (
