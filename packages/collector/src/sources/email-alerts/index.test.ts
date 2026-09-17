@@ -104,6 +104,44 @@ describe('emailAlertsScraper', () => {
     expect(result.memo).toBeUndefined();
   });
 
+  it('nomme les portails inconnus plutôt que de jeter leurs annonces en silence', async () => {
+    /**
+     * Un digest d'un expéditeur suivi peut pointer vers un hôte que la table
+     * des portails ignore. Ces annonces disparaissaient sans compteur ni
+     * journal : personne ne pouvait savoir qu'il y avait un trou, ni où.
+     */
+    vi.stubEnv('IMAP_USER', 'boite@exemple.invalid');
+    vi.stubEnv('IMAP_APP_PASSWORD', 'secret');
+    vi.stubEnv('ALERT_ADDRESS_TEMPLATE', '');
+    const journal: { event: string; fields?: Record<string, unknown> }[] = [];
+    const annonce = (href: string): string =>
+      `<table><tbody><tr><td><a href="${href}">Appartement • 2 pièces • 41 m² — Nice (06000) 780 €</a></td></tr></tbody></table>`;
+    fetchAlertEmails.mockResolvedValue({
+      emails: [
+        { body: annonce('https://www.exemple-portail.invalid/a'), recipients: [] },
+        { body: annonce('https://www.exemple-portail.invalid/b'), recipients: [] },
+      ],
+      bookmark: null,
+      fullRead: false,
+    });
+
+    const context = {
+      ...contexte(),
+      log: (event: string, fields?: Record<string, unknown>) => journal.push({ event, fields }),
+    } as unknown as ScrapeContext;
+    const result = await emailAlertsScraper.run(context);
+
+    expect(result.warnings).toEqual([
+      'Liens d’annonce sans portail reconnu : www.exemple-portail.invalid (2)',
+    ]);
+    expect(journal.find((l) => l.event === 'email.unknown_portal')?.fields).toEqual({
+      hosts: { 'www.exemple-portail.invalid': 2 },
+    });
+    expect(journal.find((l) => l.event === 'email.parsed')?.fields).toMatchObject({
+      unknownLinks: 2,
+    });
+  });
+
   it('un message de service sans annonce ne fait pas passer la source pour cassée', async () => {
     vi.stubEnv('IMAP_USER', 'boite@exemple.invalid');
     vi.stubEnv('IMAP_APP_PASSWORD', 'secret');

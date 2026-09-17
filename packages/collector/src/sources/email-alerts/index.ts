@@ -226,9 +226,16 @@ export const emailAlertsScraper: Scraper = {
 
     // Toutes les annonces des e-mails, dédoublonnées sur la référence.
     const bySourceRef = new Map<string, RawListing>();
+    /**
+     * CE QUE LE PARSEUR JETTE, ET DE QUEL HÔTE. Un lien d'annonce vers un
+     * portail absent de la table s'évanouissait sans trace : personne ne
+     * pouvait savoir qu'un expéditeur suivi envoyait des annonces illisibles.
+     * Le compteur ne répare rien à lui seul, il rend le trou visible.
+     */
+    const unknownHosts = new Map<string, number>();
     for (const email of accepted) {
       const token = forwardingToken(email.recipients, template);
-      for (const listing of parseAlertEmail(email.body)) {
+      for (const listing of parseAlertEmail(email.body, unknownHosts)) {
         if (bySourceRef.has(listing.sourceRef)) continue;
         // Le jeton VOYAGE AVEC L'ANNONCE : c'est la seule trace de qui l'a
         // apportée, et le corps du message ne la porte nulle part.
@@ -251,13 +258,29 @@ export const emailAlertsScraper: Scraper = {
     // c'est cette URL que l'utilisateur ouvrira, parfois des jours plus tard.
     const { listings, requests } = await resolveCanonicalUrls(fresh, context);
 
+    // Les hôtes les plus jetés d'abord : c'est par eux qu'il faudra commencer.
+    const inconnus = [...unknownHosts].sort((a, b) => b[1] - a[1]);
+    const jetes = inconnus.reduce((total, [, n]) => total + n, 0);
+
     context.log('email.parsed', {
       emails: accepted.length,
       listings: all.length,
       new: listings.length,
       resolved: requests,
       fullRead: batch.fullRead,
+      unknownLinks: jetes,
     });
+
+    if (inconnus.length > 0) {
+      context.log('email.unknown_portal', { hosts: Object.fromEntries(inconnus) });
+      // Remonté aussi en avertissement : le journal de débogage se perd, pas
+      // l'historique des passages. Un nom d'hôte n'est la donnée de personne.
+      warnings.push(
+        `Liens d’annonce sans portail reconnu : ${inconnus
+          .map(([host, n]) => `${host} (${n})`)
+          .join(', ')}`,
+      );
+    }
 
     /**
      * UN MESSAGE SANS ANNONCE N'EST PAS UN PARSEUR CASSÉ.

@@ -438,6 +438,60 @@ describe('parseAlertEmail — la référence de repli ne bouge pas avec la mise 
   });
 });
 
+describe('parseAlertEmail — ce qu’on jette se compte', () => {
+  /**
+   * LE SILENCE ÉTAIT LE DÉFAUT. La table ne connaît que trois hôtes ; tout lien
+   * d'annonce menant ailleurs disparaissait sans compteur ni journal. Un
+   * expéditeur suivi pouvait envoyer des annonces illisibles pendant des mois
+   * sans que rien ne le dise — c'est ce qu'on a soupçonné pour BEP Logement, et
+   * qu'aucune trace ne permettait de confirmer ni d'écarter.
+   */
+  const digest = (href: string): string =>
+    `<table><tbody><tr><td><a href="${href}">Appartement • 2 pièces • 41 m² — Nice (06000) 780 €</a></td></tr></tbody></table>`;
+
+  it('compte un lien d’annonce dont l’hôte n’est aucun portail connu', () => {
+    const inconnus = new Map<string, number>();
+    expect(parseAlertEmail(digest('https://www.beplogement.com/location/12345'), inconnus)).toEqual(
+      [],
+    );
+    expect(inconnus.get('www.beplogement.com')).toBe(1);
+  });
+
+  it('additionne les liens d’un même hôte', () => {
+    const inconnus = new Map<string, number>();
+    const deux = `${digest('https://www.exemple-portail.invalid/a')}${digest('https://www.exemple-portail.invalid/b')}`;
+    parseAlertEmail(deux, inconnus);
+    expect(inconnus.get('www.exemple-portail.invalid')).toBe(2);
+  });
+
+  it('nomme la destination, pas le routeur d’e-mails qui l’enveloppe', () => {
+    // Journaliser « link.routeur.invalid » n'apprendrait rien : c'est le
+    // portail caché derrière la redirection qu'il faut pouvoir nommer.
+    const inconnus = new Map<string, number>();
+    const cible = encodeURIComponent('https://www.exemple-portail.invalid/annonce/77');
+    parseAlertEmail(digest(`https://link.routeur.invalid/r?u=${cible}`), inconnus);
+    expect([...inconnus.keys()]).toEqual(['www.exemple-portail.invalid']);
+  });
+
+  it('ne compte ni les liens reconnus ni ceux qui ne visent aucune annonce', () => {
+    const inconnus = new Map<string, number>();
+    parseAlertEmail(EMAIL, inconnus);
+    // `EMAIL` porte un lien d'aide et un lien de désabonnement : leur texte ne
+    // ressemble pas à un titre d'annonce, ils ne sont donc rien de perdu.
+    expect([...inconnus.keys()]).toEqual([]);
+  });
+
+  it('un `mailto:` de contact ne compte pour aucun hôte', () => {
+    const inconnus = new Map<string, number>();
+    parseAlertEmail(digest('mailto:agence@example.invalid'), inconnus);
+    expect([...inconnus.keys()]).toEqual([]);
+  });
+
+  it('le compteur reste facultatif : l’appel à un seul argument marche', () => {
+    expect(() => parseAlertEmail(digest('https://www.beplogement.com/location/1'))).not.toThrow();
+  });
+});
+
 describe('referenceFromUrl', () => {
   it('lit l’identifiant SeLoger moderne, alphanumérique', () => {
     // Les URL canoniques actuelles ne sont plus numériques : l'ancien

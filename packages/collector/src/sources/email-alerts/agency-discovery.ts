@@ -12,57 +12,7 @@
  */
 
 import { comparable } from '../../normalization/text.js';
-
-/** Mots trop génériques pour identifier une agence (ne servent pas au rapprochement). */
-const STOPWORDS = new Set([
-  'agence',
-  'immobilier',
-  'immobiliere',
-  'immo',
-  'cabinet',
-  'gestion',
-  'nice',
-  'location',
-  'locations',
-  'syndic',
-  'transaction',
-  'transactions',
-  'groupe',
-  'residences',
-  'residence',
-  'sud',
-  'nord',
-  'est',
-  'ouest',
-  'centre',
-  'cote',
-  'azur',
-]);
-
-/**
- * Agences/plateformes à NE PAS signaler même si leur nom ne matche aucune
- * source : portails ou agrégateurs (pas des agences locales à scraper) et
- * franchises déjà couvertes par une source réseau.
- */
-const IGNORE = new Set([
-  'locservice', // portail particulier↔particulier (écarté, non conforme)
-  'spacest', // plateforme coliving (type Studapart)
-  'manda', // plateforme de gestion en ligne
-  'lafage', // franchise Century 21 → déjà couverte par la source century21
-]);
-
-/** Mots distinctifs d'un nom d'agence (hors mots génériques). */
-function tokens(name: string): string[] {
-  return comparable(name)
-    .split(/\s+/)
-    .filter((t) => t.length >= 4 && !STOPWORDS.has(t));
-}
-
-/** Forme « tassée » (sans espaces ni ponctuation) : rapproche « Nous Gérons »
- * de la source « NousGérons ». */
-function squish(name: string): string {
-  return comparable(name).replace(/[^a-z0-9]/g, '');
-}
+import { createAgencyMatcher } from '../agency-names.js';
 
 /**
  * Noms d'agences cités dans les e-mails de confirmation. On capture ce qui suit
@@ -89,24 +39,15 @@ export function extractContactedAgencies(bodies: readonly string[]): string[] {
 
 /**
  * Parmi les agences citées, celles qui ne correspondent à AUCUNE source connue
- * (rapprochement par mot distinctif) et ne sont pas volontairement ignorées.
+ * et ne sont pas volontairement ignorées. Le rapprochement des noms est celui
+ * de `sources/agency-names.ts`, partagé avec le relevé de couverture : deux
+ * façons de comparer des noms d'agences finiraient par ne plus s'accorder.
  * Rend les noms tels qu'affichés, dédoublonnés.
  */
 export function findUndiscoveredAgencies(
   bodies: readonly string[],
   knownSourceNames: readonly string[],
 ): string[] {
-  const knownTokens = new Set(knownSourceNames.flatMap(tokens));
-  // Formes tassées ≥ 8 caractères : assez longues pour éviter qu'un mot
-  // générique (« agence ») rapproche à tort deux agences distinctes.
-  const knownSquished = knownSourceNames.map(squish).filter((s) => s.length >= 8);
-  return extractContactedAgencies(bodies).filter((name) => {
-    const t = tokens(name);
-    if (t.length === 0) return false; // rien de distinctif → on n'affirme rien (§17)
-    if (t.some((token) => IGNORE.has(token))) return false;
-    const sq = squish(name);
-    const knownByToken = t.some((token) => knownTokens.has(token));
-    const knownBySquish = knownSquished.some((k) => sq.includes(k) || k.includes(sq));
-    return !(knownByToken || knownBySquish);
-  });
+  const matcher = createAgencyMatcher(knownSourceNames);
+  return extractContactedAgencies(bodies).filter((name) => !matcher.knows(name));
 }

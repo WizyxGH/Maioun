@@ -104,6 +104,33 @@ function urlCandidates(href: string): string[] {
 }
 
 /**
+ * L'hôte à NOMMER quand aucun portail ne reconnaît un lien d'annonce.
+ *
+ * Le lien visible est souvent celui d'un routeur d'e-mails, la vraie
+ * destination étant cachée dans un paramètre ou un segment base64 : nommer le
+ * routeur n'apprendrait rien. On rend donc la première destination hors
+ * tracking — le même ordre de préférence que `resolvePortalUrl` —, et le
+ * routeur seulement s'il n'y a rien d'autre. `null` pour un `mailto:`, un
+ * `tel:` ou une adresse illisible, qui ne désignent aucune annonce.
+ */
+function unknownHostOf(href: string): string | null {
+  let tracking: string | null = null;
+  for (const candidate of urlCandidates(href)) {
+    let url: URL;
+    try {
+      url = new URL(candidate);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
+    const host = url.hostname.toLowerCase();
+    if (!TRACKING_HOST.test(host)) return host;
+    tracking ??= host;
+  }
+  return tracking;
+}
+
+/**
  * Dénoue une URL de lien d'e-mail vers son portail d'origine. On teste l'href,
  * ses paramètres, puis ses segments base64. `null` si aucun portail reconnu.
  */
@@ -644,7 +671,18 @@ export function locationFromUrl(href: string): UrlLocation {
   };
 }
 
-export function parseAlertEmail(html: string): RawListing[] {
+export function parseAlertEmail(
+  html: string,
+  /**
+   * COMPTEUR DES LIENS JETÉS, par hôte. Facultatif, mais c'est la seule façon
+   * de savoir ce qu'on laisse passer : la table des portails n'en connaît que
+   * trois, et tout le reste disparaissait sans une ligne de journal ni un
+   * compteur — un portail pouvait envoyer des annonces pendant des mois sans
+   * que rien ne le signale. Seuls les liens dont le TEXTE ressemble à un titre
+   * d'annonce y entrent : un pied de page n'est pas une annonce perdue.
+   */
+  unknownHosts?: Map<string, number>,
+): RawListing[] {
   const $ = cheerio.load(html);
   const bySourceRef = new Map<string, RawListing>();
 
@@ -658,8 +696,15 @@ export function parseAlertEmail(html: string): RawListing[] {
     // Seul le lien-TITRE d'une annonce porte surface/typologie : point d'entrée
     // fiable pour délimiter un bloc (les liens image/prix sont ignorés ici).
     if (!/\bm²|pièces?\b|studio/i.test(title)) return;
-    const resolved = resolvePortalUrl(anchor.attr('href') ?? '');
-    if (resolved === null) return;
+    const href = anchor.attr('href') ?? '';
+    const resolved = resolvePortalUrl(href);
+    if (resolved === null) {
+      const host = unknownHostOf(href);
+      if (host !== null && unknownHosts !== undefined) {
+        unknownHosts.set(host, (unknownHosts.get(host) ?? 0) + 1);
+      }
+      return;
+    }
 
     const listing = buildFromTitle($, anchor, title, resolved, agencyName);
     if (listing !== null && !bySourceRef.has(listing.sourceRef)) {
