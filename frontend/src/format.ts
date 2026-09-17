@@ -250,17 +250,25 @@ export function formatAge(iso: string | null, nowMs: number): string {
 /** Durée de trajet : « 17 min ». */
 export const formatDuration = (minutes: number): string => `${minutes} min`;
 
+/**
+ * CES LIBELLÉS QUALIFIENT UNE ANNONCE, donc ils s'accordent au FÉMININ.
+ *
+ * La moitié le faisait déjà — « Visite proposée », « Réponse reçue » — pendant
+ * que l'autre restait au masculin : on lisait « Contacté », « Refusé »,
+ * « Loué » sur la carte d'une annonce. Un même badge se contredisait d'un
+ * statut à l'autre.
+ */
 const TRACKING_LABELS: Record<TrackingStatus, string> = {
-  new: 'Nouveau',
+  new: 'Nouvelle',
   toContact: 'À contacter',
-  contacted: 'Contacté',
+  contacted: 'Contactée',
   replied: 'Réponse reçue',
   visitOffered: 'Visite proposée',
   visitScheduled: 'Visite programmée',
-  visited: 'Visité',
-  rejected: 'Refusé',
-  rented: 'Loué',
-  ignored: 'Ignoré',
+  visited: 'Visitée',
+  rejected: 'Refusée',
+  rented: 'Louée',
+  ignored: 'Ignorée',
 };
 
 export const formatTracking = (status: TrackingStatus): string => TRACKING_LABELS[status];

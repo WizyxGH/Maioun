@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  TRACKING_ORDER,
   UNKNOWN,
   formatAddress,
   formatAge,
@@ -10,8 +11,36 @@ import {
   formatPostalAddress,
   formatPrice,
   formatTime,
+  formatTracking,
   telHref,
 } from './format.js';
+
+describe('formatTracking', () => {
+  it('accorde chaque statut au féminin, comme « annonce »', () => {
+    expect(TRACKING_ORDER.map(formatTracking)).toEqual([
+      'Nouvelle',
+      'À contacter',
+      'Contactée',
+      'Réponse reçue',
+      'Visite proposée',
+      'Visite programmée',
+      'Visitée',
+      'Refusée',
+      'Louée',
+      'Ignorée',
+    ]);
+  });
+
+  it('n’en laisse aucun repartir au masculin', () => {
+    // La règle plutôt que la liste : un statut ajouté demain doit s'accorder
+    // lui aussi. Un participe féminin finit par « e » ; seul un infinitif y
+    // échappe, et il s'annonce par « À ».
+    for (const status of TRACKING_ORDER) {
+      const label = formatTracking(status);
+      expect(label.endsWith('e') || label.startsWith('À ')).toBe(true);
+    }
+  });
+});
 
 describe('formatAddress', () => {
   it('recapitalise une adresse en majuscules', () => {
