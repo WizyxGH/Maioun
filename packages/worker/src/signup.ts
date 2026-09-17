@@ -36,6 +36,7 @@
  */
 
 import type { Client } from '@libsql/client/web';
+import { MIN_PASSWORD_LENGTH } from '@maioun/shared';
 import { hashPassword, verifyPassword } from './auth.js';
 import { emailProblem, normalizeEmail, type EmailProblem } from './email-address.js';
 import { hashToken, newToken } from './password-reset.js';
@@ -43,13 +44,6 @@ import { EMAIL_COLORS, emailDocument, escapeHtml } from '@maioun/collector/notif
 
 /** Durée de validité d'un lien de confirmation. */
 const VALID_HOURS = 48;
-
-/**
- * Longueur minimale d'un mot de passe. Huit caractères, comme à la
- * réinitialisation : les deux règles doivent coïncider, sinon on accepte à la
- * création ce qu'on refusera à la remise à zéro.
- */
-const MIN_PASSWORD = 8;
 
 export type SignupProblem = 'email-taken' | 'weak-password' | EmailProblem;
 
@@ -76,7 +70,7 @@ export function signupProblemMessage(problem: SignupProblem): string {
       // savoir qui est inscrit. La phrase reste vraie et n'apprend rien.
       return 'Impossible de créer un compte avec cette adresse. Si elle est déjà la vôtre, utilisez « mot de passe oublié ».';
     case 'weak-password':
-      return `Le mot de passe doit faire au moins ${MIN_PASSWORD} caractères.`;
+      return `Le mot de passe doit faire au moins ${MIN_PASSWORD_LENGTH} caractères.`;
     case 'disposable':
       return 'Les adresses jetables ne sont pas acceptées : sans adresse durable, vous ne pourriez pas récupérer votre compte.';
     case 'shape':
@@ -236,7 +230,7 @@ export async function createAccount(
   const problem = emailProblem(email);
   if (problem !== null) return { ok: false, problem };
 
-  if (input.password.length < MIN_PASSWORD) return { ok: false, problem: 'weak-password' };
+  if (input.password.length < MIN_PASSWORD_LENGTH) return { ok: false, problem: 'weak-password' };
 
   const taken = await db.execute({
     sql: 'SELECT id FROM users WHERE lower(email) = ? LIMIT 1',

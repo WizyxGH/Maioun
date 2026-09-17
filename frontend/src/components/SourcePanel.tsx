@@ -14,28 +14,11 @@
 
 import { useMemo } from 'react';
 import type { ListingView, SourceStateView } from '../types.js';
-import { formatAge, formatSourceName } from '../format.js';
+import { formatAge, formatSourceHealth, formatSourceName, sourceHealthBorder } from '../format.js';
 import { ListingCard } from './ListingCard.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 import { ArrowLeft } from './icons.js';
-
-const HEALTH_LABELS: Record<SourceStateView['health'], string> = {
-  healthy: 'OK',
-  degraded: 'Dégradée',
-  cooldown: 'En repos (429)',
-  disabled: 'Désactivée',
-  blocked: 'Bloquée',
-};
-
-/** Liseré gauche selon la santé — littéraux complets pour le scanner Tailwind. */
-const HEALTH_BORDER: Record<SourceStateView['health'], string> = {
-  healthy: 'border-l-good',
-  degraded: 'border-l-medium',
-  cooldown: 'border-l-medium',
-  disabled: 'border-l-bad',
-  blocked: 'border-l-bad',
-};
 
 interface SourcePanelProps {
   readonly sourceId: string;
@@ -113,11 +96,11 @@ export function SourcePanel({
       </p>
 
       {state !== null && (
-        <Card className={`mb-4 border-l-4 ${HEALTH_BORDER[state.health]}`}>
+        <Card className={`mb-4 border-l-4 ${sourceHealthBorder(state.health)}`}>
           <div className="mb-2 flex justify-between">
             <strong>Collecte</strong>
             <span className="text-muted-foreground text-[0.8rem]">
-              {HEALTH_LABELS[state.health]}
+              {formatSourceHealth(state.health)}
             </span>
           </div>
           <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">

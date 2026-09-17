@@ -149,10 +149,19 @@ export interface ListingsResponse {
   readonly offset: number;
 }
 
+/**
+ * Comment se porte une source.
+ *
+ * Nommé plutôt qu'écrit à même le champ : les libellés et les couleurs qui en
+ * dépendent vivent dans `format.ts`, et une union anonyme les obligeait à
+ * remonter jusqu'ici par `SourceStateView['health']`.
+ */
+export type SourceHealth = 'healthy' | 'degraded' | 'cooldown' | 'disabled' | 'blocked';
+
 /** État d'une source, pour la page d'observabilité (§63). */
 export interface SourceStateView {
   readonly sourceId: string;
-  readonly health: 'healthy' | 'degraded' | 'cooldown' | 'disabled' | 'blocked';
+  readonly health: SourceHealth;
   readonly lastRunAt: string | null;
   readonly lastSuccessAt: string | null;
   readonly last429At: string | null;

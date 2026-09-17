@@ -8,27 +8,10 @@
  */
 
 import type { SourceStateView } from '../types.js';
-import { formatAge, formatSourceName } from '../format.js';
+import { formatAge, formatSourceHealth, formatSourceName, sourceHealthBorder } from '../format.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 import { ArrowLeft } from './icons.js';
-
-const HEALTH_LABELS: Record<SourceStateView['health'], string> = {
-  healthy: 'OK',
-  degraded: 'Dégradée',
-  cooldown: 'En repos (429)',
-  disabled: 'Désactivée',
-  blocked: 'Bloquée',
-};
-
-/** Liseré gauche selon la santé — littéraux complets pour le scanner Tailwind. */
-const HEALTH_BORDER: Record<SourceStateView['health'], string> = {
-  healthy: 'border-l-good',
-  degraded: 'border-l-medium',
-  cooldown: 'border-l-medium',
-  disabled: 'border-l-bad',
-  blocked: 'border-l-bad',
-};
 
 /**
  * Ce que la dernière raison d'arrêt veut dire, en français.
@@ -110,7 +93,7 @@ export function SourcesPanel({
               // Rendue comme <li> sémantique via le wrapper : Card est un div,
               // on garde la liste pour les lecteurs d'écran.
               role="listitem"
-              className={`border-l-4 ${HEALTH_BORDER[source.health]}`}
+              className={`border-l-4 ${sourceHealthBorder(source.health)}`}
             >
               <div className="mb-2 flex justify-between">
                 {/* Le nom mène au catalogue de la source. Le reste de la carte
@@ -128,7 +111,7 @@ export function SourcesPanel({
                   </button>
                 )}
                 <span className="text-muted-foreground text-[0.8rem]">
-                  {HEALTH_LABELS[source.health]}
+                  {formatSourceHealth(source.health)}
                 </span>
               </div>
 

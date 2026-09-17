@@ -24,9 +24,12 @@
  * et l'on rend compte.
  */
 
-const BASE = 'http://abonnes.beplogement.com';
-const LOGIN_URL = `${BASE}/w_login_abonnes.php`;
-const INDEX_URL = `${BASE}/w_index_abonnes.php`;
+import {
+  BEP_INDEX_URL as INDEX_URL,
+  BEP_LOGIN_URL as LOGIN_URL,
+  collectCookies,
+  cookieHeader,
+} from '../sources/bep-abonnes/session.js';
 
 /** Ce qu'on a pu faire, dit sans détour (§17). */
 export type RequestOutcome =
@@ -48,16 +51,6 @@ export interface BepCredentials {
 export function bulletinRefFrom(contactFormUrl: string | null): string | null {
   if (contactFormUrl === null) return null;
   return /[?&]bullref=(\d+)\b/.exec(contactFormUrl)?.[1] ?? null;
-}
-
-/** Assemble les cookies d'un en-tête `Set-Cookie` dans un pot. */
-function collectCookies(headers: Headers, jar: Map<string, string>): void {
-  for (const raw of headers.getSetCookie?.() ?? []) {
-    const pair = raw.split(';')[0]?.trim();
-    if (pair !== undefined && pair.includes('=')) {
-      jar.set(pair.slice(0, pair.indexOf('=')), pair);
-    }
-  }
 }
 
 export interface SendRequestDeps {
@@ -91,7 +84,7 @@ export async function sendBepRequest(
       headers: {
         ...headers,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Cookie: [...jar.values()].join('; '),
+        Cookie: cookieHeader(jar),
       },
       body: new URLSearchParams({
         abonlogin1: deps.credentials.user,
@@ -117,7 +110,7 @@ export async function sendBepRequest(
       headers: {
         ...headers,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Cookie: [...jar.values()].join('; '),
+        Cookie: cookieHeader(jar),
         Referer: INDEX_URL,
       },
       body: new URLSearchParams({

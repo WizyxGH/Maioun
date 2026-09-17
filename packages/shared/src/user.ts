@@ -38,3 +38,18 @@ export const CURRENT_USER = 'moi';
  * serve, en un seul endroit.
  */
 export const ANONYMOUS_USER = 'anonyme';
+
+/**
+ * Longueur minimale d'un mot de passe.
+ *
+ * Huit caractères : le plancher en deçà duquel une attaque hors ligne n'a plus
+ * besoin d'être maligne. On ne réclame ni majuscule ni chiffre — ces règles
+ * produisent surtout des mots de passe notés sur un papier.
+ *
+ * ELLE EST ICI PARCE QUE QUATRE ENDROITS L'APPLIQUENT : l'inscription et la
+ * réinitialisation côté serveur, et les deux écrans qui promettent la règle
+ * avant de l'appliquer. L'un d'eux l'annonçait même en toutes lettres dans une
+ * phrase, sans rien qui la relie au contrôle : la durcir aurait fait refuser
+ * un mot de passe que l'écran venait de déclarer assez long.
+ */
+export const MIN_PASSWORD_LENGTH = 8;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { canonicalDistrict, districtLabel } from '@maioun/shared';
 import {
   TRACKING_ORDER,
   UNKNOWN,
@@ -217,10 +218,24 @@ describe('formatAddress — débordements de description', () => {
 });
 
 describe('formatDistrict', () => {
-  it('capitalise et retire le tiret de liste', () => {
-    expect(formatDistrict('EST ACROPOLIS')).toBe('Est Acropolis');
-    expect(formatDistrict('- BELLET')).toBe('Bellet');
+  /**
+   * Le nom affiché doit être celui sur lequel on filtre : `districtLabel` du
+   * slug que `canonicalDistrict` a reconnu, et pas une variante de la source.
+   * Sans cela, une annonce retenue par le filtre « Madeleine » s'annonce
+   * « Ouest Madeleine » sur sa propre carte.
+   */
+  it('appelle le quartier par le nom du filtre', () => {
+    for (const brut of ['OUEST MADELEINE', 'madeleine', '- Madeleine']) {
+      expect(formatDistrict(brut)).toBe(districtLabel(canonicalDistrict(brut)!));
+    }
+    expect(formatDistrict('VIEILLE VILLE')).toBe('Vieux Nice');
     expect(formatDistrict('VIEUX NICE')).toBe('Vieux Nice');
+  });
+
+  it('capitalise ce que la table ne connaît pas', () => {
+    // Un secteur absent de la table garde la remise en forme typographique.
+    expect(canonicalDistrict('- QUARTIER INVENTE')).toBeNull();
+    expect(formatDistrict('- QUARTIER INVENTE')).toBe('Quartier Invente');
   });
 
   it('rend N/A pour un quartier absent ou vide', () => {

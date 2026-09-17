@@ -28,6 +28,7 @@
  */
 
 import type { Client } from '@libsql/client/web';
+import { MIN_PASSWORD_LENGTH } from '@maioun/shared';
 import { hashPassword } from './auth.js';
 
 /** Durée de validité d'un lien. Assez pour relever ses messages, pas plus. */
@@ -151,15 +152,6 @@ export async function openReset(
 export type ResetOutcome = 'ok' | 'invalid' | 'weak';
 
 /**
- * Longueur minimale d'un mot de passe.
- *
- * Huit caractères : le plancher en deçà duquel une attaque hors ligne n'a plus
- * besoin d'être maligne. On ne réclame ni majuscule ni chiffre — ces règles
- * produisent surtout des mots de passe notés sur un papier.
- */
-const MIN_PASSWORD = 8;
-
-/**
  * Consomme un jeton et pose le nouveau mot de passe.
  *
  * `invalid` recouvre jeton inconnu, expiré ou déjà servi : les distinguer
@@ -173,7 +165,7 @@ export async function completeReset(
   password: string,
   nowMs: number,
 ): Promise<ResetOutcome> {
-  if (password.length < MIN_PASSWORD) return 'weak';
+  if (password.length < MIN_PASSWORD_LENGTH) return 'weak';
 
   const tokenHash = await hashToken(token);
   const found = await db.execute({

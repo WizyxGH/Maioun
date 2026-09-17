@@ -26,10 +26,12 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { collectorUserAgent, loadBepCredentials } from '../../config.js';
 import { parseBulletin } from './parser.js';
-
-const BASE = 'http://abonnes.beplogement.com';
-const LOGIN_URL = `${BASE}/w_login_abonnes.php`;
-const INDEX_URL = `${BASE}/w_index_abonnes.php`;
+import {
+  BEP_INDEX_URL as INDEX_URL,
+  BEP_LOGIN_URL as LOGIN_URL,
+  collectCookies,
+  cookieHeader,
+} from './session.js';
 
 export const BEP_ABONNES_DESCRIPTOR: SourceDescriptor = {
   id: 'bep-abonnes',
@@ -83,16 +85,6 @@ export const BEP_ABONNES_DESCRIPTOR: SourceDescriptor = {
     '(BEP_SUBSCRIBER_*), jamais committés. Inactive si non configurés.',
 };
 
-/** Assemble les cookies d'un en-tête Set-Cookie dans un pot. */
-function collectCookies(headers: Headers, jar: Map<string, string>): void {
-  for (const raw of headers.getSetCookie?.() ?? []) {
-    const pair = raw.split(';')[0]?.trim();
-    if (pair !== undefined && pair.includes('=')) {
-      jar.set(pair.slice(0, pair.indexOf('=')), pair);
-    }
-  }
-}
-
 export const bepAbonnesScraper: Scraper = {
   descriptor: BEP_ABONNES_DESCRIPTOR,
 
@@ -138,7 +130,7 @@ export const bepAbonnesScraper: Scraper = {
         headers: {
           'User-Agent': userAgent,
           'Content-Type': 'application/x-www-form-urlencoded',
-          Cookie: [...jar.values()].join('; '),
+          Cookie: cookieHeader(jar),
         },
         body,
       });

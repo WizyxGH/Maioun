@@ -7,8 +7,15 @@
  */
 
 import { SOURCES } from './sources.generated.js';
+import type { SourceHealth } from './types.js';
 import type { PropertyType, TrackingStatus } from '@maioun/shared';
-import { formatCommune, formatElapsed, formatLocation } from '@maioun/shared';
+import {
+  canonicalDistrict,
+  districtLabel,
+  formatCommune,
+  formatElapsed,
+  formatLocation,
+} from '@maioun/shared';
 
 /**
  * Valeur non fournie par la source.
@@ -287,6 +294,35 @@ export const TRACKING_ORDER: readonly TrackingStatus[] = [
 ];
 
 /**
+ * L'état de santé d'une source, en français et en couleur.
+ *
+ * Les deux écrans qui montrent une source — la liste et la fiche — portaient
+ * chacun leur copie de ces deux tables. Renommer un état, ou en ajouter un,
+ * n'aurait été fait que d'un côté : la liste aurait dit « Dégradée » et la
+ * fiche `undefined`, sans que rien ne le signale.
+ */
+const SOURCE_HEALTH_LABELS: Record<SourceHealth, string> = {
+  healthy: 'OK',
+  degraded: 'Dégradée',
+  cooldown: 'En repos (429)',
+  disabled: 'Désactivée',
+  blocked: 'Bloquée',
+};
+
+export const formatSourceHealth = (health: SourceHealth): string => SOURCE_HEALTH_LABELS[health];
+
+/** Liseré gauche selon la santé — littéraux complets pour le scanner Tailwind. */
+const SOURCE_HEALTH_BORDER: Record<SourceHealth, string> = {
+  healthy: 'border-l-good',
+  degraded: 'border-l-medium',
+  cooldown: 'border-l-medium',
+  disabled: 'border-l-bad',
+  blocked: 'border-l-bad',
+};
+
+export const sourceHealthBorder = (health: SourceHealth): string => SOURCE_HEALTH_BORDER[health];
+
+/**
  * Nom d'affichage de chaque source, tel que l'agence l'écrit elle-même.
  *
  * Le repli mécanique (capitaliser chaque segment de l'identifiant) rendait
@@ -395,12 +431,27 @@ export function formatPostalAddress(place: {
 }
 
 /**
- * Quartier lisible : « EST ACROPOLIS » → « Est Acropolis », « - BELLET » →
- * « Bellet ». Les sources les publient en capitales, parfois précédés d'un
- * tiret de liste, ce qui jurait à côté d'adresses correctement capitalisées.
+ * Quartier lisible.
+ *
+ * LE NOM AFFICHÉ EST CELUI SUR LEQUEL ON FILTRE. Cet écran recapitalisait le
+ * texte brut de la source pendant que le menu des quartiers, la recherche
+ * enregistrée et le filtre lui-même passaient tous par la table de
+ * `@maioun/shared` : la même annonce s'appelait « Ouest Madeleine » sur sa
+ * carte et « Madeleine » dans le filtre qui venait de la retenir, « Vieille
+ * Ville » ici et « Vieux Nice » là-bas. Deux noms pour un quartier, et rien à
+ * l'écran pour dire qu'il s'agit du même.
+ *
+ * La table tranche donc dès qu'elle reconnaît le quartier. Le reste — une
+ * commune hors Nice, un secteur qu'elle ignore — garde la remise en forme
+ * typographique : « - BELLET » → « Bellet », les sources publiant en capitales
+ * et parfois derrière un tiret de liste.
  */
 export function formatDistrict(district: string | null): string {
   if (district === null || district.trim() === '') return UNKNOWN;
+
+  const known = canonicalDistrict(district);
+  if (known !== null) return districtLabel(known);
+
   const cleaned = district
     .replace(/^[\s\-–—•]+/, '')
     .replace(/[\s\-–—•]+$/, '')

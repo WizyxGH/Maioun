@@ -122,7 +122,13 @@ function headline(description: string): string | undefined {
  * Sans la mention, la copie ne se regroupait pas avec l'originale et ressortait
  * comme une bonne affaire qui n'existe pas.
  */
-function rentExcludingCharges(priceText: string): string {
+/*
+ * LE NOM NE DIT PAS « CALCULE ». `@maioun/shared` exporte un
+ * `rentExcludingCharges` qui DÉDUIT un montant d'un loyer déjà décomposé ;
+ * celui-ci ne déduisait rien, il ajoutait une mention au texte. Deux fonctions
+ * du même nom au sens opposé, à deux imports l'une de l'autre.
+ */
+function markExcludingCharges(priceText: string): string {
   return `${priceText} hors charges`;
 }
 
@@ -193,7 +199,7 @@ export function parseListPage(html: string, pageUrl: string): RentumoList {
         sourceUrl,
         title: headline(description),
         description: description !== '' ? description : undefined,
-        priceText: priceText !== '' ? rentExcludingCharges(priceText) : undefined,
+        priceText: priceText !== '' ? markExcludingCharges(priceText) : undefined,
         areaText,
         // « 1 Bedroom » compte les CHAMBRES, pas les pièces : le confondre
         // gonflerait la typologie d'une unité sur tout l'inventaire (§17).

@@ -22,6 +22,7 @@
  */
 
 import { useState } from 'react';
+import { MIN_PASSWORD_LENGTH } from '@maioun/shared';
 import { ArrowLeft, Eye, EyeOff, Mail, UserPlus } from './icons.js';
 import { signup } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
@@ -164,7 +165,9 @@ export function SignupScreen({
                 )}
               </Button>
             </div>
-            <span className="text-muted-foreground text-[0.78rem]">8 caractères au minimum.</span>
+            <span className="text-muted-foreground text-[0.78rem]">
+              {MIN_PASSWORD_LENGTH} caractères au minimum.
+            </span>
           </label>
 
           {error !== null && (
