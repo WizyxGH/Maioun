@@ -1,3 +1,6 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Client } from '@libsql/client/web';
 import { verifyPassword } from './auth.js';
@@ -15,6 +18,44 @@ import {
 } from './signup.js';
 
 type Row = Record<string, unknown>;
+
+/**
+ * Le SQL de toutes les migrations, concaténé, commentaires retirés.
+ *
+ * Le chemin part de CE fichier et non du dossier courant : les tests se lancent
+ * aussi bien depuis la racine que depuis le paquet.
+ */
+async function readMigrations(): Promise<string> {
+  const directory = join(
+    fileURLToPath(new URL('.', import.meta.url)),
+    '..',
+    '..',
+    '..',
+    'database',
+    'migrations',
+  );
+  const files = (await readdir(directory)).filter((name) => name.endsWith('.sql')).sort();
+  const contents = await Promise.all(files.map((name) => readFile(join(directory, name), 'utf8')));
+  return contents.join('\n').replace(/--[^\n]*/g, '');
+}
+
+/**
+ * Les tables qui portent la colonne donnée, qu'elle soit posée à la création
+ * ou ajoutée ensuite — et moins celles qui ont été supprimées depuis.
+ */
+function tablesCarrying(sql: string, column: string): ReadonlySet<string> {
+  const found = new Set<string>();
+  const created = /CREATE TABLE(?: IF NOT EXISTS)?\s+([a-z_]+)\s*\(([\s\S]*?)\n\s*\)/gi;
+  for (const match of sql.matchAll(created)) {
+    if (new RegExp(`\\b${column}\\b`).test(match[2] ?? '')) found.add(match[1] ?? '');
+  }
+  const altered = new RegExp(`ALTER TABLE\\s+([a-z_]+)\\s+ADD COLUMN\\s+${column}\\b`, 'gi');
+  for (const match of sql.matchAll(altered)) found.add(match[1] ?? '');
+  for (const match of sql.matchAll(/DROP TABLE(?: IF EXISTS)?\s+([a-z_]+)/gi)) {
+    found.delete(match[1] ?? '');
+  }
+  return found;
+}
 
 /**
  * Une base réduite aux tables que ce module touche.
@@ -267,6 +308,9 @@ describe('deleteAccount', () => {
     await deleteAccount(db, 'qui-que-ce-soit');
     expect(db.wiped).toEqual([
       'listing_user_state',
+      'source_credentials',
+      'listing_user_score',
+      'daily_stats_per_user',
       'app_settings',
       'contact_attempts',
       'push_subscriptions',
@@ -274,6 +318,23 @@ describe('deleteAccount', () => {
       'email_verifications',
       'users',
     ]);
+  });
+
+  it('n’oublie aucune table qui porte un `user_id`', async () => {
+    // LE TEST QUI AURAIT ÉVITÉ L'OUBLI. La liste était écrite à la main et
+    // devait « grandir avec le schéma » ; trois tables ajoutées après coup ne
+    // l'avaient pas fait, dont celle qui garde les identifiants d'une source
+    // payante. On confronte donc la liste aux migrations, pas à elle-même.
+    const migrations = await readMigrations();
+    const withUser = tablesCarrying(migrations, 'user_id');
+    // Le relevé doit mordre : un balayage qui ne trouve rien ferait passer ce
+    // test quoi qu'on oublie.
+    expect(withUser.has('source_credentials')).toBe(true);
+    expect(withUser.size).toBeGreaterThan(5);
+    const db = fakeDb();
+    await deleteAccount(db, 'qui-que-ce-soit');
+    const forgotten = [...withUser].filter((table) => !db.wiped.includes(table));
+    expect(forgotten).toEqual([]);
   });
 });
 

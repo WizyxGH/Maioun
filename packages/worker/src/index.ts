@@ -839,12 +839,39 @@ async function deleteAccountRoute(
   const password = typeof body.password === 'string' ? body.password : '';
 
   const found = await db.execute({
-    sql: 'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
+    sql: 'SELECT password_hash, email FROM users WHERE id = ? LIMIT 1',
     args: [userId],
   });
   const stored = found.rows[0]?.['password_hash'];
-  if (typeof stored !== 'string' || !(await verifyPassword(password, stored))) {
-    return json({ error: 'Mot de passe incorrect.' }, cors, 401);
+  const email = found.rows[0]?.['email'];
+
+  /**
+   * UN COMPTE GOOGLE N'A PAS DE MOT DE PASSE, et exiger celui-ci le rendait
+   * INDÉLÉBILE : la comparaison échouait quoi qu'on saisisse, et le droit à
+   * l'effacement était bloqué pour de bon. Ces comptes confirment donc en
+   * retapant leur adresse, qu'ils sont seuls à voir à l'écran.
+   *
+   * Ni l'un ni l'autre n'est un secret partagé de plus : la session est déjà
+   * prouvée. Ce qu'on demande ici, c'est un geste délibéré avant l'irréparable.
+   */
+  const proven =
+    typeof stored === 'string'
+      ? await verifyPassword(password, stored)
+      : typeof email === 'string' &&
+        email !== '' &&
+        password.trim().toLowerCase() === email.trim().toLowerCase();
+
+  if (!proven) {
+    return json(
+      {
+        error:
+          typeof stored === 'string'
+            ? 'Mot de passe incorrect.'
+            : 'Retapez l’adresse e-mail du compte pour confirmer.',
+      },
+      cors,
+      401,
+    );
   }
 
   // Les pièces du dossier vivent dans le stockage clé-valeur, hors de la base :

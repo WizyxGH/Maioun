@@ -438,6 +438,13 @@ export async function deleteAccount(db: Client, userId: string): Promise<void> {
   await db.batch(
     [
       { sql: 'DELETE FROM listing_user_state WHERE user_id = ?', args: [userId] },
+      // Les identifiants d'une source payante : un SECRET, et c'était le plus
+      // grave des oublis — il survivait à l'effacement du compte.
+      { sql: 'DELETE FROM source_credentials WHERE user_id = ?', args: [userId] },
+      // Ce qui correspondait à ses critères et son temps de trajet : un profil
+      // de préférences, pas une donnée technique.
+      { sql: 'DELETE FROM listing_user_score WHERE user_id = ?', args: [userId] },
+      { sql: 'DELETE FROM daily_stats_per_user WHERE user_id = ?', args: [userId] },
       { sql: 'DELETE FROM app_settings WHERE user_id = ?', args: [userId] },
       { sql: 'DELETE FROM contact_attempts WHERE user_id = ?', args: [userId] },
       { sql: 'DELETE FROM push_subscriptions WHERE user_id = ?', args: [userId] },

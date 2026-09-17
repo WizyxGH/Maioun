@@ -132,7 +132,7 @@ export function AccountActions({
     }
     setError(
       outcome === 'wrong-password'
-        ? 'Mot de passe incorrect.'
+        ? 'Mot de passe incorrect — ou, pour un compte Google, adresse e-mail incorrecte.'
         : 'La suppression n’a pas abouti. Réessayez dans un instant.',
     );
     setPassword('');
@@ -286,9 +286,16 @@ export function AccountActions({
         onConfirm={() => void remove()}
         onCancel={close}
       >
+        {/* LES DEUX CAS DANS UN SEUL CHAMP. Un compte créé avec Google n'a pas
+          de mot de passe : ne demander que celui-ci le rendait indélébile. Le
+          serveur accepte l'un ou l'autre selon le compte, et l'écran n'a pas à
+          savoir lequel — il le dit, c'est tout. */}
         <label className="flex flex-col gap-1">
           <span className="text-[0.85rem] font-medium">
             Saisissez votre mot de passe pour confirmer
+          </span>
+          <span className="text-muted-foreground text-[0.8rem]">
+            Si vous vous connectez avec Google, retapez plutôt l’adresse e-mail du compte.
           </span>
           <Input
             type="password"
