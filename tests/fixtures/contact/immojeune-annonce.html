@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Studio a louer - ImmoJeune</title></head>
+<body>
+<h1>Studio meuble</h1>
+<form name="candidate" method="post" action="/candidate/9000001/process" class="flex-form">
+    <div class="row row-2">
+        <div>
+            <div><input type="text" id="candidate_candidateinformation_firstname" name="candidate[candidateinformation][firstname]" required="required" placeholder="Prénom" max="100" /></div>
+            <img src="/img/icon-person.svg" alt="person">
+        </div>
+        <div>
+            <div><input type="text" id="candidate_candidateinformation_lastname" name="candidate[candidateinformation][lastname]" required="required" placeholder="Nom" max="100" /></div>
+            <img src="/img/icon-person.svg" alt="person">
+        </div>
+    </div>
+    <div class="row error">
+        <div class="error_candidate_firstname error_candidate_lastname">
+            
+            
+        </div>
+    </div>
+
+    <div class="row">
+        <div>
+                            <div><input type="email" id="candidate_candidateinformation_email" name="candidate[candidateinformation][email]" required="required" placeholder="Votre email" /></div>
+                        <img src="/img/icon-email.svg" alt="email">
+        </div>
+    </div>
+    <div class="row error">
+        <div class="error_candidate_email">
+            
+            <p id="suggestion_candidate_candidateinformation_email" class="email-suggestion" style="color: red; cursor: pointer; font-size: 14px;"></p>
+        </div>
+    </div>
+
+    
+    <div class="row">
+        <div>
+            <div><input type="tel" id="candidate_candidateinformation_phoneTmp" name="candidate[candidateinformation][phoneTmp]" required="required" placeholder="Téléphone" class="phone-intl phone" /></div>
+            <p id="phone-error" style="color: red;"></p>
+        </div>
+    </div>
+    <div class="row">
+        <div>
+            <div><select id="candidate_candidateinformation_statut" name="candidate[candidateinformation][statut]"><option value="Étudiant avec garant">Étudiant avec garant</option><option value="Étudiant sans garant">Étudiant sans garant</option><option value="Stagiaire">Stagiaire</option><option value="Salarié">Salarié</option><option value="Apprenti">Apprenti</option><option value="Autres">Autres</option></select></div>
+            <img src="/img/icon-school.svg" alt="statut">
+        </div>
+    </div>
+    <div class="row error">
+        <div class="error_candidate_phone">
+            
+            
+        </div>
+    </div>
+
+    
+    
+    <div class="row row-2">
+        <div>
+            <div><label for="candidate_candidateinformation_salary" class="required">Revenus salariaux</label><input type="number" id="candidate_candidateinformation_salary" name="candidate[candidateinformation][salary]" required="required" placeholder="Nets/mois en euros" min="0" max="1000000" /></div>
+            <img src="/img/icon-euro.svg" alt="euro">
+        </div>
+        <div id="receipts_container">
+            <div><label for="candidate_candidateinformation_receipts" class="required">Revenus garants</label><input type="number" id="candidate_candidateinformation_receipts" name="candidate[candidateinformation][receipts]" required="required" placeholder="Nets/mois en euros" min="0" max="1000000" /></div>
+            <img src="/img/icon-euro.svg" alt="euro">
+        </div>
+    </div>
+    <div class="row error">
+        <div class="error_candidate_salary error_candidate_receipts">
+            
+            
+        </div>
+    </div>
+
+    <div class="row row-2">
+        <div>
+            <div><label for="candidate_candidateinformation_entryDate" class="required">Date d&#039;entrée souhaitée</label><input type="text" id="candidate_candidateinformation_entryDate" name="candidate[candidateinformation][entryDate]" required="required" placeholder="Date d&#039;entrée souhaitée" /></div>
+            <img src="/img/icon-calendar.svg" alt="month">
+        </div>
+        <div>
+            <div><label for="candidate_candidateinformation_duration" class="required">Durée de location</label><select id="candidate_candidateinformation_duration" name="candidate[candidateinformation][duration]" required="required"><option value="" selected="selected">Sélectionnez</option><option value="0">1 mois</option><option value="1">2 mois</option><option value="2">3 mois</option><option value="3">4 mois</option><option value="4">5 mois</option><option value="5">6 mois</option><option value="6">7 mois</option><option value="7">8 mois</option><option value="8">9 mois</option><option value="9">10 mois</option><option value="10">11 mois</option><option value="11">1 an</option><option value="12">2 ans</option></select></div>
+            <img src="/img/icon-time.svg" alt="duration">
+        </div>
+    </div>
+    <div class="row error">
+        <div class="error_candidate_month error_candidate_duration">
+            
+            
+        </div>
+    </div>
+
+    <div class="row">
+        <div>
+            <label for="candidate_candidateinformation_needGuarantor" class="checkbox">
+                <input type="checkbox" id="candidate_candidateinformation_needGuarantor" name="candidate[candidateinformation][needGuarantor]" placeholder="J&#039;ai besoin d&#039;un garant" value="1" checked="checked" />
+                J&#039;ai besoin d&#039;un garant
+                                <span></span>
+                <div class="tooltip">
+                    <i class="fas fa-info-circle"></i>
+                    <span>
+                        Si vous n&#039;avez pas de garant pour louer un logement, cochez cette case. Notre partenaire
+                        <a href="/solution-garant-facile.html">GarantMe</a>
+                        peut se porter garant pour vous durant toute la durée de votre bail.
+                    </span>
+                </div>
+            </label>
+        </div>
+    </div>
+    <div class="row error">
+        <div>
+            
+        </div>
+    </div>
+
+    <div class="row">
+        <div>
+            <label for="candidate_candidateinformation_needHomeInsurance" class="checkbox">
+                <input type="checkbox" id="candidate_candidateinformation_needHomeInsurance" name="candidate[candidateinformation][needHomeInsurance]" placeholder="J&#039;ai besoin d&#039;une assurance habitation" value="1" />
+                J&#039;ai besoin d&#039;une assurance habitation
+                <span></span>
+                <div class="tooltip">
+                    <i class="fas fa-info-circle"></i>
+                    <span>
+                        Si vous souhaitez souscrire à une assurance habitation ou à un contrat d’électricité en seulement 15 minutes, cochez cette case.<br/>
+                        Notre partenaire
+                        <a href="https://app.papernest.com/onboarding?anonymous&destination=onboarding-call-residences&account.need_type=moving&x=9053234f-0d42-4651-b5f4-80fba91deeb5&y=358829a9-48b9-4884-9a11-1d9e6af9903d&pole=partnerships&source=listing_page&source2=listing_page" target="_blank">Papernest</a>
+                        vous recontactera par téléphone pour vous accompagner.<br/>
+                        100 % gratuit et sans engagement !
+                    </span>
+                </div>
+            </label>
+        </div>
+    </div>
+    <div class="row error">
+        <div>
+            
+        </div>
+    </div>
+
+    <span class="flex flex-align-center cyan hide open-message">Ajouter un message (optionnel)</span>
+    <div class="row message">
+        <div>
+            <div><textarea id="candidate_candidateinformation_message" name="candidate[candidateinformation][message]" placeholder="Votre message"></textarea></div>
+        </div>
+    </div>
+    <div class="row message error">
+        <div>
+            
+        </div>
+    </div>
+
+            <div class="row align-center">
+            <div class="captcha-ts" data-sitekey="0x4AAAAAAA0000000000000"></div>
+
+        </div>
+    
+    
+    <div class="row">
+                <div>
+            <button type="submit">Candidater</button>
+        </div>
+    </div>
+    <input type="hidden" id="candidate__token" name="candidate[_token]" value="JETON-ANONYMISE.0000000000000000000-lIU3QbSGTMarz5o_IPWhZwU.6coPyBlHqf6HzLWv8j02prFQEozIIfXEhtBRGJPtVXf4lVvmA32MzaHe2Q" /></form>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>
+<script>
+  turnstile.ready(function () {
+    turnstile.render(".captcha-ts", { sitekey: "0x4AAAAAAA0000000000000", theme: 'light' });
+  });
+</script>
+</body></html>

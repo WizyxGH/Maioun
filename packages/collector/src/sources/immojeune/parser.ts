@@ -160,6 +160,8 @@ export function parseListPage(html: string, listUrl: string): RawListing[] {
         ...placeFrom(card.find('.geo').text()),
         imageUrls: images.length === 0 ? undefined : images,
         // Le formulaire de candidature est sur la fiche, et il est gratuit.
+        // Il ne se remplit PAS à distance : un Turnstile le garde, et le site
+        // plafonne les candidatures. On y conduit l'utilisateur, rien de plus.
         contactFormUrl: new URL(href, listUrl).toString(),
         extra: {
           flatShare: String(flatShareFrom(path.rubrique, badges)),

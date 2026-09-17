@@ -5,6 +5,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
+  AGENCY_FORM_REFUSALS,
   agencyFormSupported,
   detectCaptcha,
   parseConsentBoxes,
@@ -87,6 +88,64 @@ describe('sources prises en charge', () => {
     expect(detectCaptcha(fixture('partners-immo-annonce.html'))).toBe('reCAPTCHA');
     expect(detectCaptcha(fixture('mediterranee-immo-annonce.html'))).toBe('reCAPTCHA');
     expect(detectCaptcha(ORPI_PAGE)).toBeNull();
+  });
+});
+
+/**
+ * ImmoJeune n'est pas envoyable, et c'est le résultat de l'étude, pas un
+ * manque. Ces cas le figent : si un jour quelqu'un croit la source prête, ils
+ * rappellent ce que la page porte.
+ */
+describe('ImmoJeune : candidature gardée par un Turnstile', () => {
+  const page = fixture('immojeune-annonce.html');
+
+  it('la case est DANS le formulaire de candidature, pas ailleurs sur la page', () => {
+    const form = page.slice(page.indexOf('<form name="candidate"'), page.indexOf('</form>'));
+    expect(form).toContain('captcha-ts');
+    expect(detectCaptcha(page)).toBe('Turnstile');
+  });
+
+  it('un Turnstile rendu explicitement est vu, même sans classe `cf-turnstile`', () => {
+    // Le gabarit d'ImmoJeune, réduit : la case ne porte que la classe du site.
+    expect(
+      detectCaptcha(
+        '<div class="captcha-ts"></div><script>turnstile.render(".captcha-ts")</script>',
+      ),
+    ).toBe('Turnstile');
+  });
+
+  it('la source est refusée, et l’interface peut en donner la raison', () => {
+    expect(agencyFormSupported('immojeune')).toBe(false);
+    expect(AGENCY_FORM_REFUSALS['immojeune']).toContain('Turnstile');
+  });
+
+  it('un envoi demandé malgré tout s’arrête avant la moindre requête', async () => {
+    const { fetchImpl, calls } = fakeNetwork({ page });
+    const outcome = await runAgencyForm(
+      request({
+        sourceId: 'immojeune',
+        pageUrl: 'https://www.immojeune.com/location-etudiant/nice-06/studio_9000001.html',
+        fetchImpl,
+      }),
+    );
+    expect(outcome.status).toBe('unavailable');
+    expect(outcome).toMatchObject({ message: AGENCY_FORM_REFUSALS['immojeune'] });
+    // Une source écartée ne doit même pas faire sonner le site.
+    expect(calls).toHaveLength(0);
+  });
+
+  /**
+   * Ce que le site exige, gardé sous les yeux. Deux champs obligatoires n'ont
+   * aucune source dans le dossier locataire : les revenus DU GARANT, qui ne
+   * porte qu'un type et un nom, et la durée de location souhaitée, qui ne s'y
+   * saisit nulle part. Même sans Turnstile, la candidature aurait buté là —
+   * et les inventer reviendrait à déclarer des ressources au nom de quelqu'un.
+   */
+  it('le formulaire demande plus que ce que le dossier locataire contient', () => {
+    const names = [...page.matchAll(/name="(candidate\[[^"]+)"/g)].map((match) => match[1]);
+    expect(names).toContain('candidate[candidateinformation][receipts]');
+    expect(names).toContain('candidate[candidateinformation][duration]');
+    expect(names).toContain('candidate[_token]');
   });
 });
 

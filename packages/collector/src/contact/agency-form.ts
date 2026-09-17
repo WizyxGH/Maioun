@@ -18,6 +18,13 @@
  *     l'agence publie son adresse e-mail, le message part par ce canal.
  * Un CAPTCHA dit que le site ne veut pas d'envoi automatisé : on s'en tient
  * alors à « copier le message et ouvrir le formulaire ».
+ *
+ * Relevé le 2026-09-17 :
+ *   - ImmoJeune : le formulaire `candidate` porte un Turnstile Cloudflare
+ *     entre le message et le bouton « Candidater », et un jeton CSRF lié à la
+ *     session. Écarté. Ses conditions de vente plafonnent par ailleurs les
+ *     candidatures à trois par jour et vendent le déplafonnement : le site
+ *     compte les envois et en fait un produit, ce qu'un robot viderait de sens.
  */
 
 import { blockingRule, parseRobots } from '../core/robots.js';
@@ -89,12 +96,21 @@ export const AGENCY_FORM_REFUSALS: Readonly<Record<string, string>> = {
   'partners-immo': 'Le formulaire de Partners Immo est protégé par un reCAPTCHA.',
   'mediterranee-immo': 'Le formulaire de Méditerranée Immo est protégé par un reCAPTCHA.',
   elitimo: 'Le formulaire d’Elitimo est protégé par un reCAPTCHA.',
+  immojeune:
+    'Le formulaire de candidature d’ImmoJeune est protégé par un Turnstile. ' +
+    'Le message se copie et le formulaire s’ouvre dans le navigateur.',
 };
 
 const CAPTCHA_MARKERS: readonly [RegExp, string][] = [
   [/g-recaptcha|grecaptcha|recaptcha\/api\.js|recaptcha\/enterprise/i, 'reCAPTCHA'],
   [/h-captcha|hcaptcha\.com/i, 'hCaptcha'],
-  [/cf-turnstile|challenges\.cloudflare\.com\/turnstile/i, 'Turnstile'],
+  // `turnstile.ready` / `.render` : le rendu EXPLICITE, où la case porte la
+  // classe que le site veut. ImmoJeune l'appelle sur `.captcha-ts`, et chercher
+  // `cf-turnstile` seul ne trouvait rien dans le formulaire.
+  [
+    /cf-turnstile|challenges\.cloudflare\.com\/turnstile|turnstile\.(?:ready|render)\s*\(/i,
+    'Turnstile',
+  ],
   [/frc-captcha|friendlycaptcha/i, 'Friendly Captcha'],
 ];
 
