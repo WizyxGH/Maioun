@@ -57,6 +57,63 @@ const DORMANT_FACTOR = 3;
 const ERROR_BACKOFF_FACTOR = 2;
 
 /**
+ * CE QU'UNE SOURCE PERD ENTRE DEUX PASSAGES.
+ *
+ * `retired` compte les annonces dont on a constaté le retrait — la source est
+ * repassée assez souvent pour conclure. `vanished` compte celles qu'on n'a
+ * JAMAIS revues après les avoir découvertes : elles ont vécu moins longtemps
+ * que l'écart entre deux de nos passages. Le rapport des deux mesure la vitesse
+ * de disparition, et il se calibre tout seul sur la cadence de la source :
+ * inutile de connaître son intervalle pour savoir qu'on la relit trop tard.
+ */
+export interface VanishRate {
+  readonly retired: number;
+  readonly vanished: number;
+}
+
+/**
+ * En dessous, la part n'est qu'un coup de dé.
+ *
+ * Relevé du 2026-09-17 : dix sources affichaient 100 % d'annonces disparues
+ * avant d'être revues sur UNE ou DEUX annonces retirées — `acropolis-immo`,
+ * `alberti`, `coprogestimmo`… Les classer parmi les plus fuyantes du parc
+ * revenait à tirer au sort.
+ */
+const VANISH_MIN_EVIDENCE = 8;
+
+/** Part d'annonces perdues entre deux passages à partir de laquelle on réagit. */
+const VANISH_THRESHOLD = 0.15;
+
+/**
+ * PLAFOND DUR : on n'accélère pas un parc entier.
+ *
+ * Les places d'un cycle sont comptées et ce qu'on donne aux unes se prend aux
+ * autres. Trois sources se justifient par la mesure ; au-delà, on déplacerait la
+ * famine sans rien gagner. Relevé du 2026-09-17 : seules quatre sources sur
+ * deux cent treize franchissent le seuil avec assez d'annonces retirées pour
+ * qu'il veuille dire quelque chose.
+ */
+const VANISH_MAX_SOURCES = 3;
+
+/**
+ * Les sources dont les annonces meurent plus vite qu'on ne les relit.
+ *
+ * Classement décroissant, borné, et déterministe à part égale — un tri instable
+ * ferait entrer et sortir la même source d'un cycle à l'autre.
+ */
+export function vanishingSources(
+  rates: ReadonlyMap<string, VanishRate>,
+  max: number = VANISH_MAX_SOURCES,
+): ReadonlySet<string> {
+  const part = (rate: VanishRate): number => rate.vanished / rate.retired;
+  const retenues = [...rates.entries()]
+    .filter(([, rate]) => rate.retired >= VANISH_MIN_EVIDENCE && part(rate) >= VANISH_THRESHOLD)
+    .sort(([idA, a], [idB, b]) => part(b) - part(a) || idA.localeCompare(idB))
+    .slice(0, Math.max(0, max));
+  return new Set(retenues.map(([id]) => id));
+}
+
+/**
  * Calcule l'intervalle réel entre deux exécutions d'une source.
  *
  * L'adaptation est volontairement simple et monotone : plus la source produit,
@@ -172,6 +229,13 @@ export interface PlanOptions {
    * la même agence reviendrait en tête à chaque cycle.
    */
   readonly expected?: ReadonlyMap<string, string>;
+  /**
+   * Ce que chaque source perd entre deux passages (voir `VanishRate`).
+   *
+   * Sert à départager les sources DUES, jamais à en rendre une due plus tôt :
+   * l'intervalle reste celui qu'`effectiveInterval` calcule, plancher compris.
+   */
+  readonly vanishRates?: ReadonlyMap<string, VanishRate>;
 }
 
 export interface SchedulePlan {
@@ -245,6 +309,20 @@ function overdueRatio(
  * tête ; le reste garde l'ordre habituel — priorité, puis ancienneté. La
  * priorité continue donc de décider du RYTHME ORDINAIRE, sans pouvoir
  * condamner personne au silence.
+ *
+ * PUIS LES FUYANTES, ET C'EST ICI QUE ÇA SE JOUE. Le volume décidait seul de la
+ * fréquence : une agence qui publie peu était relue lentement, même si ses
+ * annonces ne tenaient pas deux heures. Mais raccourcir son intervalle n'y
+ * aurait rien changé — relevé du 2026-09-17, le scheduler réclame 5 436
+ * passages par jour et la file en sert 2 794, soit un sur deux, et CHAQUE
+ * source tourne déjà à près du double de l'intervalle qu'on lui accorde. Ce qui
+ * manque à une source qui perd ses annonces entre deux passages n'est donc pas
+ * un intervalle plus court : c'est une place dans les cinquante du cycle.
+ *
+ * D'où une bande, et non un facteur. Rien n'est relu plus tôt que son
+ * intervalle, aucun plancher n'est abaissé, aucune requête n'est ajoutée au
+ * cycle : seules trois sources au plus passent devant l'ordre habituel, et
+ * seulement parmi celles qui étaient déjà dues.
  */
 export function planRun(
   entries: readonly { descriptor: SourceDescriptor; state: SourceRuntimeState }[],
@@ -280,6 +358,8 @@ export function planRun(
     return { decision, state, awaited };
   });
 
+  const fuyantes = vanishingSources(options.vanishRates ?? new Map());
+
   const eligible = decisions
     .filter((entry) => entry.decision.shouldRun)
     .map((entry) => ({ ...entry, overdue: overdueRatio(entry.decision, entry.state, nowMs) }))
@@ -300,6 +380,12 @@ export function planRun(
         const ecart = b.overdue - a.overdue;
         if (Number.isFinite(ecart) && ecart !== 0) return ecart;
       }
+
+      // Après la famine, et non avant : une source oubliée depuis des jours
+      // garde son droit de passage absolu.
+      const aFuyante = fuyantes.has(a.decision.sourceId);
+      const bFuyante = fuyantes.has(b.decision.sourceId);
+      if (aFuyante !== bFuyante) return aFuyante ? -1 : 1;
 
       if (a.decision.priority !== b.decision.priority) {
         return a.decision.priority - b.decision.priority;

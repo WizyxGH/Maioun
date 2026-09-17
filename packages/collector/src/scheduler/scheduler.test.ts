@@ -5,7 +5,13 @@
 import { describe, expect, it } from 'vitest';
 import type { SourceDescriptor, SourceRuntimeState } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../core/budgets.js';
-import { decideForSource, effectiveInterval, planRun } from './scheduler.js';
+import {
+  decideForSource,
+  effectiveInterval,
+  planRun,
+  vanishingSources,
+  type VanishRate,
+} from './scheduler.js';
 
 const NOW = Date.parse('2026-08-14T12:00:00.000Z');
 
@@ -387,5 +393,126 @@ describe('planRun — l’agence nommée par une alerte', () => {
       });
       expect(plan.selected).toHaveLength(0);
     }
+  });
+});
+
+/**
+ * LES SOURCES DONT LES ANNONCES NE TIENNENT PAS JUSQU'AU PASSAGE SUIVANT.
+ *
+ * Le volume décidait seul de la fréquence : une agence qui publie peu était
+ * relue lentement, même quand ses annonces vivaient deux heures. Raccourcir son
+ * intervalle n'y aurait rien changé — la file ne sert qu'un passage demandé sur
+ * deux, et chaque source tourne déjà au double de l'intervalle qu'on lui
+ * accorde. Ce qui lui manque, c'est une place dans le cycle, pas un intervalle.
+ */
+describe('planRun — les sources qui perdent leurs annonces entre deux passages', () => {
+  const rates = (entries: Record<string, VanishRate>): ReadonlyMap<string, VanishRate> =>
+    new Map(Object.entries(entries));
+
+  /** Une source dont le tour est venu, sans être affamée pour autant. */
+  const due = (id: string, priority: number) => ({
+    descriptor: descriptor({ id, priority }),
+    state: state({ sourceId: id, lastRunAt: minutesAgo(90), lastSuccessAt: minutesAgo(90) }),
+  });
+
+  it('les fait passer devant l’ordre habituel', () => {
+    const entries = [due('prio1', 1), due('fuyante', 4)];
+    const sans = planRun(entries, NOW, { maxSourcesPerRun: 1 });
+    expect(sans.selected.map((d) => d.sourceId)).toEqual(['prio1']);
+
+    const avec = planRun(entries, NOW, {
+      maxSourcesPerRun: 1,
+      vanishRates: rates({ fuyante: { retired: 20, vanished: 8 } }),
+    });
+    expect(avec.selected.map((d) => d.sourceId)).toEqual(['fuyante']);
+  });
+
+  it('NE MARTÈLE PAS une source lente : l’intervalle reste le sien', () => {
+    // C'est la garantie de tout le mécanisme. Une agence locale relue toutes
+    // les 75 minutes qui perd TOUTES ses annonces entre deux passages ne doit
+    // pas être interrogée une minute plus tôt : la bande ne fait que départager
+    // des sources DÉJÀ dues.
+    const lente = {
+      descriptor: descriptor({
+        id: 'lente',
+        kind: 'localAgency',
+        schedule: scheduleFor('localAgency'),
+      }),
+      state: state({ sourceId: 'lente', lastRunAt: minutesAgo(10), lastSuccessAt: minutesAgo(10) }),
+    };
+    const vanishRates = rates({ lente: { retired: 50, vanished: 50 } });
+
+    const plan = planRun([lente], NOW, { maxSourcesPerRun: 6, vanishRates });
+    expect(plan.selected).toHaveLength(0);
+    expect(plan.skipped[0]?.reason).toMatch(/prochaine exécution/);
+    // Et son intervalle n'a pas bougé d'une minute.
+    expect(plan.skipped[0]?.effectiveIntervalMinutes).toBe(
+      effectiveInterval(lente.descriptor, lente.state),
+    );
+  });
+
+  it('ne passe jamais devant une source affamée', () => {
+    // La famine reste le seul droit absolu : une source oubliée depuis des
+    // jours ne doit pas être repoussée par une voisine plus pressée.
+    const affamee = {
+      descriptor: descriptor({ id: 'affamee', priority: 4 }),
+      state: state({
+        sourceId: 'affamee',
+        lastRunAt: minutesAgo(20 * 60),
+        lastSuccessAt: minutesAgo(20 * 60),
+      }),
+    };
+    const plan = planRun([affamee, due('fuyante', 1)], NOW, {
+      maxSourcesPerRun: 1,
+      vanishRates: rates({ fuyante: { retired: 20, vanished: 20 } }),
+    });
+    expect(plan.selected.map((d) => d.sourceId)).toEqual(['affamee']);
+  });
+
+  it('ne change rien quand aucune mesure n’est fournie', () => {
+    const entries = [due('c', 3), due('a', 1), due('b', 2)];
+    const plan = planRun(entries, NOW, { maxSourcesPerRun: 3 });
+    expect(plan.selected.map((d) => d.sourceId)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('vanishingSources', () => {
+  it('ignore une source qui n’a presque rien perdu', () => {
+    expect(vanishingSources(new Map([['calme', { retired: 100, vanished: 2 }]]))).toEqual(
+      new Set(),
+    );
+  });
+
+  it('IGNORE UNE PART ÉCRASANTE TIRÉE DE DEUX ANNONCES', () => {
+    // Dix sources affichaient 100 % sur une ou deux annonces retirées. Les
+    // classer parmi les plus fuyantes du parc revenait à tirer au sort.
+    expect(vanishingSources(new Map([['hasard', { retired: 2, vanished: 2 }]]))).toEqual(new Set());
+  });
+
+  it('PLAFONNE le nombre de sources accélérées', () => {
+    // Les places d'un cycle sont comptées : ce qu'on donne aux unes se prend
+    // aux autres. Accélérer trois agences se défend, tout le parc non.
+    const beaucoup = new Map(
+      Array.from({ length: 20 }, (_unused, i) => [
+        `s${i}`,
+        { retired: 20, vanished: 10 + i } as VanishRate,
+      ]),
+    );
+    const retenues = vanishingSources(beaucoup);
+    expect(retenues.size).toBe(3);
+    // Les plus fuyantes d'abord.
+    expect([...retenues].sort()).toEqual(['s17', 's18', 's19']);
+  });
+
+  it('classe de façon stable à part égale', () => {
+    // Un tri instable ferait entrer et sortir la même source d'un cycle à
+    // l'autre, sans qu'aucune n'y gagne.
+    const egales = new Map([
+      ['b', { retired: 20, vanished: 10 }],
+      ['a', { retired: 20, vanished: 10 }],
+      ['c', { retired: 20, vanished: 10 }],
+      ['d', { retired: 20, vanished: 10 }],
+    ]);
+    expect([...vanishingSources(egales)]).toEqual(['a', 'b', 'c']);
   });
 });

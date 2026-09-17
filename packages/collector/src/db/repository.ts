@@ -37,6 +37,7 @@ import { listColumns, reasonlessScores } from '../core/list-payload.js';
 import { actionPriority } from '@maioun/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
+import type { VanishRate } from '../scheduler/scheduler.js';
 import type { CacheEntry, HttpCacheStore } from '../core/http-client.js';
 import type { GeocodeCacheStore } from '../core/geocode.js';
 import type { DpeCacheStore } from '../core/dpe.js';
@@ -44,6 +45,13 @@ import type { TransitCacheStore } from '../core/transit.js';
 
 /** Instruction SQL prête pour `db.batch`. */
 type Statement = { sql: string; args: InValue[] };
+
+/**
+ * À partir de combien d'annonces découvertes au MÊME instant chez la MÊME
+ * source on tient l'arrivée pour un effet de pagination et non pour du marché.
+ * Voir `vanishRates`.
+ */
+const VANISH_BATCH = 3;
 
 /**
  * Écrit par TRANCHES, dans l'ordre.
@@ -540,6 +548,15 @@ export interface Repository {
     seenRefs: ReadonlySet<string>,
     thresholds: LifecycleThresholds,
   ): Promise<void>;
+  /**
+   * Ce que chaque source perd entre deux passages — la matière du second signal
+   * de cadence (voir `scheduler/scheduler.ts`).
+   *
+   * @param windowDays profondeur d'observation, en jours.
+   * @param confirmedAfter absences consécutives à partir desquelles un retrait
+   *   est acquis ; c'est `missingRunsBeforeInactive`.
+   */
+  vanishRates(windowDays: number, confirmedAfter: number): Promise<Map<SourceId, VanishRate>>;
   /**
    * Annonces à signaler : dans les critères, actives, jamais notifiées, et de
    * priorité suffisante (§29). Triées par priorité décroissante.
@@ -2058,6 +2075,49 @@ export function createRepository(db: Database): Repository {
           },
         ],
         'write',
+      );
+    },
+
+    async vanishRates(windowDays, confirmedAfter) {
+      /**
+       * UNE ANNONCE JAMAIS REVUE N'EST PAS TOUJOURS UNE ANNONCE COURTE.
+       *
+       * Deux pièges, et il faut les deux gardes pour que le chiffre veuille dire
+       * quelque chose.
+       *
+       * Le premier est la source en panne : `missing_runs` répond, puisqu'il ne
+       * monte qu'aux passages jugés concluants — une liste qui a échoué ne
+       * compte personne pour absent. Exiger le seuil de retrait, c'est exiger
+       * que la source soit repassée en bon état autant de fois.
+       *
+       * Le second est la page qui tourne. `citya` et `rentumo` font défiler un
+       * catalogue national : des dizaines de références apparaissent puis
+       * repartent ENSEMBLE, au même passage, et signent la pagination, pas le
+       * marché. Relevé du 2026-09-17 : sur 254 annonces vues une seule fois, 197
+       * arrivaient par lots de trois ou plus. Un lot ne compte donc pas.
+       */
+      const result = await db.execute({
+        sql: `SELECT source_id AS src,
+                     COUNT(*) AS retirees,
+                     SUM(CASE WHEN seule = 1 AND lot < ? THEN 1 ELSE 0 END) AS fuyantes
+                FROM (
+                  SELECT source_id, missing_runs,
+                         CASE WHEN last_seen_at = first_seen_at THEN 1 ELSE 0 END AS seule,
+                         SUM(CASE WHEN last_seen_at = first_seen_at THEN 1 ELSE 0 END)
+                           OVER (PARTITION BY source_id, first_seen_at) AS lot
+                    FROM occurrences
+                   WHERE julianday('now') - julianday(first_seen_at) <= ?
+                )
+               WHERE missing_runs >= ?
+               GROUP BY source_id`,
+        args: [VANISH_BATCH, windowDays, confirmedAfter],
+      });
+
+      return new Map(
+        result.rows.map((row) => [
+          String(row['src']),
+          { retired: Number(row['retirees'] ?? 0), vanished: Number(row['fuyantes'] ?? 0) },
+        ]),
       );
     },
 

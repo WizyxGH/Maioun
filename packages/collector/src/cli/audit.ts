@@ -12,8 +12,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { openDatabaseFromEnv, databaseTarget, type Database } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
+import { createRepository } from '../db/repository.js';
 import { createLogger } from '../core/logger.js';
-import { loadDotEnv } from '../config.js';
+import { loadDotEnv, PUBLIC_CONFIG } from '../config.js';
+import { VANISH_WINDOW_DAYS } from '../pipeline.js';
+import { vanishingSources } from '../scheduler/scheduler.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
 import { wantedAdEvidence } from '../normalization/housing-wanted.js';
 import { agencyCoverage, sourceAliases } from '../sources/agency-names.js';
@@ -451,6 +454,54 @@ async function reportAgencyCoverage(db: Database): Promise<void> {
 }
 
 /**
+ * CE QUE CHAQUE SOURCE PERD ENTRE DEUX PASSAGES.
+ *
+ * Une annonce découverte puis jamais revue a vécu moins longtemps que l'écart
+ * entre deux de nos passages : pour une attrapée, il s'en est probablement
+ * échappé une autre, jamais vue. C'est le seul chiffre qui dise ce que la
+ * cadence nous coûte, et il décide des places du cycle — d'où ce tableau, pour
+ * qu'on puisse vérifier à qui elles vont.
+ *
+ * Deux gardes, sans quoi le chiffre désignerait les sources bancales : le
+ * retrait doit être acquis (`missing_runs`), et un lot d'annonces apparues au
+ * même instant ne compte pas — c'est une page de catalogue qui tourne.
+ */
+async function reportVanishing(db: Database): Promise<void> {
+  const repository = createRepository(db);
+  const rates = await repository.vanishRates(
+    VANISH_WINDOW_DAYS,
+    PUBLIC_CONFIG.missingRunsBeforeInactive,
+  );
+  const retenues = vanishingSources(rates);
+
+  const lignes = [...rates.entries()]
+    .filter(([, rate]) => rate.vanished > 0)
+    .sort(([, a], [, b]) => b.vanished / b.retired - a.vanished / a.retired);
+
+  console.log('\n── Annonces perdues entre deux passages (14 jours) ───────────');
+  if (lignes.length === 0) {
+    console.log('   aucune. Toutes les annonces retirées avaient été revues au moins deux fois.');
+    return;
+  }
+  console.log(
+    `   ${'source'.padEnd(28)} ${'retirées'.padStart(8)} ${'perdues'.padStart(8)} ${'part'.padStart(6)}`,
+  );
+  for (const [sourceId, rate] of lignes) {
+    const part = Math.round((rate.vanished / rate.retired) * 100);
+    const marque = retenues.has(sourceId) ? ' ← passe en tête du cycle' : '';
+    console.log(
+      `   ${sourceId.slice(0, 28).padEnd(28)} ${String(rate.retired).padStart(8)}` +
+        ` ${String(rate.vanished).padStart(8)} ${`${part} %`.padStart(6)}${marque}`,
+    );
+  }
+  const perdues = lignes.reduce((sum, [, rate]) => sum + rate.vanished, 0);
+  console.log(
+    `\n   ${perdues} annonce(s) attrapées de justesse en 14 jours. Autant, environ,` +
+      ` nous ont échappé sans jamais être vues.`,
+  );
+}
+
+/**
  * Les réglages posés par compte.
  *
  * Plusieurs écrans ne s'affichent QUE si leur marque est absente — l'accueil
@@ -492,6 +543,7 @@ async function main(): Promise<void> {
     await reportFlatShare(db, total);
     await reportSourceCoverage(db);
     await reportAilingSources(db);
+    await reportVanishing(db);
     await reportAgencyCoverage(db);
     await reportWantedAds(db);
     await reportSettings(db);

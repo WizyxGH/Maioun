@@ -30,7 +30,7 @@ import type { Clock } from './core/clock.js';
 import type { Logger } from './core/logger.js';
 import { BlockedError, createHttpClient, RateLimitedError } from './core/http-client.js';
 import type { SourceRegistry } from './core/registry.js';
-import { planRun } from './scheduler/scheduler.js';
+import { planRun, vanishingSources } from './scheduler/scheduler.js';
 import { awaitedSources } from './sources/email-alerts/agency-refresh.js';
 import { EMAIL_ALERTS_DESCRIPTOR } from './sources/email-alerts/index.js';
 import { normalizeAll } from './normalization/normalize.js';
@@ -72,6 +72,15 @@ const SOURCES_AT_ONCE = 12;
  * alertes finir bien avant le passage d'après.
  */
 const SOURCE_PHASE_BUDGET_MS = 8 * 60_000;
+
+/**
+ * Profondeur sur laquelle on juge de la vitesse de disparition d'une source.
+ *
+ * Assez long pour qu'une petite agence accumule les quelques retraits qui
+ * rendent la part crédible, assez court pour qu'un site qui a changé de rythme
+ * ne traîne pas sa réputation d'il y a un mois.
+ */
+export const VANISH_WINDOW_DAYS = 14;
 
 /**
  * Plafond d'appels réseau de géocodage par run (les adresses en cache sont
@@ -1026,15 +1035,30 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     clock.now(),
   );
 
+  /**
+   * CE QUE CHAQUE SOURCE PERD ENTRE DEUX PASSAGES.
+   *
+   * Les places d'un cycle sont comptées : la file sert un passage demandé sur
+   * deux. Ce chiffre dit lesquelles doivent les avoir en premier — celles dont
+   * les annonces ne tiennent pas jusqu'à notre retour. Une lecture par cycle,
+   * agrégée par la base.
+   */
+  const vanishRates = await repository.vanishRates(
+    VANISH_WINDOW_DAYS,
+    config.missingRunsBeforeInactive,
+  );
+
   const plan = planRun(entries, clock.now(), {
     maxSourcesPerRun: options.force === true ? entries.length : config.maxSourcesPerRun,
     ...(options.force === true ? { force: true } : {}),
     ...(expected.size > 0 ? { expected } : {}),
+    vanishRates,
   });
   logger.info('scheduler.plan', {
     selected: plan.selected.map((decision) => decision.sourceId),
     skipped: plan.skipped.length,
     ...(expected.size > 0 ? { awaitedByMail: [...expected.keys()] } : {}),
+    vanishing: [...vanishingSources(vanishRates)],
   });
 
   // --- 2. Collecte, source par source, en isolation -------------------------
