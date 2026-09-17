@@ -302,6 +302,26 @@ describe('extractFeatures', () => {
     expect(extractFeatures('joli logement')).toEqual([]);
     expect(extractFeatures(null)).toEqual([]);
   });
+
+  it('la fin du texte libre ne nie pas le premier équipement déclaré', () => {
+    // sudagence.fr, fiche 553 : la table déclare « Balcon : OUI » et « Meublé :
+    // NON ». Collées, les deux donnaient « … non meublé Balcon », et le balcon
+    // disparaissait d'une annonce qui l'affiche.
+    const extra = { features: 'Balcon · Cave · Vue MER' };
+    const features = extractFeatures(`Appartement Mont Boron non meublé ${extra.features}`, extra);
+    expect(features).toContain('Balcon');
+    expect(features).toContain('Cave');
+    expect(features).not.toContain('Meublé');
+  });
+
+  it('une négation écrite DANS la liste déclarée écarte toujours l’équipement', () => {
+    // La liste garde son propre voisinage : seule la frontière avec le texte
+    // libre qui la précède cesse d'être lue.
+    const extra = { features: 'Cave · sans ascenseur' };
+    const features = extractFeatures(`Studio ${extra.features}`, extra);
+    expect(features).toContain('Cave');
+    expect(features).not.toContain('Ascenseur');
+  });
 });
 
 describe('parseFurnished', () => {

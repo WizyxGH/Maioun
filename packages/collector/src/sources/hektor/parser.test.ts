@@ -479,6 +479,47 @@ describe('parseDetailPage — fiche retirée, référence et surface déclarées
     expect(normalized?.contact.phone).toBe('+33600000044');
     expect(normalized?.contact.email).toBe('agence@example.invalid');
   });
+
+  // Relevé du 2026-09-17 sur sudagence.fr : la fiche ne porte AUCUNE coordonnée
+  // en pied de page, seulement le bouton « Afficher le téléphone ».
+  const ficheSansPied = (extraLignes = ''): string =>
+    `<html><head><title>Location Superbe appartement Nice 62.54m² 1107€</title></head>
+     <body><p class="ref">Référence : LOC3PMONTBORON</p>
+     <h1 class="titleBien">Superbe appartement dans les hauteurs de Nice - 1107€</h1>
+     <ul><li class="data">Loyer CC* / mois : 1 190 €</li>
+     <li class="data">Charges locatives (provision donnant lieu à régularisation annuelle) : 82 €</li>
+     <li class="data">Surface habitable (m²) : 62,54 m²</li>
+     <li class="data">Nombre de pièces : 3</li>
+     <li class="data">Meublé : NON</li>${extraLignes}</ul>
+     <a href="tel:06 00 00 00 08 " class="dispPhoneAgency">Afficher le téléphone</a>
+     </body></html>`;
+  const URL_553 =
+    'https://www.agence-fictive.fr/location/06-alpes-maritimes/1-nice/superbe-appartement/553-appartement';
+
+  it('lit le bouton « Afficher le téléphone » quand la fiche n’a pas de pied de page', () => {
+    // Sans lui, ces fiches sortaient sans numéro : on ne pouvait que remplir le
+    // formulaire et attendre une réponse.
+    const { listing } = parseDetailPage(ficheSansPied(), URL_553, 'Agence Fictive');
+    expect(listing?.phoneText).toBe('06 00 00 00 08');
+  });
+
+  it('garde le balcon déclaré d’un logement NON meublé', () => {
+    // « Meublé : NON » et « Balcon : OUI » se suivaient dans le texte assemblé
+    // pour la normalisation : « … non meublé Balcon » niait le balcon.
+    const { listing } = parseDetailPage(
+      ficheSansPied('<li class="data">Balcon : OUI</li><li class="data">Cave : OUI</li>'),
+      URL_553,
+      'Agence Fictive',
+    );
+    expect(listing?.extra?.['features']).toBe('Balcon · Cave');
+    const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
+      sourceId: 'hektor-test',
+      nowMs: Date.parse('2026-09-17T12:00:00Z'),
+    });
+    expect(normalized?.features).toContain('Balcon');
+    expect(normalized?.features).toContain('Cave');
+    expect(normalized?.furnished).toBe(false);
+  });
 });
 
 describe('liste sans liens de fiche (Riviera Angels)', () => {

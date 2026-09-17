@@ -857,30 +857,37 @@ export function extractFeatures(
   }
 
   /**
+   * La LISTE D'ÉQUIPEMENTS DÉCLARÉE, relue à part du reste du texte.
+   *
+   * L'appelant la colle à la suite du titre, de la description et du meublé :
+   * la dernière phrase de ceux-ci se retrouvait donc juste avant le premier
+   * équipement, et pouvait le nier. « … non meublé » suivi de « Balcon · Cave »
+   * faisait disparaître le balcon d'une fiche qui le déclare (sudagence.fr,
+   * fiche 553). Une déclaration ne se lit pas dans le voisinage d'une autre.
+   *
+   * La liste garde en revanche son propre voisinage : « sans ascenseur » écrit
+   * DEDANS reste une négation, et l'équipement reste écarté.
+   */
+  const declared = comparable(extra?.['features']);
+  const mentioned = (pattern: RegExp): boolean =>
+    mentionsOwnFeature(lower, pattern) || mentionsOwnFeature(declared, pattern);
+
+  /**
    * L'ATTRIBUT STRUCTURÉ L'EMPORTE SUR LE TEXTE, quand la source en publie un.
    * `nbBalcons = 2` est une déclaration, pas une tournure de phrase : elle n'a
    * ni négation ni voisinage à interpréter.
    */
   const flags: Array<[boolean, string]> = [
-    [extra?.['ascenseur'] === '1' || mentionsOwnFeature(lower, PATTERNS['Ascenseur']), 'Ascenseur'],
-    [
-      numericAttr(extra?.['nbBalcons']) > 0 || mentionsOwnFeature(lower, PATTERNS['Balcon']),
-      'Balcon',
-    ],
-    [
-      numericAttr(extra?.['nbTerrasses']) > 0 || mentionsOwnFeature(lower, PATTERNS['Terrasse']),
-      'Terrasse',
-    ],
-    [mentionsOwnFeature(lower, PATTERNS['Jardin']), 'Jardin'],
-    [
-      numericAttr(extra?.['nbParking']) > 0 || mentionsOwnFeature(lower, PATTERNS['Parking']),
-      'Parking',
-    ],
-    [mentionsOwnFeature(lower, PATTERNS['Garage']), 'Garage'],
-    [mentionsOwnFeature(lower, PATTERNS['Cave']), 'Cave'],
-    [mentionsOwnFeature(lower, PATTERNS['Piscine']), 'Piscine'],
-    [mentionsOwnFeature(lower, PATTERNS['Climatisation']), 'Climatisation'],
-    [mentionsOwnFeature(lower, PATTERNS['Meublé']), 'Meublé'],
+    [extra?.['ascenseur'] === '1' || mentioned(PATTERNS['Ascenseur']), 'Ascenseur'],
+    [numericAttr(extra?.['nbBalcons']) > 0 || mentioned(PATTERNS['Balcon']), 'Balcon'],
+    [numericAttr(extra?.['nbTerrasses']) > 0 || mentioned(PATTERNS['Terrasse']), 'Terrasse'],
+    [mentioned(PATTERNS['Jardin']), 'Jardin'],
+    [numericAttr(extra?.['nbParking']) > 0 || mentioned(PATTERNS['Parking']), 'Parking'],
+    [mentioned(PATTERNS['Garage']), 'Garage'],
+    [mentioned(PATTERNS['Cave']), 'Cave'],
+    [mentioned(PATTERNS['Piscine']), 'Piscine'],
+    [mentioned(PATTERNS['Climatisation']), 'Climatisation'],
+    [mentioned(PATTERNS['Meublé']), 'Meublé'],
     [/\bneuf\b|\brenove|refait a neuf/.test(lower), 'Rénové / neuf'],
     // Contrainte de DURÉE plutôt qu'agrément — mais c'est le fait le plus
     // décisif à voir quand il s'applique : le bien n'est pas louable l'été.

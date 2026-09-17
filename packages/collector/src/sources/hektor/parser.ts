@@ -368,13 +368,24 @@ function ownGallery(urls: readonly string[]): string[] {
   });
 }
 
-/** Le téléphone de l'agence, en pied de page (`coords-phone`, ou `footer_element`). */
+/**
+ * Le téléphone de l'agence, en pied de page (`coords-phone`, ou
+ * `footer_element`), sinon le bouton « Afficher le téléphone » de la fiche.
+ *
+ * Ce bouton est le dernier recours parce qu'il est parfois le SEUL : plusieurs
+ * gabarits de la plateforme ne mettent aucune coordonnée en pied de fiche
+ * (sudagence.fr, aagestion.net, rivieraangels.com), et l'annonce sortait alors
+ * sans numéro — on ne pouvait que remplir le formulaire et attendre.
+ */
 function agencyPhone($: cheerio.CheerioAPI): string | undefined {
-  const href = $(
-    '.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"], .footer_element__content a.phone[href^="tel:"]',
-  )
-    .first()
-    .attr('href');
+  // Deux recherches, pas un sélecteur unique : `first()` prendrait le premier
+  // dans l'ORDRE DE LA PAGE, où le bouton de la fiche précède le pied de page.
+  const href =
+    $(
+      '.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"], .footer_element__content a.phone[href^="tel:"]',
+    )
+      .first()
+      .attr('href') ?? $('a.dispPhoneAgency[href^="tel:"]').first().attr('href');
   // « tel:   06 00 00 00 00 » : la plateforme laisse les espaces du gabarit.
   return href !== undefined ? cleanText(href.replace(/^tel:/, '')) : undefined;
 }
