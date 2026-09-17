@@ -396,3 +396,98 @@ describe('titre, adresse et même source', () => {
     expect(similarity(x, y).blocker).toBeNull();
   });
 });
+
+/**
+ * PARUVENDU NE REPUBLIE RIEN DE COMMUN — sauf les photos.
+ *
+ * Ni code postal (absent 224 fois sur 299), ni téléphone (aucune des 299), et
+ * un identifiant maison là où Bien'ici reprend celui du logiciel de l'agence.
+ * Loyer, surface et pièces concordants ne font que quarante-deux points sur les
+ * soixante-dix exigés : l'annonce restait seule, sans adresse ni contact, et
+ * comptait comme « manquée » alors qu'elle était déjà collectée chez l'agence.
+ *
+ * SON REDIMENSIONNEUR TRANSPORTE POURTANT L'ADRESSE DU FICHIER DE L'AGENCE.
+ * La rendre suffit : le cliché redevient commun, et c'est LUI qui rapproche.
+ */
+describe('photo d’agence servie par le redimensionneur d’un portail', () => {
+  const PHOTO_AGENCE =
+    'https://media.agence.example.invalid/cache/8f3c21d0aa47bb19_2c7e5b_1600-original.jpg';
+  const PHOTO_PORTAIL =
+    'https://img.paruvendu.fr/media_ext/_https_/media.agence.example.invalid/17/fe/' +
+    'L2NhY2hlLzhmM2MyMWQwYWE0N2JiMTlfMmM3ZTViXzE2MDAtb3JpZ2luYWwuanBn_rct?func=crop&w=320';
+
+  const chezLAgence = makeOccurrence({
+    id: 'agence-x:87280764',
+    sourceId: 'agence-x',
+    title: 'Studio meublé rue des Oliviers',
+    price: 850,
+    area: 21,
+    rooms: 1,
+    city: 'nice',
+    imageUrls: [PHOTO_AGENCE],
+    contact: makeContact({ agencyName: 'AGENCE X NICE', reference: '87280764' }),
+  });
+
+  /** Le portail ne donne qu'un gabarit de titre, aucun contact, aucun code postal. */
+  const surLePortail = makeOccurrence({
+    id: 'paruvendu:1295241097',
+    sourceId: 'paruvendu',
+    title: 'Appartement - 1 pièce(s) - 21 m²',
+    description: null,
+    price: 850,
+    area: 21,
+    rooms: 1,
+    city: 'nice',
+    postalCode: null,
+    imageUrls: [PHOTO_PORTAIL],
+    // Le portail ne publie ni téléphone ni courriel, et pose son propre numéro.
+    contact: makeContact({
+      agencyName: 'AGENCE X LOGEMENT',
+      phone: null,
+      email: null,
+      reference: '1295241097',
+    }),
+  });
+
+  it('rapproche l’annonce du portail de celle de l’agence', () => {
+    const result = similarity(chezLAgence, surLePortail);
+    expect(result.verdict).toBe('duplicate');
+    expect(result.signals.map((signal) => signal.code)).toContain('image');
+  });
+
+  /**
+   * LE SIGNAL DÉCISIF EST LA PHOTO, PAS LES CHIFFRES. Retirée l'enveloppe, les
+   * mêmes deux annonces retombent sous le seuil : c'est la preuve que rien
+   * d'autre ne les fusionne, et donc que la règle ne fusionne que sur le
+   * fichier commun.
+   */
+  it('sans le fichier commun, les mêmes chiffres ne suffisent pas', () => {
+    const sansPhoto = { ...surLePortail, imageUrls: ['https://img.paruvendu.fr/pixel.gif'] };
+    expect(similarity(chezLAgence, sansPhoto).verdict).not.toBe('duplicate');
+  });
+
+  /**
+   * DEUX STUDIOS DISTINCTS D'UNE MÊME RÉSIDENCE portent les mêmes chiffres au
+   * centime et au centimètre — c'est le cas ordinaire, pas l'exception. Sans
+   * cliché commun, ils doivent rester deux. Les fusionner en ferait disparaître
+   * un de la liste, en silence.
+   */
+  it('ne fusionne pas deux logements distincts aux chiffres identiques', () => {
+    const voisin = makeOccurrence({
+      id: 'agence-x:87280765',
+      sourceId: 'agence-x',
+      title: 'Studio meublé rue des Oliviers',
+      price: 850,
+      area: 21,
+      rooms: 1,
+      city: 'nice',
+      imageUrls: [
+        'https://media.agence.example.invalid/cache/11aa22bb33cc44dd_9f8e7d_1600-original.jpg',
+      ],
+      contact: makeContact({ agencyName: 'AGENCE X NICE', reference: '87280765' }),
+    });
+    const result = similarity(voisin, surLePortail);
+    expect(result.verdict).not.toBe('duplicate');
+    expect(result.signals.some((signal) => signal.code === 'image')).toBe(false);
+  });
+});

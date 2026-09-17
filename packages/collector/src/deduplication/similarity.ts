@@ -17,6 +17,7 @@ import { ONE_SHOT_SOURCES, type NormalizedListing } from '@maioun/shared';
 import { comparable, tokenize } from '../normalization/text.js';
 import { sameStreet } from '../normalization/parse-listing-fields.js';
 import { haversineKm } from '../core/geo.js';
+import { photoOrigin } from './photo-origin.js';
 
 /** Verdict rendu pour une paire d'annonces. */
 export type SimilarityVerdict = 'duplicate' | 'ambiguous' | 'distinct';
@@ -210,10 +211,14 @@ function findBlocker(
  * Les portails ajoutent un jeton par requête (`?ci_seal=…`) : deux liens vers le
  * MÊME fichier ne se ressemblent pas caractère pour caractère. On ne garde donc
  * que l'hôte et le chemin.
+ *
+ * ET ON PART DE L'ADRESSE D'ORIGINE (`photoOrigin`) : un portail qui sert le
+ * cliché de l'agence derrière son propre redimensionneur n'a rien de commun
+ * avec elle tant qu'on lit son adresse à lui.
  */
 function imageIdentity(url: string): string | null {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(photoOrigin(url));
     return `${parsed.host}${parsed.pathname}`;
   } catch {
     return null;
@@ -244,7 +249,7 @@ const NAMED_PHOTO_MIN_LENGTH = 12;
 
 export function photoName(url: string): string | null {
   try {
-    const path = new URL(url).pathname;
+    const path = new URL(photoOrigin(url)).pathname;
     const base = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
     const stem = base.replace(/\.[a-z0-9]{2,5}$/, '');
     return stem.length >= NAMED_PHOTO_MIN_LENGTH && /\d/.test(stem) ? stem : null;
