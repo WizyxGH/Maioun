@@ -75,7 +75,7 @@ qui se réduira, et l'import par alerte e-mail garde donc sa raison d'être.
 | **ImmoJeune** (immojeune.com)                | 🟡 À faire si la recherche s'ouvre aux étudiants. `robots.txt` permissif, **621 annonces** à Nice — mais la recherche actuelle EXCLUT les locations étudiantes, qui en font l'essentiel. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Location-etudiant.fr**                     | ⚪ Même famille que LocService ; la page Nice est un guide, sans annonces. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Lokaviz** (CROUS)                          | 🔴 Écartée : son `robots.txt` interdit précisément la recherche (`/rechercher-un-logement/…`) et les fiches. Relevé le 2026-09-11.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Ibox Immobilier** (agenceibox.com)         | 🔴 Écartée le 2026-09-10 — hors zone. Agence TOULONNAISE : sur les 68 locations d'habitation de son plan de site, **toutes sont dans le Var** (Toulon 37, La Seyne-sur-Mer 9, Saint-Mandrier 4…), **aucune dans les Alpes-Maritimes**. Le seul bien niçois est une maison à vendre. Techniquement ouverte (`robots.txt` « Allow: / », plan de site, JSON-LD) : à reprendre en une heure si la recherche s'étend un jour au Var.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Ibox Immobilier** (agenceibox.com)         | 🔴 Écartée le 2026-09-10 — hors zone. Agence TOULONNAISE : sur les 68 locations d'habitation de son plan de site, **toutes sont dans le Var** (Toulon 37, La Seyne-sur-Mer 9, Saint-Mandrier 4…), **aucune dans les Alpes-Maritimes**. Le seul bien niçois est une maison à vendre. Techniquement ouverte (`robots.txt` « Allow: / », plan de site, JSON-LD) : à reprendre en une heure si la recherche s'étend un jour au Var. **Revérifiée le 2026-09-17, verdict inchangé** : le catalogue est passé à 85 locations annoncées, que le plan de site retrouve exactement (71 logements + 14 parkings), et la répartition reste entièrement varoise (Toulon 43, La Seyne-sur-Mer 8, Saint-Mandrier 3…) ; le seul « nice » du plan de site est toujours la même maison à vendre. La plateforme est **La Boîte Immo**, celle que couvre l'adaptateur générique `hektor` — l'ajout coûterait un descripteur, mais apporterait zéro annonce du périmètre, et la base n'en contient aucune trace (0 occurrence). Le second domaine du groupe, `ibox-gestion-location.fr`, est la même enseigne varoise (`robots.txt` sans interdiction, aucune mention des Alpes-Maritimes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **Réseau Expert Immo**                       | ⚪ Introuvable sous ce nom. `expertimmo.com` est un domaine parqué à vendre ; aucune enseigne niçoise ne correspond. Si vous avez l'adresse exacte, je reprends.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Portails
@@ -314,7 +314,7 @@ de 4 s (5 s pour Netty).
 | -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **Immobilière Roseland** (immobiliereroseland.fr)  | 2026-09-14 | 17 sur deux pages, Nice en majorité                                                                                                  |
 | **SAG Immobilier** (sag-immobilier.com)            | 2026-09-14 | 11, toutes à Nice                                                                                                                    |
-| **Sud Agence** (sudagence.fr)                      | 2026-09-15 | 9 à Nice (dont 3 stationnements)                                                                                                     |
+| **Sud Agence** (sudagence.fr)                      | 2026-09-17 | 9 à Nice (dont 2 stationnements)                                                                                                     |
 | **AA Gestion** (aagestion.net)                     | 2026-09-14 | 6 (Nice ×5, Grasse)                                                                                                                  |
 | **Murta Immobilier** (murta-immobilier.com, Drap)  | 2026-09-14 | 6 (Nice ×2, Drap, Contes, arrière-pays)                                                                                              |
 | **Aurus Immobilier** (aurusimmo.com, Beaulieu)     | 2026-09-14 | 5 (Nice ×3, Beaulieu-sur-Mer, Roquebrune)                                                                                            |
@@ -1781,3 +1781,144 @@ d'orthographe de référence pour trancher.
 **Trois candidats déjà étudiés y apparaissaient** et sont renvoyés à la veille
 plutôt que présentés comme des sources manquantes : 123Loger (27 annonces via
 ParuVendu), Confiance Immobilière (13) et Square Habitat (8).
+
+## Réveiller l'agence nommée par un PORTAIL : mesuré, et écarté (2026-09-17)
+
+Le mécanisme des alertes e-mail — quand un message nomme l'agence et qu'on la
+collecte, sa source passe en tête de la file suivante — rapporte environ une
+annonce par jour, parce que 8,7 % seulement des messages nomment un annonceur.
+Les portails, eux, le nomment presque toujours. D'où la question, posée avant
+d'écrire la moindre ligne : **faut-il étendre le réveil aux portails ?**
+
+**Non.** Le volume est là, la couverture aussi, mais le gain ne l'est pas : il
+reste **1,3 annonce par jour**, pour **22 agences réveillées par jour**. Le même
+mécanisme rendait une annonce par réveil sur le canal e-mail ; ici, il en rend
+une pour dix-sept. Mesure en lecture seule, aucune collecte lancée.
+
+### Le volume : confirmé
+
+Occurrences portant un nom d'annonceur, tous cycles de vie confondus, et graphies
+distinctes :
+
+| Portail          | Annonces nommées | dont actives | Noms distincts |
+| ---------------- | ---------------: | -----------: | -------------: |
+| Bien'ici         |              695 |          550 |            194 |
+| FNAIM            |              317 |          225 |             75 |
+| ParuVendu        |              280 |          195 |             40 |
+| Studapart        |              219 |          201 |          **1** |
+| MorningCroissant |               41 |           41 |          **1** |
+
+LocService, Rentumo, ImmoJeune et les alertes e-mail n'en nomment aucun.
+Studapart et MorningCroissant n'écrivent pas un nom mais une **qualité** —
+« Loueur professionnel » — que les mots du métier écartent déjà : leurs 260
+annonces ne désignent personne.
+
+### La couverture : bonne, et ce n'est pas le problème
+
+Le registre compte **216 sources**, dont **204 directes** (189 agences locales,
+15 réseaux) et 12 portails ou agrégateurs. En passant les noms d'annonceur par
+`createAgencySourceResolver` sur ces 204 sources :
+
+| Portail   | Résolues vers une source directe | Taux | Agences distinctes |
+| --------- | -------------------------------: | ---: | -----------------: |
+| Bien'ici  |                          431/695 | 62 % |                111 |
+| FNAIM     |                          132/317 | 42 % |                 37 |
+| ParuVendu |                          132/280 | 47 % |                 10 |
+
+### Le chiffre qui décide : 395 sur 695 sont déjà là
+
+Sur les 695 annonces de portail résolues, **395 (56,8 %) partagent déjà leur
+fiche avec une occurrence de l'agence visée** : gain nul, on a déjà la donnée.
+Bien'ici 66 %, FNAIM 60 %, ParuVendu 23 %.
+
+Restent 300 annonces non regroupées, et il leur manque beaucoup : l'adresse 225
+fois (75 %), le téléphone 138 (46 %), les charges 102 (34 %), le DPE 57 (19 %),
+la référence 16, les photos 7. **Mais un réveil ne les apporterait pas.** Depuis
+qu'on a vu ces annonces, l'agence visée est déjà passée **43 fois (médiane)** :
+
+| Passages chez l'agence depuis la découverte | Annonces |
+| ------------------------------------------- | -------: |
+| aucun                                       |        2 |
+| 1 à 3                                       |       11 |
+| 4 à 10                                      |       29 |
+| 11 à 50                                     |      134 |
+| plus de 50                                  |      124 |
+
+Une annonce qui n'est pas regroupée après quarante-trois passages ordinaires ne
+le sera pas au quarante-quatrième. Soit elle n'est pas sur le site de l'agence,
+soit le dédoublonnage ne la rapproche pas — dans les deux cas, ce n'est pas un
+problème de cadence.
+
+### L'avance en temps : elle n'existe pas, et la mesure brute ment
+
+Comparer les dates de première vue donnait **+9,8 h en faveur du portail**. C'est
+un artefact : Bien'ici tourne depuis le 9 septembre, et **87 des 118 agences
+concernées depuis moins de sept jours** (début médian : 14 septembre). Le portail
+ne devançait pas l'agence, il existait avant elle.
+
+En ne gardant que les paires où **les deux sources tournaient depuis 24 h au
+moins**, il reste 76 paires, et l'avance disparaît :
+
+| Portail   | Paires |     Médiane | Portail devant | Agence devant |
+| --------- | -----: | ----------: | -------------: | ------------: |
+| Bien'ici  |     49 |     −0,33 h |             22 |            25 |
+| FNAIM     |     16 |     +0,14 h |              8 |             8 |
+| ParuVendu |     11 |     −13,4 h |              1 |             7 |
+| **Total** | **76** | **−0,33 h** |         **31** |        **40** |
+
+L'agence voit l'annonce avant le portail plus souvent que l'inverse.
+
+Et l'avance affichée ne se rattrape pas toute : **les agences sont relues toutes
+les 2,1 h** (médiane observée sur 4 133 intervalles, 120 sources ; l'intervalle
+déclaré est de 1,25 h). Un réveil ne peut donc anticiper que d'une cadence. Une
+annonce vue 5 h avant l'agence n'était pas encore chez l'agence : la réveiller
+n'y aurait rien trouvé.
+
+Ce qui survit à ce filtre :
+
+- 31 paires où le portail précède réellement ;
+- **20** où la fiche de l'agence apporte au moins un champ manquant ;
+- **9** dont l'avance tient dans une cadence — soit **1,29 annonce par jour**,
+  avec **1,01 h** d'anticipation médiane. Bien'ici 3, FNAIM 5, ParuVendu 1.
+
+À comparer aux 6,9 h d'avance de l'e-mail, 31 fois sur 47. Et la notification
+part au mieux à la demi-heure suivante : une heure gagnée en vaut souvent une
+demie une fois arrivée sur le téléphone.
+
+### Le coût : modeste, contrairement à ce qu'on craignait
+
+L'effet de masse redouté ne se produit pas. Les annonces de portail nommant une
+agence connue désignent **21,7 agences distinctes par jour** en moyenne sur
+quatorze jours — 12 à 36 les jours établis, avec une pointe à 98 le jour où
+Bien'ici a été branchée. Un passage d'agence coûte 2,8 requêtes en moyenne, soit
+**~70 requêtes par jour**, sur 4 119 (moyenne de quinze jours) ou 5 776 (sept
+derniers jours) : **+1,2 à +1,7 %**. En passages, +22 sur ~1 190 par jour.
+
+La cadence ne serait donc pas supprimée. **C'est le rendement qui condamne le
+mécanisme, pas sa facture** : 22 réveils pour 1,3 annonce, quand le canal e-mail
+rend une annonce par réveil.
+
+### Le contre-argument, vérifié : l'avantage du canal e-mail disparaît
+
+L'e-mail vaut parce qu'il **arrive entre deux passages** : il apporte une annonce
+qu'aucune de nos sources n'a encore vue. Une annonce de portail, elle, est
+découverte **pendant un passage ordinaire** — au moment où on la voit, l'agence a
+déjà été relue il y a moins de 2,1 h, et la médiane dit qu'elle avait déjà
+l'annonce. Le portail n'est pas un messager en avance, c'est une source parmi les
+autres. Le mécanisme n'a rien à devancer.
+
+### Ce que la mesure ne dit pas
+
+- **La fenêtre est courte** : huit à quinze jours, et la plupart des sources
+  d'agence tournent depuis moins d'une semaine. L'échantillon débiaisé ne compte
+  que 76 paires. À trois mois de recul, la conclusion mérite d'être reprise.
+- **Le dédoublonnage sert de vérité** pour « on l'a déjà ». Un regroupement
+  manqué est compté comme « l'agence ne l'a pas ». Les 300 non regroupées
+  contiennent peut-être de vrais doublons jamais rapprochés — ce serait un sujet
+  de dédoublonnage, pas d'ordonnancement.
+- **La cadence de 2,1 h est celle d'aujourd'hui.** Si le parc grossissait au
+  point de ne plus relire les agences que deux fois par jour, le réveil
+  redeviendrait intéressant : la mesure serait à refaire.
+- **Rien n'a été collecté** pour cette étude. On n'a pas vérifié qu'un réveil
+  trouverait effectivement la fiche : on a seulement montré que les passages
+  ordinaires, eux, ne la trouvent pas.
