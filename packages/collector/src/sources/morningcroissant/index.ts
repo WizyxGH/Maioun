@@ -49,16 +49,21 @@ export const MORNINGCROISSANT_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   /**
-   * MISE DE CÔTÉ LE TEMPS DE LA VÉRIFIER, pas abandonnée.
+   * ROUVERTE, les quatre pages de résultats du 2026-09-16 relues hors ligne.
    *
-   * Un premier passage a rendu quatre annonces au même loyer et à la même
-   * surface, sans photo ni adresse pour les distinguer : impossible de dire de
-   * l'extérieur s'il s'agit de quatre studios d'une même résidence ou de la
-   * même annonce republiée. Tant que la question n'est pas tranchée sur les
-   * fiches, la source ne nourrit ni la liste ni les alertes. Le scraper et ses
-   * tests restent prêts ; rouvrir tient dans ce booléen.
+   * LES PHOTOS REMONTENT : 92 cartes sur 92 en portent, de 4 à 27 chacune. Le
+   * premier passage n'en avait enregistré aucune parce que le parseur ne lisait
+   * pas encore le carrousel des cartes. L'adresse, elle, reste absente : ce
+   * site n'en publie nulle part, et on n'en fabrique pas.
+   *
+   * LES QUATRE ANNONCES AU MÊME LOYER NE SONT PAS DÉPARTAGEABLES, et on ne les
+   * fusionne donc pas. Leurs vingt-deux photos sont bien le même fichier, mais
+   * ce fichier vient de TROIS AUTRES logements du même bailleur : c'est un
+   * fonds de résidence, pas l'empreinte d'un studio. Les fondre ferait
+   * disparaître trois logements peut-être réels. Elles restent quatre fiches à
+   * l'écran et ne sonnent qu'une fois (`notify/redundancy.ts`).
    */
-  enabled: false,
+  enabled: true,
   allowedPaths: ['/location/*', '/appartement/*'],
   /**
    * PAS DE `landlord` ICI, et c'est le point : la source ne publie pas QUE du

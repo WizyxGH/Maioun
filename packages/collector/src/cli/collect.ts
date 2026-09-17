@@ -321,13 +321,17 @@ async function notifyOne(deps: {
     // la source directe porte un lien vers la vraie fiche, souvent un
     // téléphone, et les honoraires. Les deux fiches restent visibles sur le
     // site — seule la sonnerie en double disparaît (§29).
-    const pending = dropRedundantNotifications(
+    const { listings: pending, echoes } = dropRedundantNotifications(
       await repository.pendingNotifications(userId, 0, criteria),
       await repository.directListingSpecKeys(),
     );
     const report = await sendWebPush({ ...common, listings: pending });
     const mailed = await alsoByEmail(pending, 'Nouvelles annonces');
-    await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
+    // Une annonce tue par l'écho d'une autre ne se marque que si cette autre
+    // est bien partie : sinon elle reviendrait sonner seule au passage suivant.
+    const parties = new Set([...report.notifiedIds, ...mailed]);
+    const tues = echoes.filter((echo) => parties.has(echo.of)).map((echo) => echo.id);
+    await repository.markNotified(userId, [...parties, ...tues]);
     if (report.sent > 0) sentAnything = true;
 
     // DES CANDIDATURES QUI ROUVRENT, sur une annonce déjà signalée : elle

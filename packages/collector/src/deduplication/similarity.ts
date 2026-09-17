@@ -236,10 +236,13 @@ function imageIdentity(url: string): string | null {
  * en commun : relevé du 2026-09-16 sur l'inventaire, deux noms communs entre
  * sources donnent 125 paires dont aucune n'oppose des surfaces incompatibles,
  * là où un seul nom en donne 235 dont 70 le font.
+ *
+ * EXPORTÉE parce que le filtre des notifications redondantes compare lui aussi
+ * des galeries, et doit reconnaître les mêmes fichiers que le dédoublonnage.
  */
 const NAMED_PHOTO_MIN_LENGTH = 12;
 
-function photoName(url: string): string | null {
+export function photoName(url: string): string | null {
   try {
     const path = new URL(url).pathname;
     const base = path.slice(path.lastIndexOf('/') + 1).toLowerCase();

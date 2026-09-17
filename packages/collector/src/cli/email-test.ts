@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   let listings: readonly NotifiableListing[] = dropRedundantNotifications(
     await repository.pendingNotifications(userId, 0, criteria),
     await repository.directListingSpecKeys(),
-  );
+  ).listings;
   console.log(`  En attente    ${listings.length} annonce(s) pas encore signalée(s)`);
   if (listings.length === 0) listings = await bestListings(db, userId);
 

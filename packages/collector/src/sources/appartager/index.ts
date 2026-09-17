@@ -44,12 +44,22 @@ export const APPARTAGER_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   /**
-   * MISE DE CÔTÉ, comme MorningCroissant : les deux sont arrivées ensemble et
-   * repartiront ensemble, une fois leurs fiches vérifiées. Ici la réserve est
-   * connue — faute de champ dédié, la surface se lit dans le titre, qui décrit
-   * souvent le logement d'accueil et non la chambre. Le filtre du projet écarte
-   * de toute façon les colocations : la source ne manque à personne en
-   * attendant.
+   * TOUJOURS DE CÔTÉ, et cette fois avec les chiffres.
+   *
+   * CE QUI SE LOUE EST UNE CHAMBRE, MAIS LE TEXTE DÉCRIT CE QUI L'ABRITE.
+   * Faute de champ dédié, la surface, les pièces et le type de bien se lisent
+   * dans le titre et la description — or ceux-ci parlent du logement d'accueil.
+   * Relevé du 2026-09-16 sur les 22 annonces niçoises : six reçoivent une
+   * surface, dont quatre sont celle de l'appartement entier (« Super
+   * appartement 88m2 » devient une chambre de 88 m² à 635 €) ; une hérite des
+   * « 3 pièces » d'une villa ; deux passent en « appartement » alors qu'une
+   * chambre est louée. Un 88 m² à 635 € traverse tous les filtres et ressort en
+   * bonne affaire.
+   *
+   * CORRIGER CELA DEMANDE QUE LA NORMALISATION SACHE qu'un chiffre trouvé dans
+   * le texte d'une colocation décrit le contenant, pas le bien loué — une règle
+   * qui toucherait les colocations de toutes les sources. Ce compte les exclut
+   * déjà : la source ne manque à personne en attendant.
    */
   enabled: false,
   allowedPaths: ['/colocations/nice', '/colocations/*/*/*'],

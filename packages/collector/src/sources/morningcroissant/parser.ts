@@ -159,7 +159,13 @@ function parseCard($: cheerio.CheerioAPI, card: Selection, pageUrl: string): Raw
     sourceUrl,
     title: cleanText(link.text()) || undefined,
     // Le montant de la carte EST le loyer charges comprises (voir l'en-tête).
-    priceText: amount === '' ? undefined : `${amount} charges comprises`,
+    //
+    // « CC », PAS « CHARGES COMPRISES » : la normalisation cherche aussi une
+    // PROVISION dans le texte du prix, et « 980€ charges comprises » lui donnait
+    // 980 € de charges — le loyer entier, recopié dans un champ qui ne le
+    // dit pas. Les deux tournures marquent l'inclusion ; seule la seconde
+    // fabrique un montant.
+    priceText: amount === '' ? undefined : `${amount} CC`,
     areaText: cleanText(area) || undefined,
     roomsText: cleanText(details.find('[data-content="Type"]').first().text()) || undefined,
     // « Chambre privée » doit rester le type du bien ; sans quoi « 1 pièce »

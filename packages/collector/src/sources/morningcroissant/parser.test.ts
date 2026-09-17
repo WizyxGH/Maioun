@@ -142,13 +142,26 @@ describe('parseListPage (MorningCroissant)', () => {
 
   it('lit loyer, surface, pièces, meublé, commune et code postal du BIEN', () => {
     const l = byRef('10001');
-    expect(l?.priceText).toBe('680€ charges comprises');
+    expect(l?.priceText).toBe('680€ CC');
     expect(l?.areaText).toBe('42 m²');
     expect(l?.roomsText).toBe('2 pièces');
     expect(l?.furnishedText).toBe('Meublé');
     expect(l?.cityText).toBe('Nice');
     expect(l?.postalCodeText).toBe('06300');
-    expect(l?.imageUrls).toHaveLength(2);
+  });
+
+  /**
+   * Le premier passage n'avait enregistré AUCUNE photo sur 92 annonces : le
+   * carrousel de la carte n'était pas lu. Sans photo, le dédoublonnage est
+   * aveugle et la fiche est vide à l'écran.
+   */
+  it('remonte les photos du carrousel, en adresses absolues', () => {
+    expect(byRef('10001')?.imageUrls).toEqual([
+      'https://www.morningcroissant.fr/medialibrary/flats/1/a.jpg',
+      'https://www.morningcroissant.fr/medialibrary/flats/1/b.jpg',
+    ]);
+    // Une carte sans carrousel n'en invente pas.
+    expect(byRef('10002')?.imageUrls).toBeUndefined();
   });
 
   it('garde la commune voisine telle qu’elle est publiée', () => {
@@ -281,5 +294,10 @@ describe('normalisation (MorningCroissant)', () => {
     const n = normalizeListing(l as never, options);
     expect(n?.price).toBe(680);
     expect(n?.chargesIncluded).toBe(true);
+    // ET SANS PROVISION FABRIQUÉE. Écrit « 680€ charges comprises », le texte du
+    // prix se relisait comme « 680 € DE charges » : le loyer entier recopié
+    // dans un champ qui dit autre chose. La carte ne décompose rien, et la
+    // fiche est la seule à le faire.
+    expect(n?.charges).toBeNull();
   });
 });
