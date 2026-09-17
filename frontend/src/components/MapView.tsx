@@ -6,6 +6,13 @@
  * accès à la fiche. Les annonces sans coordonnées (source muette et adresse
  * non géocodée) sont comptées honnêtement plutôt que placées au hasard (§17).
  *
+ * CE QUI SE SUPERPOSE EST REGROUPÉ. Une pastille par annonce tenait à soixante
+ * annonces et s'effondrait à trois mille : le navigateur repeignait trois mille
+ * nœuds à chaque image d'un déplacement — dix images par seconde sur un
+ * ordinateur, mesuré. Chaque case de l'écran ne porte donc qu'un marqueur, et
+ * seul ce qui est visible est monté. Un amas s'ouvre toujours : en zoomant, ou
+ * par la liste de ses annonces quand plus aucun zoom ne le sépare.
+ *
  * Chargé PARESSEUSEMENT (React.lazy) : Leaflet ne pèse sur le bundle initial
  * que si la vue carte est ouverte (§65).
  */
@@ -18,9 +25,19 @@ import type { ListingView } from '../types.js';
 import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../format.js';
 import { photoVariant } from '../photo-variant.js';
 import { iconMarkup } from './icons.js';
+import { clusterByPixelGrid, type MapCluster } from './map-clusters.js';
 
 /** Aperçu de 220 px de large, sur un écran à densité 2. */
 const POPUP_PHOTO_WIDTH = 500;
+
+/**
+ * Côté d'une case de regroupement, en pixels. Une pastille de prix mesure une
+ * soixantaine de pixels de large : en dessous, elles se chevauchent déjà.
+ */
+const CLUSTER_CELL_PX = 64;
+
+/** Marge autour de l'écran : ce qui va entrer par le bord est déjà posé. */
+const VIEWPORT_PAD = 0.25;
 
 /** Centre par défaut : Nice. Utilisé quand aucune annonce n'est géolocalisée. */
 const NICE_CENTER: [number, number] = [43.7009, 7.2683];
@@ -122,6 +139,166 @@ function priceIcon(listing: ListingView): L.DivIcon {
   });
 }
 
+/** Coordonnées d'une annonce localisée — le filtre `located` l'a garantie. */
+function positionOf(listing: ListingView): [number, number] {
+  return [listing.latitude?.value as number, listing.longitude?.value as number];
+}
+
+/**
+ * Pastille d'amas : le nombre d'annonces qu'il porte.
+ *
+ * La bordure reprend les repères des pastilles de prix, pour qu'un amas ne
+ * cache pas ce qu'il contient : dorée s'il tient un favori, rouge s'il tient
+ * une annonce à contacter maintenant.
+ */
+function clusterIcon(cluster: MapCluster<ListingView>): L.DivIcon {
+  const count = cluster.items.length;
+  const favorite = cluster.items.some((listing) => listing.favorite === true);
+  const hot = cluster.items.some((listing) => listing.actionPriority >= PRIORITY_HOT);
+  const size = count < 10 ? 32 : count < 100 ? 38 : 46;
+  const border = favorite ? '#f59e0b' : hot ? '#e00034' : '#d4d4d8';
+  return L.divIcon({
+    className: '',
+    html: `<div title="${count} annonces ici" style="
+        transform: translate(-50%, -50%);
+        display: flex; align-items: center; justify-content: center;
+        width: ${size}px; height: ${size}px; border-radius: 999px;
+        background: #ffffff; color: #1a1a1a;
+        border: ${favorite || hot ? '2px' : '1px'} solid ${border};
+        font: 700 ${count < 100 ? 13 : 12}px system-ui, sans-serif;
+        box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
+      ">${count}</div>`,
+    iconSize: [0, 0],
+  });
+}
+
+/**
+ * Aperçu d'une annonce, construit À L'OUVERTURE de la bulle.
+ *
+ * Il l'était d'avance pour chaque marqueur : autant d'arbres DOM que
+ * d'annonces, dont personne ne verra qu'un ou deux.
+ */
+function listingPopup(listing: ListingView, open: (id: string) => void): HTMLElement {
+  const popup = document.createElement('div');
+  popup.style.cssText = 'font:13px system-ui, sans-serif;max-width:220px';
+
+  // Photo servie par le site d'origine, jamais recopiée chez nous. La bulle
+  // n'existant qu'ouverte, l'adresse de l'image peut être posée tout de suite.
+  const photoUrl = listing.imageUrls?.[0];
+  if (photoUrl !== undefined) {
+    const img = document.createElement('img');
+    const variant = photoVariant(photoUrl, POPUP_PHOTO_WIDTH);
+    img.alt = '';
+    img.referrerPolicy = 'no-referrer';
+    img.decoding = 'async';
+    img.style.cssText =
+      'display:block;width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:6px';
+    img.addEventListener('error', () => {
+      // Déclinaison réduite refusée : on retente l'originale, une fois.
+      if (img.getAttribute('src') === variant && variant !== photoUrl) img.src = photoUrl;
+      else img.remove();
+    });
+    img.src = variant;
+    popup.append(img);
+  }
+
+  const title = document.createElement('strong');
+  title.textContent = [
+    formatPropertyType(listing.propertyType.value),
+    formatPrice(listing.price.value),
+    formatArea(listing.area.value),
+  ].join(' · ');
+  popup.append(title);
+
+  // L'adresse exacte, quand l'annonce la publie.
+  const address = listing.address.value !== null ? formatAddress(listing.address.value) : null;
+  if (address !== null) {
+    const addr = document.createElement('div');
+    addr.textContent = address;
+    addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
+    popup.append(addr);
+  }
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Voir l’annonce';
+  button.style.cssText =
+    'display:block;margin-top:6px;padding:4px 10px;border-radius:8px;' +
+    'border:1px solid #d4d4d8;background:#fff;cursor:pointer;font:600 12px system-ui';
+  button.addEventListener('click', () => open(listing.id));
+  popup.append(button);
+
+  return popup;
+}
+
+/**
+ * Liste des annonces d'un amas que le zoom ne sépare plus (mêmes coordonnées).
+ *
+ * TOUTES, sans coupure : c'est le seul chemin vers elles, et une annonce qui
+ * disparaît en silence est pire qu'une carte lente.
+ */
+function clusterPopup(items: readonly ListingView[], open: (id: string) => void): HTMLElement {
+  const box = document.createElement('div');
+  box.style.cssText =
+    'font:13px system-ui, sans-serif;max-width:240px;max-height:240px;overflow-y:auto';
+  const title = document.createElement('strong');
+  title.textContent = `${items.length} annonces au même endroit`;
+  box.append(title);
+  for (const listing of items) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.textContent = [
+      formatPropertyType(listing.propertyType.value),
+      formatPrice(listing.price.value),
+      formatArea(listing.area.value),
+    ].join(' · ');
+    row.style.cssText =
+      'display:block;width:100%;margin-top:6px;padding:4px 8px;text-align:left;' +
+      'border-radius:8px;border:1px solid #d4d4d8;background:#fff;cursor:pointer;' +
+      'font:600 12px system-ui';
+    row.addEventListener('click', () => open(listing.id));
+    box.append(row);
+  }
+  return box;
+}
+
+/** Marqueur d'une annonce seule : la pastille de prix et son aperçu. */
+function listingMarker(listing: ListingView, open: (id: string) => void): L.Marker {
+  const marker = L.marker(positionOf(listing), { icon: priceIcon(listing) });
+  marker.bindPopup(() => listingPopup(listing, open));
+  return marker;
+}
+
+/**
+ * Marqueur d'amas : un clic zoome dessus tant qu'un zoom peut le séparer, et
+ * liste ses annonces quand plus aucun ne le peut.
+ *
+ * La bulle est posée à la main plutôt que liée au marqueur : liée, Leaflet
+ * l'ouvrirait aussi sur les clics qui ne servent qu'à zoomer.
+ */
+function clusterMarker(
+  map: L.Map,
+  cluster: MapCluster<ListingView>,
+  open: (id: string) => void,
+): L.Marker {
+  const marker = L.marker([cluster.latitude, cluster.longitude], { icon: clusterIcon(cluster) });
+  marker.on('click', () => {
+    const bounds = L.latLngBounds(cluster.items.map(positionOf));
+    // La marge exigée vaut une case : le zoom retenu sépare vraiment l'amas
+    // au lieu de le reformer aussitôt.
+    const target = map.getBoundsZoom(bounds, false, L.point(CLUSTER_CELL_PX, CLUSTER_CELL_PX));
+    if (target > map.getZoom()) {
+      map.setView(bounds.getCenter(), target);
+      return;
+    }
+    L.popup()
+      .setLatLng(marker.getLatLng())
+      .setContent(() => clusterPopup(cluster.items, open))
+      .openOn(map);
+  });
+  return marker;
+}
+
 /**
  * Combien d'annonces de la liste sont sur la carte.
  *
@@ -210,83 +387,95 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
     writeMapStyle(mapStyle);
   }, [mapStyle]);
 
-  // Marqueurs, reconstruits quand la liste change.
+  // Les annonces déjà cadrées : le cadrage ne se refait que si l'ENSEMBLE
+  // change. Mettre un favori ou ouvrir une fiche renvoie une nouvelle liste au
+  // même contenu — la carte sautait alors hors du quartier qu'on regardait.
+  const fittedIdsRef = useRef<readonly string[]>([]);
+
+  // Marqueurs : regroupés, limités à ce qui est visible, redessinés à la fin
+  // des gestes.
   useEffect(() => {
     const map = mapRef.current;
     const layer = layerRef.current;
     if (map === null || layer === null) return;
-    layer.clearLayers();
+    const open = (id: string): void => onOpenRef.current(id);
+    const positions = located.map(positionOf);
 
-    const bounds: [number, number][] = [];
-    for (const listing of located) {
-      const position: [number, number] = [
-        listing.latitude?.value as number,
-        listing.longitude?.value as number,
-      ];
-      bounds.push(position);
+    // Une bulle ouverte survit aux gestes : remplacer les marqueurs sous elle
+    // la refermerait au milieu d'une lecture. Le redessin attend donc sa
+    // fermeture, comme il attendait la fin du geste.
+    let reading = false;
+    let awaited = false;
 
-      const marker = L.marker(position, { icon: priceIcon(listing) });
-      const summary = [
-        formatPropertyType(listing.propertyType.value),
-        formatPrice(listing.price.value),
-        formatArea(listing.area.value),
-      ].join(' · ');
-
-      const popup = document.createElement('div');
-      popup.style.cssText = 'font:13px system-ui, sans-serif;max-width:220px';
-
-      // Photo de couverture (depuis le site d'origine, §11 : jamais stockée).
-      // Adresse posée à l'ouverture seulement : une image créée avec son `src`
-      // se télécharge aussitôt, même hors page — une photo par marqueur.
-      const photoUrl = listing.imageUrls?.[0];
-      if (photoUrl !== undefined) {
-        const img = document.createElement('img');
-        const variant = photoVariant(photoUrl, POPUP_PHOTO_WIDTH);
-        img.alt = '';
-        img.referrerPolicy = 'no-referrer';
-        img.decoding = 'async';
-        img.style.cssText =
-          'display:block;width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:6px';
-        img.addEventListener('error', () => {
-          // Déclinaison réduite refusée : on retente l'originale, une fois.
-          if (img.getAttribute('src') === variant && variant !== photoUrl) img.src = photoUrl;
-          else img.remove();
-        });
-        marker.on('popupopen', () => {
-          if (!img.hasAttribute('src')) img.src = variant;
-        });
-        popup.append(img);
+    const draw = (): void => {
+      if (reading) {
+        awaited = true;
+        return;
       }
+      const zoom = map.getZoom();
+      const size = map.getSize();
+      // Conteneur sans dimensions (carte encore masquée, rendu de test) : on ne
+      // sait pas ce qui est visible, on garde donc tout.
+      const view = size.x > 0 && size.y > 0 ? map.getBounds().pad(VIEWPORT_PAD) : null;
+      const visible =
+        view === null ? located : located.filter((_, index) => view.contains(positions[index]!));
 
-      const title = document.createElement('strong');
-      title.textContent = summary;
-      popup.append(title);
+      const clusters = clusterByPixelGrid(
+        visible,
+        positionOf,
+        (latitude, longitude) => {
+          const point = map.project([latitude, longitude], zoom);
+          return [point.x, point.y];
+        },
+        CLUSTER_CELL_PX,
+      );
 
-      // §20 : adresse exacte quand elle est publiée.
-      const address = listing.address.value !== null ? formatAddress(listing.address.value) : null;
-      if (address !== null) {
-        const addr = document.createElement('div');
-        addr.textContent = `${address}`;
-        addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
-        popup.append(addr);
+      layer.clearLayers();
+      for (const cluster of clusters) {
+        layer.addLayer(
+          cluster.items.length === 1
+            ? listingMarker(cluster.items[0]!, open)
+            : clusterMarker(map, cluster, open),
+        );
       }
+    };
 
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = 'Voir l’annonce';
-      button.style.cssText =
-        'display:block;margin-top:6px;padding:4px 10px;border-radius:8px;' +
-        'border:1px solid #d4d4d8;background:#fff;cursor:pointer;font:600 12px system-ui';
-      button.addEventListener('click', () => onOpenRef.current(listing.id));
-      popup.append(button);
+    const onPopupOpen = (): void => {
+      reading = true;
+    };
+    const onPopupClose = (): void => {
+      reading = false;
+      if (awaited) {
+        awaited = false;
+        draw();
+      }
+    };
 
-      marker.bindPopup(popup);
-      layer.addLayer(marker);
+    // FIN DE GESTE, et non chaque image : pendant un déplacement Leaflet
+    // translate le calque entier, il n'y a rien à reconstruire avant l'arrêt.
+    map.on('moveend', draw);
+    map.on('zoomend', draw);
+    map.on('popupopen', onPopupOpen);
+    map.on('popupclose', onPopupClose);
+
+    const sameSet =
+      fittedIdsRef.current.length === located.length &&
+      located.every((listing, index) => fittedIdsRef.current[index] === listing.id);
+    if (!sameSet && positions.length > 0) {
+      fittedIdsRef.current = located.map((listing) => listing.id);
+      // Le cadrage finit par `moveend`, qui redessine : inutile de dessiner
+      // deux fois pour la même arrivée.
+      map.fitBounds(L.latLngBounds(positions).pad(0.15), { maxZoom: 15 });
+    } else {
+      draw();
     }
 
-    if (bounds.length > 0) {
-      map.fitBounds(L.latLngBounds(bounds).pad(0.15), { maxZoom: 15 });
-    }
+    return () => {
+      map.off('moveend', draw);
+      map.off('zoomend', draw);
+      map.off('popupopen', onPopupOpen);
+      map.off('popupclose', onPopupClose);
+    };
   }, [located]);
 
   return (
