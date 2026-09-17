@@ -334,12 +334,90 @@ export function parseFurnished(text: string | null | undefined): boolean | null 
 }
 
 /**
+ * LE MOT « COLOCATION » SOUS SES ÉCRITURES RÉELLES.
+ *
+ * Trois formes, et le motif n'en reconnaissait qu'une :
+ *
+ *   - « colocation », l'orthographe courante ;
+ *   - « collocation », la faute la plus répandue ;
+ *   - « co-location », dont le trait d'union devient une ESPACE dans la forme
+ *     comparable — « co location » — si bien qu'aucune frontière de mot ne
+ *     pouvait plus attraper le terme. Relevé du 2026-09-17 sur les 3 996
+ *     annonces actives : vingt-six l'écrivent ainsi, dont deux chambres de dix
+ *     mètres carrés « pour co-location dans appartement de 80 m² ».
+ *
+ * « co » SEUL EST INTERDIT, et c'est la raison d'être de ce fragment plutôt
+ * que d'un `\bco\b` commode : « coin », « cour », « comble » commencent de la
+ * même façon, et une colocation déclarée à tort ferait disparaître de la liste,
+ * en silence, un logement entier qui convenait.
+ */
+const FLAT_SHARE_WORD = String.raw`co ?l{1,2}oc`;
+
+/**
+ * LE LOGEMENT ENTIER QUI SE DIT SUR LA COLOCATION, sans en être une.
+ *
+ * Deux familles, et toutes deux parlent d'un logement qu'on loue en entier :
+ *
+ *   - LA PERMISSION — « colocation possible », « colocation acceptée »,
+ *     « possibilité de faire une co-location » : le bailleur admet des
+ *     colocataires, il ne loue pas une place ;
+ *   - LE REFUS — « pas de colocation », « sans colocation », « ni colocation »,
+ *     « colocation non autorisée », « colocation interdite ». IL MANQUAIT, et
+ *     c'était le faux positif le plus coûteux du lot : le mot suffisait à
+ *     déclarer colocation l'annonce qui disait précisément le contraire.
+ *     Quinze annonces actives étaient dans ce cas le 2026-09-17 — dont un
+ *     studio de 20 m² « pour 1 étudiant, pas de colocation » et deux annonces
+ *     Imodirect dont le TITRE porte « Colocation non autorisée ». Toutes
+ *     disparaissaient de la liste d'un locataire qui exclut les colocations.
+ *
+ * Cette famille est examinée AVANT la mention simple, et l'emporte sur elle :
+ * une annonce qui dit « colocation possible » puis reparle de colocation plus
+ * loin reste un logement entier. Mesuré : l'ordre inverse faisait entrer un
+ * deux-pièces de 42 m² qui annonce « colocation possible » puis « 2 couchages
+ * indépendants possibles chambre/séjour pour colocation étudiante ».
+ */
+const WHOLE_DWELLING_SHARE = new RegExp(
+  [
+    String.raw`${FLAT_SHARE_WORD}ation (?:possible|acceptees?|autorisees?|envisageable)`,
+    String.raw`possibilite (?:de |d une |de faire une )?${FLAT_SHARE_WORD}ation`,
+    String.raw`\b(?:pas|plus) de ${FLAT_SHARE_WORD}`,
+    String.raw`\b(?:sans|ni|aucune) ${FLAT_SHARE_WORD}`,
+    String.raw`${FLAT_SHARE_WORD}ation (?:non|pas) (?:acceptees?|autorisees?|possible|souhaitee)`,
+    String.raw`${FLAT_SHARE_WORD}ation (?:interdite|refusee|impossible|exclue)`,
+  ].join('|'),
+);
+
+/**
+ * LA COLOCATION DITE EN TOUTES LETTRES, ou par le mot qui la désigne vraiment.
+ *
+ * « co étudiante » EST une colocation, et l'annonce qui a fait ouvrir le sujet
+ * ne dit rien d'autre : « F2 en co étudiante chambre indépendante », dix fois
+ * l'expression sur la page, « cuisine équipée collective » dans le texte. Elle
+ * entrait dans la liste d'un locataire qui exclut les colocations.
+ *
+ * CE QUI A ÉTÉ MESURÉ ET REFUSÉ, faute d'être sûr :
+ *
+ *   - « colocataire » seul — trente-neuf occurrences actives, et les quatre qui
+ *     n'étaient pas déjà signalées sont des logements ENTIERS : « parfaites
+ *     pour accueillir une petite famille ou des colocataires », « maximum
+ *     2 colocataires ensemble ou famille de 4 personnes ». Le mot nomme un
+ *     occupant possible, pas le mode de location ;
+ *   - « chambre indépendante » — vingt et une annonces actives non partagées
+ *     l'emploient pour dire qu'un deux-pièces a une chambre SÉPARÉE du séjour.
+ *     C'est l'inverse d'un indice de partage.
+ */
+const FLAT_SHARE_SAID = new RegExp(
+  String.raw`\b${FLAT_SHARE_WORD}ation\b|\b${FLAT_SHARE_WORD}\b|\bco etudiant\w*\b`,
+);
+
+/**
  * Détermine si le bien est proposé en colocation.
  *
  * « colocation possible/acceptée » décrit un logement ENTIER dont le bailleur
  * accepte des colocataires → `false`. « en colocation » / « chambre en
  * colocation » décrit une place dans un logement partagé → `true`.
- * `null` quand le texte ne dit rien (§17).
+ * `null` quand le texte ne dit rien : une valeur inventée fausserait un filtre
+ * d'exclusion, et l'annonce écartée ne laisserait aucune trace.
  */
 export function parseFlatShare(
   text: string | null | undefined,
@@ -361,14 +439,26 @@ export function parseFlatShare(
   const lower = comparable(text);
   const heading = comparable(title);
   if (lower === '' && heading === '') return null;
-  if (
-    /col{1,2}ocation (possible|acceptee|envisageable)|possibilite (de )?col{1,2}ocation/.test(lower)
-  ) {
-    return false;
-  }
-  // « Collocation » : la faute est courante, et elle faisait passer l'annonce
-  // pour muette là où elle dit la chose.
-  if (/\bcol{1,2}ocation\b|\bcoloc\b/.test(lower)) return true;
+  /**
+   * TROIS LECTURES, DANS CET ORDRE, ET L'ORDRE EST TOUT.
+   *
+   * 1. LE TITRE QUI LE DIT SANS RÉSERVE l'emporte. « APPART 3 PIECES EN COLOC »
+   *    est une colocation, même quand la description ajoute plus bas
+   *    « co-location envisageable si le groupe est déjà formé » : l'annonceur a
+   *    intitulé son annonce ainsi, il ne vante pas une possibilité.
+   * 2. LA RÉSERVE OU LE REFUS, où qu'il soit écrit, l'emporte sur la simple
+   *    mention. Sans cette priorité, un deux-pièces de 42 m² qui annonce
+   *    « colocation possible » puis « 2 couchages indépendants possibles
+   *    chambre/séjour pour colocation étudiante » entrait comme colocation.
+   * 3. LA MENTION SIMPLE, enfin.
+   *
+   * Titre et description sont lus séparément, pour qu'une fin de titre et un
+   * début de description ne se touchent jamais au point de former une tournure
+   * que ni l'un ni l'autre ne contient.
+   */
+  if (FLAT_SHARE_SAID.test(heading) && !WHOLE_DWELLING_SHARE.test(heading)) return true;
+  if (WHOLE_DWELLING_SHARE.test(lower) || WHOLE_DWELLING_SHARE.test(heading)) return false;
+  if (FLAT_SHARE_SAID.test(lower)) return true;
   if (/^chambre\b/.test(heading)) return true;
   if (RENT_PER_PERSON.test(lower)) return true;
   return SHARED_DWELLING.test(lower) ? true : null;
@@ -400,11 +490,23 @@ const RENT_PER_PERSON =
  *
  * « Chambre » seule ne suffit pas : une annonce de deux-pièces la mentionne
  * dans sa composition. C'est la préposition qui porte le sens (§17).
+ *
+ * UNE CUISINE OU UNE SALLE D'EAU DÉCLARÉE COLLECTIVE est le troisième indice,
+ * et il est sans équivoque : un logement qu'on loue en entier n'a jamais de
+ * cuisine collective. L'annonce qui a fait ouvrir le sujet l'écrit — « cuisine
+ * équipée collective » — sans jamais dire le mot « colocation » dans son texte.
+ *
+ * LE NOM DE LA PIÈCE EST EXIGÉ, et c'est tout ce qui sépare cet indice du
+ * bruit : « chauffage collectif », « chaudière collective », « parking
+ * collectif », « antenne collective » sont la vie ordinaire d'une copropriété.
+ * Quatre-vingt-treize annonces en base portent le mot « collectif » ; une seule
+ * l'accole à une cuisine ou à une salle d'eau, et c'est celle-ci. L'indice est
+ * donc sûr mais RARE : il ne repose que sur cet exemple.
  */
 // La ponctuation ayant disparu de la forme comparable, « co-living » y arrive
 // écrit « co living ».
 const SHARED_DWELLING =
-  /chambre[^.;]{0,40}\b(?:dans|au sein d)\b[^.;]{0,30}(?:appartement|maison|villa|logement|colocation|t\d|f\d|\d\s*pieces?)|parties? privatives?[\s\S]{0,200}parties? communes?|parties? communes?[\s\S]{0,200}parties? privatives?|\bco ?living\b/;
+  /chambre[^.;]{0,40}\b(?:dans|au sein d)\b[^.;]{0,30}(?:appartement|maison|villa|logement|colocation|t\d|f\d|\d\s*pieces?)|parties? privatives?[\s\S]{0,200}parties? communes?|parties? communes?[\s\S]{0,200}parties? privatives?|\bco ?living\b|\b(?:cuisines?|salles? de bains?|salles? d eau|sdb|douches?|sanitaires)\b(?:\s+(?:entierement|equipees?|amenagees?|modernes?|neuves?|partagees?|et|la|le|les))*\s+collecti(?:f|fs|ve|ves)\b/;
 
 /**
  * Logement qu'on ne peut PAS garder à l'année parce qu'il est réservé aux

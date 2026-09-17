@@ -328,6 +328,48 @@ describe('parseDetail', () => {
       expect(normaliser('fiche-agence-complete.html', '959 € CC*')?.ges).toBe('B');
     });
   });
+
+  /**
+   * LE TITRE DE L'ANNONCEUR, que la carte remplace par un gabarit.
+   *
+   * La carte porte « Appartement - 2/3 pièce(s) - 50 m² », composé par le site.
+   * La fiche, elle, garde ce que le déposant a écrit — et c'est parfois la seule
+   * phrase de la page qui dise ce qu'est le logement.
+   */
+  describe('le titre écrit par l’annonceur', () => {
+    it('remplace le gabarit de la carte par le titre du déposant', () => {
+      expect(parseDetail(fixture('fiche-particulier-complete.html'))?.title).toBe(
+        'Studio meublé Fleurs / Gambetta, 2e étage',
+      );
+      expect(parseDetail(fixture('fiche-co-etudiante.html'))?.title).toBe(
+        'F2 en co étudiante chambre indépendante',
+      );
+    });
+
+    it('laisse le gabarit quand la fiche n’a pas de titre : rien ne s’invente', () => {
+      expect(parseDetail(fixture('fiche-agence-complete.html'))?.title).toBeUndefined();
+      expect(
+        parseDetail('<div class="im12_txt_ann"><div id="txtAnnonceTrunc">Studio.</div></div>')
+          ?.title,
+      ).toBeUndefined();
+    });
+
+    it('ne prend pas le corps de l’annonce pour son titre', () => {
+      expect(parseDetail(fixture('fiche-co-etudiante.html'))?.title).not.toContain('immeuble');
+    });
+
+    /**
+     * L'ANNONCE QUI A FAIT OUVRIR LE SUJET. Enregistrée sous son gabarit, elle
+     * n'était pas une colocation : ni le titre ni la description ne portaient
+     * le mot. Le titre du déposant dit « en co étudiante », et c'est décisif
+     * pour un locataire dont les critères excluent les colocations.
+     */
+    it('fait reconnaître la colocation qu’il était le seul à déclarer', () => {
+      const annonce = normaliser('fiche-co-etudiante.html', '600 € CC*');
+      expect(annonce?.title).toBe('F2 en co étudiante chambre indépendante');
+      expect(annonce?.flatShare).toBe(true);
+    });
+  });
 });
 
 describe('le passage', () => {

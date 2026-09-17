@@ -930,6 +930,95 @@ describe('parseFlatShare — logement partagé sans le mot « colocation »', ()
     // La distinction tient aussi sur la faute : le logement entier reste entier.
     expect(parseFlatShare('Grand T4, collocation possible')).toBe(false);
   });
+
+  /**
+   * « co-location » : le trait d'union devient une espace dans la forme
+   * comparable, et aucune frontière de mot ne pouvait plus attraper le terme.
+   * Vingt annonces actives l'écrivaient ainsi le 2026-09-17.
+   */
+  it('lit « co-location », dont le trait d’union disparaît au nettoyage', () => {
+    expect(
+      parseFlatShare('Chambre disponible 10 m² pour co-location dans appartement de 80 m²'),
+    ).toBe(true);
+    expect(parseFlatShare('Co-location meublée pour étudiant(e)s, 3 pièces climatisé')).toBe(true);
+    // La distinction tient aussi sur cette écriture.
+    expect(parseFlatShare('Bail étudiant 9 mois, co-location acceptée')).toBe(false);
+    expect(parseFlatShare('Possibilité de faire une co-location')).toBe(false);
+  });
+
+  /**
+   * « co étudiante » VEUT DIRE COLOCATION, et c'est le seul endroit où
+   * l'annonce 1279806064 de ParuVendu le disait — dans son titre, dix fois.
+   */
+  it('reconnaît « co étudiante »', () => {
+    expect(parseFlatShare('', 'F2 en co étudiante chambre indépendante')).toBe(true);
+    expect(parseFlatShare('Appartement en co-étudiant, chambre privative')).toBe(true);
+  });
+
+  /**
+   * LE REFUS DISAIT L'INVERSE DE CE QU'ON EN LISAIT. Le mot suffisait, si bien
+   * qu'une annonce qui écrit « pas de colocation » était déclarée colocation —
+   * et disparaissait de la liste d'un locataire qui les exclut. Quinze annonces
+   * actives étaient dans ce cas le 2026-09-17.
+   */
+  it('respecte le REFUS de colocation', () => {
+    expect(parseFlatShare('Studio 20 m² pour 1 étudiant, pas de colocation')).toBe(false);
+    expect(parseFlatShare('NICE - Appartement 2 pièces - Colocation non autorisée')).toBe(false);
+    expect(
+      parseFlatShare('Location prévue pour une seule personne : ni couple ni colocation'),
+    ).toBe(false);
+    expect(parseFlatShare('Bel appartement, colocation interdite')).toBe(false);
+  });
+
+  /**
+   * LE TITRE QUI LE DIT SANS RÉSERVE l'emporte sur la réserve écrite plus bas :
+   * une annonce intitulée « en coloc » est une colocation, même si sa
+   * description ajoute que le groupe doit être déjà formé. La réserve écrite
+   * DANS le titre, elle, reste une réserve.
+   */
+  it('fait primer un titre qui déclare la colocation sans réserve', () => {
+    expect(
+      parseFlatShare(
+        'Bail location meublée 3 pièces, co-location envisageable si le groupe est déjà formé.',
+        'APPART 3 PIECES EN COLOC REFAIT NEUF VIEUX NICE',
+      ),
+    ).toBe(true);
+    expect(
+      parseFlatShare(
+        'Grand 2 pièces en excellent état, quartier Saint-Lambert.',
+        'NICE - Appartement - 2 pièces - Meublé - Colocation non autorisée - 53 m²',
+      ),
+    ).toBe(false);
+  });
+
+  /**
+   * CE QUI A ÉTÉ MESURÉ ET REFUSÉ. Ces deux tournures paraissent décisives et
+   * ne le sont pas : elles décrivent des logements ENTIERS dans la quasi-
+   * totalité des annonces qui les emploient. Les déclarer colocations ferait
+   * disparaître, en silence, des logements qui conviennent.
+   */
+  it('ne prend ni « colocataire » ni « chambre indépendante » pour une colocation', () => {
+    expect(
+      parseFlatShare(
+        'Deux chambres spacieuses, parfaites pour accueillir une petite famille ou des colocataires.',
+      ),
+    ).toBeNull();
+    expect(
+      parseFlatShare('Deux pièces de 40 m² composé d’une chambre indépendante et d’une terrasse'),
+    ).toBeNull();
+  });
+
+  /**
+   * UNE CUISINE DÉCLARÉE COLLECTIVE n'est jamais celle d'un logement qu'on loue
+   * en entier. Le nom de la pièce est exigé : « chauffage collectif » et
+   * « parking collectif » sont la vie ordinaire d'une copropriété.
+   */
+  it('lit une cuisine ou une salle d’eau collective, jamais un chauffage collectif', () => {
+    expect(parseFlatShare('Meublé, tout confort, wc indépendant, cuisine équipée collective')).toBe(
+      true,
+    );
+    expect(parseFlatShare('Bel immeuble, chauffage collectif et parking collectif')).toBeNull();
+  });
 });
 
 describe('isStudentOnlyHousing', () => {

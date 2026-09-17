@@ -19,9 +19,11 @@
  * LA CARTE : loyer charges comprises (« CC* », jamais hors charges), surface,
  * pièces, CHAMBRES, DPE, un extrait de description coupé, les photos en 320
  * pixels, et l'annonceur — « Particulier » avec son pseudonyme, ou le nom de
- * l'agence.
+ * l'agence. SON TITRE EST UN GABARIT, composé par le site : « Appartement -
+ * 2/3 pièce(s) - 50 m² ».
  *
- * LA FICHE (`parseDetail`) : charges, dépôt de garantie, honoraires, la
+ * LA FICHE (`parseDetail`) : LE TITRE QU'A ÉCRIT L'ANNONCEUR (voir
+ * `advertTitle`), les charges, le dépôt de garantie, les honoraires, la
  * description entière, le CODE POSTAL, l'étage, l'ascenseur, les chambres, le
  * meublé, la RÉFÉRENCE DE L'ANNONCEUR, le nom exact de l'annonceur, et les
  * mêmes photos en 1 000 pixels (480 chez les agences).
@@ -446,6 +448,44 @@ function detailPhotos($: cheerio.CheerioAPI): string[] {
   return [...photos];
 }
 
+/**
+ * LE TITRE QU'A ÉCRIT L'ANNONCEUR — que la carte de liste ne donne jamais.
+ *
+ * La carte porte un `title` composé par le site, dans un ordre invariable :
+ * « Appartement - 2/3 pièce(s) - 50 m² ». C'est ce gabarit que nous
+ * enregistrions, et il n'apprend rien que le loyer, la surface et les pièces ne
+ * disent déjà. Les 207 annonces ParuVendu actives du 2026-09-17 en portaient
+ * un, toutes.
+ *
+ * CE QUE ÇA COÛTAIT. L'annonce 1279806064 s'intitule « F2 en co étudiante
+ * chambre indépendante » : la seule phrase de la page qui dise que le logement
+ * est partagé était celle que nous jetions. Enregistrée sous son gabarit, elle
+ * est entrée dans la liste d'un locataire qui exclut les colocations.
+ *
+ * OÙ IL SE TROUVE. La fiche l'écrit en clair juste avant le corps de l'annonce,
+ * en premier enfant TEXTE du bloc `.im12_txt_ann` — hors de `#txtAnnonceTrunc`,
+ * ce qui explique qu'il échappait aussi à la description. On le lit là plutôt
+ * que dans la balise `<title>` pour deux raisons : la casse y est celle de
+ * l'annonceur, et surtout `<title>` ne le reprend que chez les PARTICULIERS —
+ * chez une agence elle redevient un gabarit, « Annonce location appartement
+ * 3 pièces de 67m2 à Nice (06000) ».
+ *
+ * TOUTES LES FICHES N'EN ONT PAS, et l'absence se respecte : les 207 fiches
+ * actives ont été relues une à une le 2026-09-17, 150 portent un titre
+ * d'annonceur et 57 laissent ce texte vide. On garde alors le gabarit de la
+ * carte plutôt que d'inventer un intitulé.
+ */
+function advertTitle($: cheerio.CheerioAPI): string {
+  const own = $('.im12_txt_ann')
+    .first()
+    .contents()
+    .toArray()
+    .filter((node) => node.type === 'text')
+    .map((node) => cleanText($(node).text()))
+    .find((line) => line !== '');
+  return own ?? '';
+}
+
 export function parseDetail(html: string, priceText?: string): RawDraft | null {
   const $ = cheerio.load(html);
 
@@ -487,8 +527,10 @@ export function parseDetail(html: string, priceText?: string): RawDraft | null {
   if (seller !== '') extra['landlord'] = isPrivate ? 'private' : 'agency';
 
   const photos = detailPhotos($);
+  const title = advertTitle($);
 
   const draft: RawDraft = {
+    ...(title !== '' ? { title } : {}),
     chargesText,
     depositText,
     feesText,

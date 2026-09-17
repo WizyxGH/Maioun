@@ -120,10 +120,13 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
     'sert la recherche DÉPARTEMENTALE pour une commune sans annonce — quatre ' +
     'des douze le 2026-09-16 : le titre de la page est le seul garde-fou. ' +
     'La carte donne loyer CC, surface, pièces, chambres, DPE, photos en 320 px ' +
-    'et le nom du déposant ; la fiche ajoute code postal, charges, dépôt, ' +
-    'honoraires, étage, ascenseur, référence de l’annonceur et photos en ' +
-    '1 000 px. Ni téléphone ni courriel nulle part : le contact passe par une ' +
-    'fenêtre que le robots.txt ferme.',
+    'et le nom du déposant, mais son TITRE est un gabarit composé par le site ' +
+    '(« Appartement - 2/3 pièce(s) - 50 m² ») : les 207 annonces actives du ' +
+    '2026-09-17 en portaient un. La fiche ajoute LE TITRE DE L’ANNONCEUR — ' +
+    '150 des 207 en ont un —, le code postal, les charges, le dépôt, les ' +
+    'honoraires, l’étage, l’ascenseur, la référence de l’annonceur et les ' +
+    'photos en 1 000 px. Ni téléphone ni courriel nulle part : le contact ' +
+    'passe par une fenêtre que le robots.txt ferme.',
 };
 
 export const paruvenduScraper: Scraper = {
