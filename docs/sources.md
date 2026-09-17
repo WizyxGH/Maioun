@@ -429,7 +429,7 @@ description (« NICE NORD – 36 BD GORBELLA »), lue telle quelle.
 
 | Candidate                                                                                                                                                   | Vérifié    | Verdict                                                                                                                                                                                                                                     |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Confiance Immobilière** (confianceimmobiliere.com)                                                                                                        | 2026-09-14 | ⏸️ Site en maintenance (certificat `*.adaptimmo.com`, page « site indisponible ») ; 12 annonces vues sur Bien'ici et FNAIM. À resonder : sans doute en migration vers Netty.                                                                |
+| **Confiance Immobilière** (confianceimmobiliere.com)                                                                                                        | 2026-09-17 | ⏸️ Plus de site : maintenance en clair, pas d'hôte HTTPS, `robots.txt` en 404. Passée à **Netty** d'après ses annonces Bien'ici, mais son site Netty n'est pas publié. 8 locations à Nice, vues par Bien'ici. Étude en fin de fichier.      |
 | **JS Immobilier** (jsimmobilier.fr)                                                                                                                         | 2026-09-14 | 🔴 Défi anti-bot AWS dès la page d'accueil et le robots.txt : non contourné.                                                                                                                                                                |
 | **Nexity, Guy Hoquet, Nestenn, Square Habitat**                                                                                                             | 2026-09-14 | 🔴 Verdicts inchangés. Guy Hoquet Nice Gambetta publie 1 location, lisible par son sitemap Immo-Facile : à reprendre si le stock grossit.                                                                                                   |
 | **Sixième Avenue** (ex-Stéphane Plaza Nice)                                                                                                                 | 2026-09-14 | 🔴 Les agences Stéphane Plaza de Nice sont devenues Sixième Avenue ; la liste passe par un appel `/agency/products/…` qui répond 403.                                                                                                       |
@@ -1335,7 +1335,7 @@ robots.txt vérifié le : 2026-09-16
 Chemins autorisés utilisés : /location-particulier/*, /location-etudiant/*, /colocation/*
 Méthode           : html
 Volume mesuré (périmètre) : 38 cartes lisibles, dont 35 à Nice
-Contact           : GRATUIT (formulaire de candidature)
+Contact           : GRATUIT (formulaire de candidature, gardé par un Turnstile — non automatisable)
 Difficulté technique : faible
 Risque de blocage : faible
 Priorité          : 1
@@ -1397,6 +1397,37 @@ acceptable — **38 cartes lisibles sur 46** dans la rubrique particuliers de
 Nice, contre **1 sur 12** dans la liste des agences. C'est aussi pourquoi la
 collecte passe par `/location-particulier/` : c'est là que les liens sont en
 clair, et là que se trouve ce que ce compte cherche.
+
+**La candidature ne s'envoie pas depuis Maïoun** (relevé le 2026-09-17). Le
+formulaire de la fiche est `<form name="candidate" method="post"
+action="/candidate/{id}/process">`, et il porte, entre le message et le bouton
+« Candidater », un **Turnstile Cloudflare** (`<div class="captcha-ts">`, rendu
+explicitement par `turnstile.render`). Il porte aussi un jeton CSRF Symfony lié
+à la session, `candidate[_token]`. Ses champs :
+
+| Champ                                        | Obligatoire | Source dans le dossier locataire    |
+| -------------------------------------------- | ----------- | ----------------------------------- |
+| `candidate[candidateinformation][firstname]` | oui         | `firstName`                         |
+| `…[lastname]`                                | oui         | `lastName`                          |
+| `…[email]`                                   | oui         | `email`                             |
+| `…[phoneTmp]`                                | oui         | `phone`                             |
+| `…[statut]`                                  | non         | `situation`                         |
+| `…[salary]`                                  | oui         | `monthlyIncome`                     |
+| `…[receipts]` (revenus du garant)            | oui         | **aucune**                          |
+| `…[entryDate]`                               | oui         | `moveInDate`                        |
+| `…[duration]` (durée de location)            | oui         | **aucune**                          |
+| `…[needGuarantor]`, `…[needHomeInsurance]`   | non         | démarchage partenaire, jamais coché |
+| `…[message]`                                 | non         | message de candidature              |
+
+Deux obstacles, et le premier suffit. Le Turnstile dit que le site ne veut pas
+d'envoi automatisé, et le projet ne contourne aucun anti-bot : la source est
+donc inscrite dans `AGENCY_FORM_REFUSALS`. Les **conditions générales de vente**
+le confirment sans l'interdire par écrit — l'article 8.2 plafonne les
+candidatures à **trois par jour** et vend le déplafonnement : le site compte les
+envois et en fait un produit. Ni le `robots.txt` ni les CGU ne contiennent les
+mots « robot », « automat », « extraction » ou « scraping ». Le chemin reste
+« copier le message, ouvrir le formulaire », et les deux champs sans source
+auraient de toute façon bloqué : les revenus d'un garant ne s'inventent pas.
 
 **Le sitemap ne sert pas de point d'entrée**, bien qu'il déclare 137 annonces du
 périmètre. Il garde les annonces parties : sur 28 tirées au sort et demandées,
@@ -1595,3 +1626,62 @@ déjà (profil et garanties) :
 
 Rien de tout cela n'est implémenté ici : c'est une piste pour le profil, pas
 pour la collecte, et elle sort du périmètre de cette étude.
+
+### Confiance Immobilière — l'agence est là, son site n'y est plus
+
+Vérifié le **2026-09-17**. Agence FNAIM, 22 bis boulevard Dubouchage à Nice,
+avec des bureaux avenue de la Californie et promenade des Anglais. Elle nous
+était connue indirectement : c'est elle qui signe l'annonce
+`CONFIANCE IMMOBILIERE` de la fixture Bien'ici. Verdict : **rien à collecter en
+direct aujourd'hui**, et aucun code ajouté.
+
+**`robots.txt` d'abord, et il n'y en a pas.**
+`http://www.confianceimmobiliere.com/robots.txt` répond **404 Not Found
+(nginx)**. En HTTPS la connexion n'aboutit pas : le certificat servi porte
+`CN = *.adaptimmo.com` (Let's Encrypt, valable du 2026-07-27 au 2026-10-25),
+dont les seuls noms sont `*.adaptimmo.com` et `adaptimmo.com` — le domaine de
+l'agence n'y figure pas. Certificat mis de côté le temps du diagnostic, l'hôte
+HTTPS répond **404 sur tout**, y compris la racine : c'est le serveur par
+défaut, aucun site n'y est déclaré. En clair, la racine répond 200 avec pour
+tout contenu `<title>Maintenance</title>` et « Ce site est actuellement
+indisponible. » Les adresses encore indexées de l'ancien site Adaptimmo
+(`/fr/location.htm`, `/fr/annonces/location/appartement/nice-p-r300-4-2-0-24299-1.html`)
+répondent 404.
+
+Ce n'est pas une panne du jour : la dernière capture réussie par Internet
+Archive date du **2026-06-11**, et il n'y en a aucune depuis. Le site était déjà
+en maintenance au relevé du 2026-09-14.
+
+**Il n'existe pas d'autre adresse.** `confianceimmobiliere.com` et
+`confianceimmobiliere.fr` pointent tous deux sur `92.222.125.44`, l'hôte
+Adaptimmo en maintenance ; les autres variantes essayées
+(`confiance-immobiliere.com`, `.immo`, `.net`, `confiance-immobiliere-nice.fr`,
+`agence-confiance.fr`…) n'existent pas dans le DNS. La fiche FNAIM de l'agence,
+annuaire de sa propre fédération, déclare toujours
+`http://www.confianceimmobiliere.com` : elle n'a pas déménagé, elle est hors
+ligne.
+
+**La plateforme est pourtant identifiée : Netty.** Elle se lit sans jamais
+toucher au site de l'agence, dans ce que celle-ci publie sur Bien'ici : ses
+annonces portent des identifiants `netty-company56146lrb-appt-…` et un barème
+d'honoraires hébergé sur
+`https://files.netty.immo/file/company56146lrb/145/F08LR/bareme_des_honoraires.pdf`.
+Le back-office est donc passé d'Adaptimmo à Netty ; la vitrine publique n'a pas
+suivi. Le front Netty (`79.127.134.226`, l'hôte de nos sources Netty déjà en
+place) n'a pas de certificat pour `confianceimmobiliere.com` : le site n'y est
+pas encore servi.
+
+**Volume, mesuré indirectement.** 8 locations à Nice le 2026-09-17 dans la
+recherche Bien'ici du périmètre (`filterType: rent`, zone `-170100`), toutes
+dans les Alpes-Maritimes, 06000 et 06200 ; la fiche FNAIM de l'agence en
+annonce 4 de son côté. Ce sont des annonces déjà couvertes par nos sources
+Bien'ici et FNAIM : la source directe n'apporterait pas de bien nouveau tant
+qu'elle n'existe pas, seulement de l'avance et des champs plus complets.
+
+**Ce qu'il y aura à faire quand le site reviendra.** Une entrée
+`makeNettyScraper({ id: 'confiance-immobiliere', … })` en fin de
+`sources/index.ts`, **sans parseur neuf** : l'adaptateur Netty couvre déjà le
+gabarit. Revérifier alors le `robots.txt` — Netty écrit `Crawl-delay: 5`, qu'on
+respecte tel quel — et relever l'adresse réelle du sitemap. Rien n'est écrit
+maintenant parce que cette adresse serait inventée, et parce qu'une source
+braquée sur un domaine mort dépense son budget en erreurs à chaque passage.
