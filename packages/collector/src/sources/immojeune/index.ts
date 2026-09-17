@@ -24,7 +24,7 @@
  * ensuite, les particuliers en dernier : il faut six pages pour atteindre ce
  * qu'on vient chercher. La rubrique `/location-particulier/` les donne en
  * quatre pages — et c'est aussi là que les liens sont en clair, les cartes
- * d'agences étant presque toutes obfusquées (§10, voir `parser.ts`).
+ * d'agences étant presque toutes obfusquées — voir `parser.ts`.
  */
 
 import type { Scraper, ScrapeContext, ScrapeResult, SourceDescriptor } from '@maioun/shared';
@@ -55,7 +55,7 @@ const ABSENTES = ['cap-d-ail'] as const;
  * Le portail écrit la commune suivie de son DÉPARTEMENT — « nice-06 »,
  * « cagnes-sur-mer-06 » — et non de son code postal. Les deux premiers
  * chiffres du code postal donnent l'un à partir de l'autre, sans qu'aucune
- * liste n'ait à être recopiée ici (§7).
+ * liste n'ait à être recopiée ici.
  */
 export function listUrls(): readonly string[] {
   const urls: string[] = [];
@@ -107,7 +107,15 @@ export const IMMOJEUNE_DESCRIPTOR: SourceDescriptor = {
     'pagination `/{n}`. Le premier badge donne PARTICULIER ou AGENCE. Contact ' +
     'gratuit, par formulaire de candidature. Les cartes dont le lien est ' +
     'obfusqué (`span.obflink`) ne sont pas décodées. Une annonce partie ' +
-    "redirige vers l'accueil en 200, jamais en 404.",
+    "redirige vers l'accueil en 200, jamais en 404. " +
+    'TROIS CANDIDATURES PAR JOUR, ET PAS UNE DE PLUS : les CGV du portail ' +
+    '(article 8.2, relues le 2026-09-17) disent « Chaque utilisateur peut ' +
+    'candidater à 3 offres par jour », le déplafonnement étant vendu à part ' +
+    '(offre « candidatures illimitées », sept jours, tacite reconduction). Rien ' +
+    "n'est à brider ici : la candidature passe par un formulaire gardé par un " +
+    'Turnstile Cloudflare, donc elle se fait à la main, et le collecteur ne ' +
+    'candidate jamais. Le plafond compte pour le CONSEIL : un écran qui invite ' +
+    'à candidater sur ImmoJeune doit dire combien il en reste pour la journée.',
 };
 
 export const immojeuneScraper: Scraper = {

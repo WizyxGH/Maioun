@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant une fiche /trouver_logement/detail/{uid}/
+  (century21.fr) observée le 2026-09-17. Données FICTIVES, agence inventée,
+  téléphones en 06 00 00 00 xx — voir tests/fixtures/README.md.
+
+  Points structurels reproduits :
+  - prix et sa période séparés (.c-the-property-abstract__price
+    / __price-conditions)
+  - bloc « Vue globale » : nature du bail, étage, détail des pièces replié
+  - bloc « Équipements » : « Les plus » en <p>, « Général » en <li>
+  - étiquettes DPE ET GES, chacune un SVG où la classe du bien est la seule
+    barre suivie de son contour #1d1d1b
+  - carrousel .c-the-detail-images__item, photos en chemin relatif et en
+    `data-src` ; vitrine de l'agence et vignettes « Nos offres » AU DEHORS
+  - nom réel de l'agence dans h3.is-agency-name
+-->
+<html lang="fr">
+  <body>
+    <div class="c-the-property-abstract" data-is-for-carto="0">
+      <h1>
+        <span>Appartement F3 à louer</span>
+        <span>3 pièces - 62,5&nbsp;m<sup>2</sup></span>
+        <span>NICE - 06</span>
+      </h1>
+      <div>Ref : 90042</div>
+      <p class="c-the-property-abstract__price">1 250&nbsp;&euro;</p>
+      <p class="c-the-property-abstract__price-conditions">par mois charges comprises</p>
+    </div>
+
+    <div class="c-the-detail-images js-the-detail-images">
+      <div class="c-the-detail-images-no-js-carousel">
+        <ul class="c-the-detail-images__items-container">
+          <li class="c-the-detail-images__item">
+            <img src="/imagesBien/s3/202/579/fixture-c21-fiche-1.jpg" alt="Séjour" />
+          </li>
+          <li class="c-the-detail-images__item">
+            <img data-src="/imagesBien/s3/202/579/fixture-c21-fiche-2.jpg" alt="Chambre" />
+          </li>
+          <li class="c-the-detail-images__item">
+            <img data-src="/imagesBien/s3/202/579/fixture-c21-fiche-3.jpg" alt="Terrasse" />
+          </li>
+          <li class="c-the-detail-images__item">
+            <img src="" alt="plaque du diaporama, sans adresse" />
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="c-the-property-detail-global-view">
+      <h2>Vue globale</h2>
+      <ul class="c-the-property-detail-global-view__list">
+        <li>Location meublée</li>
+        <li>Surface totale :&nbsp;64,0 m<sup>2</sup></li>
+        <li>Surface habitable :&nbsp;62,5 m<sup>2</sup></li>
+        <li>Étage :&nbsp;2</li>
+        <li x-data="{ show: false }">
+          Nombre de pièces :&nbsp;3
+          <span x-text="show ? '[Masquer]': '[Voir le détail]'"></span>
+          <span x-show="show">
+            <ul>
+              <li>Entrée</li>
+              <li>Séjour</li>
+              <li>Chambre</li>
+              <li>Chambre</li>
+              <li>Cuisine</li>
+              <li>Salle de bains</li>
+              <li>WC</li>
+            </ul>
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="c-the-property-detail-equipment">
+      <h2>Équipements</h2>
+      <div>
+        <div>
+          <h3>Les plus</h3>
+          <div>
+            <div><p>Terrasse</p></div>
+            <div><p>Garage</p></div>
+          </div>
+        </div>
+        <div>
+          <h3>Général</h3>
+          <ul class="c-list">
+            <li>Garage :&nbsp;1 place(s)</li>
+            <li>Chauffage :&nbsp;Individuel au gaz</li>
+            <li>Ascenseur</li>
+            <li>Balcon</li>
+            <li>Air conditionné, double vitrage, placards</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="c-the-property-detail-to-know">
+      <h2>À savoir</h2>
+      <ul class="c-list">
+        <li>Loyer de base : 1150 € par mois</li>
+        <li>Provision pour charges :&nbsp;100 €, soumise à régularisation annuelle</li>
+        <li>Libre le :&nbsp;1 novembre 2026</li>
+        <li>
+          Dépôt de garantie :&nbsp;2300 €
+        </li>
+      </ul>
+    </section>
+
+    <section class="c-the-property-detail-dpe">
+      <!-- Étiquette énergie : la classe C (#a5cc74) est la seule suivie du contour noir. -->
+      <div class="c-the-dpe-ges-new-dpe-svg">
+        <svg xmlns="http://www.w3.org/2000/svg">
+          <path style="fill:#00a06d" d="M0 0h10v5H0z"></path>
+          <path style="fill:#fff" d="M1 1h2v2H1z"></path>
+          <path style="fill:#52b153" d="M0 6h14v5H0z"></path>
+          <path style="fill:#fff" d="M1 7h2v2H1z"></path>
+          <path style="fill:#a5cc74" d="M0 12h18v5H0z"></path>
+          <path style="fill:#1d1d1b" d="m18 12 4 3-4 3z"></path>
+          <path style="fill:#f4e70f" d="M0 18h22v5H0z"></path>
+          <path style="fill:#fff" d="M1 19h2v2H1z"></path>
+        </svg>
+      </div>
+      <!-- Étiquette climat : sa propre gamme, du bleu au violet. Classe B. -->
+      <div class="c-the-dpe-ges-new-ges-svg">
+        <svg xmlns="http://www.w3.org/2000/svg">
+          <path style="fill:none;stroke:#a5dbf8" d="M0 0h40v30H0z"></path>
+          <path style="fill:#a4dbf8" d="M0 0h10v5H0z"></path>
+          <path style="fill:#fff" d="M1 1h2v2H1z"></path>
+          <path style="fill:#8cb4d3" d="M0 6h14v5H0z"></path>
+          <path style="fill:#1d1d1b" d="m14 6 4 3-4 3z"></path>
+          <path style="fill:#7792b1" d="M0 12h18v5H0z"></path>
+          <path style="fill:#fff" d="M1 13h2v2H1z"></path>
+        </svg>
+      </div>
+      <p>Date du DPE : 16/12/2024</p>
+    </section>
+
+    <section class="c-the-property-detail-description">
+      <h2>Description</h2>
+      <span x-show="!show">
+        NICE, quartier fictif du Port, à deux pas des commerces. Bel appartement meublé en location
+        longue durée, traversant, avec terrasse. Libre au 1er novembre.
+      </span>
+      <span x-show="show">Furnished three-room flat, fictional district, long-term lease.</span>
+    </section>
+
+    <div class="c-the-property-detail-actions">
+      <a
+        class="c-the-button js-phone-number-stats"
+        data-agence-ref="99001"
+        data-click-label="06 00 00 00 31 "
+        title="Téléphoner à l'agence"
+        >Téléphoner à l'agence</a
+      >
+    </div>
+
+    <section class="c-the-property-detail-agency">
+      <h2>
+        <span>Ce bien est proposé par l'agence</span>
+        <span>CENTURY 21 Agence Fictive du Port</span>
+      </h2>
+      <!-- Vitrine de l'agence : hors carrousel, et ce n'est pas le logement. -->
+      <img data-src="/imagesBien/202/579/webmaster_1_202_579_0_2_0.jpg" alt="Agence" />
+      <h3 class="is-agency-name">CENTURY 21 Agence Fictive du Port</h3>
+      <p>1 rue Fictive</p>
+      <p>06300 NICE</p>
+      <a
+        class="c-the-button js-phone-number-stats"
+        data-agence-ref="99001"
+        data-click-label="06 00 00 00 32 "
+        >Afficher le téléphone</a
+      >
+      <div>
+        <h3>Nos offres</h3>
+        <!-- Vignettes d'AUTRES biens : hors carrousel également. -->
+        <img data-src="/imagesBien/s3/202/579/fixture-c21-autre-bien.jpg" alt="Autre bien" />
+      </div>
+    </section>
+  </body>
+</html>

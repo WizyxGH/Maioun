@@ -1,0 +1,68 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant une page /annonces/location-maison/v-nice/
+  (century21.fr) observée le 2026-09-17. Données FICTIVES — voir
+  tests/fixtures/README.md.
+
+  Ce qu'elle reproduit : le réseau loue AUSSI À LA SEMAINE, et la carte l'écrit
+  comme le reste, « 6 800 € par semaine ». Le motif de prix n'acceptant que
+  « par mois », ces villas entraient sans loyer — donc sans que la règle du
+  projet sur les tarifs de vacances ait quoi que ce soit à lire.
+-->
+<html lang="fr">
+  <body>
+    <div class="js-the-list-of-properties-number-of-results">
+      <h1>Maison à louer Nice</h1>
+      <h2>2 annonces immobilières&nbsp;:</h2>
+    </div>
+
+    <!-- Location au mois : retenue. -->
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000011">
+        <a href="/trouver_logement/detail/16000000011/" aria-label="Maison à louer NICE">
+          <img src="/imagesBien/s3/202/579/fixture-c21-maison-1.jpg" alt="Maison" />
+        </a>
+        <h3>
+          <div>
+            NICE&nbsp;06 <br />
+            97,11 m<sup>2</sup>, 3 pièces
+            <div>Ref : 90011</div>
+          </div>
+          <div>
+            <div>Maison à louer</div>
+            <div>
+              5 000&nbsp;&euro;
+              <p>par mois charges comprises</p>
+            </div>
+          </div>
+        </h3>
+      </div>
+    </div>
+
+    <!-- Location saisonnière : tarif à la semaine, « prix nous consulter » sur la fiche. -->
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000012">
+        <a href="/trouver_logement/detail/16000000012/" aria-label="Maison à louer NICE">
+          <img src="/imagesBien/s3/202/579/fixture-c21-maison-2.jpg" alt="Maison" />
+        </a>
+        <h3>
+          <div>
+            NICE&nbsp;06 <br />
+            243 m<sup>2</sup>, 5 pièces
+            <div>Ref : 90012</div>
+          </div>
+          <div>
+            <div>Maison à louer</div>
+            <div>
+              6 800&nbsp;&euro;
+              <p>par semaine</p>
+            </div>
+          </div>
+        </h3>
+        <div class="tw-truncate-safe">
+          LOCATION SAISONNIERE Maison fictive avec piscine, ouverte du 1er juin au 31 octobre…
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

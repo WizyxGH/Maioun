@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseDetail, parseListingUrl, parseSearchPage } from './parser.js';
+import { isSeasonalPrice, parseDetail, parseListingUrl, parseSearchPage } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/century21');
 const PAGE_URL = 'https://www.century21.fr/annonces/location-appartement/v-nice/';
@@ -11,6 +11,8 @@ const nominal = readFileSync(join(FIXTURES, 'nice-page1.html'), 'utf8');
 const page2 = readFileSync(join(FIXTURES, 'nice-page2.html'), 'utf8');
 const sansResultat = readFileSync(join(FIXTURES, 'sans-resultat.html'), 'utf8');
 const fiche = readFileSync(join(FIXTURES, 'fiche-description.html'), 'utf8');
+const saisonniere = readFileSync(join(FIXTURES, 'nice-saisonniere.html'), 'utf8');
+const ficheComplete = readFileSync(join(FIXTURES, 'fiche-complete.html'), 'utf8');
 const PAGE2_URL = 'https://www.century21.fr/annonces/location-appartement/v-nice/page-2/';
 
 describe('parseListingUrl', () => {
@@ -201,5 +203,123 @@ describe('parseDetail — « À savoir », DPE et téléphone de l’agence', ()
     expect(normalized?.dpe).toBe('D');
     expect(normalized?.availableAt?.slice(0, 10)).toBe('2026-09-15');
     expect(normalized?.contact.phone).not.toBeNull();
+  });
+});
+
+describe('les locations à la semaine sont écartées, et le disent', () => {
+  const LISTE = 'https://www.century21.fr/annonces/location-maison/v-nice/';
+
+  it('ne retient pas la villa louée à la semaine', () => {
+    // Le motif de prix n'acceptait que « par mois » : « 6 800 € par semaine »
+    // ne correspondait à rien, l'annonce entrait sans loyer, et la règle du
+    // projet sur les tarifs de vacances n'avait rien à lire. Résultat, une
+    // maison de 243 m² en location saisonnière dans les critères.
+    const page = parseSearchPage(saisonniere, LISTE);
+    expect(page.listings.map((l) => l.sourceRef)).toEqual(['16000000011']);
+    expect(page.excluded).toEqual([
+      { sourceRef: '16000000012', reason: 'loyer « 6 800 € par semaine »' },
+    ]);
+  });
+
+  it('nomme l’annonce écartée et son motif : rien ne part en silence', () => {
+    const page = parseSearchPage(saisonniere, LISTE);
+    expect(page.warnings).toHaveLength(1);
+    expect(page.warnings[0]).toContain('/trouver_logement/detail/16000000012/');
+    expect(page.warnings[0]).toContain('par semaine');
+  });
+
+  it('garde le loyer mensuel avec sa période, charges comprises', () => {
+    const [mensuelle] = parseSearchPage(saisonniere, LISTE).listings;
+    expect(mensuelle?.priceText).toContain('5 000 € par mois charges comprises');
+    const normalized = normalizeListing(
+      { ...mensuelle!, sourceRef: '16000000011' },
+      { sourceId: 'century21', nowMs: Date.parse('2026-09-17T12:00:00Z') },
+    );
+    expect(normalized?.price).toBe(5000);
+    expect(normalized?.chargesIncluded).toBe(true);
+  });
+
+  it('reconnaît un tarif de vacances quel qu’en soit le libellé', () => {
+    expect(isSeasonalPrice('6 800 € par semaine')).toBe(true);
+    expect(isSeasonalPrice('120 € par nuit')).toBe(true);
+    expect(isSeasonalPrice('1 250 € par mois charges comprises')).toBe(false);
+    expect(isSeasonalPrice(undefined)).toBe(false);
+  });
+});
+
+describe('parseDetail — tout ce que la fiche publie', () => {
+  const draft = parseDetail(ficheComplete);
+
+  it('recolle le prix et sa période, que le gabarit sépare', () => {
+    // C'est ce couple qui permet de reconnaître une location de vacances
+    // même quand la carte de la liste n'a rien donné.
+    expect(draft?.priceText).toBe('1 250 € par mois charges comprises');
+  });
+
+  it('nomme l’AGENCE, et non le réseau', () => {
+    // Les quarante-six annonces portaient « Century 21 » : le nom que trois
+    // cents agences se partagent, et qui ne dit pas qui appeler.
+    expect(draft?.agencyName).toBe('CENTURY 21 Agence Fictive du Port');
+  });
+
+  it('prend les photos du carrousel, et rien que celles du bien', () => {
+    // La carte n'en porte qu'une ; la fiche en publie vingt à trente. La
+    // vitrine de l'agence et les vignettes « Nos offres » restent dehors.
+    expect(draft?.imageUrls).toEqual([
+      'https://www.century21.fr/imagesBien/s3/202/579/fixture-c21-fiche-1.jpg',
+      'https://www.century21.fr/imagesBien/s3/202/579/fixture-c21-fiche-2.jpg',
+      'https://www.century21.fr/imagesBien/s3/202/579/fixture-c21-fiche-3.jpg',
+    ]);
+  });
+
+  it('lit les DEUX étiquettes : énergie et climat', () => {
+    // Le GES a son propre SVG et sa propre gamme de couleurs. Faute de le
+    // lire, la source était vide à cent pour cent sur ce champ.
+    expect(draft?.extra?.['dpe']).toBe('C');
+    expect(draft?.extra?.['ges']).toBe('B');
+  });
+
+  it('lit l’étage et la nature du bail dans « Vue globale »', () => {
+    expect(draft?.extra?.['etage']).toBe('2');
+    expect(draft?.furnishedText).toBe('Location meublée');
+  });
+
+  it('compte les chambres dans le détail des pièces', () => {
+    // Century 21 ne publie aucun total, mais publie la liste des pièces :
+    // compter ses « Chambre » n'est pas les deviner.
+    expect(draft?.extra?.['features']).toContain('2 chambres');
+  });
+
+  it('garde les équipements déclarés, absents de la description', () => {
+    const features = draft?.extra?.['features'] ?? '';
+    expect(features).toContain('Ascenseur');
+    expect(features).toContain('Balcon');
+    expect(features).toContain('Terrasse');
+  });
+
+  it('va jusqu’à la fiche normalisée', () => {
+    const normalized = normalizeListing(
+      {
+        sourceRef: '90042',
+        sourceUrl: 'https://www.century21.fr/trouver_logement/detail/16000000042/',
+        agencyName: 'Century 21',
+        ...draft,
+      },
+      { sourceId: 'century21', nowMs: Date.parse('2026-09-17T12:00:00Z') },
+    );
+    expect(normalized?.price).toBe(1250);
+    expect(normalized?.charges).toBe(100);
+    expect(normalized?.deposit).toBe(2300);
+    expect(normalized?.bedrooms).toBe(2);
+    expect(normalized?.dpe).toBe('C');
+    expect(normalized?.ges).toBe('B');
+    expect(normalized?.furnished).toBe(true);
+    expect(normalized?.contact.agencyName).toBe('CENTURY 21 Agence Fictive du Port');
+    expect(normalized?.imageUrls).toHaveLength(3);
+    expect(normalized?.features).toContain('Ascenseur');
+    expect(normalized?.features).toContain('2e étage');
+    // La fiche ne publie pas le code postal DU BIEN : le « 06300 » qu'on y lit
+    // est celui de l'agence, et le fil d'Ariane donne le même pour tout Nice.
+    expect(normalized?.postalCode).toBeNull();
   });
 });

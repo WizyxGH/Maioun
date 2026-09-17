@@ -25,7 +25,21 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 import { cleanMultiline, cleanText } from '../../normalization/text.js';
+import { isShortPeriodPrice } from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
+
+/**
+ * LE LOYER AVEC SA PÉRIODE, et c'est ce qui manquait.
+ *
+ * On n'acceptait que « … € par mois ». Century 21 loue aussi à la SEMAINE — six
+ * villas du périmètre, « 6 800 € par semaine », « Prix nous consulter » sur la
+ * fiche. Le prix ne correspondant pas au motif, il restait vide : l'annonce
+ * entrait sans loyer, et la règle du projet qui écarte les tarifs à la nuit ou
+ * à la semaine n'avait rien à lire. La maison du Mont Boron, 243 m² de location
+ * saisonnière, se retrouvait ainsi DANS les critères, sa surface faisant seule
+ * le score. Lire la période la fait reconnaître pour ce qu'elle est.
+ */
+const PRICE_WITH_PERIOD = /[\d][\d\s.,]*\s*€\s*par\s*(?:mois|semaine|nuit(?:ée|ee)?|jour)[^,.]*/i;
 
 /** Forme d'une URL de fiche : `/trouver_logement/detail/{uid}/`. */
 const LISTING_URL_PATTERN =
@@ -46,9 +60,22 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
   };
 }
 
+/** Annonce lue, puis écartée par une règle — et le motif, en clair. */
+export interface ExcludedListing {
+  readonly sourceRef: string;
+  readonly reason: string;
+}
+
 /** Résultat du parsing d'une page de résultats. */
 export interface ParsedPage {
   readonly listings: readonly RawListing[];
+  /**
+   * Les annonces écartées. Elles COMPTENT dans l'inventaire — sans quoi la
+   * recherche se croirait incomplète à chaque passage, puisque le site les
+   * annonce dans son total — mais ne sont pas retenues, et `warnings` dit
+   * laquelle et pourquoi.
+   */
+  readonly excluded: readonly ExcludedListing[];
   readonly hasNextPage: boolean;
   /** Adresse de la page suivante, ou `null` : celle-ci est la dernière. */
   readonly nextPageUrl: string | null;
@@ -116,6 +143,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const $ = cheerio.load(html);
   const warnings: string[] = [];
   const byReference = new Map<string, RawListing>();
+  const excluded: ExcludedListing[] = [];
 
   $('.c-the-property-thumbnail-with-content[data-uid]').each((_index, element) => {
     const card = $(element);
@@ -138,7 +166,19 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     const description = htmlToText($, card.find('.tw-truncate-safe') as cheerio.Cheerio<never>);
     const ariaTitle = cleanText(card.find('a[aria-label]').first().attr('aria-label') ?? '');
 
-    const priceText = headText.match(/[\d][\d\s.,]*\s*€\s*par\s*mois[^,.]*/i)?.[0];
+    const priceText = headText.match(PRICE_WITH_PERIOD)?.[0];
+
+    // UN LOYER À LA SEMAINE N'EST PAS UN LOYER : c'est une location de
+    // vacances, que le projet écarte pour toutes ses sources. La carte le dit,
+    // donc on s'arrête ici plutôt que d'aller lire la fiche.
+    if (isShortPeriodPrice(priceText)) {
+      excluded.push({ sourceRef: url.reference, reason: `loyer « ${priceText ?? ''} »` });
+      warnings.push(
+        `Location saisonnière (écartée, loyer « ${priceText ?? ''} ») : ${url.canonicalUrl}`,
+      );
+      return;
+    }
+
     // Sans espaces internes : le « 06 » du département précède la surface
     // dans le texte aplati (« NICE 06 78,27 m² ») et serait sinon capturé.
     const areaText = headText.match(/\d+(?:[.,]\d+)?\s*m\s*(?:²|2)(?!\d)/i)?.[0];
@@ -224,6 +264,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const next = nextPageUrl($, pageUrl);
   return {
     listings,
+    excluded,
     hasNextPage: next !== null,
     nextPageUrl: next,
     announcedTotal: announcedTotal($),
@@ -236,7 +277,15 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
 }
 
 /**
- * La description ENTIÈRE, lue sur la fiche de l'annonce.
+ * TOUT CE QUE LA FICHE PUBLIE, et que la carte de la liste ne dit pas :
+ * description entière, prix avec sa période, montants, disponibilité, DPE et
+ * GES, étage, équipements, chambres, nom réel de l'agence, téléphone et la
+ * vingtaine de photos du carrousel.
+ *
+ * Ce que la fiche ne publie PAS reste absent. Century 21 ne donne ni le code
+ * postal du bien — le « 06300 » du fil d'Ariane vaut pour Nice entière —, ni
+ * son adresse de rue autrement que dans la prose, ni l'état des lieux en dehors
+ * de la ventilation des honoraires, ni la taxe d'ordures ménagères.
  *
  * LA CARTE TRONQUE, et le site le dit lui-même : le fragment qu'elle affiche
  * porte la classe `tw-truncate-safe`. Relevé du 2026-09-08 sur les
@@ -258,14 +307,146 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
  */
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
-  const dpe = highlightedDpe($);
+  const view = globalView($);
+  const extra: Record<string, string> = {};
+  const dpe = energyClass($, '.c-the-dpe-ges-new-dpe-svg', DPE_COLORS);
+  const ges = energyClass($, '.c-the-dpe-ges-new-ges-svg', GES_COLORS);
+  const features = declaredFeatures($, view.bedrooms);
+  if (dpe !== undefined) extra['dpe'] = dpe;
+  if (ges !== undefined) extra['ges'] = ges;
+  if (view.floor !== undefined) extra['etage'] = view.floor;
+  if (features !== undefined) extra['features'] = features;
+
   const draft: RawDraft = compactListing({
     description: frenchDescription($),
+    priceText: abstractPrice($),
     ...toKnowFields($),
     phoneText: agencyPhone($),
-    extra: dpe !== undefined ? { dpe } : undefined,
+    agencyName: agencyName($),
+    imageUrls: galleryImages($),
+    furnishedText: view.lease,
+    extra: Object.keys(extra).length > 0 ? extra : undefined,
   });
   return Object.keys(draft).length > 0 ? draft : null;
+}
+
+/** Toutes les adresses de century21.fr sont relatives à ce domaine. */
+const SITE = 'https://www.century21.fr';
+
+/**
+ * Le prix TEL QUE LA FICHE L'AFFICHE, montant et période séparés par le gabarit
+ * (« 6 800 € » / « par semaine », « 4 350 € » / « par mois charges comprises »).
+ * Recoller les deux est ce qui permet de reconnaître un tarif de vacances,
+ * quand bien même la carte de la liste n'aurait rien donné.
+ */
+function abstractPrice($: cheerio.CheerioAPI): string | undefined {
+  const amount = cleanText($('.c-the-property-abstract__price').first().text());
+  if (amount === '') return undefined;
+  const period = cleanText($('.c-the-property-abstract__price-conditions').first().text());
+  return period === '' ? amount : `${amount} ${period}`;
+}
+
+/** `true` si ce texte de prix est un tarif de vacances, et non un loyer. */
+export function isSeasonalPrice(priceText: string | null | undefined): boolean {
+  return isShortPeriodPrice(priceText);
+}
+
+/**
+ * L'AGENCE QUI TIENT LE BIEN, et non le réseau.
+ *
+ * Toutes les annonces portaient « Century 21 » : le nom du réseau, que ses
+ * trois cents agences se partagent. La fiche nomme la vraie — « CENTURY 21
+ * Lafage Transactions » — et c'est elle qu'on appelle, elle qui rapproche deux
+ * annonces du même bien, elle que le suivi d'agence compte.
+ */
+function agencyName($: cheerio.CheerioAPI): string | undefined {
+  const name = cleanText($('.c-the-property-detail-agency h3.is-agency-name').first().text());
+  return name !== '' ? name : undefined;
+}
+
+/**
+ * LES PHOTOS DU BIEN, toutes, et seulement elles.
+ *
+ * La carte de la liste n'en porte qu'UNE ; la fiche en publie vingt à trente.
+ * Relevé du 2026-09-17 sur les quarante-six annonces actives : une photo par
+ * annonce en base, contre huit en moyenne sur les autres sources.
+ *
+ * Le carrousel du bien est le seul lu. Ailleurs dans la page se trouvent la
+ * vitrine de l'agence (`webmaster_…`) et les vignettes de « Nos offres » —
+ * d'autres biens, qui n'ont rien à faire sur cette fiche.
+ *
+ * Les vues sont chargées à la demande (`data-src`), et les premières plaques du
+ * diaporama n'ont pas d'adresse du tout : elles se retirent d'elles-mêmes.
+ */
+function galleryImages($: cheerio.CheerioAPI): readonly string[] | undefined {
+  const urls: string[] = [];
+  $('.c-the-detail-images__item img').each((_i, img) => {
+    const src = $(img).attr('data-src') ?? $(img).attr('src') ?? '';
+    if (src === '' || src.includes('/theme/')) return;
+    try {
+      const absolute = new URL(src, SITE).toString();
+      if (/^https?:/i.test(absolute) && !urls.includes(absolute)) urls.push(absolute);
+    } catch {
+      /* adresse illisible : une photo de moins, jamais une erreur */
+    }
+  });
+  return urls.length > 0 ? urls : undefined;
+}
+
+/** Ce que le bloc « Vue globale » déclare, quand il le déclare. */
+interface GlobalView {
+  /** « Location meublée », « Location vide » — la déclaration, pas une tournure. */
+  readonly lease: string | undefined;
+  /** Étage, en chiffres ; `'0'` pour un rez-de-chaussée. */
+  readonly floor: string | undefined;
+  /** Chambres comptées dans le détail des pièces. */
+  readonly bedrooms: number;
+}
+
+/**
+ * Bloc « Vue globale » : la nature du bail, l'étage, et LE DÉTAIL DES PIÈCES.
+ *
+ * Ce détail est replié derrière « [Voir le détail] » mais présent dans la page,
+ * une pièce par ligne — « Entrée, Séjour, Chambre, Chambre, Chambre, Cuisine ».
+ * Century 21 ne publie nulle part un nombre de chambres ; il publie la liste,
+ * et compter ses chambres n'est pas la deviner. Sans elle, aucune annonce de la
+ * source n'en avait, les descriptions écrivant « une chambre … une 2eme
+ * chambre » plutôt qu'un total.
+ */
+function globalView($: cheerio.CheerioAPI): GlobalView {
+  const block = $('.c-the-property-detail-global-view').first();
+  let lease: string | undefined;
+  let floor: string | undefined;
+  block.find('> ul > li').each((_i, li) => {
+    const line = cleanText($(li).clone().children('span, ul').remove().end().text());
+    if (/^location\s/i.test(line)) lease = line;
+    const stage = /^[ÉE]tage\s*:\s*(.+)$/i.exec(line)?.[1];
+    if (stage === undefined) return;
+    if (/rez.de.chauss/i.test(stage)) floor = '0';
+    else floor = /(\d{1,2})/.exec(stage)?.[1] ?? floor;
+  });
+  const bedrooms = block.find('ul ul > li').filter((_i, li) => {
+    return /^chambre/i.test(cleanText($(li).text()));
+  }).length;
+  return { lease, floor, bedrooms };
+}
+
+/**
+ * Bloc « Équipements » : ascenseur, balcon, climatisation, terrasse, garage…
+ *
+ * Il était ignoré, et rien d'autre ne le remplace : l'appartement 155 m² du
+ * Mont Boron déclare ici un ascenseur et un balcon que sa description ne
+ * mentionne pas. Le nombre de chambres rejoint la liste parce que c'est là que
+ * la normalisation lit ce que la source déclare.
+ */
+function declaredFeatures($: cheerio.CheerioAPI, bedrooms: number): string | undefined {
+  const parts: string[] = [];
+  if (bedrooms > 0) parts.push(`${String(bedrooms)} chambres`);
+  $('.c-the-property-detail-equipment p, .c-the-property-detail-equipment li').each((_i, node) => {
+    const line = cleanText($(node).text());
+    if (line !== '' && !parts.includes(line)) parts.push(line);
+  });
+  return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
 function frenchDescription($: cheerio.CheerioAPI): string | undefined {
@@ -333,20 +514,42 @@ const DPE_COLORS: Readonly<Record<string, string>> = {
 };
 
 /**
- * La classe DPE, dessinée et jamais écrite : l'étiquette est un SVG dont les
+ * Couleurs de l'étiquette CLIMAT, dessinée à côté du DPE.
+ *
+ * Elle a sa propre gamme — un dégradé de bleu vers le violet — et son propre
+ * SVG. Faute de la lire, les quarante-six annonces de la source arrivaient sans
+ * GES, contre quatre sur cinq ailleurs : c'était le seul champ où Century 21
+ * était vide à cent pour cent.
+ */
+const GES_COLORS: Readonly<Record<string, string>> = {
+  '#a4dbf8': 'A',
+  '#8cb4d3': 'B',
+  '#7792b1': 'C',
+  '#606f8f': 'D',
+  '#4d5271': 'E',
+  '#393551': 'F',
+  '#281b35': 'G',
+};
+
+/**
+ * La classe, dessinée et jamais écrite : l'étiquette est un SVG dont les
  * lettres sont des tracés. La barre de la classe du bien est la seule suivie
  * de son contour noir. On ne la recalcule pas depuis les kWh et le CO₂ : le
  * relevé du 2026-09-15 montrait « D » affiché pour 80 kWh et 30 kg, que le
  * barème général classe « C ».
  */
-function highlightedDpe($: cheerio.CheerioAPI): string | undefined {
+function energyClass(
+  $: cheerio.CheerioAPI,
+  selector: string,
+  colors: Readonly<Record<string, string>>,
+): string | undefined {
   let letter: string | undefined;
-  $('.c-the-dpe-ges-new-dpe-svg svg path').each((_i, path) => {
+  $(`${selector} svg path`).each((_i, path) => {
     if (letter !== undefined) return;
     const fill = fillOf($(path).attr('style'));
     const next = $(path).next('path');
     if (fill !== undefined && fillOf(next.attr('style')) === '#1d1d1b') {
-      letter = DPE_COLORS[fill];
+      letter = colors[fill];
     }
   });
   return letter;

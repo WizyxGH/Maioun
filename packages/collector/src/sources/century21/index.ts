@@ -39,7 +39,7 @@ import { portalCommuneSlugs } from '../shared/communes.js';
 import { slugify } from '../../normalization/text.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnAfterEnrich } from '../shared/withdrawn.js';
-import { parseDetail, parseSearchPage } from './parser.js';
+import { isSeasonalPrice, parseDetail, parseSearchPage } from './parser.js';
 import { stopReasonFromError } from '../shared/stop-reason.js';
 
 /**
@@ -132,7 +132,16 @@ export const CENTURY21_DESCRIPTOR: SourceDescriptor = {
     'ville inconnue un 410 : ni l’un ni l’autre n’est un trou. Réf. agence dans ' +
     'le h3. Les fiches des annonces nouvelles sont visitées (12 par exécution) : ' +
     'la carte tronque la description, et seule la fiche porte montants, ' +
-    'disponibilité, DPE et téléphone de l’agence.',
+    'disponibilité, DPE, GES, étage, équipements, chambres, nom réel de ' +
+    'l’agence, ses vingt à trente photos et son téléphone. ' +
+    'LE RÉSEAU LOUE AUSSI À LA SEMAINE : quatre villas du périmètre sont des ' +
+    'locations saisonnières à « 6 800 € par semaine », que la carte affichait ' +
+    'sans que le prix soit lu (le motif n’acceptait que « par mois »). Elles ' +
+    'entraient donc sans loyer, et l’une passait dans les critères sur sa seule ' +
+    'surface. La période est lue, et ces annonces sont écartées avec leur motif ' +
+    'dans le journal du passage. Century 21 ne publie PAS le code postal du ' +
+    'bien : le « 06300 » du fil d’Ariane est celui de la commune entière, il ' +
+    'n’est pas repris.',
 };
 
 /**
@@ -207,8 +216,24 @@ export const century21Scraper: Scraper = {
     const restantes = withdrawnAfterEnrich(context, enriched, stopReason);
     withdrawnRefs.push(...restantes.withdrawnRefs);
 
+    // LA FICHE DIT PARFOIS CE QUE LA CARTE TAISAIT. Dernier filet après
+    // l'enrichissement : une annonce dont le tarif est à la semaine ou à la
+    // nuit est une location de vacances, et le journal nomme laquelle.
+    const retenues: RawListing[] = [];
+    for (const listing of restantes.listings) {
+      if (isSeasonalPrice(listing.priceText)) {
+        warnings.push(
+          `Location saisonnière (écartée, loyer « ${listing.priceText ?? ''} ») : ${listing.sourceUrl}`,
+        );
+        continue;
+      }
+      retenues.push(listing);
+    }
+
     context.log('list.parsed', {
       found: byRef.size,
+      retenues: retenues.length,
+      saisonnieres: byRef.size - retenues.length,
       communes: COMMUNES.length,
       pages: counters.pagesFetched,
       details: enriched.pagesFetched,
@@ -216,7 +241,7 @@ export const century21Scraper: Scraper = {
 
     return {
       sourceId: CENTURY21_DESCRIPTOR.id,
-      listings: restantes.listings,
+      listings: retenues,
       withdrawnRefs,
       requestCount: counters.requestCount,
       pagesFetched: counters.pagesFetched,
@@ -309,8 +334,12 @@ async function readSearch(
       refs.add(listing.sourceRef);
       listings.push(listing);
     }
+    // Les locations de vacances comptent comme LUES : le total du site les
+    // inclut, et les oublier ferait passer la recherche pour incomplète à
+    // chaque passage — l'inverse de ce qu'on cherche à savoir.
+    for (const rejet of parsed.excluded) refs.add(rejet.sourceRef);
 
-    if (parsed.listings.length === 0) break;
+    if (parsed.listings.length === 0 && parsed.excluded.length === 0) break;
     if (page === MAX_PAGES_PER_SEARCH) incomplete = true;
     else url = parsed.nextPageUrl;
   }

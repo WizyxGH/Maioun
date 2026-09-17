@@ -20,9 +20,11 @@ const PAGE1 = readFileSync(join(FIXTURES, 'nice-page1.html'), 'utf8');
 const PAGE2 = readFileSync(join(FIXTURES, 'nice-page2.html'), 'utf8');
 const SANS_RESULTAT = readFileSync(join(FIXTURES, 'sans-resultat.html'), 'utf8');
 const FICHE = readFileSync(join(FIXTURES, 'fiche-description.html'), 'utf8');
+const SAISONNIERE = readFileSync(join(FIXTURES, 'nice-saisonniere.html'), 'utf8');
 
 const NICE_APPARTEMENT = 'https://www.century21.fr/annonces/location-appartement/v-nice/';
 const NICE_APPARTEMENT_2 = `${NICE_APPARTEMENT}page-2/`;
+const NICE_MAISON = 'https://www.century21.fr/annonces/location-maison/v-nice/';
 
 /** Une réponse 200 nue, comme le client HTTP la rend. */
 const ok = (body: string): FetchResult => ({ status: 200, body, headers: {}, notModified: false });
@@ -136,5 +138,35 @@ describe('century21Scraper — le périmètre entier, et les deux types de bien'
     expect(result.warnings.join(' ')).toContain('a servi « Nice » pour drap');
     // Rien de ce qu'elle portait n'est repris sous le nom de Drap.
     expect(result.stopReason).toBe('incomplete');
+  });
+});
+
+describe('century21Scraper — les locations de vacances', () => {
+  it('écarte la villa louée à la semaine sans se croire incomplète', async () => {
+    // Le site compte la villa dans son total ; l'écarter sans la compter
+    // rendrait la recherche éternellement incomplète, et une source incomplète
+    // n'éteint plus rien. Elle compte comme lue, et n'est pas retenue.
+    const trace: Trace = { urls: [] };
+    const result = await century21Scraper.run(contexte(trace, { [NICE_MAISON]: ok(SAISONNIERE) }));
+    const refs = result.listings.map((listing) => listing.sourceRef);
+    expect(refs).toContain('16000000011');
+    expect(refs).not.toContain('16000000012');
+    expect(result.stopReason).toBe('completed');
+  });
+
+  it('dit laquelle elle a écartée, et pourquoi', async () => {
+    const trace: Trace = { urls: [] };
+    const result = await century21Scraper.run(contexte(trace, { [NICE_MAISON]: ok(SAISONNIERE) }));
+    const dit = result.warnings.join(' | ');
+    expect(dit).toContain('Location saisonnière');
+    expect(dit).toContain('/trouver_logement/detail/16000000012/');
+  });
+
+  it('ne va pas lire la fiche d’une annonce écartée', async () => {
+    const trace: Trace = { urls: [] };
+    await century21Scraper.run(contexte(trace, { [NICE_MAISON]: ok(SAISONNIERE) }));
+    expect(trace.urls).not.toContain(
+      'https://www.century21.fr/trouver_logement/detail/16000000012/',
+    );
   });
 });
