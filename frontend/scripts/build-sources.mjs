@@ -48,21 +48,28 @@ const entries = [...ALL_SCRAPERS]
     // L'adresse de vitrine n'a de sens que pour une agence qui a son site : celle
     // d'un portail ne dirait rien des agences qu'il relaie.
     const address = ownSite ? (descriptor.agencyContact?.address ?? null) : null;
+    // Le domaine est transporté POUR TOUT LE MONDE, portails compris : il sert
+    // à reconnaître une agence sous ses graphies (« COT'OUEST IMMOBILIER » ne
+    // rejoint « Cot'Ouest » que par `cot-ouest.fr`). C'est `kind` qui dit s'il
+    // est affichable comme logo, et lui seul.
     return `  '${descriptor.id}': { name: ${JSON.stringify(descriptor.name)}, domain: ${JSON.stringify(
-      ownSite ? domain : null,
-    )}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)} },`;
+      domain === '' ? null : domain,
+    )}, kind: ${JSON.stringify(descriptor.kind)}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)} },`;
   });
 
 const file = `/**
  * ENGENDRÉ — ne pas modifier à la main.
  * Reconstruire avec \`pnpm --filter @maioun/frontend run sources\`.
  *
- * La table des sources, telle que le collecteur les déclare : un nom lisible et,
- * pour les agences qui ont leur propre site, son domaine.
+ * La table des sources, telle que le collecteur les déclare : un nom lisible,
+ * un domaine, et de quoi savoir ce qu'on a le droit d'en faire.
  *
- * \`domain\` vaut \`null\` pour les portails : leur domaine n'est pas celui d'une
- * agence, et s'en servir comme logo donnerait la même image à des dizaines
- * d'agences distinctes.
+ * \`kind\` distingue le site PROPRE d'une agence (\`localAgency\`) du domaine d'un
+ * portail. Seul le premier peut servir de logo : celui d'un portail donnerait
+ * la même image à des dizaines d'agences distinctes.
+ *
+ * \`domain\` est renseigné pour tous, portails compris, parce qu'il sert aussi à
+ * RECONNAÎTRE une agence sous ses graphies, et pas seulement à l'illustrer.
  *
  * \`logo\` n'est renseigné que pour les agences dont l'icône N'EST PAS à
  * \`/favicon.ico\` — c'est l'adresse que leur site déclare lui-même.
@@ -76,6 +83,8 @@ const file = `/**
 export interface SourceInfo {
   readonly name: string;
   readonly domain: string | null;
+  /** Famille de la source : seule une \`localAgency\` a un site bien à elle. */
+  readonly kind: 'portal' | 'agencyNetwork' | 'localAgency' | 'aggregator';
   readonly logo: string | null;
   /** La source vend la mise en relation : ses coordonnées ne sont pas libres. */
   readonly paidContact: boolean;

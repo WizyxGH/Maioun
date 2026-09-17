@@ -6,6 +6,8 @@
  * Il ne dépend de rien, afin de pouvoir être importé partout (§48).
  */
 
+export * from './text.js';
+export * from './agency-names.js';
 export * from './provenance.js';
 export * from './listing.js';
 export * from './contact.js';

@@ -5,108 +5,84 @@
  * liste de quarante lignes identiques à gauche du nom. Le logo est le repère le
  * plus rapide — on reconnaît son agence avant d'avoir lu.
  *
- * ON NE L'INVENTE PAS (§17). Deux conditions, et il en fallait bien deux :
+ * ON NE L'INVENTE PAS. Deux conditions, et il en fallait bien deux :
  *
  *   1. la source doit être le SITE PROPRE d'une agence — pour un portail comme
  *      FNAIM ou Studapart, le domaine est celui du portail, et l'afficher
  *      donnerait le même logo à des dizaines d'agences différentes ;
- *   2. le nom de la source doit désigner LA MÊME AGENCE. Cette seconde
- *      condition manquait, et c'est ce qui donnait de faux logos : le site
- *      d'une agence locale publie parfois un bien dont le contact est une autre
- *      agence, qui héritait alors du logo de la première.
+ *   2. le nom doit désigner LA MÊME AGENCE, prouvé par la règle de
+ *      rapprochement partagée avec le collecteur — celle qui se tait dès que
+ *      deux sources se disputent un nom.
  *
  * Un logo faux est pire qu'une icône neutre : on le croit.
  *
- * §11 : l'image n'est ni téléchargée ni réhébergée, seulement pointée. Elle
- * vient du site de l'agence, comme les photos d'annonces.
+ * L'image n'est ni téléchargée ni réhébergée, seulement pointée. Elle vient du
+ * site de l'agence, comme les photos d'annonces.
  */
 
 import { useState } from 'react';
 import { Agency } from './icons.js';
 import { SOURCES } from '../sources.generated.js';
+import { agencySourceId } from '../agency-coverage.js';
 
 /**
- * Réduit un nom d'agence à sa forme comparable : sans accents, sans casse, sans
- * ponctuation ni espaces. « I.C.I Info Conseil » et « ici info conseil »
- * deviennent la même chaîne.
+ * La source dont on peut porter le logo et l'adresse sous ce nom, ou `null`.
+ *
+ * LE RAPPROCHEMENT ÉTAIT FAIT ICI, et il était faible : deux formes comparables
+ * dont l'une contient l'autre, à partir de cinq caractères. « L'Agence »
+ * entrait ainsi dans « L'Agence du Centre », et l'adresse d'une maison pouvait
+ * se coller sous le nom d'une autre. C'est maintenant la règle du collecteur
+ * qui répond, celle qui se tait dès que deux sources se disputent un nom.
+ *
+ * ET ON NE REGARDE PLUS D'OÙ VIENT L'ANNONCE. On cherchait le logo parmi les
+ * seules sources ayant publié CETTE annonce : une agence que nous collectons,
+ * mais dont l'annonce n'était arrivée que par un portail, restait sous l'icône
+ * neutre. Or la question n'est pas « d'où vient cette annonce » mais « à qui
+ * est ce nom » — et la réponse ne dépend pas du chemin qu'a pris le bien.
+ * Cent huit graphies gagnent un logo ainsi, soixante et une une adresse.
+ *
+ * `kind` décide seul de l'affichage : le domaine d'un portail donnerait la même
+ * image à des dizaines d'agences distinctes.
  */
-function comparableName(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+function ownSource(name: string): { readonly logo: string | null; readonly domain: string } | null {
+  const id = agencySourceId(name);
+  if (id === null) return null;
+  const source = SOURCES[id];
+  if (source === undefined || source.kind !== 'localAgency' || source.domain === null) return null;
+  return { logo: source.logo, domain: source.domain };
+}
+
+/** Le logo d'une agence, quand la source qui la collecte est nommable. */
+export function agencyLogoUrl(name: string): string | null {
+  const source = ownSource(name);
+  if (source === null) return null;
+  // L'ADRESSE DÉCLARÉE D'ABORD. Quarante-neuf agences sur cent quatre-vingt-neuf
+  // ne servent rien à /favicon.ico : elles pointaient vers une image
+  // inexistante, et l'écran retombait sur l'icône neutre alors que leur logo
+  // est public, à l'adresse que leur site déclare lui-même.
+  return source.logo ?? `https://${source.domain}/favicon.ico`;
 }
 
 /**
- * Longueur minimale pour qu'une inclusion de noms fasse foi.
- *
- * Sous ce seuil, l'inclusion ne prouve rien : « immo » se retrouve dans
- * « immo3000 », « immojbf » et la moitié des agences de France.
+ * L'adresse de vitrine d'une agence, sous la même règle que le logo. Dans le
+ * doute, rien : l'adresse d'une autre maison enverrait frapper à la mauvaise
+ * porte.
  */
-const MIN_NAME_MATCH = 5;
-
-/** Deux noms désignent-ils la même agence ? */
-export function sameAgency(a: string, b: string): boolean {
-  const left = comparableName(a);
-  const right = comparableName(b);
-  if (left === '' || right === '') return false;
-  const shorter = left.length <= right.length ? left : right;
-  if (shorter.length < MIN_NAME_MATCH) return false;
-  return left.includes(right) || right.includes(left);
-}
-
-/**
- * Le domaine PROPRE d'une agence, s'il en existe un.
- *
- * LE NOM DOIT CORRESPONDRE, et c'est ce qui manquait. On retenait le premier
- * domaine venu parmi les sources qui mentionnent l'agence — or une source
- * d'agence locale publie parfois des biens dont le contact est une AUTRE
- * agence. Celle-ci héritait alors du logo de la première : un logo faux, ce
- * qui est pire qu'une icône neutre, parce qu'on le croit.
- *
- * On n'affiche donc un logo que lorsqu'on peut l'ATTRIBUER : le nom de l'agence
- * et celui de la source doivent désigner la même maison. Dans le doute, l'icône
- * neutre (§17).
- */
-export function agencyLogoUrl(sources: readonly string[], name: string): string | null {
-  for (const sourceId of sources) {
-    const source = SOURCES[sourceId];
-    if (source?.domain === undefined || source.domain === null) continue;
-    if (!sameAgency(source.name, name)) continue;
-    // L ADRESSE DECLAREE D ABORD. Neuf agences sur trente-sept ne servent rien
-    // a /favicon.ico : elles pointaient vers une image inexistante, et l ecran
-    // retombait sur l icone neutre alors que leur logo est public.
-    return source.logo ?? `https://${source.domain}/favicon.ico`;
-  }
-  return null;
-}
-
-/**
- * L'adresse de vitrine d'une agence, sous la même règle que le logo : la source
- * doit être le site propre de l'agence ET porter le même nom. Sinon rien —
- * l'adresse d'une autre maison enverrait frapper à la mauvaise porte.
- */
-export function agencyAddress(sources: readonly string[], name: string): string | null {
-  for (const sourceId of sources) {
-    const source = SOURCES[sourceId];
-    if (source?.address == null || !sameAgency(source.name, name)) continue;
-    const { street, postalCode, city } = source.address;
-    return `${street}, ${postalCode} ${city}`;
-  }
-  return null;
+export function agencyAddress(name: string): string | null {
+  const id = agencySourceId(name);
+  const address = id === null ? null : SOURCES[id]?.address;
+  if (address == null) return null;
+  return `${address.street}, ${address.postalCode} ${address.city}`;
 }
 
 export function AgencyLogo({
-  sources,
   name,
   className = 'size-5',
 }: {
-  readonly sources: readonly string[];
   readonly name: string;
   readonly className?: string;
 }): React.JSX.Element {
-  const logo = agencyLogoUrl(sources, name);
+  const logo = agencyLogoUrl(name);
   // Une image qui ne charge pas laisserait un carré vide, plus laid que
   // l'icône qu'elle remplace : on repasse à celle-ci.
   const [broken, setBroken] = useState(false);

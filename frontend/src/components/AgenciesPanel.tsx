@@ -9,8 +9,14 @@
  * et à qui l'on parlera une fois pour les trois.
  *
  * LE NOM SERT DE CLÉ, faute de mieux : les sources ne publient pas
- * d'identifiant d'agence. Deux orthographes donnent donc deux entrées — c'est
- * préférable à un regroupement inventé qui mélangerait deux enseignes (§17).
+ * d'identifiant d'agence. Deux orthographes donnent donc deux LIGNES — c'est
+ * préférable à un regroupement inventé qui mélangerait deux enseignes, et la
+ * fiche d'une agence s'ouvre par son nom exact.
+ *
+ * LES COMPTES, EUX, NE S'EN CONTENTENT PLUS. « Non suivies (264) » comptait
+ * des graphies, et surtout comptait la mauvaise chose : il répondait « cette
+ * annonce-ci est-elle venue du site de l'agence ? » quand la question posée
+ * était « collectons-nous cette agence ? ». Voir `agency-coverage.ts`.
  */
 
 import { ArrowLeft, Mail, MapPin, Phone } from './icons.js';
@@ -23,12 +29,12 @@ import { Card } from '@/components/ui/card.js';
 import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 import { ListingCard } from './ListingCard.js';
 import { useState } from 'react';
-import { isFollowedAgency } from '../agency-coverage.js';
+import { hasParserGap, isFollowedAgency } from '../agency-coverage.js';
 import { ToggleGroup } from '@/components/ui/toggle.js';
 
 /** Coordonnées d'une agence : ce dont on se sert pour la joindre. */
 function AgencyContact({ agency }: { readonly agency: AgencySummary }): React.JSX.Element | null {
-  const address = agencyAddress(agency.sources, agency.name);
+  const address = agencyAddress(agency.name);
   if (agency.phone === null && agency.email === null && address === null) return null;
   return (
     <div className="mt-2 flex flex-wrap items-center gap-3 text-[0.9rem]">
@@ -64,9 +70,13 @@ export function AgenciesPanel({
   readonly onBack: () => void;
   readonly onOpen: (name: string) => void;
 }): React.JSX.Element {
-  const [show, setShow] = useState<'all' | 'unfollowed'>('all');
-  const unfollowed = agencies.filter((agency) => !isFollowedAgency(agency.sources));
-  const shown = show === 'all' ? agencies : unfollowed;
+  const [show, setShow] = useState<'all' | 'unfollowed' | 'gap'>('all');
+  // DEUX MANQUES DISTINCTS, ET SURTOUT PAS MÉLANGÉS : il manque une SOURCE, ou
+  // il manque une ANNONCE à une source qui existe. Le premier se répare en
+  // ajoutant une agence, le second en reprenant un parseur.
+  const unfollowed = agencies.filter((agency) => !isFollowedAgency(agency.name));
+  const gap = agencies.filter((agency) => hasParserGap(agency.name, agency.sources));
+  const shown = show === 'all' ? agencies : show === 'unfollowed' ? unfollowed : gap;
   return (
     <div>
       <header className="mb-2">
@@ -79,8 +89,7 @@ export function AgenciesPanel({
       <p className="text-muted-foreground mb-3 text-[0.9rem]">
         Celles qui publient les annonces trouvées, classées par nombre de biens en ligne.
       </p>
-      {/* LA LISTE À SURVEILLER : les agences qu'on ne voit que par les portails,
-        avec leur retard et leurs manques. Tenue à jour par chaque collecte. */}
+      {/* LES DEUX LISTES À SURVEILLER. Tenues à jour par chaque collecte. */}
       <ToggleGroup
         aria-label="Agences affichées"
         className="mb-2"
@@ -88,12 +97,20 @@ export function AgenciesPanel({
         onValueChange={setShow}
         items={[
           { value: 'all', label: `Toutes (${agencies.length})` },
-          { value: 'unfollowed', label: `Non suivies (${unfollowed.length})` },
+          { value: 'unfollowed', label: `Sans source (${unfollowed.length})` },
+          { value: 'gap', label: `Annonce manquée (${gap.length})` },
         ]}
       />
       {show === 'unfollowed' && (
         <p className="text-muted-foreground mb-3 text-[0.82rem]">
-          Vues seulement sur les portails : Maïoun ne lit pas encore leur propre site.
+          Aucune source ne les collecte : leurs biens n’arrivent qu’avec le retard et les manques du
+          portail qui les relaie.
+        </p>
+      )}
+      {show === 'gap' && (
+        <p className="text-muted-foreground mb-3 text-[0.82rem]">
+          Nous lisons leur site, mais cette annonce-là n’y a pas été vue : elle n’est arrivée que
+          par un portail. C’est un parseur à reprendre, pas une source à ajouter.
         </p>
       )}
 
@@ -110,7 +127,7 @@ export function AgenciesPanel({
                 className="rf-rise"
                 style={{ '--rf-delay': `${Math.min(rank, 10) * 25}ms` } as React.CSSProperties}
               >
-                <AgencyLogo sources={agency.sources} name={agency.name} className="size-6" />
+                <AgencyLogo name={agency.name} className="size-6" />
                 <ItemContent>
                   <ItemTitle className="truncate">{agency.name}</ItemTitle>
                   <ItemDescription className="text-[0.8rem]">
@@ -158,7 +175,7 @@ export function AgencyPanel({
       {/* Le logo accompagne le nom sur la fiche aussi : c'est le même repère,
         et son absence ici donnerait l'impression d'une autre agence. */}
       <div className="flex items-center gap-3">
-        <AgencyLogo sources={agency.sources} name={agency.name} className="size-9" />
+        <AgencyLogo name={agency.name} className="size-9" />
         <h1 className="min-w-0 flex-1 text-xl font-bold">{agency.name}</h1>
       </div>
       <p className="text-muted-foreground text-[0.9rem]">
