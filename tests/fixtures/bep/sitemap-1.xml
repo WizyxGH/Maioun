@@ -32,6 +32,14 @@
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
+  <!-- Fiche location à Villeneuve-Loubet : commune du périmètre, longtemps
+       écartée sans raison alors que BEP y publie. -->
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/propriete/location+appartement+villeneuve-loubet+f1-fictif-avec-jardin+90000006]]></loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
   <!-- Fiche location à Antibes : HORS des communes cibles, ignorée. -->
   <url>
     <loc><![CDATA[https://bep-logement.com/fr/propriete/location+appartement+antibes+trois-pieces-fictif-terrasse+90000003]]></loc>

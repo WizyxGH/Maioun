@@ -20,14 +20,20 @@ export const bepScraper = makeApimoScraper({
   // avec d'autres références et d'autres photos (§14).
   operator: 'bep-logement',
   sitemapUrl: 'https://bep-logement.com/sitemap.xml',
-  // Falicon déborde le périmètre : l'agence y publie, et une commune limitrophe
-  // de Nice vaut d'être lue. Les cinq écartées le sont par héritage de la liste
-  // recopiée, sans raison consignée — l'en-tête ci-dessus annonce pourtant le
-  // périmètre entier. Le filtre porte sur un sitemap déjà téléchargé.
-  citySlugs: [
-    ...portalCommuneSlugs({
-      omit: ['villeneuve-loubet', 'cap-d-ail', 'carros', 'contes', 'colomars'],
-    }),
-    'falicon',
-  ],
+  /**
+   * LE PÉRIMÈTRE ENTIER, plus Falicon.
+   *
+   * Cinq communes — Villeneuve-Loubet, Cap-d'Ail, Carros, Contes, Colomars —
+   * étaient écartées par héritage d'une liste recopiée, sans raison consignée,
+   * alors que l'en-tête ci-dessus annonce « Nice et sa continuité urbaine ».
+   * Relevé du 2026-09-17 : BEP propose Villeneuve-Loubet dans son propre menu
+   * de communes, et son F1 de 40 m² à 794 € y était en ligne sans que nous
+   * l'ayons jamais lu.
+   *
+   * NE COÛTE RIEN QUAND CES COMMUNES SONT VIDES : le filtre s'applique à un
+   * sitemap déjà téléchargé, et une commune sans annonce n'ajoute aucune
+   * requête. Falicon déborde le périmètre, mais l'agence y publie et la commune
+   * touche Nice.
+   */
+  citySlugs: [...portalCommuneSlugs(), 'falicon'],
 });

@@ -3,8 +3,16 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parsePhone } from '../../normalization/parse-listing-fields.js';
-import { parseDetailPage, parseListingUrl, parseSitemap, parseSitemapIndex } from './parser.js';
+import {
+  parseDetailPage,
+  parseListingUrl,
+  parseSitemap,
+  parseSitemapIndex,
+  publishedReference,
+} from './parser.js';
 import { mostRecentDate } from '../apimo/parser.js';
+import { bepScraper } from './index.js';
+import { contextServing } from '../../../../../tests/helpers/scrape-context.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/bep');
 
@@ -56,8 +64,8 @@ describe('parseSitemap', () => {
   const entries = parseSitemap(sitemapXml);
 
   it('extrait uniquement les fiches de location, CDATA compris', () => {
-    // 4 fiches location dans la fixture (la vente et les pages sont exclues).
-    expect(entries).toHaveLength(4);
+    // 5 fiches location dans la fixture (la vente et les pages sont exclues).
+    expect(entries).toHaveLength(5);
     expect(entries.every((entry) => entry.url.transaction === 'location')).toBe(true);
   });
 
@@ -132,6 +140,8 @@ describe('parseDetailPage — chaîne complète avec la normalisation', () => {
     // Le téléphone « +33-0600000012 » du JSON-LD est normalisé en E.164.
     expect(normalized?.contact.phone).toBe('+33600000012');
     expect(normalized?.contact.email).toBe('agence@example.invalid');
+    // La référence affichée est celle que l'agence reconnaît, pas celle de l'URL.
+    expect(normalized?.contact.reference).toBe('0600001');
   });
 });
 
@@ -152,6 +162,64 @@ describe('parseDetailPage — fiche dégradée (sans JSON-LD)', () => {
     expect(listing?.cityText).toBe('saint laurent du var');
     expect(listing?.areaText).toBeUndefined();
     expect(listing?.phoneText).toBeUndefined();
+  });
+});
+
+describe('la référence que BEP imprime dans son descriptif', () => {
+  it('la lit là où elle est écrite, et pas ailleurs', () => {
+    expect(publishedReference('Honoraires : 220 €\nRéférence de l’annonce : 0603716 ')).toBe(
+      '0603716',
+    );
+    // Apostrophe droite, « n° » intercalé : le même numéro, écrit autrement.
+    expect(publishedReference("Référence de l'annonce : n° A-1204")).toBe('A-1204');
+    // Ce qui n'est pas une référence n'en devient pas une.
+    expect(publishedReference('Studio meublé proche commodités.')).toBeUndefined();
+    expect(publishedReference('Référence de l’annonce : .')).toBeUndefined();
+    expect(publishedReference(undefined)).toBeUndefined();
+  });
+
+  it('la pose sur la fiche — l’agence ne reconnaît qu’elle au téléphone', () => {
+    const { listing } = parseDetailPage(detailHtml, DETAIL_URL);
+    expect(listing?.extra?.['reference']).toBe('0600001');
+    // Jamais l'identifiant d'URL, qui ne veut rien dire pour l'agence.
+    expect(listing?.extra?.['reference']).not.toBe('90000001');
+  });
+
+  it('n’en invente pas quand la fiche n’en publie pas', () => {
+    const { listing } = parseDetailPage(
+      degradedHtml,
+      'https://bep-logement.com/fr/propriete/location+appartement+saint-laurent-du-var+deux-pieces-fictif-vue-mer+90000002',
+    );
+    expect(listing?.extra?.['reference']).toBeUndefined();
+  });
+});
+
+describe('les communes que BEP dessert', () => {
+  const SITEMAP = 'https://bep-logement.com/sitemap.xml';
+
+  it('visite Villeneuve-Loubet, commune du périmètre où l’agence publie', async () => {
+    const visited: string[] = [];
+    const result = await bepScraper.run(
+      contextServing(
+        { [SITEMAP]: sitemapXml },
+        {
+          fetch: (url) => {
+            visited.push(url);
+            return Promise.resolve({
+              status: 200,
+              body: url === SITEMAP ? sitemapXml : '',
+              headers: {},
+              notModified: false,
+            });
+          },
+        },
+      ),
+    );
+
+    expect(visited.some((url) => url.includes('villeneuve-loubet'))).toBe(true);
+    // Les communes hors périmètre restent hors périmètre.
+    expect(visited.some((url) => url.includes('antibes'))).toBe(false);
+    expect(result.stopReason).toBe('completed');
   });
 });
 
