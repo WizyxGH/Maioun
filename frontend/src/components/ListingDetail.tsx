@@ -7,6 +7,7 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import type { StoredReferencePoint, TenantProfile } from '@maioun/shared';
+import { rentAllIn } from '@maioun/shared';
 import { fetchReferencePoints } from '../api/client.js';
 import { archiveReasonOf, isArchivedBySource, isUncertain } from '../availability.js';
 import { directionsUrl } from '../directions.js';
@@ -264,14 +265,29 @@ function AvailabilityNotice({
   );
 }
 
-/** Loyer charges comprises : les charges y sont déjà, on ne les ajoute pas. */
+/**
+ * La provision, et le TOTAL qu'elle fait quand le loyer l'ignore.
+ *
+ * « + 158 € de charges » laissait l'addition au lecteur, et c'est cette
+ * addition que le budget compare : « 566 € + 158 € = 724 € par mois » dit d'un
+ * coup ce que coûte le logement. Charges déjà comprises, rien à additionner.
+ */
 function ChargesNote({ listing }: { readonly listing: ListingView }): React.JSX.Element | null {
   const charges = listing.charges.value;
   if (charges === null) return null;
+  if (listing.chargesIncluded === true) {
+    return <span className="text-sm text-muted-foreground"> dont {charges} € de charges</span>;
+  }
+  const total = rentAllIn({
+    price: listing.price.value,
+    charges,
+    chargesIncluded: listing.chargesIncluded ?? null,
+  });
   return (
     <span className="text-sm text-muted-foreground">
-      {listing.chargesIncluded === true ? ' dont ' : ' + '}
+      {' + '}
       {charges} € de charges
+      {total === null ? '' : ` = ${formatPrice(total)} par mois`}
     </span>
   );
 }

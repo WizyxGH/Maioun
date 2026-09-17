@@ -28,6 +28,7 @@ import { splitPhotos } from '../photos.js';
 import {
   PRIORITY_HOT,
   PRIORITY_WORTH_SEEING,
+  rentAllIn,
   SHORT_TERM_LEASE_FEATURE,
   STUDENT_HOUSING_FEATURE,
 } from '@maioun/shared';
@@ -249,6 +250,50 @@ function postalLine(listing: ListingView, cityLine: string): string {
  *
  * Le quartier reste au titre quand on l'a : il situe sans répéter la voie.
  */
+/**
+ * SOUS QUELLE BASE LE LOYER EST ÉCRIT, quand la source le dit.
+ *
+ * Deux annonces à « 690 € » ne coûtent pas la même chose si l'une compte ses
+ * charges et l'autre non, et la carte les rangeait côte à côte sans le dire.
+ * Le total prime dans la phrase : c'est lui qu'on paie, et c'est à lui que le
+ * budget se compare. Rien quand la source se tait — on n'invente pas de
+ * provision, et un loyer nu n'est pas présenté comme un total.
+ */
+function RentBasisNote({ listing }: { readonly listing: ListingView }): React.JSX.Element | null {
+  const price = listing.price.value;
+  const charges = listing.charges.value;
+  const included = listing.chargesIncluded ?? null;
+  if (price === null || included === null) return null;
+  if (included) {
+    return (
+      <p className="text-[0.8rem] text-muted-foreground">
+        charges comprises{charges === null ? '' : ` (dont ${formatPrice(charges)})`}
+      </p>
+    );
+  }
+  if (charges === null) return <p className="text-[0.8rem] text-muted-foreground">hors charges</p>;
+  return (
+    <p className="text-[0.8rem] text-muted-foreground">
+      + {formatPrice(charges)} de charges = {formatPrice(price + charges)} par mois
+    </p>
+  );
+}
+
+/**
+ * Le loyer tel qu'un lecteur d'écran l'annonce : ce qu'on PAIE, pas seulement
+ * ce qui est écrit en gros. Un loyer hors charges y passait pour le total.
+ */
+function spokenRent(listing: ListingView): string {
+  const included = listing.chargesIncluded ?? null;
+  const allIn = rentAllIn({
+    price: listing.price.value,
+    charges: listing.charges.value,
+    chargesIncluded: included,
+  });
+  if (allIn === null) return `${formatPrice(listing.price.value)} par mois`;
+  return `${formatPrice(allIn)} par mois${included === false ? ' charges comprises' : ''}`;
+}
+
 function CardHeading({
   listing,
   addressLine,
@@ -276,6 +321,7 @@ function CardHeading({
           / mois · {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
         </span>
       </p>
+      <RentBasisNote listing={listing} />
     </div>
   );
 }
@@ -326,9 +372,7 @@ export function ListingCard({
 
   // Résumé lu à voix haute par les lecteurs d'écran : sans lui, la carte
   // n'annoncerait qu'un amas de chiffres.
-  const label = `${formatPrice(listing.price.value)} par mois, ${formatArea(
-    listing.area.value,
-  )}, ${addressLine} — ouvrir la fiche`;
+  const label = `${spokenRent(listing)}, ${formatArea(listing.area.value)}, ${addressLine} — ouvrir la fiche`;
 
   return (
     <Card

@@ -1576,21 +1576,6 @@ export function parseDepositFromText(
   return null;
 }
 
-/**
- * Le loyer HORS CHARGES d'une annonce, quand il se déduit sans supposition :
- * prix affiché hors charges, ou charges comprises avec des charges connues.
- */
-export function rentExcludingCharges(
-  price: number | null,
-  chargesIncluded: boolean | null,
-  charges: number | null,
-): number | null {
-  if (price === null) return null;
-  if (chargesIncluded === false) return price;
-  if (chargesIncluded === true && charges !== null && charges < price) return price - charges;
-  return null;
-}
-
 /** L'intitulé entre « honoraires » et le montant : court, dans la même phrase. */
 const FEES_IN_TEXT = new RegExp(
   String.raw`honoraires([^\d:€.;]{0,60}?)\s*(?:[:=]\s*|sont\s+de\s+|de\s+)?${AMOUNT}${EURO_UNIT}`,

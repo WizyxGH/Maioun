@@ -8,7 +8,6 @@ import {
   parseDepositFromText,
   parseFeesField,
   parseFeesFromText,
-  rentExcludingCharges,
 } from './parse-listing-fields.js';
 
 describe('parseDepositField', () => {
@@ -105,16 +104,6 @@ describe('parseDepositFromText', () => {
   it('ne prend pas le garant ni les honoraires pour le dépôt', () => {
     expect(parseDepositFromText('caution visale exigée: 574€ TTC', 780)).toBeNull();
     expect(parseDepositFromText('Caution solidaire des parents, 2 garants', 780)).toBeNull();
-  });
-});
-
-describe('rentExcludingCharges', () => {
-  it('ne rend un loyer hors charges que s’il se déduit sans supposition', () => {
-    expect(rentExcludingCharges(900, false, null)).toBe(900);
-    expect(rentExcludingCharges(980, true, 50)).toBe(930);
-    expect(rentExcludingCharges(980, true, null)).toBeNull();
-    expect(rentExcludingCharges(980, null, 50)).toBeNull();
-    expect(rentExcludingCharges(null, false, null)).toBeNull();
   });
 });
 

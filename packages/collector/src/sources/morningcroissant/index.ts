@@ -28,12 +28,20 @@ const LIST_URLS = [
 /**
  * Fiches visitées par passage, pour les nouvelles seulement.
  *
- * La carte suffit à faire entrer une annonce ; la fiche n'ajoute que le
- * décompte des charges, le dépôt, les diagnostics et les durées de bail. Une
- * première collecte s'étale donc sur quelques cycles au lieu de tirer
- * quatre-vingt-douze requêtes d'un coup.
+ * LA RÉFÉRENCE N'EST IMPRIMÉE QUE SUR LA FICHE — « Référence: 47156 » — et
+ * c'est elle que le loueur reconnaît. À douze fiches par passage pour
+ * quatre-vingt-douze annonces, quarante-quatre n'avaient encore jamais été
+ * visitées (relevé du 2026-09-17) : elles restaient sans référence pendant
+ * quatre cycles, soit plus d'une heure. Vingt-quatre absorbent ce retard en
+ * deux passages au lieu de quatre.
+ *
+ * CE PLAFOND NE COÛTE QUE LE RATTRAPAGE : passé celui-ci, seules les annonces
+ * NOUVELLES sont visitées, et ce site n'en publie pas vingt-quatre par
+ * vingt minutes. Le passage coûte 4 pages de liste + 24 fiches à 3 s d'écart,
+ * soit 84 secondes contre 48 auparavant — et 144 s si l'on voulait tout d'un
+ * coup, ce qui n'achèterait qu'un cycle de plus.
  */
-const MAX_DETAILS = 12;
+const MAX_DETAILS = 24;
 
 export const MORNINGCROISSANT_DESCRIPTOR: SourceDescriptor = {
   id: 'morningcroissant',

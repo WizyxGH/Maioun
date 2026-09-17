@@ -180,6 +180,12 @@ function parseCard($: cheerio.CheerioAPI, card: Selection, pageUrl: string): Raw
     // PAS DE `reference` ICI : la carte n'en publie aucune. Le numéro de l'URL
     // est notre clé de collecte, pas un identifiant que le loueur reconnaîtrait.
     // La fiche, elle, écrit « Référence: 47156 », et c'est celle-là qu'on garde.
+    //
+    // ET ON NE LA DÉDUIT PAS DE L'URL POUR AUTANT, bien que les deux nombres
+    // coïncident sur les soixante-dix annonces vérifiées le 2026-09-17 — sans
+    // un écart. Coïncider n'est pas publier : la fiche l'imprime, la carte non,
+    // et la recopier depuis l'URL serait le repli qu'on a retiré du projet.
+    // C'est la COUVERTURE des fiches qui a été augmentée (voir `index.ts`).
     extra: compactExtra({
       flatShare: flatShareFrom(rentalType),
       ...(professionnel ? { landlord: 'agency' } : {}),
@@ -246,10 +252,12 @@ function published(value: string | undefined): string | undefined {
 /**
  * Ce que la FICHE ajoute à la carte.
  *
- * LE LOYER Y EST DÉCOMPOSÉ, et c'est ce qui compte : la carte donne un montant
- * charges comprises, la fiche donne « hors charges 950 € » et « charges
- * mensuelles 30 € ». On remplace donc le prix de la carte par le loyer hors
- * charges accompagné de sa provision — le couple que le reste du projet attend.
+ * LE LOYER Y EST DÉCOMPOSÉ, et la fiche en imprime les TROIS lignes : « hors
+ * charges 566 € », « charges mensuelles 158 € », « charges comprises 724 € ».
+ * On garde la troisième, qui est la base de la carte, et la deuxième, qui est
+ * la provision. Prendre la première faisait BAISSER le loyer d'une annonce dès
+ * qu'on lisait sa fiche : la même source affichait alors deux bases selon
+ * qu'elle avait été visitée ou non, et le logement paraissait moins cher.
  *
  * LES DURÉES SONT RENDUES TELLES QUELLES dans la description : « durée
  * minimum : 3 mois », « durée maximum : 9 mois ». Un bail de neuf mois est un
@@ -268,6 +276,8 @@ export function parseDetail(html: string, listing?: RawListing): RawDraft | null
   const landlord = landlordFrom(cleanText($('#host-contact .type').first().text()));
   const ownerName = cleanText($('#host-contact .contact a.profile').first().text());
 
+  const rentAllIn = published(fieldMatching(pricing, /loyer mensuel charges comprises/));
+  // Lu, mais pas retenu comme loyer : il ne sert qu'à reconnaître une fiche.
   const rentExcluding = published(fieldMatching(pricing, /loyer mensuel hors charges/));
   const charges = published(fieldMatching(pricing, /^charges mensuelles$/));
   const deposit = published(fieldMatching(pricing, /^d[ée]p[ôo]t de garantie$/));
@@ -302,9 +312,9 @@ export function parseDetail(html: string, listing?: RawListing): RawDraft | null
   return compactDraft({
     description: prose === '' ? undefined : prose,
     roomsText: rooms,
-    // Le loyer hors charges et sa provision remplacent le montant global :
-    // la fiche est la seule à les séparer.
-    priceText: rentExcluding === undefined ? undefined : `${rentExcluding} hors charges`,
+    // LA MÊME BASE QUE LA CARTE, toujours : la fiche imprime elle-même le total
+    // charges comprises, et c'est lui qu'on garde. Absent, la carte fait foi.
+    priceText: rentAllIn === undefined ? undefined : `${rentAllIn} CC`,
     chargesText: charges,
     depositText: deposit,
     propertyTypeText: rentalType === '' ? undefined : rentalType,

@@ -93,6 +93,8 @@ export interface AggregatedOverrides {
   readonly description?: string | null;
   readonly price?: number | null;
   readonly charges?: number | null;
+  /** Le loyer inclut-il déjà les charges ? `null` : la source ne le dit pas. */
+  readonly chargesIncluded?: boolean | null;
   readonly area?: number | null;
   readonly rooms?: number | null;
   readonly propertyType?: PropertyType;
@@ -136,7 +138,7 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     description: field(pick(overrides.description, 'Bel appartement rénové, proche commerces.')),
     price: field(pick(overrides.price, 690)),
     charges: field(pick(overrides.charges, null)),
-    chargesIncluded: null,
+    chargesIncluded: pick(overrides.chargesIncluded, null),
     deposit: field(null),
     tenantFees: field(null),
     area: field(pick(overrides.area, 34)),

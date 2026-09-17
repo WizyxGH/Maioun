@@ -12,7 +12,7 @@ import type {
   ScoreReason,
   SearchCriteria,
 } from '@maioun/shared';
-import { clampScore } from '@maioun/shared';
+import { clampScore, rentForBudget } from '@maioun/shared';
 import { comparable } from '../normalization/text.js';
 import {
   isShortTermStudentLease,
@@ -192,6 +192,15 @@ function nonResidentialExclusion(listing: AggregatedListing): ScoreReason | null
   }
 }
 
+/**
+ * Le loyer comparé, et d'où il sort. « 724 € charges comprises » quand il ne
+ * s'agit pas du montant affiché : sans cette mention, la raison citait un
+ * nombre introuvable sur l'annonce.
+ */
+function rentLabel(compared: number, published: number | null): string {
+  return compared === published ? `${compared} €` : `${compared} € charges comprises`;
+}
+
 export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria): MatchOutcome {
   const reasons: ScoreReason[] = [];
   const unknownSignals: string[] = [];
@@ -213,20 +222,34 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
   reasons.push(cityOutcome.reason);
 
   // --- Loyer : critère éliminatoire ----------------------------------------
+  //
+  // LE BUDGET SE COMPTE CHARGES COMPRISES (voir `SearchCriteria.maxPrice`) : un
+  // logement affiché « 566 € + 158 € de charges » se loue 724 € et dépasse un
+  // budget de 700 €. Le plancher, lui, reste sur le montant publié — il sert à
+  // reconnaître un parking, pas à juger un total.
   maxTotal += 40;
-  const price = listing.price.value;
+  const published = listing.price.value;
+  const price = rentForBudget({
+    price: published,
+    charges: listing.charges.value,
+    chargesIncluded: listing.chargesIncluded,
+  });
   if (price === null) {
     unknownSignals.push('loyer');
     unknownWeight += 40;
     reasons.push({ code: 'price.unknown', label: 'Loyer non publié', delta: 0 });
-  } else if (criteria.minPrice !== undefined && price < criteria.minPrice) {
+  } else if (
+    criteria.minPrice !== undefined &&
+    published !== null &&
+    published < criteria.minPrice
+  ) {
     // Sous ce plancher, ce n'est presque jamais un logement (parking/box/cave
     // mal étiqueté « appartement »). Éliminatoire, mais l'annonce reste
     // consultable en « hors critères ».
     matchesCriteria = false;
     reasons.push({
       code: 'price.under_floor',
-      label: `${price} € sous le plancher de ${criteria.minPrice} € (probable parking/box)`,
+      label: `${published} € sous le plancher de ${criteria.minPrice} € (probable parking/box)`,
       delta: 0,
     });
   } else if (price <= criteria.maxPrice) {
@@ -237,14 +260,14 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     total += points;
     reasons.push({
       code: 'price.within',
-      label: `${price} € ≤ ${criteria.maxPrice} € de budget`,
+      label: `${rentLabel(price, published)} ≤ ${criteria.maxPrice} € de budget`,
       delta: points,
     });
   } else {
     matchesCriteria = false;
     reasons.push({
       code: 'price.over',
-      label: `${price} € dépasse le budget de ${price - criteria.maxPrice} €`,
+      label: `${rentLabel(price, published)} dépasse le budget de ${price - criteria.maxPrice} €`,
       delta: 0,
     });
   }

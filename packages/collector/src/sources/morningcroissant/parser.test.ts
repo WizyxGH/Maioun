@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { rentExcludingCharges } from '@maioun/shared';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { isEmptyList, parseDetail, parseListPage } from './parser.js';
 
@@ -88,6 +89,8 @@ const FICHE_PARTICULIER = `
       <div class="right"><span class="price"><span class="amount">650</span><span class="currency">€</span></span></div></li>
   <li><div class="left">Charges mensuelles <span class="hometiptip bubble" data-content="forfait">?</span></div>
       <div class="right"><span class="price"><span class="amount">30</span><span class="currency">€</span></span></div></li>
+  <li><div class="left"><b>Loyer mensuel charges comprises</b></div>
+      <div class="right"><span class="price"><span class="amount">680</span><span class="currency">€</span></span></div></li>
   <li><div class="left">Dépôt de garantie</div><div class="right">N/A</div></li>
 </ul></div></section>
 <section id="product_modalities" class="product-section"><div class="container"><ul>
@@ -194,12 +197,29 @@ describe('parseListPage (MorningCroissant)', () => {
 });
 
 describe('parseDetail (MorningCroissant)', () => {
-  it('sépare le loyer hors charges de sa provision', () => {
+  /**
+   * LIRE LA FICHE NE DOIT PAS FAIRE BAISSER LE LOYER. La carte annonce 680 €
+   * charges comprises ; la fiche décompose 650 € + 30 €, et imprime le même
+   * total. C'est ce total qu'on garde, sinon la même source afficherait deux
+   * bases selon qu'une annonce a été visitée ou non.
+   */
+  it('garde la base de la carte : le total charges comprises, et la provision', () => {
     const detail = parseDetail(FICHE_PARTICULIER);
-    expect(detail?.priceText).toBe('650€ hors charges');
+    expect(detail?.priceText).toBe('680€ CC');
     expect(detail?.chargesText).toBe('30€');
     // « N/A » n'est pas un montant : le dépôt reste absent.
     expect(detail?.depositText).toBeUndefined();
+  });
+
+  /** Sans la ligne « charges comprises », on ne réécrit pas le loyer de la carte. */
+  it('laisse le loyer de la carte quand la fiche ne donne pas le total', () => {
+    const sansTotal = FICHE_PARTICULIER.replace(
+      /<li><div class="left"><b>Loyer mensuel charges comprises<\/b><\/div>[\s\S]*?<\/li>/,
+      '',
+    );
+    const detail = parseDetail(sansTotal);
+    expect(detail?.priceText).toBeUndefined();
+    expect(detail?.chargesText).toBe('30€');
   });
 
   it('rapporte les durées du bail en toutes lettres', () => {
@@ -262,9 +282,11 @@ describe('normalisation (MorningCroissant)', () => {
     const n = merge('10001', parseDetail(FICHE_PARTICULIER));
     expect(n?.flatShare).toBe(false);
     expect(n?.contact.kind).toBe('private');
-    expect(n?.price).toBe(650);
+    // La carte disait 680 € charges comprises : la fiche ne la contredit pas.
+    expect(n?.price).toBe(680);
     expect(n?.charges).toBe(30);
-    expect(n?.chargesIncluded).toBe(false);
+    expect(n?.chargesIncluded).toBe(true);
+    expect(rentExcludingCharges(n!)).toBe(650);
     expect(n?.area).toBe(42);
     expect(n?.rooms).toBe(2);
     expect(n?.bedrooms).toBe(1);

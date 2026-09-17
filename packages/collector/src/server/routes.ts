@@ -332,6 +332,20 @@ function sqlText(value: string): string {
 }
 
 /**
+ * Le jumeau SQL de `rentForBudget` : le loyer à comparer à un budget, charges
+ * comprises quand elles sont connues et non déjà dedans.
+ *
+ * La base ne peut pas appeler la fonction, mais elle doit dire la même chose :
+ * un logement à 566 € + 158 € se loue 724 €, et un budget de 700 € ne doit pas
+ * le retenir. `listings` ne porte que le loyer en colonne — la provision et sa
+ * base sont dans la charge utile, d'où les deux `json_extract`.
+ */
+export const RENT_FOR_BUDGET_SQL = `(price + CASE
+    WHEN json_extract(listings.payload, '$.chargesIncluded') = 0
+      THEN COALESCE(json_extract(listings.payload, '$.charges.value'), 0)
+    ELSE 0 END)`;
+
+/**
  * Le catalogue d'un visiteur : des logements, en ligne, dans la commune par
  * défaut. En littéraux plutôt qu'en paramètres, pour servir aussi en colonne
  * sans décaler les arguments de la requête.
@@ -615,9 +629,11 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
   // n'exclut JAMAIS — c'est ce qui évite qu'une annonce disparaisse parce que
   // la source s'est tue sur un détail.
   const applyFilters = (live: LiveFilters): void => {
-    conditions.push('(price IS NULL OR price <= ?)');
+    conditions.push(`(price IS NULL OR ${RENT_FOR_BUDGET_SQL} <= ?)`);
     filterArgs.push(live.maxPrice);
     if (live.minPrice !== undefined) {
+      // Le PLANCHER reste sur le loyer publié : il sert à reconnaître un
+      // parking à cent euros, et les charges ne changent rien à ce qu'il écarte.
       conditions.push('(price IS NULL OR price >= ?)');
       filterArgs.push(live.minPrice);
     }

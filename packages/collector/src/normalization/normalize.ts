@@ -15,7 +15,12 @@ import type {
   RawListing,
   SourceId,
 } from '@maioun/shared';
-import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
+import {
+  EMPTY_CONTACT,
+  rentExcludingCharges,
+  SHORT_TERM_LEASE_FEATURE,
+  STUDENT_HOUSING_FEATURE,
+} from '@maioun/shared';
 import { cleanMultiline, cleanText, comparable } from './text.js';
 import { wantedAdEvidence } from './housing-wanted.js';
 import {
@@ -32,7 +37,6 @@ import {
   parseChargesFromText,
   parseDepositField,
   parseDepositFromText,
-  rentExcludingCharges,
   parseFeesField,
   parseFeesFromText,
   parseEmail,
@@ -525,7 +529,11 @@ export function normalizeListing(
       parseDepositFromText(
         text.prose,
         price.amount,
-        rentExcludingCharges(price.amount, price.chargesIncluded, charges),
+        rentExcludingCharges({
+          price: price.amount,
+          charges,
+          chargesIncluded: price.chargesIncluded,
+        }),
       ),
     tenantFees:
       parseFeesField(raw.feesText, price.amount) ?? parseFeesFromText(text.prose, price.amount),
@@ -639,7 +647,7 @@ function fillGaps(
         ? parseDepositFromText(
             occurrence.description,
             occurrence.price,
-            rentExcludingCharges(occurrence.price, occurrence.chargesIncluded, charges),
+            rentExcludingCharges({ ...occurrence, charges }),
           )
         : occurrence.deposit,
     tenantFees:

@@ -82,6 +82,64 @@ export function awaitsContact(tracking: TrackingStatus): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// La BASE du loyer — une seule définition pour tout le projet
+// ---------------------------------------------------------------------------
+
+/**
+ * De quoi dire ce qu'un logement coûte : le montant publié, la provision pour
+ * charges, et si le premier contient déjà la seconde.
+ *
+ * `ListingOccurrence` en est un tel quel ; un agrégat le devient en dépliant
+ * ses `MergedField`.
+ */
+export interface RentBasis {
+  readonly price: Maybe<number>;
+  readonly charges: Maybe<number>;
+  readonly chargesIncluded: Maybe<boolean>;
+}
+
+/**
+ * Le loyer CHARGES COMPRISES, ou `null` quand il ne se dit pas sans inventer.
+ *
+ * DEUX MONTANTS SE PROMÈNENT SOUS LE MÊME NOM. Une carte de liste annonce
+ * « 724 € », sa fiche décompose « 566 € + 158 € », et les deux sont le prix de
+ * la même annonce. Tant que la comparaison portait sur `price` seul, lire la
+ * fiche FAISAIT BAISSER le loyer enregistré — le logement paraissait moins cher
+ * parce qu'on en savait plus.
+ *
+ * Les charges absentes ne se devinent pas : sans elles, un loyer hors charges
+ * n'a pas de total connu, et ce total reste `null` plutôt que mensonger.
+ */
+export function rentAllIn(basis: RentBasis): Maybe<number> {
+  const { price, charges, chargesIncluded } = basis;
+  if (price === null) return null;
+  if (chargesIncluded === true) return price;
+  if (chargesIncluded === false && charges !== null) return price + charges;
+  return null;
+}
+
+/** Le loyer HORS CHARGES, quand il se déduit sans supposition. Miroir du précédent. */
+export function rentExcludingCharges(basis: RentBasis): Maybe<number> {
+  const { price, charges, chargesIncluded } = basis;
+  if (price === null) return null;
+  if (chargesIncluded === false) return price;
+  if (chargesIncluded === true && charges !== null && charges < price) return price - charges;
+  return null;
+}
+
+/**
+ * Le loyer à comparer à un BUDGET — `SearchCriteria.maxPrice` se lit charges
+ * comprises.
+ *
+ * Le total quand il se calcule, sinon le montant publié : jamais MOINS que ce
+ * que la source affiche. Un budget de 700 € ne doit pas retenir un logement à
+ * 724 € parce que l'annonce le présente en deux morceaux.
+ */
+export function rentForBudget(basis: RentBasis): Maybe<number> {
+  return rentAllIn(basis) ?? basis.price;
+}
+
+// ---------------------------------------------------------------------------
 // Étage 1 — sortie brute d'un scraper
 // ---------------------------------------------------------------------------
 
@@ -164,7 +222,11 @@ export interface ListingOccurrence {
   readonly title: Maybe<string>;
   readonly description: Maybe<string>;
 
-  /** Loyer mensuel en euros, charges comprises ou non selon `chargesIncluded`. */
+  /**
+   * Loyer mensuel en euros, charges comprises ou non selon `chargesIncluded`.
+   * Ce montant seul ne se compare donc à rien : passer par `rentAllIn`,
+   * `rentExcludingCharges` ou `rentForBudget` selon ce qu'on veut en dire.
+   */
   readonly price: Maybe<number>;
   readonly charges: Maybe<number>;
   readonly chargesIncluded: Maybe<boolean>;

@@ -5,12 +5,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { createClient } from '@libsql/client';
+import { rentForBudget } from '@maioun/shared';
 import { listColumns, reasonlessScores } from '../core/list-payload.js';
 import {
   buildListQuery,
   buildPriceHistogram,
   etagMatches,
   listItemJson,
+  RENT_FOR_BUDGET_SQL,
   route,
   rowToListing,
 } from './routes.js';
@@ -747,5 +750,79 @@ describe('histogramme des loyers', () => {
     expect(sql).toContain("lifecycle != 'inactive'");
     expect(sql).toContain('rented = 0');
     expect(sql).not.toContain('price <=');
+  });
+});
+
+/**
+ * LE BUDGET SE COMPARE AU TOTAL, CHARGES COMPRISES.
+ *
+ * Le studio relevé le 2026-09-17 affiche 566 € et 158 € de provision : il se
+ * loue 724 €, et la liste le retenait dans un budget de 700 € parce que seule
+ * la colonne `price` était comparée. La base ne peut pas appeler
+ * `rentForBudget` ; ces tests vérifient que son jumeau SQL dit la même chose.
+ */
+describe('le loyer comparé au budget', () => {
+  const filtres = {
+    maxPrice: 700,
+    minArea: 20,
+    landlordFilter: 'all',
+    furnishedFilter: 'all',
+  } as const;
+
+  it('entre dans la clause de la liste', () => {
+    const { filter } = buildListQuery(
+      new URL('https://exemple.invalid/api/listings'),
+      filtres,
+      false,
+    );
+    expect(filter).toContain(RENT_FOR_BUDGET_SQL);
+    expect(filter).not.toContain('(price IS NULL OR price <= ?)');
+  });
+
+  it('laisse le PLANCHER sur le loyer publié : un box reste un box', () => {
+    const { filter } = buildListQuery(
+      new URL('https://exemple.invalid/api/listings'),
+      { ...filtres, minPrice: 250 },
+      false,
+    );
+    expect(filter).toContain('(price IS NULL OR price >= ?)');
+  });
+
+  it('additionne la provision exactement comme `rentForBudget`', async () => {
+    const db = createClient({ url: ':memory:' });
+    await db.execute('CREATE TABLE listings (id TEXT, price REAL, payload TEXT)');
+    const cas: readonly [string, number, number | null, boolean | null][] = [
+      ['hors-charges', 566, 158, false],
+      ['charges-comprises', 690, 80, true],
+      ['sans-provision', 690, null, false],
+      ['base-inconnue', 690, 80, null],
+    ];
+    for (const [id, price, charges, chargesIncluded] of cas) {
+      await db.execute({
+        sql: 'INSERT INTO listings (id, price, payload) VALUES (?, ?, ?)',
+        args: [
+          id,
+          price,
+          JSON.stringify({ chargesIncluded, charges: { value: charges, sourceId: 'test' } }),
+        ],
+      });
+    }
+    const retenus = await db.execute({
+      sql: `SELECT id FROM listings WHERE ${RENT_FOR_BUDGET_SQL} <= ? ORDER BY id`,
+      args: [700],
+    });
+    // 566 + 158 = 724 : au-dessus du budget, et seul à en sortir.
+    expect(retenus.rows.map((row) => row['id'])).toEqual([
+      'base-inconnue',
+      'charges-comprises',
+      'sans-provision',
+    ]);
+    for (const [id, price, charges, chargesIncluded] of cas) {
+      const mesure = await db.execute({
+        sql: `SELECT ${RENT_FOR_BUDGET_SQL} AS total FROM listings WHERE id = ?`,
+        args: [id],
+      });
+      expect(mesure.rows[0]?.['total']).toBe(rentForBudget({ price, charges, chargesIncluded }));
+    }
   });
 });

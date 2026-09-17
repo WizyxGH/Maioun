@@ -40,6 +40,49 @@ describe('scoreMatch (§16)', () => {
     expect(score.reasons.some((reason) => reason.code === 'price.over')).toBe(true);
   });
 
+  /**
+   * LE BUDGET SE COMPTE CHARGES COMPRISES. Le studio relevé le 2026-09-17
+   * affiche 566 € hors charges et 158 € de provision : il se loue 724 €, et
+   * passait pourtant un budget de 700 € parce que seul le montant affiché était
+   * comparé.
+   */
+  it('ajoute au budget les charges que le loyer affiché ne contient pas', () => {
+    const { score, matchesCriteria } = scoreMatch(
+      makeAggregated({ price: 566, charges: 158, chargesIncluded: false, area: 27, city: 'nice' }),
+      MVP_CRITERIA,
+    );
+    expect(matchesCriteria).toBe(false);
+    expect(score.reasons.some((reason) => reason.code === 'price.over')).toBe(true);
+    expect(score.reasons.find((reason) => reason.code === 'price.over')?.label).toContain(
+      '724 € charges comprises',
+    );
+  });
+
+  it('laisse passer le même loyer quand les charges y sont déjà', () => {
+    const { matchesCriteria } = scoreMatch(
+      makeAggregated({ price: 690, charges: 80, chargesIncluded: true, area: 27, city: 'nice' }),
+      MVP_CRITERIA,
+    );
+    expect(matchesCriteria).toBe(true);
+  });
+
+  it('n’invente pas de charges quand la source n’en publie pas', () => {
+    const { matchesCriteria } = scoreMatch(
+      makeAggregated({ price: 690, charges: null, chargesIncluded: false, area: 27, city: 'nice' }),
+      MVP_CRITERIA,
+    );
+    expect(matchesCriteria).toBe(true);
+  });
+
+  it('garde le plancher sur le loyer publié, pas sur le total', () => {
+    // Un box à 100 € avec 160 € de charges resterait un box.
+    const { score } = scoreMatch(
+      makeAggregated({ price: 100, charges: 160, chargesIncluded: false, area: 20, city: 'nice' }),
+      MVP_CRITERIA,
+    );
+    expect(score.reasons.some((reason) => reason.code === 'price.under_floor')).toBe(true);
+  });
+
   it('rejette une annonce sous la surface minimale', () => {
     const { matchesCriteria } = scoreMatch(makeAggregated({ price: 400, area: 9 }), MVP_CRITERIA);
     expect(matchesCriteria).toBe(false);
