@@ -11,7 +11,14 @@
  * site écrit « Appartement T2 à louer, 06300, Marseille » sur un bien qui est
  * à Nice — l'agence est marseillaise, et son modèle de page l'a figé. Le code
  * postal, lui, est juste. On ne lit donc JAMAIS la ville dans le titre : elle
- * vient de l'adresse de la fiche, qui se termine par la commune.
+ * vient de l'adresse du BIEN : `addressLocality` du JSON-LD, ou à défaut la
+ * commune que porte l'adresse de son URL.
+ *
+ * ET PAS DE CELLE DE L'AGENCE : la même page porte un second JSON-LD, celui du
+ * cabinet, à Marseille (13006). La ville se lit donc dans le seul nœud
+ * `Accommodation`, jamais ailleurs dans la page — et les fiches qui taisent
+ * leur `addressLocality`, comme celle du 66 Barberis, sont précisément celles
+ * qu'un lecteur pressant y aurait mises à Marseille.
  *
  * TOUT LE RESTE VIENT DU JSON-LD `Accommodation` : loyer, surface, pièces,
  * adresse de rue, photos. Deux exceptions cependant. Sa `availability` annonce
@@ -53,6 +60,31 @@ export function referenceOf(url: string): string | null {
   return /\/annonces\/([a-z0-9]+)-/i.exec(url)?.[1]?.toLowerCase() ?? null;
 }
 
+/**
+ * La commune que porte l'ADRESSE DE L'URL du bien : `…-06300-nice-france`.
+ *
+ * La fiche ne publie pas toujours `addressLocality` — celle du 66 Barberis ne
+ * porte qu'une rue —, et la seule autre commune de la page est celle de
+ * l'AGENCE, à Marseille. L'URL, elle, est bâtie sur l'adresse du bien : rue,
+ * code postal, commune. C'est déjà sur ce segment que le plan de site est
+ * filtré.
+ *
+ * La commune suit le DERNIER groupe de quatre ou cinq chiffres — le code
+ * postal, avec ou sans son zéro de tête —, le pays mis à part.
+ */
+function communeOfUrl(url: string): string | undefined {
+  const segment = /\/annonces\/([^/?#]+)/.exec(url)?.[1];
+  if (segment === undefined) return undefined;
+  const commune = /.*-\d{4,5}-(.+)$/.exec(segment.replace(/-france$/i, ''))?.[1];
+  return commune === undefined || commune === '' ? undefined : commune.replace(/-/g, ' ');
+}
+
+/** La valeur si elle porte quelque chose, `undefined` sinon : rien n'est fabriqué. */
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed !== undefined && trimmed !== '' ? decode(trimmed) : undefined;
+}
+
 /** Contenu d'une balise `meta`, ou `''`. */
 function meta(html: string, name: string): string {
   return (
@@ -77,7 +109,7 @@ interface Accommodation {
   readonly description?: string;
   readonly floorSize?: { readonly value?: number };
   readonly numberOfRooms?: number;
-  readonly address?: { readonly streetAddress?: string };
+  readonly address?: { readonly streetAddress?: string; readonly addressLocality?: string };
   readonly offers?: { readonly price?: number };
   readonly image?: string | readonly string[];
 }
@@ -178,7 +210,10 @@ export function parseDetail(html: string, url: string): PujolListing | null {
         typeof bien.numberOfRooms === 'number' ? `${bien.numberOfRooms} pièces` : undefined,
       propertyTypeText: bien.name !== undefined ? decode(bien.name) : undefined,
       addressText: bien.address?.streetAddress,
-      cityText: 'Nice',
+      // La commune vient du BIEN. Elle valait « Nice » EN DUR : le jour où le
+      // portefeuille de l'agence s'élargit, tout serait entré à Nice — c'est
+      // exactement ce qui est arrivé à Citya.
+      cityText: nonEmpty(bien.address?.addressLocality) ?? communeOfUrl(url),
       postalCodeText: postalCode,
       agencyName: 'Immobilière Pujol',
       contactFormUrl: url,

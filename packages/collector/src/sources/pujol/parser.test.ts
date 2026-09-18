@@ -77,10 +77,11 @@ describe('parseDetail', () => {
   it('NE CROIT PAS le titre sur la ville', () => {
     // Le gabarit du site écrit « Appartement T2 à louer, 06300, Marseille » sur
     // un bien niçois : l'agence est marseillaise et son modèle l'a figé. Le
-    // code postal, lui, est juste.
+    // code postal, lui, est juste. La commune vient de l'adresse du bien, dans
+    // la casse où la source l'écrit — la normalisation s'en charge ensuite.
     expect(louee).toContain('Marseille');
     const parsed = parseDetail(louee, URL_LOUEE);
-    expect(parsed?.listing.cityText).toBe('Nice');
+    expect(parsed?.listing.cityText).toBe('nice');
     expect(parsed?.listing.postalCodeText).toBe('06300');
   });
 
@@ -148,5 +149,38 @@ describe('parseDetail — caractéristiques, montants et DPE', () => {
     expect(normalized?.dpe).toBe('E');
     expect(normalized?.furnished).toBe(false);
     expect(normalized?.district).toBe('Vernier');
+  });
+});
+
+describe('la commune vient du BIEN, jamais de l’agence ni de la recherche', () => {
+  it('lit `addressLocality` du bien quand la fiche le publie', () => {
+    const details = fixture('active-details.html');
+    expect(details).toContain('"addressLocality":"Nice"');
+    const url = 'https://www.immobiliere-pujol.fr/annonces/1399neot-7-9-rue-de-dijon-6100-nice/';
+    expect(parseDetail(details, url)?.listing.cityText).toBe('Nice');
+  });
+
+  it('se rabat sur la commune de l’adresse de l’URL, pas sur celle de l’agence', () => {
+    // La fiche du 66 Barberis ne publie qu'une rue ; la seule autre commune de
+    // la page est celle du cabinet, à Marseille.
+    expect(louee).not.toContain('addressLocality');
+    expect(parseDetail(louee, URL_LOUEE)?.listing.cityText).toBe('nice');
+  });
+
+  it('SUIT la commune du bien si le portefeuille sort de Nice', () => {
+    // `cityText` valait « Nice » EN DUR : le jour où la source publie ailleurs,
+    // tout serait entré à Nice — c'est exactement ce qui est arrivé à Citya.
+    const cannois = louee.replace(
+      '"streetAddress": "66 Barberis",',
+      '"streetAddress": "12 rue des Lilas", "addressLocality": "Cannes",',
+    );
+    expect(parseDetail(cannois, URL_LOUEE)?.listing.cityText).toBe('Cannes');
+  });
+
+  it('ne fabrique pas de commune quand ni la fiche ni l’URL n’en portent', () => {
+    expect(
+      parseDetail(louee, 'https://www.immobiliere-pujol.fr/annonces/l003048-sans-adresse/')?.listing
+        .cityText,
+    ).toBeUndefined();
   });
 });

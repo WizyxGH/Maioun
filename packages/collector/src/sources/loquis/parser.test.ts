@@ -46,7 +46,6 @@ describe('parseDetail (Loquis)', () => {
     expect(draft?.priceText).toBe('1.150 € / mois');
     expect(draft?.chargesText).toBe('170€');
     expect(draft?.depositText).toBe('1 000 €');
-    expect(draft?.cityText).toBe('Nice');
     // Pas de `reference` : elle se devinait dans le nom de fichier d'une photo,
     // et Loquis ne l'affiche nulle part (§17).
     expect(draft?.extra).toEqual({ dpe: 'B' });
@@ -78,7 +77,24 @@ describe('parseDetail (Loquis)', () => {
     expect(normalized?.deposit).toBe(1000);
     expect(normalized?.area).toBe(62);
     expect(normalized?.rooms).toBe(2);
-    expect(normalized?.city).toBe('nice');
+    expect(normalized?.city).toBeNull();
     expect(normalized?.dpe).toBe('B');
+  });
+});
+
+describe('la commune vient du BIEN, jamais de l’agence', () => {
+  it('ne pose plus Nice sur une annonce qui ne nomme aucune commune', () => {
+    // Le gabarit n'a pas de champ ville et la fiche ne titre qu'un QUARTIER,
+    // « CIMIEZ ». « Nice » venait de l'adresse du cabinet : c'était supposer,
+    // et le jour où l'agence publie ailleurs tout serait entré à Nice.
+    expect(rental()).not.toContain('Nice');
+    expect(parseDetail(rental())?.cityText).toBeUndefined();
+  });
+
+  it('garde la commune quand l’annonce la nomme, Nice comprise', () => {
+    const nicoise = rental().replaceAll('CIMIEZ', 'Nice, quartier Cimiez');
+    expect(parseDetail(nicoise)?.cityText).toBe('Nice');
+    const voisine = rental().replaceAll('CIMIEZ', 'Cagnes-sur-Mer');
+    expect(parseDetail(voisine)?.cityText).toBe('Cagnes-sur-Mer');
   });
 });

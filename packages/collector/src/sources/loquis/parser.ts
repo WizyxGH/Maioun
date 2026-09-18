@@ -63,17 +63,21 @@ export function isEmptyList(html: string): boolean {
   );
 }
 
-/** Communes voisines que les annonces nomment quand le bien n'est pas à Nice. */
-const OTHER_TOWNS =
-  /\b(Saint[- ]Laurent[- ]du[- ]Var|Cagnes[- ]sur[- ]Mer|Villeneuve[- ]Loubet|Villefranche[- ]sur[- ]Mer|Beaulieu[- ]sur[- ]Mer|Saint[- ]Jean[- ]Cap[- ]Ferrat|[ÈE]ze|La Trinit[ée]|Falicon|Aspremont|Colomars|Vence|Menton|Monaco|Antibes|Cannes)\b/i;
+/** Communes que les annonces nomment ; le gabarit n'a pas de champ ville. */
+const TOWNS =
+  /\b(Nice|Saint[- ]Laurent[- ]du[- ]Var|Cagnes[- ]sur[- ]Mer|Villeneuve[- ]Loubet|Villefranche[- ]sur[- ]Mer|Beaulieu[- ]sur[- ]Mer|Saint[- ]Jean[- ]Cap[- ]Ferrat|[ÈE]ze|La Trinit[ée]|Falicon|Aspremont|Colomars|Vence|Menton|Monaco|Antibes|Cannes)\b/i;
 
 /**
- * Le gabarit n'a pas de champ ville. Le cabinet travaille à Nice et titre ses
- * annonces par quartier (« CIMIEZ », « ST SYLVESTRE ») : Nice, sauf commune
- * voisine nommée.
+ * La commune que l'annonce NOMME, ou rien.
+ *
+ * Elle valait « Nice » par défaut, au motif que le cabinet y travaille : c'est
+ * l'adresse de l'AGENCE, pas celle du bien. Une annonce titrée par quartier
+ * (« CIMIEZ », « ST SYLVESTRE ») ne nomme pas sa commune ; elle reste donc sans
+ * commune plutôt qu'avec une commune supposée, et le périmètre n'élimine pas ce
+ * qu'il ne sait pas situer.
  */
-function cityOf(text: string): string {
-  return OTHER_TOWNS.exec(text)?.[1] ?? 'Nice';
+function cityOf(text: string): string | undefined {
+  return TOWNS.exec(text)?.[1];
 }
 
 /**
