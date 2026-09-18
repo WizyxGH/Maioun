@@ -109,6 +109,12 @@ import {
   type ExtraChip,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
+import {
+  forgetCleared,
+  recallCleared,
+  rememberCleared,
+  type ClearedCriteria,
+} from './cleared-criteria.js';
 import { clearedCriteria, criteriaChips } from './criteria-chips.js';
 import { filterListings } from './listing-filter.js';
 import { forgetListing, replaceListing } from './listing-store.js';
@@ -979,12 +985,10 @@ function AppView(): React.JSX.Element {
   /**
    * LE RETOUR ARRIÈRE D'« EFFACER TOUT » : les critères d'avant, et le nom de
    * ce qui a été levé. `null` quand il n'y a rien à annuler. Le pourquoi est
-   * dans `ClearedCriteriaNotice`, avec la rangée qui l'affiche.
+   * dans `ClearedCriteriaNotice`, avec la rangée qui l'affiche ; sa survie au
+   * rechargement est dans `cleared-criteria.ts`.
    */
-  const [clearedUndo, setClearedUndo] = useState<{
-    readonly previous: FilterConfig;
-    readonly labels: readonly string[];
-  } | null>(null);
+  const [clearedUndo, setClearedUndo] = useState<ClearedCriteria | null>(null);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>(restored.displayMode);
   // Au-dessus de 1024 px, annonces et plan tiennent ensemble : la vue
@@ -1413,7 +1417,13 @@ function AppView(): React.JSX.Element {
   useEffect(() => {
     if (currentUser === undefined || currentUser === null) return;
     void fetchFilters()
-      .then(setCriteria)
+      .then((config) => {
+        setCriteria(config);
+        // Le retour arrière du dernier « Effacer tout » revient avec eux, s'il
+        // vaut encore : c'est ici, et pas ailleurs, qu'on sait ce que le compte
+        // porte vraiment.
+        setClearedUndo(recallCleared(config));
+      })
       .catch(() => undefined);
   }, [currentUser]);
 
@@ -2529,6 +2539,19 @@ function AppView(): React.JSX.Element {
   );
 
   /**
+   * Pose le retour arrière, ou l'oublie — À L'ÉCRAN ET DANS LE NAVIGATEUR.
+   *
+   * Deux mémoires pour une seule notion : les tenir séparément, c'est
+   * s'exposer à une rangée « Annuler » qui a survécu au geste qu'elle défait,
+   * ou disparu alors qu'il valait encore.
+   */
+  const keepClearedUndo = (memo: ClearedCriteria | null): void => {
+    setClearedUndo(memo);
+    if (memo === null) forgetCleared();
+    else rememberCleared(memo);
+  };
+
+  /**
    * Lève un critère, et recharge : c'est le SERVEUR qui filtre là-dessus.
    *
    * L'écran change d'abord — la puce doit disparaître sous le doigt — et
@@ -2543,7 +2566,7 @@ function AppView(): React.JSX.Element {
     // Le retour arrière de « Effacer tout » ne vaut plus : il remettrait les
     // critères d'avant l'effacement, donc aussi celui qu'on vient de lever
     // exprès. Un « Annuler » ne défait que le geste qu'il annonce.
-    setClearedUndo(null);
+    keepClearedUndo(null);
     try {
       await saveFilters(next);
       await load(true);
@@ -2593,13 +2616,15 @@ function AppView(): React.JSX.Element {
     if (chips.length === 0) return;
     const next = clearedCriteria(previous);
     setCriteria(next);
-    setClearedUndo({ previous, labels: chips.map((chip) => chip.label) });
+    // `cleared` sert à vérifier, au prochain chargement, que rien n'a bougé
+    // depuis : sans lui, « Annuler » écraserait des critères réglés entre temps.
+    keepClearedUndo({ previous, cleared: next, labels: chips.map((chip) => chip.label) });
     try {
       await saveFilters(next);
       await load(true);
     } catch {
       setCriteria(previous);
-      setClearedUndo(null);
+      keepClearedUndo(null);
       setError('Les critères n’ont pas pu être effacés');
     }
   };
@@ -2617,13 +2642,13 @@ function AppView(): React.JSX.Element {
     if (pending === null) return;
     const cleared = criteria;
     setCriteria(pending.previous);
-    setClearedUndo(null);
+    keepClearedUndo(null);
     try {
       await saveFilters(pending.previous);
       await load(true);
     } catch {
       setCriteria(cleared);
-      setClearedUndo(pending);
+      keepClearedUndo(pending);
       setError('Vos critères n’ont pas pu être rétablis');
     }
   };
@@ -2817,7 +2842,7 @@ function AppView(): React.JSX.Element {
               setCriteria(saved);
               // Même raison que dans `relaxCriterion` : le retour arrière de
               // l'effacement écraserait ce réglage-ci.
-              setClearedUndo(null);
+              keepClearedUndo(null);
               void load(true);
             }}
           />
@@ -2837,7 +2862,7 @@ function AppView(): React.JSX.Element {
           <ClearedCriteriaNotice
             cleared={clearedUndo}
             onUndo={() => void undoClear()}
-            onHide={() => setClearedUndo(null)}
+            onHide={() => keepClearedUndo(null)}
           />
         </div>
       )}

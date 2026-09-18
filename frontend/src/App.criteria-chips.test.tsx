@@ -16,7 +16,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NICE_DISTRICTS } from '@maioun/shared';
 import type * as Client from './api/client.js';
@@ -215,6 +215,44 @@ describe('les critères comptent dans la barre de filtres', () => {
     expect(state.saved[1]?.excludeStudent).toBe(true);
     expect(state.saved[1]?.maxCommuteMinutes).toBe(60);
     expect(await screen.findByText('87 quartiers')).toBeInTheDocument();
+    expect(screen.queryByTestId('cleared-undo')).toBeNull();
+  });
+
+  it('et il SURVIT AU RECHARGEMENT de la page', async () => {
+    // Il ne vivait qu'en mémoire de page. Un rafraîchissement, ou l'onglet
+    // déchargé par le téléphone, et les 87 quartiers n'avaient plus aucun
+    // chemin de retour — la perte silencieuse que cette rangée évite.
+    await openSearch();
+    await screen.findByText('87 quartiers');
+    await userEvent.click(screen.getByRole('button', { name: 'Effacer tout' }));
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+    await screen.findByTestId('cleared-undo');
+
+    cleanup();
+    await openSearch();
+
+    const undo = await screen.findByTestId('cleared-undo');
+    expect(undo).toHaveTextContent('87 quartiers');
+    await userEvent.click(within(undo).getByRole('button', { name: 'Annuler' }));
+    await waitFor(() => expect(state.saved).toHaveLength(2));
+    expect(state.saved[1]?.districts).toHaveLength(87);
+  });
+
+  it('mais PAS si les critères ont été réglés depuis', async () => {
+    // Réglés entre temps depuis le panneau ou une autre machine : « Annuler »
+    // écraserait ce réglage-là au lieu de défaire l'effacement.
+    await openSearch();
+    await screen.findByText('87 quartiers');
+    await userEvent.click(screen.getByRole('button', { name: 'Effacer tout' }));
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+
+    state.criteria = { ...state.criteria, excludeFlatShare: true };
+    cleanup();
+    await openSearch();
+
+    // La puce prouve que les critères du compte sont bien arrivés : sans elle,
+    // l'absence du retour arrière ne dirait rien.
+    await screen.findByText('Sans colocations');
     expect(screen.queryByTestId('cleared-undo')).toBeNull();
   });
 
