@@ -147,7 +147,9 @@ describe('version HTML de l’alerte', () => {
   });
 
   it('écrit les chiffres comme l’application, et tait ce qui manque', () => {
-    expect(compose({ price: 483.62, area: 24.35 })).toContain('484&nbsp;€');
+    // LE LOYER N'EST PLUS ARRONDI : une annonce à 483,62 € s'écrivait
+    // « 484 € », et le montant annoncé n'était plus celui du bail.
+    expect(compose({ price: 483.62, area: 24.35 })).toContain('483,62&nbsp;€');
     expect(compose({ price: 483.62, area: 24.35 })).toContain('24,4&nbsp;m²');
     const html = compose({ area: null, rooms: null, phone: null, district: null, city: null });
     expect(html).not.toContain('m²');

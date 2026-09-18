@@ -12,7 +12,7 @@
  * Toutes sont PURES et testables sans réseau (§59).
  */
 
-import { formatLocation, portalLabel } from '@maioun/shared';
+import { formatLocation, formatRent, portalLabel } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import { sourceDisplayNames } from '../sources/index.js';
 
@@ -37,7 +37,7 @@ export function originLabel(listing: NotifiableListing): string | null {
 /** Somme lisible « 640 € · 28 m² · 2 pièces », en omettant l'inconnu (§17). */
 export function summarize(listing: NotifiableListing): string {
   const parts: string[] = [];
-  if (listing.price !== null) parts.push(`${listing.price} €`);
+  if (listing.price !== null) parts.push(formatRent(listing.price));
   if (listing.area !== null) parts.push(`${listing.area} m²`);
   if (listing.rooms !== null) parts.push(`${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}`);
   return parts.join(' · ');

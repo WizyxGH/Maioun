@@ -16,6 +16,7 @@ export * from './criteria.js';
 export * from './source.js';
 export * from './message.js';
 export * from './dossier-facile.js';
+export * from './money.js';
 export * from './address.js';
 export * from './districts.js';
 export * from './user.js';

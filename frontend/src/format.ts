@@ -15,6 +15,7 @@ import {
   formatCommune,
   formatElapsed,
   formatLocation,
+  formatRent,
 } from '@maioun/shared';
 
 /**
@@ -29,7 +30,10 @@ import {
 export const UNKNOWN = 'N/A';
 
 export function formatPrice(price: number | null): string {
-  return price === null ? UNKNOWN : `${Math.round(price)} €`;
+  // LES CENTIMES NE S'ARRONDISSENT PAS : une annonce à 630,50 € s'affichait
+  // « 631 € », et le montant montré n'était plus celui du bail. La règle vit
+  // dans `shared`, parce que l'e-mail d'alerte l'écrit aussi.
+  return price === null ? UNKNOWN : formatRent(price);
 }
 
 export function formatArea(area: number | null): string {

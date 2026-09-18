@@ -10,7 +10,7 @@
  * il ne les embarque pas.
  */
 
-import { listingUrl } from '@maioun/shared';
+import { formatRent, listingUrl } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import {
   EMAIL_COLORS,
@@ -69,7 +69,7 @@ function card(listing: NotifiableListing, siteUrl: string, nowMs: number): strin
 
   const lines = [
     `<div style="font-size:22px;font-weight:700;color:${FOREGROUND};line-height:1.2">${
-      listing.price === null ? 'Loyer N/A' : `${Math.round(listing.price)}&nbsp;€`
+      listing.price === null ? 'Loyer N/A' : formatRent(listing.price).replace(' €', '&nbsp;€')
     }</div>`,
     details === ''
       ? null

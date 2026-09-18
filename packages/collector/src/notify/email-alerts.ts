@@ -15,7 +15,7 @@
  * déclare (§17), comme le push sans clés VAPID.
  */
 
-import { listingUrl } from '@maioun/shared';
+import { formatRent, listingUrl } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import type { Logger } from '../core/logger.js';
 import { alertEmailHtml } from './email-html.js';
@@ -47,7 +47,7 @@ const EMPTY: EmailAlertReport = { notifiedIds: [], unconfigured: false };
 /** « 690 € · 32 m² · 2 pièces » — ce qui manque est simplement absent (§17). */
 function summarize(listing: NotifiableListing): string {
   const parts = [
-    listing.price === null ? null : `${listing.price} €`,
+    listing.price === null ? null : formatRent(listing.price),
     listing.area === null ? null : `${listing.area} m²`,
     listing.rooms === null ? null : `${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}`,
   ].filter((part): part is string => part !== null);
