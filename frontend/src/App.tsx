@@ -1681,16 +1681,33 @@ function AppView(): React.JSX.Element {
       setError('L’archivage n’a pas pu être enregistré');
     }
   };
+  /**
+   * « LOUÉE » RANGE L'ANNONCE, les autres statuts la laissent où elle est.
+   *
+   * Apprendre au téléphone qu'un logement est pris est le cas le plus courant
+   * de cette liste, et jusqu'ici il demandait DEUX gestes : poser le statut,
+   * puis archiver. Celui qui n'en faisait qu'un gardait l'annonce sous les
+   * yeux, indéfiniment. Les autres statuts ne rangent rien : un refus se
+   * relit, une visite se prépare.
+   *
+   * Le retour en arrière reste à la main : désarchiver d'un clic est plus sûr
+   * que deviner qu'un statut repassé à « contactée » veut dire « ressors-la ».
+   */
   const handleTrackingChange = async (status: TrackingStatus): Promise<void> => {
     if (needsAccount('suivre où en est une candidature')) return;
     if (selected === null) return;
+    const id = selected.id;
+    const range = status === 'rented' && selected.archived !== true;
     setListings((current) =>
       current.map((listing) =>
-        listing.id === selected.id ? { ...listing, tracking: status } : listing,
+        listing.id === id
+          ? { ...listing, tracking: status, ...(range ? { archived: true } : {}) }
+          : listing,
       ),
     );
     try {
-      await updateTracking(selected.id, status);
+      await updateTracking(id, status);
+      if (range) await setArchived(id, true);
     } catch {
       setError('Le statut n’a pas pu être enregistré');
     }
