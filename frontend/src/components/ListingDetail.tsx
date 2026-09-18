@@ -450,7 +450,7 @@ function useReferencePoints(): readonly StoredReferencePoint[] {
 }
 
 /**
- * « voir le trajet » — l'itinéraire réel entre un point de référence et le
+ * « Voir le trajet » — l'itinéraire réel entre un point de référence et le
  * logement.
  *
  * Absent quand l'annonce n'est située que par sa commune : `mapsQueryOf` rend
@@ -478,7 +478,7 @@ function DirectionsLink({
       rel="noreferrer"
       className="ml-2 text-[0.85rem] whitespace-nowrap"
     >
-      voir le trajet
+      Voir le trajet
     </a>
   );
 }

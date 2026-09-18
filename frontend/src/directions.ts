@@ -1,5 +1,6 @@
 /**
- * Le lien « voir le trajet » (§20, §26).
+ * Le lien « Voir le trajet » : par où l'on passe, et à quel prix pour la vie
+ * privée du domicile.
  *
  * La fiche annonce « 57 min (13,24 km à vol d'oiseau) » sans dire par où l'on
  * passe : deux logements à cinquante minutes ne se valent pas selon qu'on y va
