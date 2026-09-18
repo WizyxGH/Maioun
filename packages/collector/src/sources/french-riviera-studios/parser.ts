@@ -5,15 +5,22 @@
  * `/status/location/` liste sur une page les locations au mois (meublées ou
  * étudiantes pour la plupart) ; les cartes portent l'identifiant WordPress
  * (`data-listid`). La fiche a un JSON-LD `RealEstateListing` (titre,
- * description, photos, surface, commune) et un tableau « Détails » : prix
- * « 710.00€/mois », charges, dépôt de garantie, référence d'agence.
+ * description, photos, surface, commune, coordonnées) doublé du JSON-LD Yoast
+ * qui date la mise en ligne, et un tableau « Détails » en deux parties : prix
+ * « 710.00€/mois », charges, dépôt de garantie, référence d'agence, puis
+ * « Détails supplémentaires » — étage, honoraires, état des lieux.
+ *
+ * Le site ne publie AUCUNE rue : le bloc Adresse s'arrête à la commune et au
+ * code postal. Les coordonnées du JSON-LD sont donc le seul repère précis.
  */
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { parseFrenchNumber } from '../../normalization/parse-number.js';
 import { htmlToText } from '../shared/html-text.js';
-import { collectJsonLdNodes, findJsonLdNode, jsonLdString } from '../shared/json-ld.js';
+import { fieldMatching } from '../shared/labels.js';
+import { collectJsonLdNodes, findJsonLdNode, jsonLdGeo, jsonLdString } from '../shared/json-ld.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 export const AGENCY_NAME = 'French Riviera Studios';
@@ -64,6 +71,28 @@ function euros(value: string | undefined): string | undefined {
   return `${match[1].trim()}${cents} €`;
 }
 
+/**
+ * Un nombre du tableau, `0` écarté : le thème imprime `0` dans tout champ que
+ * l'agence n'a pas rempli — « Chambre 0 » sur un trois-pièces de 71 m². Rien ne
+ * distingue ce zéro d'un vrai rez-de-chaussée, donc il ne vaut pas réponse.
+ */
+function positiveCount(value: string | undefined): string | undefined {
+  const count = parseFrenchNumber(value ?? '');
+  return count !== null && count > 0 ? String(count) : undefined;
+}
+
+/**
+ * Honoraires du locataire, état des lieux compris : c'est la somme versée à
+ * l'entrée. La fiche les publie sur deux lignes, et l'état des lieux seul ne
+ * dit pas ce que coûte la mise en location.
+ */
+function feesText(table: ReadonlyMap<string, string>): string | undefined {
+  const fees = parseFrenchNumber(fieldMatching(table, /^Honoraires/i) ?? '');
+  if (fees === null) return undefined;
+  const inventory = parseFrenchNumber(fieldMatching(table, /^[EÉ]tat des lieux/i) ?? '') ?? 0;
+  return `${Math.round((fees + inventory) * 100) / 100} €`;
+}
+
 /** Pièces déduites du titre : « F2 », « T3 », « 2 pièces », « studio ». */
 function roomsFromTitle(title: string): string | undefined {
   const typed = /\b[FT]\s?(\d)\b/i.exec(title) ?? /\b(\d)\s*pi[eè]ces?\b/i.exec(title);
@@ -78,7 +107,11 @@ export function parseDetail(html: string): RawDraft | null {
   const price = table.get('Prix');
   if (price === undefined || !/\/\s*mois/i.test(price)) return null;
 
-  const node = findJsonLdNode(collectJsonLdNodes($), ['realestatelisting']) ?? {};
+  const nodes = collectJsonLdNodes($);
+  const node = findJsonLdNode(nodes, ['realestatelisting']) ?? {};
+  // Yoast date la mise en ligne du bien ; le tableau n'affiche que la dernière
+  // retouche, la même pour tout l'inventaire après une reprise en masse.
+  const page = findJsonLdNode(nodes, ['webpage']) ?? {};
   const address = (node['address'] ?? {}) as Record<string, unknown>;
   const floor = (node['floorSize'] ?? {}) as Record<string, unknown>;
   const images = Array.isArray(node['image'])
@@ -94,21 +127,33 @@ export function parseDetail(html: string): RawDraft | null {
     .get();
   const area =
     jsonLdString(floor['value']) ?? /(\d+(?:[.,]\d+)?)/.exec(table.get('Surface') ?? '')?.[1];
+  const extra: Record<string, string> = {};
   const reference = table.get('Référence');
+  if (reference !== undefined) extra['reference'] = reference;
+  const etage = positiveCount(table.get('Étage'));
+  if (etage !== undefined) extra['etage'] = etage;
+  // « Location meublée » s'écrit en étiquette de statut ET dans le tableau :
+  // l'une manque parfois. Rien n'est conclu de l'absence des deux.
+  const furnished = `${labels.join(' ')} ${table.get('Statut de propriété') ?? ''}`;
 
   return {
     title: title === '' ? undefined : title,
     description: description === '' ? undefined : description,
     priceText: `${euros(price) ?? price} par mois`,
+    // « Charges de copropriété » est la quote-part du propriétaire, pas la
+    // provision du locataire : seule « Charges » est la sienne.
     chargesText: euros(table.get('Charges')),
     depositText: euros(table.get('Dépôt de garantie')),
+    feesText: feesText(table),
     areaText: area !== undefined ? `${area} m²` : undefined,
     roomsText: roomsFromTitle(title),
     propertyTypeText: table.get('Type de bien'),
-    furnishedText: labels.some((label) => /meubl/i.test(label)) ? 'Meublé' : undefined,
+    furnishedText: /meubl/i.test(furnished) ? 'Meublé' : undefined,
     cityText: jsonLdString(address['addressLocality']) ?? table.get('Ville'),
     postalCodeText: jsonLdString(address['postalCode']) ?? table.get('Zip/Postal Code'),
+    ...jsonLdGeo(node),
+    publishedAtText: jsonLdString(page['datePublished']),
     imageUrls: images.length > 0 ? images : undefined,
-    extra: reference !== undefined ? { reference } : undefined,
+    extra: Object.keys(extra).length > 0 ? extra : undefined,
   };
 }

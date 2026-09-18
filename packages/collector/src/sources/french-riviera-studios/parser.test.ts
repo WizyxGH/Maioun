@@ -36,6 +36,45 @@ describe('parseDetail (French Riviera Studios)', () => {
     expect(draft?.description).toMatch(/Location longue durée$/);
   });
 
+  it('situe le bien par les coordonnées du JSON-LD, seul repère publié', () => {
+    expect(draft?.latitude).toBeCloseTo(43.69324, 5);
+    expect(draft?.longitude).toBeCloseTo(7.24708, 5);
+    // Le site s'arrête à la commune : aucune rue à inventer.
+    expect(draft?.addressText).toBeUndefined();
+  });
+
+  it('additionne honoraires et état des lieux, et date la mise en ligne', () => {
+    expect(draft?.feesText).toBe('320 €');
+    expect(draft?.publishedAtText).toBe('2024-10-08T07:12:44+00:00');
+  });
+
+  it('ignore les zéros que le thème imprime dans un champ vide', () => {
+    // La fiche affiche « Étage 0 » et « Chambre 0 » sans les avoir renseignés.
+    expect(draft?.extra?.['etage']).toBeUndefined();
+    const fourth = read('f2-nice-beaumettes.html').replace(
+      '<strong>Étage</strong> <span>0</span>',
+      '<strong>Étage</strong> <span>4</span>',
+    );
+    expect(parseDetail(fourth)?.extra?.['etage']).toBe('4');
+  });
+
+  it('ne retient pas l’état des lieux seul comme honoraires', () => {
+    const html = read('f2-nice-beaumettes.html').replace(
+      '<strong>Honoraires à la charge du locataire</strong> <span>260 €</span>',
+      '',
+    );
+    expect(parseDetail(html)?.feesText).toBeUndefined();
+  });
+
+  it('lit « Location meublée » dans le tableau autant que dans les étiquettes', () => {
+    expect(draft?.furnishedText).toBeUndefined();
+    const html = read('f2-nice-beaumettes.html').replace(
+      '<span>Location</span>',
+      '<span>Location meublée, Location</span>',
+    );
+    expect(parseDetail(html)?.furnishedText).toBe('Meublé');
+  });
+
   it('se normalise', () => {
     const normalized = normalizeListing(
       {
@@ -49,6 +88,10 @@ describe('parseDetail (French Riviera Studios)', () => {
     expect(normalized?.area).toBe(30);
     expect(normalized?.rooms).toBe(2);
     expect(normalized?.city).toBe('nice');
+    expect(normalized?.latitude).toBeCloseTo(43.69324, 5);
+    expect(normalized?.longitude).toBeCloseTo(7.24708, 5);
+    expect(normalized?.tenantFees).toBe(320);
+    expect(normalized?.publishedAt).toBe('2024-10-08T07:12:44.000Z');
   });
 
   it('lit les milliers à l’anglaise', () => {

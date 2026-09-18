@@ -3,9 +3,13 @@
  * Victor Hugo, 06000 Nice. Plateforme Apimo : adaptateur générique
  * `../apimo/`.
  *
- * Vérifié le 2026-09-14 : robots.txt n’interdit que /app_dev.php, sitemap
+ * Vérifié le 2026-09-18 : robots.txt n’interdit que /app_dev.php, sitemap
  * déclaré, fiches `/fr/propriete/location+…`.
- * 1 location en ligne à Nice.
+ *
+ * Le sitemap garde 60 locations niçoises, mais il n’est jamais purgé : 47
+ * datent de 2021 à 2024 et le plafond d’âge les écarte à bon droit. Les 13
+ * vivantes sont bien toutes collectées. Les fiches de Menton sont hors
+ * périmètre.
  */
 
 import { makeApimoScraper } from '../apimo/scraper.js';

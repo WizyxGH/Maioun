@@ -59,3 +59,25 @@ export function jsonLdString(value: unknown): string | undefined {
   if (typeof value === 'number') return String(value);
   return undefined;
 }
+
+/**
+ * Coordonnées d'un nœud `geo` schema.org.
+ *
+ * C'est la position que l'agence a saisie pour sa carte : elle vaut mieux qu'un
+ * géocodage, et elle existe sur des fiches qui ne publient aucune rue. Les deux
+ * valeurs doivent être lisibles et dans les bornes, sinon on ne rend rien —
+ * un `0` est le champ vide de la plupart des gabarits, pas le golfe de Guinée.
+ */
+export function jsonLdGeo(node: JsonLdNode): { latitude?: number; longitude?: number } {
+  const geo = node['geo'] as JsonLdNode | undefined;
+  const read = (key: string): number | undefined => {
+    const raw = geo?.[key];
+    const value = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+    return Number.isFinite(value) && value !== 0 ? value : undefined;
+  };
+  const latitude = read('latitude');
+  const longitude = read('longitude');
+  if (latitude === undefined || longitude === undefined) return {};
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return {};
+  return { latitude, longitude };
+}

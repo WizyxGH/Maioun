@@ -30,9 +30,11 @@ export const FRENCH_RIVIERA_STUDIOS_DESCRIPTOR: SourceDescriptor = {
     address: { street: '2 place Magenta', postalCode: '06000', city: 'Nice' },
   },
   notes:
-    'WordPress (thème Houzez), rendu serveur. robots.txt vérifié le 2026-09-15 : ' +
+    'WordPress (thème Houzez), rendu serveur. robots.txt vérifié le 2026-09-18 : ' +
     'aucune règle. Liste /status/location/ (une page), fiches /property/{slug}/ ' +
-    'avec JSON-LD RealEstateListing et tableau Détails (prix au mois, charges, dépôt).',
+    'avec JSON-LD RealEstateListing (coordonnées comprises) et tableau Détails ' +
+    '(prix au mois, charges, dépôt, étage, honoraires). Aucune rue publiée : le ' +
+    'bloc Adresse s’arrête à la commune.',
 };
 
 export const frenchRivieraStudiosScraper: Scraper = {
