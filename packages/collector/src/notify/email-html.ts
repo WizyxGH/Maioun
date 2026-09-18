@@ -10,6 +10,7 @@
  * il ne les embarque pas.
  */
 
+import { listingUrl } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import {
   EMAIL_COLORS,
@@ -32,10 +33,6 @@ function titleCase(value: string): string {
     /(^|[\s-])(\p{L})/gu,
     (_m, sep: string, letter: string) => sep + letter.toUpperCase(),
   );
-}
-
-function listingUrl(siteUrl: string, id: string): string {
-  return `${siteUrl.replace(/\/$/, '')}/listing/${encodeURIComponent(id)}`;
 }
 
 /** « 5 sept. » — le jour tel qu'écrit, sans décalage de fuseau. */

@@ -272,7 +272,8 @@ describe('reopenedContentFor', () => {
       } as never,
       'https://exemple.invalid/app/',
     );
-    expect(content.title).toBe('Candidatures rouvertes');
+    // AU SINGULIER : le push part par annonce, il n'en porte jamais deux.
+    expect(content.title).toBe('Candidature rouverte');
     expect(content.body).toContain('06 00 00 00 01');
     expect(content.tag).toBe('maioun-rouverte-foncia:1');
   });

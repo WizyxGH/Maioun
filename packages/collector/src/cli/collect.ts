@@ -54,7 +54,6 @@ import type { VapidConfig } from '../notify/web-push.js';
 import {
   ALERTS_SWITCH,
   alertsAllowed,
-  FAVORITE_GONE_TITLE,
   goneContentFor,
   loadVapidConfig,
   nearMatchContentFor,
@@ -70,6 +69,7 @@ import { createRobotsGate } from '../core/robots.js';
 import { budgetFor } from '../core/budgets.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { sendEmailAlert } from '../notify/email-alerts.js';
+import { alertHeading } from '../notify/headings.js';
 import { mailerConfigured } from '../notify/mailer.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
@@ -332,7 +332,7 @@ async function notifyOne(deps: {
       await repository.directListingSpecKeys(),
     );
     const report = await sendWebPush({ ...common, listings: pending });
-    const mailed = await alsoByEmail(pending, 'Nouvelles annonces');
+    const mailed = await alsoByEmail(pending, alertHeading('new', pending.length));
     // Une annonce tue par l'écho d'une autre ne se marque que si cette autre
     // est bien partie : sinon elle reviendrait sonner seule au passage suivant.
     const parties = new Set([...report.notifiedIds, ...mailed]);
@@ -349,7 +349,7 @@ async function notifyOne(deps: {
       { ...common, listings: reopened },
       reopenedContentFor,
     );
-    const reopenMailed = await alsoByEmail(reopened, 'Candidatures rouvertes');
+    const reopenMailed = await alsoByEmail(reopened, alertHeading('reopened', reopened.length));
     await repository.markReopenNotified(userId, [...reopenReport.notifiedIds, ...reopenMailed]);
     if (reopenReport.sent > 0) sentAnything = true;
     await repository.noteClosedApplications(userId);
@@ -368,7 +368,7 @@ async function notifyOne(deps: {
     const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
       nearMatchContentFor(listing as NearMatch, url),
     );
-    const mailed = await alsoByEmail(near, 'Proche de vos critères');
+    const mailed = await alsoByEmail(near, alertHeading('nearMatch', near.length));
     await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
@@ -378,7 +378,7 @@ async function notifyOne(deps: {
   if (preferences.favoriteGone) {
     const gone = await repository.goneFavorites(userId);
     const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
-    const mailed = await alsoByEmail(gone, FAVORITE_GONE_TITLE);
+    const mailed = await alsoByEmail(gone, alertHeading('favoriteGone', gone.length));
     await repository.markGoneNotified(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }
@@ -388,7 +388,7 @@ async function notifyOne(deps: {
   if (preferences.applicationReminders) {
     const stale = await repository.staleFavorites(userId, APPLICATION_REMINDER_HOURS);
     const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
-    const mailed = await alsoByEmail(stale, 'Vous n’avez pas encore candidaté');
+    const mailed = await alsoByEmail(stale, alertHeading('reminder', stale.length));
     await repository.markReminded(userId, [...report.notifiedIds, ...mailed]);
     if (report.sent > 0) sentAnything = true;
   }

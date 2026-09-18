@@ -15,6 +15,7 @@
  * déclare (§17), comme le push sans clés VAPID.
  */
 
+import { listingUrl } from '@maioun/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import type { Logger } from '../core/logger.js';
 import { alertEmailHtml } from './email-html.js';
@@ -67,7 +68,7 @@ function block(listing: NotifiableListing, siteUrl: string): string {
     // Le téléphone est ce qui fait gagner l'annonce : appeler passe avant
     // d'écrire, et il n'est pas toujours sur la fiche du site.
     listing.phone === null ? null : `  ☎ ${listing.phone}`,
-    `  ${siteUrl.replace(/\/$/, '')}/listing/${encodeURIComponent(listing.id)}`,
+    `  ${listingUrl(siteUrl, listing.id)}`,
   ];
   return lines.filter((line): line is string => line !== null).join('\n');
 }

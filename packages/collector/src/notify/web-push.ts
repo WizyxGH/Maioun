@@ -17,6 +17,7 @@ import webpush from 'web-push';
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
 import { availabilityLabel, locationLabel, originLabel, summarize } from './facts.js';
+import { alertHeading } from './headings.js';
 
 /**
  * Annonces poussées individuellement par exécution ; au-delà, le surplus est
@@ -166,7 +167,7 @@ export function pushContentsFor(
  * dans la minute, seulement une case à rayer.
  */
 /** Titre partagé par la notification et l'e-mail : le cœur brisé se voit d'un coup d'œil. */
-export const FAVORITE_GONE_TITLE = '💔 Un favori n’est plus disponible';
+export const FAVORITE_GONE_TITLE = alertHeading('favoriteGone', 1);
 
 export function goneContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
   const location = locationLabel(listing);
@@ -189,7 +190,9 @@ export function goneContentFor(listing: NotifiableListing, siteUrl: string): Pus
 export function reopenedContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
   const location = locationLabel(listing);
   return {
-    title: 'Candidatures rouvertes',
+    // Le push part par annonce : son titre est donc toujours au singulier,
+    // contrairement à l'e-mail qui groupe le passage entier.
+    title: alertHeading('reopened', 1),
     body: [
       listing.title ?? 'Une annonce qui était complète',
       summarize(listing),
@@ -217,7 +220,7 @@ export function reopenedContentFor(listing: NotifiableListing, siteUrl: string):
 export function reminderContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
   const location = locationLabel(listing);
   return {
-    title: 'Vous n’avez pas encore candidaté',
+    title: alertHeading('reminder', 1),
     body: [
       listing.title ?? 'Une annonce mise en favori',
       summarize(listing),
@@ -255,7 +258,7 @@ export function nearMatchContentFor(
 ): PushPayload {
   const location = locationLabel(listing);
   return {
-    title: 'Proche de vos critères',
+    title: alertHeading('nearMatch', 1),
     body: [
       listing.title ?? 'Une annonce',
       listing.overshoot !== '' ? `⚠️ ${listing.overshoot}` : null,
