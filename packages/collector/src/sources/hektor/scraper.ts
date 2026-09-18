@@ -3,12 +3,13 @@
  * Ajouter une agence = une entrée `makeHektorScraper({...})`.
  *
  * Méthode : pages de LISTE (server-rendered) → liens de fiches → visite des
- * seules fiches nouvelles ; les connues sont confirmées sans requête. Le
- * sitemap n'est pas utilisé : sur plusieurs sites de la plateforme il
- * ne référence pas les fiches.
+ * fiches nouvelles, puis d'UNE fiche déjà connue par passage. Le sitemap n'est
+ * pas utilisé : sur plusieurs sites de la plateforme il ne référence pas les
+ * fiches.
  */
 
 import type {
+  DetailMemoryEntry,
   RawListing,
   Scraper,
   ScrapeContext,
@@ -17,6 +18,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { isFreshMemory } from '../shared/enrich.js';
 import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import { parseDetailPage, parseListPage, type ParsedHektorUrl } from './parser.js';
 
@@ -50,6 +52,28 @@ export interface HektorConfig {
  */
 const MAX_LIST_PAGES = 12;
 
+/**
+ * Fiches déjà CONNUES relues par passage, une fois les nouvelles servies.
+ *
+ * UNE FICHE CONNUE N'ÉTAIT JAMAIS RELUE : chaque progrès du parseur ne
+ * profitait qu'aux annonces découvertes après lui, et le stock gardait
+ * indéfiniment ce qu'une version plus pauvre avait su lire. Relevé du
+ * 2026-09-18 sur les cinquante-trois agences de la plateforme : 160 des 228
+ * annonces en ligne sont sans e-mail, 149 sans téléphone, alors que leur fiche
+ * les porte.
+ *
+ * UNE SEULE PAR PASSAGE SUFFIT. Chaque agence est lue une dizaine de fois par
+ * jour et n'a qu'un peu plus de quatre annonces : l'inventaire entier est
+ * rattrapé en une demi-journée. Passé le rattrapage, la fraîcheur d'une
+ * semaine (`isFreshMemory`) ramène la dépense à une trentaine de requêtes par
+ * jour pour la plateforme entière, soit moins d'un demi pour cent des ~8 100
+ * requêtes quotidiennes du projet.
+ */
+const RELECTURES_PAR_PASSAGE = 1;
+
+/** En rattrapage, le plafond des relectures suit celui des nouveautés. */
+const RELECTURES_PAR_PASSAGE_BACKFILL = 5;
+
 export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
   const maxBackfill = config.maxDetailsBackfill ?? 20;
   return {
@@ -73,7 +97,8 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
     notes:
       'Plateforme La Boîte Immo/Hektor (adaptateur générique). robots.txt ' +
       'permissif (interdits : /stats, /phpmv2, /fonctions, /templates, /admin). ' +
-      'Listes SSR → fiches nouvelles uniquement. DPE lu sur le seul gabarit à ' +
+      'Listes SSR → fiches nouvelles, plus une fiche connue relue par passage. ' +
+      'DPE lu sur le seul gabarit à ' +
       'pastilles ; ailleurs image sous /admin, interdit par robots — laissé inconnu. ' +
       'La pagination des listes est suivie : une seule adresse à déclarer par liste.',
   };
@@ -127,9 +152,8 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
 
       // --- 2. Nouvelles fiches d'abord, connues confirmées sans requête -----
       const all = [...discovered.values()];
-      const confirmedRefs = all
-        .filter((url) => context.isKnown(url.reference))
-        .map((url) => url.reference);
+      const connues = all.filter((url) => context.isKnown(url.reference));
+      const confirmedRefs = connues.map((url) => url.reference);
       const candidates = all.filter((url) => !context.isKnown(url.reference));
       const maxDetails = context.mode === 'backfill' ? maxBackfill : maxLive;
 
@@ -141,40 +165,46 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
       });
 
       // --- 3. Visite des fiches nouvelles -----------------------------------
-      for (const url of candidates.slice(0, maxDetails)) {
-        if (context.shouldStop()) {
-          stopReason = 'maxPages';
-          break;
-        }
-        try {
-          const response = await context.fetch(url.canonicalUrl);
-          requestCount += 1;
-          detailsRequested += 1;
-          if (response.notModified) continue;
-          pagesFetched += 1;
+      const nouvelles = await visiterFiches(
+        context,
+        candidates.slice(0, maxDetails),
+        config.name,
+        true,
+      );
 
-          const parsed = parseDetailPage(response.body, url.canonicalUrl, config.name);
-          warnings.push(...parsed.warnings);
-          // Fiche retirée : le site sert l'accueil à sa place, en 200. La liste
-          // peut encore la montrer — c'est la fiche qui fait foi.
-          if (parsed.withdrawn === true) {
-            parties.push({ sourceRef: url.reference, url: url.canonicalUrl, status: 200 });
-          }
-          if (parsed.listing !== null) listings.push(parsed.listing);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          warnings.push(`Échec sur ${url.canonicalUrl} : ${message}`);
-          context.log('page.failed', { url: url.canonicalUrl, error: message });
-          if (message.includes('429')) {
-            stopReason = 'rateLimited';
-            break;
-          }
-          if (message.includes('refusé')) {
-            stopReason = 'blocked';
-            break;
-          }
-        }
+      // --- 4. Relecture d'une fiche connue ----------------------------------
+      // LA NOUVEAUTÉ PASSE AVANT : on ne relit que si toutes les nouvelles ont
+      // été servies et que rien n'a interrompu le passage.
+      const relisibles =
+        nouvelles.stopReason === null && candidates.length <= maxDetails
+          ? aRelire(
+              context,
+              connues,
+              context.mode === 'backfill'
+                ? RELECTURES_PAR_PASSAGE_BACKFILL
+                : RELECTURES_PAR_PASSAGE,
+            )
+          : [];
+      // SANS CACHE CONDITIONNEL : la page n'a pas changé, c'est le parseur qui
+      // a changé — un 304 ne rendrait rien à relire.
+      const relues = await visiterFiches(context, relisibles, config.name, false);
+      if (relisibles.length > 0) {
+        context.log('detail.refreshed', { asked: relisibles.length, read: relues.lues.length });
       }
+
+      const passages = [nouvelles, relues];
+      listings.push(...passages.flatMap((passage) => passage.listings));
+      warnings.push(...passages.flatMap((passage) => passage.warnings));
+      parties.push(...passages.flatMap((passage) => passage.gone));
+      requestCount += passages.reduce((total, passage) => total + passage.requestCount, 0);
+      pagesFetched += passages.reduce((total, passage) => total + passage.pagesFetched, 0);
+      detailsRequested += passages.reduce((total, passage) => total + passage.detailsRequested, 0);
+      stopReason = nouvelles.stopReason ?? relues.stopReason ?? 'completed';
+
+      await noterLectures(
+        context,
+        passages.flatMap((passage) => passage.lues),
+      );
 
       // Fiches dont le canonique dit qu'elles ne sont plus servies, sous les
       // garde-fous de `shared/withdrawn.ts` : une salve dénoncerait un gabarit
@@ -200,6 +230,142 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
       };
     },
   };
+}
+
+/** Ce qu'une série de visites de fiches rapporte. */
+interface DetailPass {
+  readonly listings: readonly RawListing[];
+  readonly warnings: readonly string[];
+  readonly gone: readonly GoneDetail[];
+  /** Références dont la page a réellement été lue pendant ce passage. */
+  readonly lues: readonly string[];
+  readonly requestCount: number;
+  readonly pagesFetched: number;
+  readonly detailsRequested: number;
+  /** Ce qui a interrompu la série, ou `null` si elle est allée au bout. */
+  readonly stopReason: StopReason | null;
+}
+
+/**
+ * Visite une série de fiches. Le même code sert aux nouveautés et aux
+ * relectures : deux boucles jumelles auraient divergé au premier correctif.
+ *
+ * `conditionnel` : `false` désactive ETag et If-Modified-Since, pour une page
+ * qu'on relit sans qu'elle ait changé.
+ */
+async function visiterFiches(
+  context: ScrapeContext,
+  urls: readonly ParsedHektorUrl[],
+  agencyName: string,
+  conditionnel: boolean,
+): Promise<DetailPass> {
+  const listings: RawListing[] = [];
+  const warnings: string[] = [];
+  const gone: GoneDetail[] = [];
+  const lues: string[] = [];
+  let requestCount = 0;
+  let pagesFetched = 0;
+  let detailsRequested = 0;
+  let stopReason: StopReason | null = null;
+
+  for (const url of urls) {
+    if (context.shouldStop()) {
+      stopReason = 'maxPages';
+      break;
+    }
+    try {
+      const response = await context.fetch(
+        url.canonicalUrl,
+        conditionnel ? {} : { conditional: false },
+      );
+      requestCount += 1;
+      detailsRequested += 1;
+      if (response.notModified) continue;
+      pagesFetched += 1;
+      lues.push(url.reference);
+
+      const parsed = parseDetailPage(response.body, url.canonicalUrl, agencyName);
+      warnings.push(...parsed.warnings);
+      // Fiche retirée : le site sert l'accueil à sa place, en 200. La liste
+      // peut encore la montrer — c'est la fiche qui fait foi.
+      if (parsed.withdrawn === true) {
+        gone.push({ sourceRef: url.reference, url: url.canonicalUrl, status: 200 });
+      }
+      if (parsed.listing !== null) listings.push(parsed.listing);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Échec sur ${url.canonicalUrl} : ${message}`);
+      context.log('page.failed', { url: url.canonicalUrl, error: message });
+      if (message.includes('429')) {
+        stopReason = 'rateLimited';
+        break;
+      }
+      if (message.includes('refusé')) {
+        stopReason = 'blocked';
+        break;
+      }
+    }
+  }
+
+  return {
+    listings,
+    warnings,
+    gone,
+    lues,
+    requestCount,
+    pagesFetched,
+    detailsRequested,
+    stopReason,
+  };
+}
+
+/**
+ * Les fiches connues à relire : jamais lue d'abord, puis la plus anciennement
+ * lue. Celles lues dans la semaine sont laissées de côté.
+ *
+ * L'ORDRE VIENT DE LA MÉMOIRE DES FICHES, qui existait déjà pour d'autres
+ * sources et porte la date de lecture : pas de second circuit à tenir.
+ * Choisir plutôt la fiche la plus PAUVRE — sans téléphone ni e-mail —
+ * demanderait au cœur d'exposer ce que la base contient déjà de chaque
+ * annonce ; la date suffit à ce que tout le stock y passe.
+ */
+function aRelire(
+  context: ScrapeContext,
+  connues: readonly ParsedHektorUrl[],
+  max: number,
+): readonly ParsedHektorUrl[] {
+  if (max <= 0) return [];
+  const nowMs = Date.now();
+  return connues
+    .map((url) => ({ url, memoire: context.detailMemory.get(url.reference) }))
+    .filter((une) => !isFreshMemory(une.memoire, nowMs))
+    .sort((a, b) => luLe(a.memoire) - luLe(b.memoire))
+    .slice(0, max)
+    .map((une) => une.url);
+}
+
+/** Date de dernière lecture, en millisecondes. `0` : jamais lue. */
+function luLe(memoire: DetailMemoryEntry | null): number {
+  if (memoire === null) return 0;
+  const date = Date.parse(memoire.fetchedAt);
+  return Number.isFinite(date) ? date : 0;
+}
+
+/**
+ * Note la date de lecture des fiches visitées.
+ *
+ * Le brouillon reste vide : ici la fiche EST l'annonce, elle part entière dans
+ * le résultat, et seule la date sert — c'est elle qui ordonne les relectures
+ * suivantes. L'échec n'est jamais bloquant : les fiches seront relues.
+ */
+async function noterLectures(context: ScrapeContext, refs: readonly string[]): Promise<void> {
+  if (refs.length === 0) return;
+  try {
+    await context.detailMemory.save(refs.map((sourceRef) => ({ sourceRef, draft: {} })));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    context.log('detail.memory_failed', { count: refs.length, error: message });
+  }
 }
 
 /** Ce qu'une lecture de listes rapporte, pagination comprise. */

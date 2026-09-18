@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { ScrapeContext } from '@maioun/shared';
+import type { DetailMemoryEntry, ScrapeContext } from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
 import { makeHektorScraper } from './scraper.js';
 
@@ -161,5 +161,130 @@ describe('makeHektorScraper — pagination suivie', () => {
     );
     const listes = trace.filter((url) => /\/location\/\d+$/.test(url));
     expect(listes).toEqual([LIST, `${ORIGIN}/location/2`]);
+  });
+});
+
+/**
+ * UNE FICHE CONNUE N'ÉTAIT JAMAIS RELUE, et c'est ce qui figeait le stock : le
+ * parseur apprenait à lire le téléphone, l'e-mail ou l'adresse, et seules les
+ * annonces découvertes APRÈS en profitaient. Relevé du 2026-09-18 sur les
+ * cinquante-trois agences de la plateforme : 160 des 228 annonces en ligne sont
+ * sans e-mail, alors que leur fiche le porte.
+ */
+describe('makeHektorScraper — relecture des fiches connues', () => {
+  const REFS = ['553', '554', '282'];
+
+  interface Options {
+    readonly connues?: readonly string[];
+    readonly memoire?: ReadonlyMap<string, DetailMemoryEntry>;
+    readonly mode?: 'live' | 'backfill';
+  }
+
+  /** Trace les adresses demandées, avec le caractère conditionnel de l'appel. */
+  function contexteRelecture(
+    options: Options,
+    trace: { url: string; conditional: boolean }[],
+    notees: string[][],
+  ): ScrapeContext {
+    const base = contexte(REFS, []);
+    const connues = new Set(options.connues ?? []);
+    return {
+      ...base,
+      mode: options.mode ?? 'live',
+      isKnown: (reference) => connues.has(reference),
+      knownRefs: connues,
+      fetch: (url, init) => {
+        trace.push({ url, conditional: init?.conditional !== false });
+        return base.fetch(url);
+      },
+      detailMemory: {
+        get: (reference) => options.memoire?.get(reference) ?? null,
+        save: (entries) => {
+          notees.push(entries.map((entry) => entry.sourceRef));
+          return Promise.resolve();
+        },
+      },
+    };
+  }
+
+  const scrapeur = makeHektorScraper({
+    id: 'hektor-relecture',
+    name: 'Agence Fictive',
+    domain: 'agence-fictive.fr',
+    listUrls: [LIST],
+  });
+  const fiches = (trace: { url: string }[]): string[] =>
+    trace.filter((appel) => appel.url.endsWith('-appartement')).map((appel) => appel.url);
+
+  it('relit une fiche connue, sans cache conditionnel', async () => {
+    const trace: { url: string; conditional: boolean }[] = [];
+    const result = await scrapeur.run(contexteRelecture({ connues: REFS }, trace, []));
+    // Aucune nouveauté à visiter : une seule fiche connue est relue.
+    expect(fiches(trace)).toHaveLength(1);
+    expect(trace.filter((appel) => appel.url.endsWith('-appartement'))[0]?.conditional).toBe(false);
+    // Elle revient en ANNONCE — c'est là tout l'intérêt — tout en restant
+    // confirmée : sinon le scheduler la prendrait pour une parution.
+    expect(result.listings).toHaveLength(1);
+    expect(result.confirmedRefs).toContain(result.listings[0]?.sourceRef);
+  });
+
+  it('commence par la fiche jamais lue, puis par la plus ancienne', async () => {
+    const lue = (iso: string): DetailMemoryEntry => ({ draft: {}, fetchedAt: iso });
+    const trace: { url: string; conditional: boolean }[] = [];
+    await scrapeur.run(
+      contexteRelecture(
+        {
+          connues: REFS,
+          // '554' n'a aucune mémoire : elle passe avant les deux autres.
+          memoire: new Map([
+            ['553', lue(new Date(Date.now() - 30 * 86_400_000).toISOString())],
+            ['282', lue(new Date(Date.now() - 20 * 86_400_000).toISOString())],
+          ]),
+        },
+        trace,
+        [],
+      ),
+    );
+    expect(fiches(trace)).toEqual([expect.stringContaining('/554-appartement')]);
+  });
+
+  it('laisse tranquille une fiche lue dans la semaine', async () => {
+    const fraiche: DetailMemoryEntry = { draft: {}, fetchedAt: new Date().toISOString() };
+    const trace: { url: string; conditional: boolean }[] = [];
+    await scrapeur.run(
+      contexteRelecture(
+        { connues: REFS, memoire: new Map(REFS.map((reference) => [reference, fraiche])) },
+        trace,
+        [],
+      ),
+    );
+    expect(fiches(trace)).toEqual([]);
+  });
+
+  it('note la date de lecture des fiches visitées, nouvelles comprises', async () => {
+    const notees: string[][] = [];
+    await scrapeur.run(contexteRelecture({ connues: ['553'] }, [], notees));
+    // Deux nouvelles lues, et la connue relue par-dessus.
+    expect(notees.flat().sort()).toEqual(['282', '553', '554']);
+  });
+
+  it('sert d’abord les nouveautés : aucune relecture quand elles saturent', async () => {
+    const trace: { url: string; conditional: boolean }[] = [];
+    const bride = makeHektorScraper({
+      id: 'hektor-relecture-bridee',
+      name: 'Agence Fictive',
+      domain: 'agence-fictive.fr',
+      listUrls: [LIST],
+      maxDetailsLive: 1,
+    });
+    await bride.run(contexteRelecture({ connues: ['282'] }, trace, []));
+    expect(fiches(trace)).toHaveLength(1);
+    expect(fiches(trace)[0]).not.toContain('/282-appartement');
+  });
+
+  it('en rattrapage, relit plusieurs fiches d’un coup', async () => {
+    const trace: { url: string; conditional: boolean }[] = [];
+    await scrapeur.run(contexteRelecture({ connues: REFS, mode: 'backfill' }, trace, []));
+    expect(fiches(trace)).toHaveLength(3);
   });
 });

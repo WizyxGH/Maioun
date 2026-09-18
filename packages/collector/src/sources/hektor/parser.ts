@@ -449,32 +449,61 @@ function ownGallery(urls: readonly string[]): string[] {
 function agencyPhone($: cheerio.CheerioAPI): string | undefined {
   // Deux recherches, pas un sélecteur unique : `first()` prendrait le premier
   // dans l'ORDRE DE LA PAGE, où le bouton de la fiche précède le pied de page.
-  const href =
-    $(
+  return (
+    lienDecode(
+      $,
       '.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"], .footer_element__content a.phone[href^="tel:"]',
-    )
-      .first()
-      .attr('href') ?? $('a.dispPhoneAgency[href^="tel:"]').first().attr('href');
-  // « tel:   06 00 00 00 00 » : la plateforme laisse les espaces du gabarit.
-  return href !== undefined ? cleanText(href.replace(/^tel:/, '')) : undefined;
+      /^tel:/,
+    ) ?? lienDecode($, 'a.dispPhoneAgency[href^="tel:"]', /^tel:/)
+  );
+}
+
+/**
+ * Cible du premier lien correspondant, privée de son schéma. `undefined` si la
+ * page n'a pas ce lien.
+ *
+ * « tel:   06 00 00 00 00 » : la plateforme laisse les espaces du gabarit.
+ */
+function lienDecode($: cheerio.CheerioAPI, selecteur: string, schema: RegExp): string | undefined {
+  const href = $(selecteur).first().attr('href');
+  return href === undefined ? undefined : cleanText(href.replace(schema, ''));
 }
 
 /**
  * L'e-mail de l'agence, au même endroit que son téléphone. La fiche n'offre
  * qu'un formulaire : sans cette adresse, on ne pouvait qu'attendre une réponse.
- * Le JSON-LD `RealEstateAgent` la porte aussi, sur les gabarits sans pied de page.
+ * Le JSON-LD `RealEstateAgent` la porte aussi, sur les gabarits sans pied de
+ * page ; à défaut, le destinataire du formulaire de contact.
  */
 function agencyEmail($: cheerio.CheerioAPI): string | undefined {
-  const href = $(
+  const pied = lienDecode(
+    $,
     '.coords-mail a[href^="mailto:"], a.coords-mail__content[href^="mailto:"], .footer_element__content a.mail[href^="mailto:"]',
-  )
-    .first()
-    .attr('href');
-  const fromFooter = href !== undefined ? cleanText(href.replace(/^mailto:/, '')) : '';
-  if (fromFooter !== '') return fromFooter;
+    /^mailto:/,
+  );
+  if (pied !== undefined && pied !== '') return pied;
   const agent = findJsonLdNode(collectJsonLdNodes($), ['realestateagent']);
   const email = agent?.['email'];
-  return typeof email === 'string' && email.includes('@') ? cleanText(email) : undefined;
+  if (typeof email === 'string' && email.includes('@')) return cleanText(email);
+  return destinataireDuFormulaire($);
+}
+
+/** Une adresse, et rien d'autre : le champ sert aussi à autre chose ailleurs. */
+const EMAIL_SEUL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
+
+/**
+ * Le formulaire de contact porte son destinataire dans un champ caché : c'est
+ * l'adresse à laquelle il écrirait, et sur plusieurs gabarits de la plateforme
+ * c'est le SEUL endroit où la page la donne — ni pied de page, ni JSON-LD.
+ *
+ * Le même gabarit pose un second champ de même nom, vide, destiné à la saisie :
+ * seul un champ portant une adresse compte.
+ */
+function destinataireDuFormulaire($: cheerio.CheerioAPI): string | undefined {
+  return $('input[name="data[Contact][to]"]')
+    .map((_i, element) => cleanText($(element).attr('value') ?? ''))
+    .get()
+    .find((valeur) => EMAIL_SEUL.test(valeur));
 }
 
 /**

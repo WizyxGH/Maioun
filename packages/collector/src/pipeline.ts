@@ -276,6 +276,15 @@ async function runSource(
       result.stopReason !== 'notModified' &&
       result.stopReason !== 'empty';
 
+    // Une annonce que la source déclare elle-même DÉJÀ CONFIRMÉE n'est pas une
+    // nouveauté. Sans cela, une fiche connue relue pour l'enrichir passait pour
+    // une parution, et le scheduler resserrait la cadence de la source comme si
+    // elle venait de publier.
+    const confirmees = new Set(result.confirmedRefs ?? []);
+    const nouvelles = result.listings.filter(
+      (listing) => !confirmees.has(listing.sourceRef),
+    ).length;
+
     return {
       outcome: { sourceId: descriptor.id, success: true, result, error: null },
       nextState: {
@@ -283,7 +292,7 @@ async function runSource(
         lastRunAt: startedAt,
         lastSuccessAt: new Date(options.clock.now()).toISOString(),
         consecutiveErrors: 0,
-        lastNewListingCount: result.listings.length,
+        lastNewListingCount: nouvelles,
       },
     };
   } catch (error) {

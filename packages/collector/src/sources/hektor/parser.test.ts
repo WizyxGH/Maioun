@@ -739,3 +739,52 @@ describe('parseDetailPage — la référence que l’agence affiche', () => {
     expect(listing?.extra?.['reference']).not.toBe('AUTRE-BIEN');
   });
 });
+
+/**
+ * L'e-mail que seul le FORMULAIRE porte.
+ *
+ * Relevé du 2026-09-18 : sur dix agences de la plateforme tirées au sort parmi
+ * celles dont le stock est sans coordonnées, cinq ne donnent leur adresse ni en
+ * pied de page ni en JSON-LD — le champ caché du formulaire de contact est le
+ * seul endroit où la page l'écrit.
+ */
+describe('parseDetailPage — l’e-mail du formulaire de contact', () => {
+  const FORMULAIRE = readFileSync(
+    join(import.meta.dirname, '../../../../../tests/fixtures/contact/roseland-formulaire.html'),
+    'utf8',
+  );
+  const URL_FICHE = 'https://www.agence-fictive.fr/location/1-nice/studio-essai/2849-appartement';
+
+  it('lit le destinataire que le gabarit cache dans le formulaire', () => {
+    const { listing } = parseDetailPage(FORMULAIRE, URL_FICHE, 'Agence Fictive');
+    expect(listing?.emailText).toBe('contact@example.invalid');
+  });
+
+  it('ne prend pas le champ de saisie vide de même nom pour une adresse', () => {
+    // Le gabarit pose un second champ `data[Contact][to]`, sans valeur.
+    const html = `<html><body>
+      <input type="text" name="data[Contact][to]">
+      <input type="hidden" value="agence@example.invalid" name="data[Contact][to]">
+      </body></html>`;
+    const { listing } = parseDetailPage(html, URL_FICHE, 'Agence Fictive');
+    expect(listing?.emailText).toBe('agence@example.invalid');
+  });
+
+  it('n’invente rien quand le formulaire ne porte aucune adresse', () => {
+    const html = `<html><body><form>
+      <input type="text" name="data[Contact][to]">
+      <input type="hidden" name="action" value="submit_LBI_form">
+      </form></body></html>`;
+    const { listing } = parseDetailPage(html, URL_FICHE, 'Agence Fictive');
+    expect(listing?.emailText).toBeUndefined();
+  });
+
+  it('laisse le pied de page passer devant', () => {
+    const html = `<html><body>
+      <div class="coords-mail"><a href="mailto:pied@example.invalid">Écrire</a></div>
+      <input type="hidden" value="formulaire@example.invalid" name="data[Contact][to]">
+      </body></html>`;
+    const { listing } = parseDetailPage(html, URL_FICHE, 'Agence Fictive');
+    expect(listing?.emailText).toBe('pied@example.invalid');
+  });
+});

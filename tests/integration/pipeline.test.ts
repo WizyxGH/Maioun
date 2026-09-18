@@ -517,3 +517,49 @@ describe('coordonnées d’agence ajoutées après coup', () => {
     expect(phones.filter((phone) => phone === null)).toEqual([]);
   });
 });
+
+/**
+ * La cadence d'une source suit ce qu'elle PUBLIE.
+ *
+ * Une source qui relit une fiche déjà connue pour l'enrichir la rend comme
+ * annonce ; comptée comme parution, elle faisait resserrer l'intervalle de sa
+ * source — jusqu'à doubler ses requêtes quotidiennes sans qu'une seule annonce
+ * nouvelle le justifie.
+ */
+describe('une annonce relue n’est pas une parution', () => {
+  const rendue = (confirmee: boolean): Scraper => ({
+    descriptor: laforetScraper.descriptor,
+    run: async () => ({
+      sourceId: laforetScraper.descriptor.id,
+      listings: [
+        {
+          sourceRef: 'relue-1',
+          sourceUrl: 'https://exemple.invalid/relue-1',
+          title: 'Studio Nice',
+          priceText: '700 €',
+          areaText: '25 m²',
+          cityText: 'Nice',
+        },
+      ],
+      ...(confirmee ? { confirmedRefs: ['relue-1'] } : {}),
+      requestCount: 2,
+      pagesFetched: 2,
+      stopReason: 'completed' as const,
+      warnings: [],
+    }),
+  });
+
+  const apresUnPassage = async (confirmee: boolean): Promise<number> => {
+    const { repository } = await setupDatabase();
+    await runPipeline(pipelineOptions(repository, serveNominal, [rendue(confirmee)]));
+    return (await repository.loadSourceState('laforet')).lastNewListingCount;
+  };
+
+  it('ne compte pas comme neuve l’annonce que la source déclare confirmée', async () => {
+    expect(await apresUnPassage(true)).toBe(0);
+  });
+
+  it('compte celle qu’elle ne confirme pas', async () => {
+    expect(await apresUnPassage(false)).toBe(1);
+  });
+});
