@@ -17,6 +17,12 @@ import { createLogger } from '../core/logger.js';
 import { loadDotEnv, PUBLIC_CONFIG } from '../config.js';
 import { VANISH_WINDOW_DAYS } from '../pipeline.js';
 import { vanishingSources } from '../scheduler/scheduler.js';
+import {
+  cadence,
+  conditionalReach,
+  spendByGroup,
+  spendBySource,
+} from '../scheduler/request-budget.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
 import { wantedAdEvidence } from '../normalization/housing-wanted.js';
 import { agencyCoverage, sourceAliases } from '../sources/agency-names.js';
@@ -350,6 +356,124 @@ async function reportAilingSources(db: Database): Promise<void> {
   );
 }
 
+/** Profondeur du bilan de collecte : assez pour lisser les jours creux. */
+const BUDGET_WINDOW_DAYS = 7;
+
+/** Combien de sources nommer dans le classement des dépensières. */
+const BUDGET_TOP = 12;
+
+/**
+ * OÙ PART LE BUDGET DE REQUÊTES, ET CE QU'IL RAPPORTE.
+ *
+ * On règle la collecte sur des intervalles sans jamais savoir ce qu'une requête
+ * achète. Ce tableau donne l'indicateur qui décide : les requêtes dépensées par
+ * annonce JAMAIS VUE, et la part des passages qui n'en rapportent aucune.
+ *
+ * Relevé du 2026-09-18 sur sept jours : vingt requêtes par annonce neuve,
+ * 94 % des passages sans la moindre découverte, et 80 % du budget qui y part.
+ *
+ * Il dit aussi ce que la cadence a réellement valu — un cycle manqué coûte plus
+ * cher que n'importe quel intervalle — et jusqu'où portent les requêtes
+ * conditionnelles, pour qu'on cesse d'espérer d'elles ce qu'elles ne peuvent
+ * pas donner.
+ */
+async function reportRequestBudget(db: Database): Promise<void> {
+  const depuis = new Date(Date.now() - BUDGET_WINDOW_DAYS * 86_400_000).toISOString();
+
+  const runs = (
+    await db.execute({
+      sql: `SELECT source_id, started_at, finished_at, request_count
+              FROM collection_runs WHERE started_at >= ?`,
+      args: [depuis],
+    })
+  ).rows.map((r) => ({
+    sourceId: String(r['source_id']),
+    startedAtMs: Date.parse(String(r['started_at'])),
+    finishedAtMs: Date.parse(String(r['finished_at'])),
+    requestCount: Number(r['request_count'] ?? 0),
+  }));
+
+  console.log('\n── Où part le budget de requêtes ─────────────────────────────');
+  if (runs.length === 0) {
+    console.log(`   aucun passage depuis ${BUDGET_WINDOW_DAYS} jours.`);
+    return;
+  }
+
+  const discoveries = (
+    await db.execute({
+      sql: `SELECT source_id, first_seen_at FROM occurrences WHERE first_seen_at >= ?`,
+      args: [depuis],
+    })
+  ).rows.map((r) => ({
+    sourceId: String(r['source_id']),
+    atMs: Date.parse(String(r['first_seen_at'])),
+  }));
+
+  const spends = spendBySource(runs, discoveries);
+  const familles = new Map(ALL_SCRAPERS.map((one) => [one.descriptor.id, one.descriptor.kind]));
+  const parFamille = spendByGroup(spends, (id) => familles.get(id) ?? 'inconnue');
+  const rythme = cadence(runs.map((run) => run.startedAtMs));
+  const jours = Math.max(rythme.windowHours / 24, 1 / 24);
+
+  const part = (a: number, b: number): string =>
+    b === 0 ? '  – ' : `${Math.round((100 * a) / b)} %`;
+  const cout = (value: number | null): string => (value === null ? '   ∞' : value.toFixed(1));
+
+  console.log(
+    `   ${'famille'.padEnd(15)} ${'sources'.padStart(7)} ${'passages'.padStart(8)}` +
+      ` ${'requêtes'.padStart(8)} ${'req/j'.padStart(6)} ${'neuves'.padStart(6)}` +
+      ` ${'req/neuve'.padStart(9)} ${'passages stériles'.padStart(17)} ${'budget perdu'.padStart(12)}`,
+  );
+  const ligneGroupe = (nom: string, one: (typeof parFamille)[number]): string =>
+    `   ${nom.slice(0, 15).padEnd(15)} ${String(one.sources).padStart(7)}` +
+    ` ${String(one.passes).padStart(8)} ${String(one.requests).padStart(8)}` +
+    ` ${(one.requests / jours).toFixed(0).padStart(6)} ${String(one.discoveries).padStart(6)}` +
+    ` ${cout(one.requestsPerDiscovery).padStart(9)}` +
+    ` ${part(one.sterilePasses, one.passes).padStart(17)}` +
+    ` ${part(one.sterileRequests, one.requests).padStart(12)}`;
+  for (const one of parFamille) console.log(ligneGroupe(one.group, one));
+  const tout = spendByGroup(spends, () => 'TOTAL')[0];
+  if (tout !== undefined) console.log(ligneGroupe('TOTAL', tout));
+
+  // Classées par ce qu'une annonce neuve leur coûte, pas par leur volume : une
+  // source discrète qui dépense pour rien se voit ainsi aussi bien qu'un portail.
+  const assezVues = spends.filter((one) => one.requests >= 100);
+  const gouffres = [...assezVues].sort(
+    (a, b) =>
+      (b.requestsPerDiscovery ?? Infinity) - (a.requestsPerDiscovery ?? Infinity) ||
+      b.requests - a.requests,
+  );
+  console.log(`\n   Ce qu'une annonce neuve coûte, source par source (≥ 100 requêtes) :`);
+  for (const one of gouffres.slice(0, BUDGET_TOP)) {
+    console.log(
+      `   ${one.sourceId.slice(0, 28).padEnd(28)} ${String(one.requests).padStart(6)} req` +
+        ` ${String(one.discoveries).padStart(5)} neuve(s)` +
+        ` ${cout(one.requestsPerDiscovery).padStart(8)} req/neuve` +
+        ` ${part(one.sterilePasses, one.passes).padStart(6)} de passages stériles`,
+    );
+  }
+
+  console.log(
+    `\n   Cadence : ${rythme.cycles} cycles en ${rythme.windowHours.toFixed(0)} h` +
+      ` (${rythme.cyclesPerDay.toFixed(0)}/jour), écart médian ${rythme.medianGapMinutes.toFixed(0)} min.`,
+  );
+  console.log(
+    `   ${rythme.holes} silence(s) de plus de 25 min, jusqu'à ${rythme.longestGapMinutes.toFixed(0)} min :` +
+      ` ${Math.round(100 * rythme.holeShare)} % du temps sans collecte.`,
+  );
+
+  const cache = (await db.execute('SELECT url FROM http_cache')).rows.map((r) => String(r['url']));
+  const portee = conditionalReach(
+    cache,
+    ALL_SCRAPERS.filter((one) => one.descriptor.enabled).map((one) => one.descriptor.domain),
+  );
+  console.log(
+    `   Requêtes conditionnelles : ${portee.coveredSources}/${portee.totalSources} sources rendent` +
+      ` un validateur (${portee.cachedUrls} adresses, ${portee.origins} origines).` +
+      ` Ailleurs, le site n'en donne aucun — rien à y gagner.`,
+  );
+}
+
 /**
  * Les annonces de DEMANDE encore en base : quelqu'un qui cherche un logement,
  * pas qui en propose un.
@@ -544,6 +668,7 @@ async function main(): Promise<void> {
     await reportSourceCoverage(db);
     await reportAilingSources(db);
     await reportVanishing(db);
+    await reportRequestBudget(db);
     await reportAgencyCoverage(db);
     await reportWantedAds(db);
     await reportSettings(db);
