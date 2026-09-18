@@ -719,12 +719,15 @@ function SearchResults({
   ) : filtered.length === 0 ? (
     <div className="py-8 text-center">
       <p className="text-muted-foreground">
-        {favoritesOnly
-          ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
-          : newOnly
-            ? 'Vous avez tout parcouru : chaque annonce de cette liste a déjà été ouverte. Retirez la puce « Pas encore vues » pour toutes les revoir.'
-            : emptyBecauseFiltered
-              ? 'Aucune annonce ne correspond à ces filtres.'
+        {/* LES FILTRES D'ABORD : depuis qu'on peut en poser dans les favoris,
+          « Aucun favori » y serait faux dès qu'un filtre écarte tout — et
+          laisserait croire qu'on n'a rien retenu. */}
+        {newOnly
+          ? 'Vous avez tout parcouru : chaque annonce de cette liste a déjà été ouverte. Retirez la puce « Pas encore vues » pour toutes les revoir.'
+          : emptyBecauseFiltered
+            ? 'Aucune annonce ne correspond à ces filtres.'
+            : favoritesOnly
+              ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
               : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
       </p>
       {/* UNE SORTIE, ET IL N'Y EN AVAIT AUCUNE. Un filtre qui vide la liste
@@ -732,7 +735,7 @@ function SearchResults({
         et la sélection de sources SURVIVENT au rechargement, si bien qu'une
         lettre tapée par erreur suffisait à condamner l'écran — rouvrir le site
         n'y changeait rien, et le message accusait les critères. */}
-      {emptyBecauseFiltered && !favoritesOnly && onResetFilters !== undefined && (
+      {emptyBecauseFiltered && onResetFilters !== undefined && (
         <Button variant="outline" className="mt-3" onClick={onResetFilters}>
           Réinitialiser les filtres
         </Button>
@@ -1222,11 +1225,12 @@ function AppView(): React.JSX.Element {
    * « Pas encore vues » RESTE INERTE DANS LES FAVORIS.
    *
    * La barre de puces disparaît entièrement sur cet écran : le filtre y
-   * restreindrait sans rien afficher, sans pastille et sans croix pour le
-   * retirer — le défaut que la barre vient précisément de corriger. La bascule
-   * n'est pas perdue pour autant, elle reprend en revenant à la recherche.
+   * ELLE VAUT DÉSORMAIS AUSSI DANS LES FAVORIS. Elle y était neutralisée
+   * parce que la barre de filtres n'y était pas affichée : le filtre aurait
+   * restreint sans pastille ni croix pour le retirer. La barre y est
+   * maintenant, la bascule s'y voit, elle s'y applique.
    */
-  const newOnlyApplies = newOnly && !favoritesOnly;
+  const newOnlyApplies = newOnly;
   const filtered = useMemo(
     () =>
       filterListings(listings, {
@@ -2679,188 +2683,175 @@ function AppView(): React.JSX.Element {
         </Alert>
       )}
 
-      {/* FAVORIS : rien que les cartes. Chercher, trier ou filtrer une liste
-        qu'on a soi-même constituée n'a pas de sens — on y vient pour revoir ce
-        qu'on a retenu, pas pour l'explorer. La barre entière disparaît donc,
-        recherche comprise. */}
-      {favoritesOnly ? (
-        <header className="my-3 flex items-baseline gap-2">
-          <h2 className="text-lg font-bold">Favoris</h2>
-          {/* Le compteur est un repère, pas un sous-titre : il se lit à droite,
-            comme celui de la liste principale — y compris sur téléphone. */}
-          <span className="ml-auto text-sm font-semibold text-muted-foreground">
-            {filtered.length} annonce{filtered.length > 1 ? 's' : ''}
-          </span>
-        </header>
-      ) : (
-        <div
-          className="my-3 flex flex-col gap-2 text-sm"
-          role="group"
-          aria-label="Barre de filtres"
-        >
-          {/* Recherche et réglages occupent leur PROPRE RANGÉE, à toute largeur.
+      {/* LES FAVORIS SE CHERCHENT AUSSI. La barre disparaissait ici, au motif
+        qu'une liste qu'on a soi-même constituée se parcourt et ne s'explore
+        pas. À quarante-huit favoris accumulés en une semaine, l'argument ne
+        tient plus : on y cherche une annonce précise, et on veut pouvoir
+        écarter ce qui est déjà loué. Seul le titre est propre à cet écran. */}
+      {favoritesOnly && <h2 className="mt-3 text-lg font-bold">Favoris</h2>}
+      <div className="my-3 flex flex-col gap-2 text-sm" role="group" aria-label="Barre de filtres">
+        {/* Recherche et réglages occupent leur PROPRE RANGÉE, à toute largeur.
           La bascule et le compteur ne passaient dessous que par un repli de
           mobile ; sur grand écran tout s'alignait sur une seule ligne, et la
           recherche s'y trouvait comprimée entre des commandes sans rapport.
           Deux rangées explicites valent mieux qu'un `flex-wrap` dont le
           résultat dépend de la largeur. */}
-          <div className="flex items-center gap-2">
-            {/* LES SUGGESTIONS VIENNENT DES ANNONCES CHARGÉES, pas d'une liste
+        <div className="flex items-center gap-2">
+          {/* LES SUGGESTIONS VIENNENT DES ANNONCES CHARGÉES, pas d'une liste
               en dur : chacune porte son compte, et aucune ne mène à une liste
               vide. On tapait jusqu'ici à l'aveugle — « borigl » ne donnait
               rien, « Borriglione » tout. */}
-            <SearchBox value={search} onChange={setSearch} listings={listings} />
+          <SearchBox value={search} onChange={setSearch} listings={listings} />
 
-            {/* LE TRI N'EST PLUS ICI. Il vivait dans cette modale, en tête d'une
+          {/* LE TRI N'EST PLUS ICI. Il vivait dans cette modale, en tête d'une
               liste de filtres : on l'ouvrait pour changer d'ordre, ce qui
               obligeait à refermer pour voir le résultat. C'est un geste
               fréquent et sans conséquence — il a sa place à l'air libre, sous
               la barre de recherche. La modale ne garde que ce qui RESTREINT.
               Le libellé disparaît sur mobile : l'icône et la pastille
               suffisent, et la recherche gagne la place. */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              aria-label="Filtres"
-              onClick={() => setSortFilterOpen(true)}
-            >
-              <SlidersHorizontal aria-hidden="true" className="size-4" />
-              <span className="hidden sm:inline">Filtres</span>
-              {toolbarBadge > 0 && (
-                <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
-                  {toolbarBadge}
-                </span>
-              )}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            aria-label="Filtres"
+            onClick={() => setSortFilterOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" className="size-4" />
+            <span className="hidden sm:inline">Filtres</span>
+            {toolbarBadge > 0 && (
+              <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                {toolbarBadge}
+              </span>
+            )}
+          </Button>
+        </div>
 
-          {/* Seconde rangée : bascule de vue et tri à gauche, compteur à droite. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* LE TRI À L'AIR LIBRE. Un `select` natif : c'est un choix unique
+        {/* Seconde rangée : bascule de vue et tri à gauche, compteur à droite. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* LE TRI À L'AIR LIBRE. Un `select` natif : c'est un choix unique
               parmi quatre, et le contrôle du système reste le plus sûr au doigt
               (§39, §65). L'intitulé est visuellement caché mais lu par les
               lecteurs d'écran — à l'œil, la valeur choisie se suffit. */}
-            <label htmlFor="sort-select" className="sr-only">
-              Trier par
-            </label>
-            <Select
-              id="sort-select"
-              size="sm"
-              value={sort}
-              onChange={(event) => setSort(event.target.value as SortMode)}
-              className="shrink-0"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+          <label htmlFor="sort-select" className="sr-only">
+            Trier par
+          </label>
+          <Select
+            id="sort-select"
+            size="sm"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortMode)}
+            className="shrink-0"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
 
-            {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
+          {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
               1024 px les deux s'affichent côte à côte : il n'y a plus rien à
               choisir, et un bouton qui ne change rien est pire qu'absent. */}
-            <ToggleGroup
-              className="lg:hidden"
-              aria-label="Affichage"
-              value={displayMode}
-              onValueChange={setDisplayMode}
-              items={[
-                {
-                  value: 'list',
-                  label: (
-                    <>
-                      <List aria-hidden="true" className="size-4" /> Liste
-                    </>
-                  ),
-                },
-                {
-                  value: 'map',
-                  label: (
-                    <>
-                      <Map aria-hidden="true" className="size-4" /> Carte
-                    </>
-                  ),
-                },
-              ]}
-            />
+          <ToggleGroup
+            className="lg:hidden"
+            aria-label="Affichage"
+            value={displayMode}
+            onValueChange={setDisplayMode}
+            items={[
+              {
+                value: 'list',
+                label: (
+                  <>
+                    <List aria-hidden="true" className="size-4" /> Liste
+                  </>
+                ),
+              },
+              {
+                value: 'map',
+                label: (
+                  <>
+                    <Map aria-hidden="true" className="size-4" /> Carte
+                  </>
+                ),
+              },
+            ]}
+          />
 
-            {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
+          {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             LE TOTAL EST CELUI DE LA LISTE : « 46 résultats » au-dessus de 66
             cartes ne se retrouvait pas (relevé du 2026-09-15). La part à
             vérifier reste précisée, sans être retranchée. */}
-            {!loading && (
-              <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
-                {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
-                {uncertainCount > 0 && (
-                  <span className="font-normal"> · {uncertainCount} à vérifier</span>
-                )}
-              </span>
-            )}
-          </div>
+          {!loading && (
+            <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
+              {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+              {uncertainCount > 0 && (
+                <span className="font-normal"> · {uncertainCount} à vérifier</span>
+              )}
+            </span>
+          )}
+        </div>
 
-          <SortFilterModal
-            open={sortFilterOpen}
-            onClose={() => {
-              setSortFilterOpen(false);
-              setEditingSearchId(null);
-            }}
-            editingName={savedSearches.find((one) => one.id === editingSearchId)?.name}
-            onSaveEdit={() => {
-              if (editingSearchId !== null) void updateSavedSearch(editingSearchId);
-              setEditingSearchId(null);
-              setSortFilterOpen(false);
-            }}
-            onCancelEdit={() => {
-              setEditingSearchId(null);
-              setSortFilterOpen(false);
-            }}
-            toggles={[
-              ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
-              // Dépouiller l'arrivage : ne garder que ce dont on n'a rien fait.
-              ['Pas encore vues', newOnly, setNewOnly],
-              ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
-              ['Annonces archivées', showArchived, setShowArchived],
-            ]}
-            quickFilters={quickFilters}
-            onQuickFiltersChange={setQuickFilters}
-            sources={availableSources}
-            sourceCounts={sourceCounts}
-            sourceFilter={sourceFilter}
-            onSourceFilterChange={setSourceFilter}
-            resultCount={filtered.length}
-            dirty={somethingChanged}
-            onReset={resetSortAndFilters}
-            onCriteriaSaved={(saved) => {
-              // La barre de puces suit le panneau sans redemander les critères.
-              setCriteria(saved);
-              // Même raison que dans `relaxCriterion` : le retour arrière de
-              // l'effacement écraserait ce réglage-ci.
-              keepClearedUndo(null);
-              void load(true);
-            }}
-          />
+        <SortFilterModal
+          open={sortFilterOpen}
+          onClose={() => {
+            setSortFilterOpen(false);
+            setEditingSearchId(null);
+          }}
+          editingName={savedSearches.find((one) => one.id === editingSearchId)?.name}
+          onSaveEdit={() => {
+            if (editingSearchId !== null) void updateSavedSearch(editingSearchId);
+            setEditingSearchId(null);
+            setSortFilterOpen(false);
+          }}
+          onCancelEdit={() => {
+            setEditingSearchId(null);
+            setSortFilterOpen(false);
+          }}
+          toggles={[
+            ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
+            // Dépouiller l'arrivage : ne garder que ce dont on n'a rien fait.
+            ['Pas encore vues', newOnly, setNewOnly],
+            ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
+            ['Annonces archivées', showArchived, setShowArchived],
+          ]}
+          quickFilters={quickFilters}
+          onQuickFiltersChange={setQuickFilters}
+          sources={availableSources}
+          sourceCounts={sourceCounts}
+          sourceFilter={sourceFilter}
+          onSourceFilterChange={setSourceFilter}
+          resultCount={filtered.length}
+          dirty={somethingChanged}
+          onReset={resetSortAndFilters}
+          onCriteriaSaved={(saved) => {
+            // La barre de puces suit le panneau sans redemander les critères.
+            setCriteria(saved);
+            // Même raison que dans `relaxCriterion` : le retour arrière de
+            // l'effacement écraserait ce réglage-ci.
+            keepClearedUndo(null);
+            void load(true);
+          }}
+        />
 
-          {/* Rangée des filtres rapides, ET de tout ce qui restreint la liste
+        {/* Rangée des filtres rapides, ET de tout ce qui restreint la liste
             sans se montrer : le texte cherché, les sources retenues, les
             bascules. « Effacer tout » les efface aussi — sinon on l'actionnait
             sans que la liste bouge. */}
-          <QuickFilters
-            values={quickFilters}
-            onChange={setQuickFilters}
-            extras={otherRestrictions}
-            onClearAll={() => void clearEveryFilter()}
-          />
+        <QuickFilters
+          values={quickFilters}
+          onChange={setQuickFilters}
+          extras={otherRestrictions}
+          onClearAll={() => void clearEveryFilter()}
+        />
 
-          {/* LE RETOUR ARRIÈRE, LÀ OÙ LE GESTE A EU LIEU. */}
-          <ClearedCriteriaNotice
-            cleared={clearedUndo}
-            onUndo={() => void undoClear()}
-            onHide={() => keepClearedUndo(null)}
-          />
-        </div>
-      )}
+        {/* LE RETOUR ARRIÈRE, LÀ OÙ LE GESTE A EU LIEU. */}
+        <ClearedCriteriaNotice
+          cleared={clearedUndo}
+          onUndo={() => void undoClear()}
+          onHide={() => keepClearedUndo(null)}
+        />
+      </div>
 
       <VisitorSearchBanner
         search={shownVisitorSearch}

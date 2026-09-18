@@ -48,12 +48,10 @@ const SEARCH: SavedSearch = {
 function renderPanel(
   onUpdate = vi.fn(),
   onEdit = vi.fn(),
-  onUpdateCriteria = vi.fn(),
   onSaveCurrent = vi.fn(),
 ): {
   onUpdate: ReturnType<typeof vi.fn>;
   onEdit: ReturnType<typeof vi.fn>;
-  onUpdateCriteria: ReturnType<typeof vi.fn>;
   onSaveCurrent: ReturnType<typeof vi.fn>;
 } {
   render(
@@ -68,12 +66,11 @@ function renderPanel(
       onRename={() => {}}
       onUpdate={onUpdate}
       onEdit={onEdit}
-      onUpdateCriteria={onUpdateCriteria}
       onSaveCurrent={onSaveCurrent}
       suggestion="Ma recherche"
     />,
   );
-  return { onUpdate, onEdit, onUpdateCriteria, onSaveCurrent };
+  return { onUpdate, onEdit, onSaveCurrent };
 }
 
 describe('mettre à jour une recherche enregistrée', () => {
