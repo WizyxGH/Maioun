@@ -116,7 +116,10 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
   // « Appeler <numéro> » au-dessus du message, qui ne conclut pas le contact
   // manuel mais lance un appel direct. Les deux se lisent « Appeler ».
   await expect(page.getByTestId('contact-action')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'J’ai envoyé' })).toBeVisible();
+  // PLUS DE « J'ai envoyé » : ouvrir le message consigne la démarche, comme le
+  // font « Appeler » et « Écrire ». Le demander une seconde fois obligeait à y
+  // penser une fois la page quittée.
+  await expect(page.getByRole('button', { name: /envoyé/i })).toBeHidden();
 });
 
 test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', async ({ page }) => {
@@ -314,8 +317,11 @@ test('la page Notifications est un historique (§29)', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeHidden();
   await expect(page.getByRole('navigation', { name: 'Navigation', exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Retour' }).click();
-  // On revient à l'ACCUEIL : c'est de là qu'on ouvre les notifications.
-  await expect(page.getByRole('heading', { name: 'Nouveautés' })).toBeVisible();
+  // ON REVIENT D'OÙ L'ON VIENT, et non à une destination fixe : le scénario
+  // arrive de la recherche, c'est donc la recherche qu'il retrouve, ses
+  // annonces et ses filtres en place.
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toBeHidden();
 });
 
 test('on peut mettre une annonce en favori', async ({ page }) => {
