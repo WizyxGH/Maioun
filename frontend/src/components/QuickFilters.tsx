@@ -290,7 +290,7 @@ export function QuickFilters({
             )}
             {values.minOccupants !== null && (
               <FilterChip
-                label={`${values.minOccupants} personne${values.minOccupants > 1 ? 's' : ''}`}
+                label={`${values.minOccupants} occupant${values.minOccupants > 1 ? 's' : ''} accepté${values.minOccupants > 1 ? 's' : ''}`}
                 onRemove={() => patch({ minOccupants: null })}
               />
             )}

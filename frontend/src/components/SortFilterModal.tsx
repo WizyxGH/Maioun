@@ -345,9 +345,17 @@ export function SortFilterModal({
             </fieldset>
 
             <fieldset className="mb-4">
-              <FieldLabel>Nombre de personnes</FieldLabel>
-              {/* Ne filtre que les annonces qui annoncent un plafond : la plupart
-                n'en publient aucun, et les écarter viderait la liste (§17). */}
+              <FieldLabel>Occupants acceptés</FieldLabel>
+              {/* CE N'EST PAS UN FILTRE DE COLOCATION. C'est le plafond que le
+                bailleur annonce — « 2 personnes maximum » —, et il vaut pour un
+                studio comme pour un quatre-pièces. Une annonce qui n'en publie
+                aucun reste affichée : à peine une sur trente en publie un, les
+                écarter viderait la liste. Le dire évite de croire à un filtre
+                qui ne rend rien. */}
+              <p className="text-muted-foreground mb-1.5 text-[0.78rem]">
+                Écarte les annonces qui plafonnent en dessous. Presque aucune ne publie ce plafond :
+                celles-là restent affichées.
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 <PillButton
                   selected={quickFilters.minOccupants === null}

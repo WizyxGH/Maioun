@@ -32,11 +32,23 @@ function listingFrom(sourceId: string): ListingView {
   };
 }
 
-function renderPanel(listing: ListingView): void {
+/** Un dossier complet : sans lui, aucun message n'est préparé, donc aucune action. */
+const PROFIL = {
+  firstName: 'Alex',
+  lastName: 'Dupont',
+  email: 'alex@example.invalid',
+  phone: '06 00 00 00 12',
+  situation: 'salarie',
+  monthlyIncome: 2400,
+  incomeBasis: 'net',
+  guarantors: [],
+} as never;
+
+function renderPanel(listing: ListingView, profile: unknown = null): void {
   render(
     <ContactPanel
       listing={listing}
-      profile={null}
+      profile={profile as never}
       onRecorded={vi.fn()}
       onConfigureProfile={vi.fn()}
     />,
@@ -151,5 +163,47 @@ describe('bouton Appeler', () => {
     );
     fireEvent.click(screen.getByRole('link', { name: /Appeler/ }));
     expect(onRecorded).not.toHaveBeenCalled();
+  });
+});
+
+describe('le courrier : l’adresse plutôt qu’un bouton', () => {
+  /** L'annonce, avec une adresse d'agence et rien d'autre pour la joindre. */
+  function parCourrier(): ListingView {
+    return {
+      ...base,
+      contact: {
+        ...base.contact,
+        name: null,
+        phone: null,
+        formUrl: null,
+        email: 'agence@example.invalid',
+      },
+    };
+  }
+
+  it('AFFICHE l’adresse, qui n’apparaissait nulle part', () => {
+    renderPanel(parCourrier());
+    expect(screen.getByTestId('agency-email')).toHaveTextContent('agence@example.invalid');
+  });
+
+  it('n’offre plus de bouton « Ouvrir l’e-mail »', () => {
+    // `mailto:` ouvre un logiciel de courrier — souvent aucun, parfois le
+    // mauvais — et le message préparé était alors perdu. Le dossier est
+    // rempli : le message EST préparé, seul son bouton d'ouverture s'en va.
+    renderPanel(parCourrier(), PROFIL);
+    expect(screen.queryByTestId('contact-action')).toBeNull();
+    expect(screen.queryByRole('link', { name: /Ouvrir l’e-mail/ })).toBeNull();
+  });
+
+  it('garde le bouton quand le canal mène QUELQUE PART', () => {
+    // Le téléphone et le formulaire, eux, aboutissent.
+    renderPanel(
+      {
+        ...base,
+        contact: { ...base.contact, email: null, formUrl: null, phone: '06 00 00 00 12' },
+      },
+      PROFIL,
+    );
+    expect(screen.getByTestId('contact-action')).toBeInTheDocument();
   });
 });

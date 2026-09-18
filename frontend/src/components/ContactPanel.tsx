@@ -216,6 +216,18 @@ function ContactDetails({
             <dd data-testid="agency-reference">{reference}</dd>
           </>
         )}
+        {/* L'ADRESSE, EN CLAIR. Elle n'apparaissait nulle part : seul le
+          bouton « Ouvrir l'e-mail » la portait, caché derrière un lien
+          `mailto:` qui ouvre un logiciel de courrier que tout le monde n'a
+          pas. Le bouton est retiré ; l'adresse, elle, se lit et se copie. */}
+        {email !== null && email.trim() !== '' && (
+          <>
+            <dt className="text-muted-foreground">E-mail</dt>
+            <dd data-testid="agency-email" className="break-all select-all">
+              {email}
+            </dd>
+          </>
+        )}
         {formUrl !== null && !formIsSource && (
           <>
             <dt className="text-muted-foreground">Formulaire</dt>
@@ -611,7 +623,11 @@ function MessageActions({
         {copied ? 'Copié' : 'Copier'}
       </Button>
 
-      {link !== null && (
+      {/* PAS DE BOUTON POUR LE COURRIER. `mailto:` ouvre un logiciel de
+        courrier — souvent aucun, parfois le mauvais — et le message était
+        alors perdu. On copie, et l'adresse est affichée au-dessus. Le
+        téléphone et le formulaire, eux, mènent quelque part. */}
+      {link !== null && channel !== 'email' && (
         <ButtonLink
           // DEUX LIENS PEUVENT DIRE « Appeler » sur cette fiche : celui-ci, qui
           // conclut le message préparé, et le bouton d'appel direct posé plus
