@@ -54,12 +54,16 @@ describe('plafond de trajet', () => {
     }
   });
 
-  it('dit quel plafond s’applique alors, au lieu de laisser croire qu’il n’y en a plus', async () => {
+  it('dit qu’aucun plafond ne s’applique — ce qui est enfin vrai', async () => {
+    // Le panneau devait avouer que le serveur comblait l'absence par soixante
+    // minutes. Les deux lectures du serveur distinguent maintenant « absent »
+    // de « soixante » : le champ vide lève vraiment le plafond.
     state.criteria = { cities: ['nice'], maxPrice: 700, minArea: 20 };
     render(<FiltersPanel />);
 
     expect(await screen.findByLabelText('Trajet max domicile→travail')).toHaveValue(null);
-    expect(screen.getByText(/celui du projet s’applique/)).toBeInTheDocument();
+    expect(screen.getByText(/Aucun plafond/)).toBeInTheDocument();
+    expect(screen.queryByText(/celui du projet s’applique/)).toBeNull();
   });
 
   it('refuse un plafond de zéro minute saisi à la main', async () => {

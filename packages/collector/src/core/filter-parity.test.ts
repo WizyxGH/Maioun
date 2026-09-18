@@ -119,3 +119,56 @@ describe('parité quand des clés manquent', () => {
     expect(parseLiveFilters({ maxPrice: 'beaucoup', minArea: 20 })).toBeUndefined();
   });
 });
+
+/**
+ * « AUCUN PLAFOND DE TRAJET » EST UN CHOIX, ET IL NE TENAIT PAS.
+ *
+ * Les deux lectures comblaient l'absence par le plafond du projet — soixante
+ * minutes. Conséquence : retirer le plafond, en vidant le champ ou en retirant
+ * sa puce, ne changeait rien. La puce disparaissait, la liste continuait
+ * d'écarter au-delà d'une heure, et le plafond réapparaissait au rechargement.
+ * Un réglage qui revient tout seul est pire qu'un réglage absent : on croit
+ * l'avoir raté.
+ *
+ * Zéro n'est pas un plafond non plus, et il était accepté : aucune annonce
+ * localisée ne passe sous zéro minute (liste tombée à 26 sur 67).
+ */
+describe('un plafond de trajet retiré n’est pas recomblé', () => {
+  /** Tout est réglé, SAUF le plafond : `JSON.stringify` retire la clé. */
+  const SANS_PLAFOND = { ...TOUT_REGLE, maxCommuteMinutes: undefined };
+
+  /** Les critères tels que les ALERTES les liront. */
+  const pourLesAlertes = (stored: object): TraitFilters =>
+    withStoredCriteria(CONFIG, JSON.stringify(stored)).criteria as TraitFilters;
+
+  it('les alertes ne le remplacent pas par celui du projet', () => {
+    const criteria = pourLesAlertes(SANS_PLAFOND);
+    expect(criteria.maxCommuteMinutes).toBeUndefined();
+    // La preuve est dans le SQL : plus de condition sur la durée de trajet.
+    expect(traitConditions(criteria).sql.join(' ')).not.toContain('commute_minutes');
+  });
+
+  it('la liste non plus, même quand elle comble les clés absentes', () => {
+    const liste = parseLiveFilters(SANS_PLAFOND, true);
+    expect(liste).toBeDefined();
+    expect(liste?.maxCommuteMinutes).toBeUndefined();
+    expect(traitConditions(liste as TraitFilters).sql.join(' ')).not.toContain('commute_minutes');
+  });
+
+  it('les deux lectures restent d’accord entre elles', () => {
+    expect(traitConditions(parseLiveFilters(SANS_PLAFOND, true) as TraitFilters).sql).toEqual(
+      traitConditions(pourLesAlertes(SANS_PLAFOND)).sql,
+    );
+  });
+
+  it('refuse zéro des deux côtés : il ne filtre pas, il vide', () => {
+    const zero = { ...TOUT_REGLE, maxCommuteMinutes: 0 };
+    expect(pourLesAlertes(zero).maxCommuteMinutes).toBeUndefined();
+    expect(parseLiveFilters(zero, true)?.maxCommuteMinutes).toBeUndefined();
+  });
+
+  it('mais garde un plafond réellement posé', () => {
+    expect(pourLesAlertes(TOUT_REGLE).maxCommuteMinutes).toBe(45);
+    expect(parseLiveFilters(TOUT_REGLE, true)?.maxCommuteMinutes).toBe(45);
+  });
+});

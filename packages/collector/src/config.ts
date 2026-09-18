@@ -118,7 +118,37 @@ export function withStoredCriteria(config: PublicConfig, stored: string | null):
   } catch {
     return config;
   }
-  return { ...config, criteria: { ...config.criteria, ...filters } };
+  const merged = { ...config.criteria, ...filters };
+  // « AUCUN PLAFOND DE TRAJET » DOIT SURVIVRE À LA FUSION. Les défauts du
+  // projet en portent un (60 min) : une clé simplement absente des critères
+  // enregistrés le laissait repasser devant, et le plafond que l'utilisateur
+  // venait de retirer revenait au run suivant. C'est le seul réglage dont
+  // l'ABSENCE est un choix — les autres portent toujours leur valeur.
+  return {
+    ...config,
+    criteria: filters.maxCommuteMinutes === undefined ? sansPlafondDeTrajet(merged) : merged,
+  };
+}
+
+/** Les mêmes critères, sans plafond de trajet : la clé retirée, pas mise à 0. */
+function sansPlafondDeTrajet(criteria: SearchCriteria): SearchCriteria {
+  const { maxCommuteMinutes: _retire, ...reste } = criteria;
+  return reste;
+}
+
+/**
+ * Le plafond de trajet RÉELLEMENT POSÉ, ou rien.
+ *
+ * Deux valeurs ne sont pas des plafonds et étaient pourtant acceptées :
+ *
+ *  - ABSENT n'est pas « soixante ». On le comblait par le défaut du projet, si
+ *    bien que vider le champ dans l'interface ne levait rien : la puce
+ *    disparaissait, et le plafond revenait au rechargement.
+ *  - ZÉRO n'écarte pas, il vide. Aucune annonce localisée ne passe sous un
+ *    plafond de zéro minute (liste tombée à 26 sur 67, alertes à 10 sur 40).
+ */
+function plafondDeTrajet(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 /** Valide et normalise les filtres reçus de l'interface. */
@@ -135,13 +165,16 @@ function validateFilters(input: unknown): EditableFilters {
   const maxPrice = num(o['maxPrice'], MVP_CRITERIA.maxPrice);
   const minPrice = num(o['minPrice'], MVP_CRITERIA.minPrice ?? 0);
   if (minPrice > maxPrice) throw new Error('Le loyer minimum dépasse le maximum');
+  const maxCommuteMinutes = plafondDeTrajet(o['maxCommuteMinutes']);
 
   return {
     cities: cities.length > 0 ? cities : MVP_CRITERIA.cities,
     maxPrice,
     minPrice,
     minArea: num(o['minArea'], MVP_CRITERIA.minArea),
-    maxCommuteMinutes: num(o['maxCommuteMinutes'], MVP_CRITERIA.maxCommuteMinutes ?? 60),
+    // La clé ne sort d'ici que si un plafond est posé : c'est ce qui rend
+    // « aucun plafond » enregistrable de bout en bout (voir `plafondDeTrajet`).
+    ...(maxCommuteMinutes === undefined ? {} : { maxCommuteMinutes }),
     excludeFlatShare: o['excludeFlatShare'] === true,
     excludeStudent: o['excludeStudent'] === true,
     landlordFilter:

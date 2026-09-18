@@ -138,3 +138,64 @@ test('la carte tient dans l’écran du téléphone, sans défilement (§39)', a
   // défiler pour la voir en entier.
   expect(boite!.y + boite!.height).toBeLessThanOrEqual(740);
 });
+
+/**
+ * LA BARRE DE PUCES TIENT SUR UNE SEULE LIGNE, ET LE DIT QUAND ELLE DÉBORDE.
+ *
+ * Elle se repliait (`flex-wrap`) : six à dix filtres posés — le cas courant
+ * depuis que les critères ont leur puce — prenaient deux à quatre lignes, et la
+ * première annonce passait sous le pli sur un téléphone. Trois choses se
+ * mesurent ici, parce qu'aucune ne se voit dans un test en mémoire :
+ *
+ *  - UNE LIGNE : toutes les puces au même `offsetTop` ;
+ *  - C'EST LA BARRE QUI DÉFILE, PAS LA PAGE : aucun débordement du document ;
+ *  - LE DÉBORDEMENT S'ANNONCE : sans repère visible, une rangée coupée net
+ *    ressemble à une rangée complète et cache des filtres.
+ *
+ * Les largeurs sont celles demandées, du plus petit Android au portable large.
+ */
+const CHIP_WIDTHS = [320, 360, 390, 768, 1440];
+
+for (const width of CHIP_WIDTHS) {
+  test(`les puces de filtres tiennent sur une ligne à ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/');
+    await ouvrirRecherche(page);
+    await expect(page.getByTestId('listing-card').first()).toBeVisible();
+
+    // DE QUOI CHARGER LA BARRE comme l'utilisateur la charge : le budget et la
+    // surface, les trois critères de collecte, un texte cherché, quatre types.
+    await page.getByLabel('Rechercher une annonce').fill('nice');
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: /Filtres/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Filtres' });
+    for (const type of ['Appartement', 'Studio', 'Maison', 'Loft']) {
+      await dialog.getByRole('button', { name: type, exact: true }).click();
+    }
+    await dialog.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
+
+    const rail = page.getByTestId('filter-chips');
+    await expect(rail).toBeVisible();
+    const mesure = await rail.evaluate((el) => {
+      const chips = [...el.children].filter(
+        (node): node is HTMLElement => node instanceof HTMLElement,
+      );
+      const doc = document.documentElement;
+      return {
+        puces: chips.length,
+        lignes: new Set(chips.map((chip) => chip.offsetTop)).size,
+        barreDeborde: el.scrollWidth > el.clientWidth + 1,
+        pageDeborde: Math.max(0, doc.scrollWidth - doc.clientWidth),
+      };
+    });
+
+    expect(mesure.puces).toBeGreaterThanOrEqual(8);
+    expect(mesure.lignes).toBe(1);
+    expect(mesure.pageDeborde).toBeLessThanOrEqual(1);
+    if (mesure.barreDeborde) {
+      await expect(page.getByTestId('filter-chips-more')).toBeVisible();
+    }
+    // « Effacer tout » reste atteignable sans défiler la barre : il vit à côté.
+    await expect(page.getByRole('button', { name: 'Effacer tout' })).toBeInViewport();
+  });
+}

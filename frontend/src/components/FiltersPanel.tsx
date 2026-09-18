@@ -33,7 +33,6 @@ import {
 } from '../api/client.js';
 import {
   convertEstimatedDuration,
-  MVP_CRITERIA,
   normalizeTravelMode,
   REFERENCE_TRAVEL_MODES,
   type ReferenceTravelMode,
@@ -77,13 +76,6 @@ const STACKED = 'flex flex-col gap-1.5 py-2.5';
  * regarde encore le champ.
  */
 const SAVE_DELAY_MS = 600;
-
-/**
- * Le plafond de trajet que le SERVEUR applique quand le critère est absent.
- * Vider le champ ne lève donc pas le plafond : il retombe sur celui-ci, et le
- * panneau le dit au lieu de laisser croire à une recherche sans limite.
- */
-const PROJECT_COMMUTE_MINUTES = MVP_CRITERIA.maxCommuteMinutes;
 
 /**
  * Le plafond à enregistrer pour ce qui vient d'être tapé, dans l'unité de la
@@ -344,13 +336,15 @@ export function FiltersPanel({
             />
             <span className="text-muted-foreground text-[0.8rem]">min</span>
           </span>
-          {/* CE QUE VIDER LE CHAMP FAIT VRAIMENT. Le serveur comble un plafond
-            absent par celui du projet : annoncer « aucune limite » serait faux,
-            et ne rien dire laisserait chercher pourquoi la liste ne s'élargit
-            pas. */}
-          {shownMinutes === '' && PROJECT_COMMUTE_MINUTES !== undefined && (
+          {/* CE QUE VIDER LE CHAMP FAIT VRAIMENT — et ce n'est plus la même
+            chose. Le serveur comblait un plafond absent par celui du projet
+            (60 min) : le champ vide ne levait donc rien, et le panneau devait
+            l'avouer. Les deux lectures du serveur distinguent maintenant
+            « absent » de « soixante », si bien que l'absence vaut vraiment
+            « aucun plafond » — pour la liste comme pour les alertes. */}
+          {shownMinutes === '' && (
             <span className="text-muted-foreground text-[0.78rem]">
-              Sans plafond ici, celui du projet s’applique : {PROJECT_COMMUTE_MINUTES} min.
+              Aucun plafond : la durée de trajet n’écarte aucune annonce.
             </span>
           )}
         </div>

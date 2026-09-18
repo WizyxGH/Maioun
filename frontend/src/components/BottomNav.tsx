@@ -9,8 +9,17 @@
  * « Favoris » n'est pas une vue à part mais la liste filtrée : le même état
  * sert au réglage de la modale, sinon deux sources de vérité finiraient par
  * diverger.
+ *
+ * ELLE NE S'AFFICHE QUE SUR SES QUATRE DESTINATIONS. Elle suivait partout —
+ * fiche d'annonce, fiche d'agence, réglages, écran d'une source — où elle
+ * n'avait rien à désigner : quatre onglets dont aucun n'était l'écran courant,
+ * et un « Retour » juste au-dessus qui, lui, savait où ramener. C'est
+ * `TABS` qui décide, par sa table de destinations : une page ajoutée demain
+ * n'aura pas la barre sans y être inscrite, au lieu de compter sur une liste
+ * d'exceptions qu'il faudrait penser à tenir à jour.
  */
 
+import { sameRoute, type Route } from '../router.js';
 import { Heart, Home, Search, Settings, type IconComponent } from './icons.js';
 
 export type BottomTab = 'home' | 'search' | 'favorites' | 'settings';
@@ -19,18 +28,38 @@ const TABS: readonly {
   readonly key: BottomTab;
   readonly label: string;
   readonly Icon: IconComponent;
+  /** L'écran que cet onglet désigne — et le seul où la barre se montre. */
+  readonly target: Route;
 }[] = [
-  { key: 'home', label: 'Accueil', Icon: Home },
-  { key: 'search', label: 'Recherche', Icon: Search },
-  { key: 'favorites', label: 'Favoris', Icon: Heart },
-  { key: 'settings', label: 'Paramètres', Icon: Settings },
+  { key: 'home', label: 'Accueil', Icon: Home, target: { view: 'home' } },
+  { key: 'search', label: 'Recherche', Icon: Search, target: { view: 'list' } },
+  {
+    key: 'favorites',
+    label: 'Favoris',
+    Icon: Heart,
+    target: { view: 'list', favoritesOnly: true },
+  },
+  { key: 'settings', label: 'Paramètres', Icon: Settings, target: { view: 'profile' } },
 ];
+
+/**
+ * L'onglet qui désigne cet écran, ou `null` s'il n'en est pas un — auquel cas
+ * la barre ne s'affiche pas du tout.
+ *
+ * C'est la MÊME table qui allume un onglet et qui autorise la barre : on ne
+ * peut donc pas se retrouver avec une barre dont aucun onglet ne correspond à
+ * l'écran, ce qui était le cas sur une fiche ou dans un sous-écran des
+ * réglages.
+ */
+export function bottomTabForRoute(route: Route): BottomTab | null {
+  return TABS.find((tab) => sameRoute(tab.target, route))?.key ?? null;
+}
 
 export function BottomNav({
   active,
   onSelect,
 }: {
-  readonly active: BottomTab | null;
+  readonly active: BottomTab;
   readonly onSelect: (tab: BottomTab) => void;
 }): React.JSX.Element {
   return (

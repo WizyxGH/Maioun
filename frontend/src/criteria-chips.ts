@@ -11,6 +11,12 @@
  * LA RÈGLE, ET ELLE TIENT DES DEUX CÔTÉS : une puce affichée = un filtre
  * compté, et tout ce qui écarte des annonces a sa puce.
  *
+ * TOUTES SE RETIRENT D'UN CLIC. Les quartiers et le plafond de trajet faisaient
+ * exception — sans croix, avec un renvoi au panneau : deux puces qui ne se
+ * comportaient pas comme leurs voisines, pour des raisons invisibles à l'écran.
+ * Ce qui les retenait a été traité à la source : l'effacement se défait d'un
+ * clic (« Annuler »), et « aucun plafond de trajet » s'enregistre vraiment.
+ *
  * LE BUDGET ET LA SURFACE N'EN SONT PAS. Ils existent des deux côtés — les
  * filtres rapides s'ouvrent sur les valeurs des critères. Ce sont LES FILTRES
  * RAPIDES QUI FONT FOI : eux seuls portent une puce, parce qu'eux seuls se
@@ -24,20 +30,15 @@
 import { NICE_DISTRICTS } from '@maioun/shared';
 import type { FilterConfig } from './types.js';
 
-/** Ce qu'on écrit sur une puce qu'un clic ne peut pas retirer sans surprise. */
-export const IN_FILTERS_PANEL = 'à régler dans Filtres';
-
 /** Une restriction venue des critères, telle que la barre l'affiche. */
 export interface CriteriaChip {
   readonly label: string;
   /**
-   * Ce qu'il faut enregistrer pour lever la restriction, ou `null` quand elle
-   * ne se retire pas d'un clic. Retirer un critère touche la COLLECTE et les
-   * ALERTES, pas seulement l'écran : la puce dit alors où le régler.
+   * Ce qu'il faut enregistrer pour lever la restriction. Retirer un critère
+   * touche la COLLECTE et les ALERTES, pas seulement l'écran : c'est pour cela
+   * que l'effacement garde de quoi revenir en arrière.
    */
-  readonly patch: Partial<FilterConfig> | null;
-  /** Où se règle une puce non retirable — affiché à côté de son intitulé. */
-  readonly hint?: string;
+  readonly patch: Partial<FilterConfig>;
 }
 
 /** « 2026-10-01 » → « 01/10/2026 », sans passer par un fuseau horaire. */
@@ -59,16 +60,13 @@ export function criteriaChips(criteria: FilterConfig | null): readonly CriteriaC
   const districts = criteria.districts ?? [];
   // TOUS LES QUARTIERS COCHÉS NE RESTREINT RIEN : pas de puce, sinon elle
   // resterait allumée en permanence sans rien écarter.
-  //
-  // NON RETIRABLE, ET C'EST DIT. Une croix effacerait 87 quartiers choisis un à
-  // un, que rien ne permettrait de retrouver ; elle élargirait au passage la
-  // collecte et les alertes à toute la ville. On la montre et on renvoie au
-  // panneau, plutôt que de la cacher — c'est le plus gros des filtres.
   if (districts.length > 0 && districts.length < NICE_DISTRICTS.length) {
     chips.push({
       label: `${districts.length} quartier${districts.length > 1 ? 's' : ''}`,
-      patch: null,
-      hint: IN_FILTERS_PANEL,
+      // La liste vide veut dire « toute la commune », côté liste comme côté
+      // alertes. L'exclusion des quartiers inconnus part avec elle : seule,
+      // elle ne désignerait plus rien.
+      patch: { districts: [], includeUnknownDistrict: true },
     });
     // N'a de sens qu'avec des quartiers cochés : sans eux, rien n'est exclu.
     if (criteria.includeUnknownDistrict === false) {
@@ -79,16 +77,13 @@ export function criteriaChips(criteria: FilterConfig | null): readonly CriteriaC
     }
   }
 
-  // LE PLAFOND DE TRAJET NE SE RETIRE PAS D'ICI. Le serveur comble un critère
-  // absent par celui du projet (60 min) : une croix l'effacerait à l'écran et
-  // il reviendrait au rechargement. Tant que « aucun plafond » ne s'enregistre
-  // pas, la puce renvoie au panneau. Les minutes sont celles qui sont
-  // stockées, dans le mode où la collecte a calculé les durées.
+  // Les minutes sont celles qui sont stockées, dans le mode où la collecte a
+  // calculé les durées. Le critère absent vaut « aucun plafond » de bout en
+  // bout — le serveur ne le comble plus par celui du projet.
   if (criteria.maxCommuteMinutes !== undefined) {
     chips.push({
       label: `Trajet ≤ ${criteria.maxCommuteMinutes} min`,
-      patch: null,
-      hint: IN_FILTERS_PANEL,
+      patch: { maxCommuteMinutes: undefined },
     });
   }
 
@@ -117,4 +112,23 @@ export function criteriaChips(criteria: FilterConfig | null): readonly CriteriaC
     });
   }
   return chips;
+}
+
+/**
+ * Les critères une fois TOUTES leurs puces levées — ce que pose « Effacer
+ * tout ».
+ *
+ * Construit en appliquant les correctifs des puces, et non par une liste de
+ * champs recopiée : la barre et l'effacement ne peuvent donc pas diverger. Un
+ * critère ajouté demain avec sa puce s'efface du même geste, sans retouche
+ * ici.
+ *
+ * LE PÉRIMÈTRE RESTE : commune, budget, surface. Ce ne sont pas des puces —
+ * sans eux il ne resterait rien à chercher.
+ */
+export function clearedCriteria(criteria: FilterConfig): FilterConfig {
+  return criteriaChips(criteria).reduce<FilterConfig>(
+    (lifted, chip) => ({ ...lifted, ...chip.patch }),
+    criteria,
+  );
 }

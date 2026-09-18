@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button.js';
 import type { ListingView } from '../types.js';
 import { ALERT_LABELS, alertEventOf, type AlertEvent } from '../alert-kind.js';
 import { formatArea, formatDay, formatPostalAddress, formatPrice, formatTime } from '../format.js';
-import { ALERT_HISTORY_LIMIT } from '@maioun/shared';
 import {
   isUnreadAlert,
   readDismissedAlerts,
@@ -235,14 +234,6 @@ export function NotificationsPanel({
             </Button>
           )}
         </div>
-        {/* LE PLAFOND SE DIT. L'historique s'arrêtait net autour de deux cents
-          sans rien annoncer : l'utilisateur l'a découvert en comptant, et une
-          liste tronquée en silence laisse croire à une panne. */}
-        {listings.length >= ALERT_HISTORY_LIMIT && (
-          <p className="text-muted-foreground mb-3 text-xs">
-            Seules les {ALERT_HISTORY_LIMIT} alertes les plus récentes sont conservées.
-          </p>
-        )}
         {days.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Aucune alerte sur les {HISTORY_DAYS} derniers jours. Les annonces signalées

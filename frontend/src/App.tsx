@@ -90,7 +90,7 @@ import {
 import { ArrowLeft, Bell, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { SearchBox } from './components/SearchBox.js';
-import { BottomNav, type BottomTab } from './components/BottomNav.js';
+import { BottomNav, bottomTabForRoute, type BottomTab } from './components/BottomNav.js';
 import {
   ListingDetailSkeleton,
   ListingListSkeleton,
@@ -109,7 +109,7 @@ import {
   type ExtraChip,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
-import { criteriaChips } from './criteria-chips.js';
+import { clearedCriteria, criteriaChips } from './criteria-chips.js';
 import { filterListings } from './listing-filter.js';
 import { forgetListing, replaceListing } from './listing-store.js';
 import { loadInStages } from './progressive-load.js';
@@ -122,7 +122,7 @@ import {
   writePendingSharedToken,
   writeVisitorSearch,
 } from './visitor-search.js';
-import type { View } from './router.js';
+import type { Route, View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
@@ -277,7 +277,10 @@ function Shell({
   readonly onNavigate: (target: NavTarget) => void;
   /** Alertes reçues depuis la dernière visite de la page Notifications. */
   readonly unreadAlerts?: number;
-  /** Onglet bas actif, ou `null` hors des quatre destinations. */
+  /**
+   * Onglet bas actif, ou `null` hors des quatre destinations — et la barre
+   * disparaît alors. Voir `bottomTabForRoute`.
+   */
   readonly bottomTab?: BottomTab | null;
   readonly onBottomSelect?: (tab: BottomTab) => void;
   readonly children: React.ReactNode;
@@ -382,12 +385,18 @@ function Shell({
       <div key={view} className="rf-fade">
         <Suspense fallback={<RowsSkeleton rows={4} />}>{children}</Suspense>
       </div>
-      {/* `pb-20` sur mobile : sans cela, la barre fixe recouvre la fin de la
-        liste et le dernier élément reste inatteignable. */}
-      {onBottomSelect !== undefined && (
+      {/* LA BARRE BASSE N'EST LÀ QUE SUR SES QUATRE DESTINATIONS. Ailleurs —
+        fiche d'annonce, fiche d'agence, sous-écran des réglages, écran d'une
+        source — aucun de ses onglets ne désignait l'écran courant, et le
+        « Retour » du haut est la sortie qui convient. Le cale-pied part avec
+        elle : sans barre fixe, rien ne recouvre la fin de la liste.
+
+        `pb-20` sur mobile quand elle est là : sans cela, la barre recouvre le
+        dernier élément, qui reste inatteignable. */}
+      {bottomTab != null && onBottomSelect !== undefined && (
         <>
           <div aria-hidden="true" className="h-20 sm:hidden" />
-          <BottomNav active={bottomTab ?? null} onSelect={onBottomSelect} />
+          <BottomNav active={bottomTab} onSelect={onBottomSelect} />
         </>
       )}
     </main>
@@ -549,12 +558,12 @@ function activeToggleChips(
 }
 
 /**
- * LES CRITÈRES ONT LEURS PUCES, retirables ou non.
+ * LES CRITÈRES ONT LEURS PUCES, et elles se retirent comme les autres.
  *
  * Ils restreignent la liste côté serveur et se règlent dans la même modale que
- * les filtres rapides : les taire, c'était filtrer sans le dire. Une puce sans
- * croix — quartiers, plafond de trajet — reste affichée et renvoie au panneau ;
- * `criteria-chips.ts` dit lesquelles et pourquoi.
+ * les filtres rapides : les taire, c'était filtrer sans le dire. Deux d'entre
+ * elles — quartiers, plafond de trajet — s'affichaient sans croix ; ce qui les
+ * en empêchait a été traité à la source, et `criteria-chips.ts` le raconte.
  *
  * Hors du composant, comme les décomptes voisins : `AppView` est au plafond de
  * complexité, et ceci n'est qu'une traduction.
@@ -565,48 +574,68 @@ function criteriaExtras(
 ): readonly ExtraChip[] {
   return criteriaChips(criteria).map((chip) => ({
     label: chip.label,
-    onRemove: chip.patch === null ? null : (): void => relax(chip.patch ?? {}),
-    ...(chip.hint === undefined ? {} : { hint: chip.hint }),
+    onRemove: (): void => relax(chip.patch),
   }));
 }
 
 /**
- * CE QUE « EFFACER TOUT » NE FAIT PAS, écrit sous les puces.
+ * L'adresse de l'écran courant, telle que la barre basse la compare à ses
+ * destinations.
  *
- * Il efface l'affichage et lui seul. Effacer les critères d'un même clic
- * changerait ce que la collecte ramène et ce que les alertes signalent, sans
- * retour possible — 87 quartiers cochés un à un ne se reconstituent pas. Le
- * silence, lui, laisserait croire que la liste est débarrassée de tout filtre.
- *
- * `undefined` quand aucun critère ne restreint : il n'y a alors rien à nuancer.
+ * C'est le DRAPEAU « favoris » qui fait foi, pas celui de la barre d'adresse :
+ * celle-ci le suit un rendu plus tard, et la barre basse aurait clignoté sur
+ * l'onglet précédent le temps de ce rendu.
  */
-function clearAllNoteFor(criteriaRestrictions: readonly ExtraChip[]): string | undefined {
-  return criteriaRestrictions.length === 0
-    ? undefined
-    : '« Effacer tout » ne touche qu’à l’affichage : vos critères de recherche continuent d’écarter des annonces, ici comme dans les alertes. Ils se lèvent un par un.';
+function routeOf(view: View, favoritesOnly: boolean): Route {
+  return { view, ...(favoritesOnly ? { favoritesOnly: true } : {}) };
 }
 
 /**
- * Onglet bas correspondant à la vue courante, ou `null` hors des quatre
- * destinations. Hors du composant : ce n'est qu'une correspondance, et l'y
- * laisser alourdissait `App` au-delà de la complexité tolérée.
+ * CE QUE « EFFACER TOUT » VIENT DE LEVER, et le clic qui le remet.
+ *
+ * Effacer les critères est ENREGISTRÉ et ne se devine pas : 87 quartiers
+ * cochés un à un disparaîtraient d'un clic, sans que rien dans l'interface
+ * permette de les retrouver. Plutôt qu'une confirmation avant — un geste
+ * courant transformé en corvée, et une question qu'on finit par cliquer sans
+ * la lire —, la rangée ci-dessous vient APRÈS : elle nomme ce qui a été levé,
+ * et « Annuler » le remet tel quel.
+ *
+ * ELLE NE S'EFFACE PAS D'ELLE-MÊME : une seconde chance qui expire n'en est
+ * pas une. On la masque quand on en a fini avec elle.
+ *
+ * Un composant plutôt qu'un bloc dans `AppView`, qui est au plafond de
+ * complexité toléré : c'est lui qui rend `null` quand il n'y a rien à annuler.
  */
-function bottomTabFor(
-  view: View,
-  favoritesOnly: boolean,
-  sortFilterOpen: boolean,
-): BottomTab | null {
-  // La modale ouverte, c'est « Recherche » qui est actif : l'onglet doit
-  // refléter ce que l'utilisateur regarde, modale comprise.
-  if (sortFilterOpen) return 'search';
-  if (view === 'home') return 'home';
-  // La LISTE est la recherche, et non l'accueil : celui-ci est devenu un point
-  // de situation. L'onglet doit dire où l'on est, pas où l'on était.
-  if (view === 'list' || view === 'detail') return favoritesOnly ? 'favorites' : 'search';
-  if (view === 'profile' || view === 'tenant' || view === 'documents' || view === 'saved') {
-    return 'settings';
-  }
-  return null;
+function ClearedCriteriaNotice({
+  cleared,
+  onUndo,
+  onHide,
+}: {
+  readonly cleared: { readonly labels: readonly string[] } | null;
+  readonly onUndo: () => void;
+  readonly onHide: () => void;
+}): React.JSX.Element | null {
+  if (cleared === null) return null;
+  return (
+    <div
+      role="status"
+      data-testid="cleared-undo"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-muted px-3 py-2 text-[0.82rem]"
+    >
+      <span className="text-muted-foreground">Critères levés : {cleared.labels.join(', ')}.</span>
+      <Button variant="link" size="inline" className="min-h-9 font-semibold" onClick={onUndo}>
+        Annuler
+      </Button>
+      <Button
+        variant="link"
+        size="inline"
+        className="min-h-9 text-muted-foreground hover:text-foreground"
+        onClick={onHide}
+      >
+        Masquer
+      </Button>
+    </div>
+  );
 }
 
 /**
@@ -947,6 +976,15 @@ function AppView(): React.JSX.Element {
    * `null` tant qu'on ne les a pas : on ne devine pas des filtres.
    */
   const [criteria, setCriteria] = useState<FilterConfig | null>(null);
+  /**
+   * LE RETOUR ARRIÈRE D'« EFFACER TOUT » : les critères d'avant, et le nom de
+   * ce qui a été levé. `null` quand il n'y a rien à annuler. Le pourquoi est
+   * dans `ClearedCriteriaNotice`, avec la rangée qui l'affiche.
+   */
+  const [clearedUndo, setClearedUndo] = useState<{
+    readonly previous: FilterConfig;
+    readonly labels: readonly string[];
+  } | null>(null);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>(restored.displayMode);
   // Au-dessus de 1024 px, annonces et plan tiennent ensemble : la vue
@@ -1678,10 +1716,12 @@ function AppView(): React.JSX.Element {
     }
   };
 
-  // Onglet bas actif. « Favoris » n'est pas une vue mais la liste filtrée :
-  // le même état sert au réglage de la modale, et deux sources de vérité
-  // auraient fini par diverger.
-  const bottomTab = bottomTabFor(view, favoritesOnly, sortFilterOpen);
+  // Onglet bas actif, ou `null` — et la barre disparaît alors. C'est la table
+  // de destinations de la barre elle-même qui répond (`bottomTabForRoute`) :
+  // une liste d'écrans tenue à la main ici aurait été fausse au premier écran
+  // ajouté. « Favoris » n'est pas une vue mais la liste filtrée, et c'est cet
+  // état-ci qui fait foi — la barre d'adresse le suit un rendu plus tard.
+  const bottomTab = bottomTabForRoute(routeOf(view, favoritesOnly));
 
   const selectBottomTab = (tab: BottomTab): void => {
     if (tab === 'search') {
@@ -2483,6 +2523,10 @@ function AppView(): React.JSX.Element {
     const previous = criteria;
     const next = { ...criteria, ...patch };
     setCriteria(next);
+    // Le retour arrière de « Effacer tout » ne vaut plus : il remettrait les
+    // critères d'avant l'effacement, donc aussi celui qu'on vient de lever
+    // exprès. Un « Annuler » ne défait que le geste qu'il annonce.
+    setClearedUndo(null);
     try {
       await saveFilters(next);
       await load(true);
@@ -2495,17 +2539,9 @@ function AppView(): React.JSX.Element {
   const criteriaRestrictions = criteriaExtras(criteria, (patch) => void relaxCriterion(patch));
   otherRestrictions.push(...criteriaRestrictions);
 
-  /**
-   * « Effacer tout » : tout ce qui filtre DANS LE NAVIGATEUR — filtres rapides,
-   * recherche, sources, bascules.
-   *
-   * PAS LES CRITÈRES, et c'est écrit sous les puces. Les effacer d'un clic
-   * changerait ce que la collecte ramène et ce que les alertes signalent, sans
-   * moyen de revenir en arrière : 87 quartiers choisis un à un ne se
-   * reconstituent pas. Ils se lèvent un par un, par leur puce ou dans le
-   * panneau.
-   */
-  const clearEveryFilter = (): void => {
+  /** Tout ce qui filtre DANS LE NAVIGATEUR : filtres rapides, recherche,
+   * sources, bascules. */
+  const clearBrowserFilters = (): void => {
     setQuickFilters(EMPTY_QUICK_FILTERS);
     setSourceFilter(ALL_SOURCES);
     setSearch('');
@@ -2513,6 +2549,66 @@ function AppView(): React.JSX.Element {
     setShowArchived(false);
     setHideUncertain(false);
     setNewOnly(false);
+  };
+
+  /**
+   * « EFFACER TOUT » EFFACE TOUT — critères de recherche compris.
+   *
+   * Il ne touchait qu'à l'affichage, et une phrase sous les puces expliquait
+   * que les critères, eux, continuaient d'écarter des annonces. Demande de
+   * l'utilisateur : ni la phrase, ni l'exception. Une barre où l'on retire les
+   * puces une à une et un lien qui n'en retire que la moitié ne peuvent pas
+   * cohabiter.
+   *
+   * CE QUI RESTE : la commune, le budget et la surface. Ce ne sont pas des
+   * puces — c'est le périmètre de l'outil, et sans eux il n'y a plus de
+   * recherche.
+   *
+   * L'écran change d'abord et revient en arrière si l'écriture échoue, comme
+   * pour le retrait d'une seule puce. Le retour arrière, lui, survit à
+   * l'écriture réussie : c'est là qu'il sert.
+   */
+  const clearEveryFilter = async (): Promise<void> => {
+    clearBrowserFilters();
+    const previous = criteria;
+    if (previous === null) return;
+    const chips = criteriaChips(previous);
+    if (chips.length === 0) return;
+    const next = clearedCriteria(previous);
+    setCriteria(next);
+    setClearedUndo({ previous, labels: chips.map((chip) => chip.label) });
+    try {
+      await saveFilters(next);
+      await load(true);
+    } catch {
+      setCriteria(previous);
+      setClearedUndo(null);
+      setError('Les critères n’ont pas pu être effacés');
+    }
+  };
+
+  /**
+   * Remet les critères d'avant l'effacement, d'un seul clic.
+   *
+   * SI L'ÉCRITURE ÉCHOUE, LE BOUTON REVIENT. Sans cela, l'écran afficherait des
+   * critères rétablis que le serveur ne connaît pas, et le seul moyen de les
+   * rétablir vraiment aurait disparu avec la rangée : la perte silencieuse
+   * qu'on cherche précisément à éviter.
+   */
+  const undoClear = async (): Promise<void> => {
+    const pending = clearedUndo;
+    if (pending === null) return;
+    const cleared = criteria;
+    setCriteria(pending.previous);
+    setClearedUndo(null);
+    try {
+      await saveFilters(pending.previous);
+      await load(true);
+    } catch {
+      setCriteria(cleared);
+      setClearedUndo(pending);
+      setError('Vos critères n’ont pas pu être rétablis');
+    }
   };
 
   const resetSortAndFilters = (): void => {
@@ -2702,6 +2798,9 @@ function AppView(): React.JSX.Element {
             onCriteriaSaved={(saved) => {
               // La barre de puces suit le panneau sans redemander les critères.
               setCriteria(saved);
+              // Même raison que dans `relaxCriterion` : le retour arrière de
+              // l'effacement écraserait ce réglage-ci.
+              setClearedUndo(null);
               void load(true);
             }}
           />
@@ -2714,8 +2813,14 @@ function AppView(): React.JSX.Element {
             values={quickFilters}
             onChange={setQuickFilters}
             extras={otherRestrictions}
-            onClearAll={clearEveryFilter}
-            clearAllNote={clearAllNoteFor(criteriaRestrictions)}
+            onClearAll={() => void clearEveryFilter()}
+          />
+
+          {/* LE RETOUR ARRIÈRE, LÀ OÙ LE GESTE A EU LIEU. */}
+          <ClearedCriteriaNotice
+            cleared={clearedUndo}
+            onUndo={() => void undoClear()}
+            onHide={() => setClearedUndo(null)}
           />
         </div>
       )}

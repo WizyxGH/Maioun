@@ -7,8 +7,16 @@
  * plus que les puces des filtres posés, pour les voir d'un coup d'œil et les
  * retirer un à un ou tous d'un coup — les menus déroulants d'origine faisaient
  * doublon avec la modale.
+ *
+ * UNE SEULE RANGÉE, QUI DÉFILE. Les puces se repliaient sur deux, trois, parfois
+ * quatre lignes : six à dix filtres posés — ce qui est le cas courant, critères
+ * compris — repoussaient les annonces hors de l'écran sur un téléphone, et la
+ * hauteur de la barre changeait à chaque filtre retiré. Elles tiennent
+ * maintenant sur une ligne qui défile horizontalement, et le débordement se
+ * voit (voir `ChipRail`).
  */
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MVP_CRITERIA, rentForBudget, type PropertyType } from '@maioun/shared';
 import { formatPropertyType } from '../format.js';
 import { Button } from '@/components/ui/button.js';
@@ -205,18 +213,18 @@ export const ROOM_PRESETS = [1, 2, 3, 4, 5] as const;
 /** Tailles de groupe courantes. Au-delà de 4, l'offre niçoise est anecdotique. */
 export const OCCUPANT_PRESETS = [1, 2, 3, 4] as const;
 
-/** Une restriction posée ailleurs que dans les filtres rapides, montrée ici. */
+/**
+ * Une restriction posée ailleurs que dans les filtres rapides, montrée ici.
+ *
+ * TOUTES SE RETIRENT. Deux d'entre elles — les quartiers, le plafond de trajet
+ * — s'affichaient sans croix, avec un renvoi au panneau : rien à l'écran ne
+ * disait pourquoi ces deux-là seulement. Les raisons de fond ont été traitées
+ * ailleurs (retour arrière après effacement, « aucun plafond » réellement
+ * enregistrable), et la puce n'a plus de cas particulier.
+ */
 export interface ExtraChip {
   readonly label: string;
-  /**
-   * `null` : la puce se voit mais ne se retire pas d'un clic — un critère qu'on
-   * ne saurait pas refaire (87 quartiers) ou qui reviendrait aussitôt. Elle
-   * reste affichée et dit où se régler (`hint`) : la cacher reviendrait à
-   * filtrer sans le dire.
-   */
-  readonly onRemove: (() => void) | null;
-  /** Où se règle une puce non retirable, écrit à côté de son intitulé. */
-  readonly hint?: string;
+  readonly onRemove: () => void;
 }
 
 interface QuickFiltersProps {
@@ -229,17 +237,12 @@ interface QuickFiltersProps {
    * que la liste change.
    */
   readonly extras?: readonly ExtraChip[];
-  /** Efface les filtres rapides ET les restrictions ci-dessus. */
-  readonly onClearAll?: () => void;
   /**
-   * Ce que « Effacer tout » ne touche PAS, écrit sous les puces.
-   *
-   * Le lien efface l'affichage, jamais les critères : les effacer changerait ce
-   * que la collecte ramène et ce que les alertes signalent, d'un clic et sans
-   * retour. Le dire vaut mieux que de le faire en silence — ou de laisser
-   * croire qu'on l'a fait.
+   * Efface les filtres rapides ET les restrictions ci-dessus — critères de
+   * recherche compris, depuis que l'utilisateur l'a demandé. C'est l'appelant
+   * qui porte le retour arrière : lui seul sait ce qu'il vient d'écrire.
    */
-  readonly clearAllNote?: string;
+  readonly onClearAll?: () => void;
 }
 
 export function QuickFilters({
@@ -247,7 +250,6 @@ export function QuickFilters({
   onChange,
   extras = [],
   onClearAll,
-  clearAllNote,
 }: QuickFiltersProps): React.JSX.Element {
   const patch = (part: Partial<QuickFilterValues>): void => onChange({ ...values, ...part });
 
@@ -265,66 +267,140 @@ export function QuickFilters({
         le budget et la surface d'ouverture, et non ce qui s'écarte de
         l'ouverture. Voir `hasAppliedQuickFilters`. */}
       {(hasAppliedQuickFilters(values) || extras.length > 0) && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* UNE SEULE PUCE POUR LE BUDGET, parce que c'est une fourchette.
-            `minPrice` n'en avait aucune — le plancher anti-parking à 250 €
-            filtrait la liste sans jamais se montrer, et la barre pouvait donc
-            s'afficher sans contenir la moindre puce à retirer. Deux puces
-            « ≥ 250 € » et « ≤ 700 € » côte à côte diraient la même chose en
-            deux fois plus de place : on les réunit, et les retirer va de
-            pair. */}
-          {(values.minPrice !== null || values.maxPrice !== null) && (
-            <FilterChip
-              label={priceLabel(values.minPrice, values.maxPrice)}
-              onRemove={() => patch({ minPrice: null, maxPrice: null })}
-            />
-          )}
-          {values.minArea !== null && (
-            <FilterChip
-              label={`≥ ${values.minArea} m²`}
-              onRemove={() => patch({ minArea: null })}
-            />
-          )}
-          {values.minOccupants !== null && (
-            <FilterChip
-              label={`${values.minOccupants} personne${values.minOccupants > 1 ? 's' : ''}`}
-              onRemove={() => patch({ minOccupants: null })}
-            />
-          )}
-          {values.minRooms !== null && (
-            <FilterChip
-              label={`${values.minRooms}+ pièces`}
-              onRemove={() => patch({ minRooms: null })}
-            />
-          )}
-          {[...values.types].map((type) => (
-            <FilterChip
-              key={type}
-              label={formatPropertyType(type)}
-              onRemove={() => toggleType(type)}
-            />
-          ))}
-          {extras.map((chip) => (
-            <FilterChip
-              key={chip.label}
-              label={chip.label}
-              onRemove={chip.onRemove}
-              {...(chip.hint === undefined ? {} : { hint: chip.hint })}
-            />
-          ))}
+        <div className="flex items-center gap-1">
+          <ChipRail>
+            {/* UNE SEULE PUCE POUR LE BUDGET, parce que c'est une fourchette.
+              `minPrice` n'en avait aucune — le plancher anti-parking à 250 €
+              filtrait la liste sans jamais se montrer, et la barre pouvait donc
+              s'afficher sans contenir la moindre puce à retirer. Deux puces
+              « ≥ 250 € » et « ≤ 700 € » côte à côte diraient la même chose en
+              deux fois plus de place : on les réunit, et les retirer va de
+              pair. */}
+            {(values.minPrice !== null || values.maxPrice !== null) && (
+              <FilterChip
+                label={priceLabel(values.minPrice, values.maxPrice)}
+                onRemove={() => patch({ minPrice: null, maxPrice: null })}
+              />
+            )}
+            {values.minArea !== null && (
+              <FilterChip
+                label={`≥ ${values.minArea} m²`}
+                onRemove={() => patch({ minArea: null })}
+              />
+            )}
+            {values.minOccupants !== null && (
+              <FilterChip
+                label={`${values.minOccupants} personne${values.minOccupants > 1 ? 's' : ''}`}
+                onRemove={() => patch({ minOccupants: null })}
+              />
+            )}
+            {values.minRooms !== null && (
+              <FilterChip
+                label={`${values.minRooms}+ pièces`}
+                onRemove={() => patch({ minRooms: null })}
+              />
+            )}
+            {[...values.types].map((type) => (
+              <FilterChip
+                key={type}
+                label={formatPropertyType(type)}
+                onRemove={() => toggleType(type)}
+              />
+            ))}
+            {extras.map((chip) => (
+              <FilterChip key={chip.label} label={chip.label} onRemove={chip.onRemove} />
+            ))}
+          </ChipRail>
+          {/* « EFFACER TOUT » RESTE HORS DE LA RANGÉE QUI DÉFILE. Dedans, il
+            partait à droite derrière six puces : il aurait fallu faire défiler
+            pour trouver le bouton qui sert précisément à ne plus avoir à
+            défiler. */}
           <Button
             variant="link"
             size="inline"
             onClick={onClearAll ?? ((): void => onChange(EMPTY_QUICK_FILTERS))}
-            className="ml-1 min-h-9 text-sm text-muted-foreground hover:text-foreground"
+            className="min-h-9 shrink-0 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground"
           >
             Effacer tout
           </Button>
         </div>
       )}
-      {/* La portée du lien, écrite là où on le lit. */}
-      {clearAllNote !== undefined && (hasAppliedQuickFilters(values) || extras.length > 0) && (
-        <p className="text-muted-foreground text-[0.78rem]">{clearAllNote}</p>
+    </div>
+  );
+}
+
+/**
+ * LA RANGÉE DE PUCES, SUR UNE SEULE LIGNE QUI DÉFILE.
+ *
+ * `flex-wrap` les empilait : à dix filtres posés — le cas courant depuis que
+ * les critères ont leur puce — la barre prenait trois lignes sur un téléphone
+ * de 320 px et repoussait la première annonce sous le pli, et sa hauteur
+ * changeait à chaque puce retirée.
+ *
+ * TROIS PRÉCAUTIONS, chacune pour un défaut constaté :
+ *
+ *  - `min-w-0` : sans lui, un enfant de flex refuse de descendre sous la
+ *    largeur de son contenu, et c'est LA PAGE qui déborde au lieu de la barre.
+ *  - `touch-pan-x` et `overscroll-x-contain` : le geste reste sur cet axe, et
+ *    arrivé au bout il ne se propage pas à la page — sinon glisser les puces
+ *    fait rebondir l'écran.
+ *  - LE DÉBORDEMENT SE VOIT. Une rangée coupée net ressemble à une rangée
+ *    complète : on ne va pas chercher ce qu'on ne soupçonne pas. Un voile
+ *    dégradé marque chaque bord encore parcourable, avec un chevron à droite.
+ *    La barre d'onglets du haut, elle, masque sa barre de défilement — c'est
+ *    précisément ce qu'on ne refait pas ici.
+ */
+function ChipRail({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
+  const rail = useRef<HTMLDivElement | null>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+
+  const measure = useCallback((): void => {
+    const el = rail.current;
+    if (el === null) return;
+    // La marge d'un pixel absorbe les largeurs fractionnaires : sans elle, un
+    // voile s'affiche sur une rangée qui tient pourtant entière.
+    const start = el.scrollLeft > 1;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setEdges((current) =>
+      current.start === start && current.end === end ? current : { start, end },
+    );
+  }, []);
+
+  // À CHAQUE RENDU, sans tableau de dépendances : le nombre de puces change
+  // sans prévenir — une puce retirée peut rendre la rangée entièrement
+  // visible, et le voile resterait alors sur une barre qui ne défile plus.
+  // `setEdges` ne repart que si la réponse a changé : la boucle s'arrête.
+  useEffect(measure);
+
+  useEffect(() => {
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <div
+        ref={rail}
+        onScroll={measure}
+        data-testid="filter-chips"
+        className="flex touch-pan-x items-center gap-1.5 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]"
+      >
+        {children}
+      </div>
+      {edges.start && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background to-transparent"
+        />
+      )}
+      {edges.end && (
+        <span
+          aria-hidden="true"
+          data-testid="filter-chips-more"
+          className="pointer-events-none absolute inset-y-0 right-0 flex w-8 items-center justify-end bg-gradient-to-l from-background via-background to-transparent text-muted-foreground"
+        >
+          ›
+        </span>
       )}
     </div>
   );
@@ -347,29 +423,14 @@ export function PillButton({
   );
 }
 
-/** Puce d'un filtre actif, avec croix de retrait — ou sans, et elle le dit. */
+/** Puce d'un filtre actif, avec sa croix de retrait. */
 function FilterChip({
   label,
   onRemove,
-  hint,
 }: {
   readonly label: string;
-  readonly onRemove: (() => void) | null;
-  readonly hint?: string;
+  readonly onRemove: () => void;
 }): React.JSX.Element {
-  // SANS CROIX, MAIS VISIBLE. Le filtre existe et écarte des annonces : le
-  // taire serait revenir au défaut qu'on corrige. Le renvoi remplace la croix,
-  // à la place qu'elle occupait.
-  if (onRemove === null) {
-    return (
-      <span className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border bg-muted px-2.5 text-sm font-medium text-foreground">
-        {label}
-        {hint !== undefined && (
-          <span className="text-muted-foreground text-[0.72rem] font-normal">{hint}</span>
-        )}
-      </span>
-    );
-  }
   return (
     // LA CIBLE DU « × » FAIT 36 px, PAS 20. Elle est restée petite tant que les
     // puces ne s'affichaient qu'après avoir posé un filtre : on ne la
@@ -377,7 +438,7 @@ function FilterChip({
     // budget et la surface d'ouverture, elle est là dès l'arrivée — et un
     // bouton de 20 px se rate au doigt (§36). Le rond coloré du survol garde sa
     // taille : c'est la ZONE SENSIBLE qui grandit, pas le dessin.
-    <span className="inline-flex min-h-9 items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 pr-0.5 pl-2.5 text-sm font-medium text-foreground">
+    <span className="inline-flex min-h-9 shrink-0 items-center gap-0.5 rounded-full border border-primary/40 bg-primary/10 pr-0.5 pl-2.5 text-sm font-medium whitespace-nowrap text-foreground">
       {label}
       <button
         type="button"

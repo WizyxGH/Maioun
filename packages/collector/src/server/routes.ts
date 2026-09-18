@@ -1641,7 +1641,16 @@ export function parseLiveFilters(value: unknown, defauts = false): LiveFilters |
     finite(lu) ? lu : defauts ? defaut : undefined;
   const maxPrice = nombre(parsed.maxPrice, MVP_CRITERIA.maxPrice) ?? MVP_CRITERIA.maxPrice;
   const minPrice = finite(parsed.minPrice) ? parsed.minPrice : plancherDuProjet(defauts, maxPrice);
-  const maxCommuteMinutes = nombre(parsed.maxCommuteMinutes, MVP_CRITERIA.maxCommuteMinutes);
+  // LE PLAFOND DE TRAJET NE SE COMBLE PAS, contrairement au loyer et à la
+  // surface. Son absence est un CHOIX que l'interface sait poser — vider le
+  // champ, ou retirer sa puce —, et le remplacer par celui du projet rendait ce
+  // choix sans effet : la liste continuait d'écarter au-delà de 60 minutes.
+  // Zéro n'en est pas un non plus : aucune annonce localisée ne le franchit.
+  // Même règle que pour les alertes, dans `config.ts`.
+  const maxCommuteMinutes =
+    finite(parsed.maxCommuteMinutes) && parsed.maxCommuteMinutes > 0
+      ? parsed.maxCommuteMinutes
+      : undefined;
   return {
     maxPrice,
     minArea: nombre(parsed.minArea, MVP_CRITERIA.minArea) ?? MVP_CRITERIA.minArea,

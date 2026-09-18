@@ -4,7 +4,15 @@
  * La pastille du bouton « Filtres » et la barre de puces ne montraient que les
  * filtres du navigateur. Les CRITÈRES — 87 quartiers, deux exclusions, un
  * plafond de trajet — restreignaient la liste côté serveur sans apparaître
- * nulle part, et « Effacer tout » les laissait en place sans le dire.
+ * nulle part.
+ *
+ * PUIS DEUX PUCES SONT RESTÉES À PART : les quartiers et le plafond de trajet
+ * s'affichaient sans croix, avec un renvoi « à régler dans Filtres », quand
+ * toutes les autres se retiraient d'un clic. Demande de l'utilisateur :
+ * « pourquoi ces filtres sont différents des autres, il ne faudrait pas ».
+ * Elles se retirent maintenant comme les autres, et « Effacer tout » efface
+ * bien tout — avec un retour arrière d'un clic, parce que l'écriture est
+ * enregistrée et que 87 quartiers cochés un à un ne se reconstituent pas.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +26,8 @@ const state = vi.hoisted(() => ({
   criteria: {} as FilterConfig,
   saved: [] as FilterConfig[],
   listingCalls: 0,
+  /** Fait échouer la prochaine écriture : un réseau qui lâche au mauvais moment. */
+  failNextSave: false,
 }));
 
 vi.mock('./api/client.js', async (original) => {
@@ -26,6 +36,10 @@ vi.mock('./api/client.js', async (original) => {
     ...actual,
     fetchFilters: () => Promise.resolve(state.criteria),
     saveFilters: (filters: FilterConfig) => {
+      if (state.failNextSave) {
+        state.failNextSave = false;
+        return Promise.reject(new Error('réseau'));
+      }
       state.saved.push(filters);
       state.criteria = filters;
       return Promise.resolve(filters);
@@ -64,6 +78,7 @@ describe('les critères comptent dans la barre de filtres', () => {
     state.criteria = { ...ACCOUNT_CRITERIA };
     state.saved.length = 0;
     state.listingCalls = 0;
+    state.failNextSave = false;
   });
 
   it('affiche une puce par critère, et la pastille les compte tous', async () => {
@@ -84,13 +99,53 @@ describe('les critères comptent dans la barre de filtres', () => {
     expect(screen.getAllByText('≥ 20 m²')).toHaveLength(1);
   });
 
-  it('montre les quartiers sans prétendre les retirer d’un clic', async () => {
+  it('tient TOUTES les puces sur une seule rangée qui défile', async () => {
     await openSearch();
     await screen.findByText('87 quartiers');
 
-    expect(screen.queryByRole('button', { name: /Retirer le filtre 87 quartiers/ })).toBeNull();
-    // La puce dit où se règle ce qu'elle ne défait pas.
-    expect(screen.getAllByText('à régler dans Filtres').length).toBeGreaterThan(0);
+    // Elles se repliaient sur trois lignes à dix filtres posés, et repoussaient
+    // la première annonce sous le pli d'un téléphone.
+    const rail = screen.getByTestId('filter-chips');
+    for (const label of ['250 – 700 €', '≥ 20 m²', '87 quartiers', 'Trajet ≤ 60 min']) {
+      expect(within(rail).getByText(label), label).toBeInTheDocument();
+    }
+    expect(rail.className).toContain('overflow-x-auto');
+    expect(rail.className).not.toContain('flex-wrap');
+
+    // « Effacer tout » reste HORS de la rangée : dedans, il faudrait faire
+    // défiler jusqu'au bout pour trouver le bouton qui sert à ne plus défiler.
+    const clear = screen.getByRole('button', { name: 'Effacer tout' });
+    expect(rail.contains(clear)).toBe(false);
+  });
+
+  it('retire les quartiers d’un clic, comme n’importe quelle autre puce', async () => {
+    await openSearch();
+    await screen.findByText('87 quartiers');
+    // Le renvoi au panneau n'a plus lieu d'être : la croix est là.
+    expect(screen.queryByText('à régler dans Filtres')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /Retirer le filtre 87 quartiers/ }));
+
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+    // Liste vide = toute la commune, pour la liste comme pour les alertes.
+    expect(state.saved[0]?.districts).toEqual([]);
+    // Les autres critères survivent au retrait d'un seul.
+    expect(state.saved[0]?.excludeFlatShare).toBe(true);
+    await waitFor(() => expect(screen.queryByText('87 quartiers')).toBeNull());
+  });
+
+  it('retire le plafond de trajet, et il ne revient pas', async () => {
+    await openSearch();
+    await screen.findByText('Trajet ≤ 60 min');
+
+    await userEvent.click(screen.getByRole('button', { name: /Retirer le filtre Trajet/ }));
+
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+    // Ni 60 recomblé par le serveur, ni 0 — qui ne garderait aucune annonce
+    // localisée.
+    expect(state.saved[0]?.maxCommuteMinutes).toBeUndefined();
+    expect(state.saved[0]?.maxCommuteMinutes).not.toBe(0);
+    await waitFor(() => expect(screen.queryByText('Trajet ≤ 60 min')).toBeNull());
   });
 
   it('retire une exclusion en écrivant le critère, puis recharge la liste', async () => {
@@ -111,17 +166,86 @@ describe('les critères comptent dans la barre de filtres', () => {
     await waitFor(() => expect(screen.queryByText('Sans colocations')).toBeNull());
   });
 
-  it('dit que « Effacer tout » ne touche pas aux critères — et le tient', async () => {
+  it('« Effacer tout » lève AUSSI les critères, et l’enregistre', async () => {
     await openSearch();
     await screen.findByText('Sans colocations');
-    expect(screen.getByText(/ne touche qu’à l’affichage/)).toBeInTheDocument();
+    // La phrase qui excusait l'exception a disparu avec l'exception.
+    expect(screen.queryByText(/ne touche qu’à l’affichage/)).toBeNull();
+    const before = state.listingCalls;
 
     await userEvent.click(screen.getByRole('button', { name: 'Effacer tout' }));
 
-    // L'affichage est effacé, les critères restent — et rien n'a été écrit.
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+    const written = state.saved[0]!;
+    expect(written.districts).toEqual([]);
+    expect(written.excludeFlatShare).toBe(false);
+    expect(written.excludeStudent).toBe(false);
+    expect(written.maxCommuteMinutes).toBeUndefined();
+    // LE PÉRIMÈTRE RESTE : sans commune, budget ni surface, il n'y a plus de
+    // recherche.
+    expect(written.cities).toEqual(['nice']);
+    expect(written.maxPrice).toBe(700);
+    // La liste est rechargée : c'est le serveur qui filtre là-dessus.
+    await waitFor(() => expect(state.listingCalls).toBeGreaterThan(before));
+    // Et la barre dit la même chose que la liste : plus une puce.
+    await waitFor(() => expect(screen.queryByText('87 quartiers')).toBeNull());
+    expect(screen.queryByText('Sans colocations')).toBeNull();
+    expect(screen.queryByText('Trajet ≤ 60 min')).toBeNull();
     expect(screen.queryByText(/250 – 700 €/)).toBeNull();
-    expect(screen.getByText('Sans colocations')).toBeInTheDocument();
-    expect(screen.getByText('87 quartiers')).toBeInTheDocument();
-    expect(state.saved).toHaveLength(0);
+  });
+
+  it('et il se défait d’un seul clic : « Annuler » remet les 87 quartiers', async () => {
+    await openSearch();
+    await screen.findByText('87 quartiers');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Effacer tout' }));
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+
+    // La rangée NOMME ce qui a été levé : on le vérifie sans rouvrir le
+    // panneau, et l'on sait ce que « Annuler » remettra.
+    const undo = await screen.findByTestId('cleared-undo');
+    expect(undo).toHaveTextContent('87 quartiers');
+    expect(undo).toHaveTextContent('Trajet ≤ 60 min');
+
+    await userEvent.click(within(undo).getByRole('button', { name: 'Annuler' }));
+
+    await waitFor(() => expect(state.saved).toHaveLength(2));
+    expect(state.saved[1]?.districts).toHaveLength(87);
+    expect(state.saved[1]?.excludeFlatShare).toBe(true);
+    expect(state.saved[1]?.excludeStudent).toBe(true);
+    expect(state.saved[1]?.maxCommuteMinutes).toBe(60);
+    expect(await screen.findByText('87 quartiers')).toBeInTheDocument();
+    expect(screen.queryByTestId('cleared-undo')).toBeNull();
+  });
+
+  it('garde le bouton « Annuler » quand le rétablissement échoue', async () => {
+    // Sinon l'écran montrerait des critères rétablis que le serveur ne connaît
+    // pas, et le seul moyen de les rétablir vraiment serait parti avec la
+    // rangée : la perte silencieuse qu'on cherche à éviter.
+    await openSearch();
+    await screen.findByText('87 quartiers');
+    await userEvent.click(screen.getByRole('button', { name: 'Effacer tout' }));
+    const undo = await screen.findByTestId('cleared-undo');
+
+    state.failNextSave = true;
+    await userEvent.click(within(undo).getByRole('button', { name: 'Annuler' }));
+
+    expect(await screen.findByText(/n’ont pas pu être rétablis/)).toBeInTheDocument();
+    expect(await screen.findByTestId('cleared-undo')).toBeInTheDocument();
+    // Et l'écran redit la vérité du serveur : les critères sont bien effacés.
+    expect(screen.queryByText('87 quartiers')).toBeNull();
+  });
+
+  it('retire le retour arrière dès qu’un critère est réglé ensuite', async () => {
+    // « Annuler » ne défait que le geste qu'il annonce : il ne doit pas
+    // remettre un critère que l'on vient de lever exprès après l'effacement.
+    await openSearch();
+    await screen.findByText('Sans colocations');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Retirer le filtre Sans colocations/ }),
+    );
+    await waitFor(() => expect(state.saved).toHaveLength(1));
+    expect(screen.queryByTestId('cleared-undo')).toBeNull();
   });
 });
