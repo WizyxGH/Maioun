@@ -9,6 +9,7 @@
  */
 
 import type { RawListing } from '@maioun/shared';
+import { parsePublishedReference } from '../../normalization/parse-listing-fields.js';
 import { parseDetailPage as apimoParseDetailPage, type ParsedDetail } from '../apimo/parser.js';
 
 export {
@@ -27,22 +28,18 @@ export {
  * Le gabarit Apimo la publie normalement en critère, ligne à part, et c'est là
  * que l'adaptateur générique va la chercher. BEP ne remplit pas ce critère : la
  * référence n'existe que dans le texte libre. Résultat, aucune fiche BEP
- * relue depuis le retrait du repli n'en portait plus — et les cent deux qui en
- * affichaient encore une montraient l'identifiant d'URL Apimo, un numéro
+ * relue depuis le retrait du repli n'en portait plus — et les quatre-vingt-sept
+ * qui en affichaient encore une montraient l'identifiant d'URL Apimo, un numéro
  * fabriqué que l'agence ne reconnaît pas quand on le lui cite. Relevé le
- * 2026-09-17 : les cent treize fiches BEP en base publient cette ligne.
+ * 2026-09-18 : 113 des 114 fiches BEP en base publient cette ligne.
  *
- * L'apostrophe s'écrit droite ou courbe selon les fiches ; « n° » précède
- * parfois le numéro. On ne retient qu'une valeur d'au moins trois caractères :
- * en deçà, ce n'est pas une référence mais la fin d'une phrase.
+ * LE MOTIF EST CELUI DE LA NORMALISATION, et pas une copie : le rejeu sur le
+ * texte déjà stocké s'en sert aussi, et Paru Vendu recopie la même ligne en
+ * relayant les annonces BEP. Deux versions du motif auraient divergé au premier
+ * réglage, et la moitié du stock n'en aurait pas profité.
  */
-const PUBLISHED_REFERENCE =
-  /r[ée]f[ée]rence\s+de\s+l['’’]\s*annonce\s*:?\s*(?:n\s*[°o]\s*)?([A-Za-z0-9][A-Za-z0-9._/-]{2,})/i;
-
-/** La référence imprimée par BEP dans un descriptif, si elle y est. */
 export function publishedReference(description: string | undefined): string | undefined {
-  if (description === undefined) return undefined;
-  return PUBLISHED_REFERENCE.exec(description)?.[1];
+  return parsePublishedReference(description) ?? undefined;
 }
 
 /**

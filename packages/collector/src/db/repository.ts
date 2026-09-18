@@ -157,6 +157,22 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.description,
     listing.price,
     listing.charges,
+    /**
+     * CE QUE LE LOYER COMPREND décide du loyer retenu : `rentAllIn` et
+     * `rentForBudget` n'en disent rien sans lui. Hors de l'empreinte, une
+     * occurrence dont seule cette mention change était jugée identique, et la
+     * colonne gardait sa vieille valeur — la collecte ne touchait que sa date.
+     *
+     * Rentumo publie ses loyers HORS CHARGES et le dit depuis le 2026-09-16 ;
+     * treize annonces actives portaient encore « inconnu » le 2026-09-18, dont
+     * quatre dont le loyer retenu était trop bas, et une qui tenait à tort dans
+     * un budget de 700 € (670 € au lieu de 710 €).
+     *
+     * Omise quand inconnue, comme le GES et la référence : les occurrences dont
+     * la source ne dit rien gardent leur empreinte ; celles qui portent la
+     * mention sont réécrites une fois, au prochain passage.
+     */
+    ...(listing.chargesIncluded !== null ? [`cc:${listing.chargesIncluded}`] : []),
     listing.area,
     listing.rooms,
     listing.propertyType,
@@ -186,6 +202,21 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.contact.phone,
     listing.contact.email,
     listing.contact.agencyName,
+    /**
+     * LA RÉFÉRENCE MANQUAIT ICI, et c'est ce qui rendait sa correction
+     * impossible. Elle s'affiche sur la fiche — c'est le numéro qu'on cite au
+     * téléphone — mais hors de l'empreinte, une occurrence dont seule la
+     * référence change est jugée identique : la collecte ne touche que sa date
+     * de dernière observation et repart. Les 87 fiches BEP qui annonçaient un
+     * numéro tiré de leur URL auraient pu être recollectées indéfiniment sans
+     * jamais en changer.
+     *
+     * Omise quand inconnue, comme le GES et le dépôt : les 692 occurrences
+     * actives dont la source ne publie rien gardent ainsi leur empreinte. Les
+     * 3 400 qui en portent une seront réécrites au prochain passage, une fois,
+     * et c'est le prix de l'entrée dans l'empreinte.
+     */
+    ...(listing.contact.reference !== null ? [`ref:${listing.contact.reference}`] : []),
     listing.publishedAt,
     listing.availableAt,
     listing.imageUrls,

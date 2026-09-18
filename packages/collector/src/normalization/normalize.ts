@@ -56,6 +56,7 @@ import {
   parsePrice,
   parsePropertyType,
   parsePublishedAt,
+  parsePublishedReference,
   parseRooms,
 } from './parse-listing-fields.js';
 import { extractNumber } from './parse-number.js';
@@ -903,6 +904,35 @@ function rescuedPropertyType(occurrence: NormalizedListing): NormalizedListing['
   return toParking ? 'parking' : current;
 }
 
+/**
+ * Le contact d'une fiche déjà en base, sa référence remise sur celle que
+ * l'agence imprime dans son texte.
+ *
+ * TROIS SITUATIONS, UNE SEULE RÈGLE : le texte fait autorité quand il parle,
+ * et rien ne bouge quand il se taît.
+ *
+ *   champ vide          → on le remplit, comme tout le reste du rattrapage ;
+ *   champ = `sourceRef` → c'est la trace du repli retiré, un numéro que nous
+ *                         avions fabriqué depuis l'URL et que l'agence ne
+ *                         reconnaît pas au téléphone ; le texte le remplace ;
+ *   champ autre         → la source l'a publié dans un champ dédié, donc plus
+ *                         sûr qu'un repêchage dans de la prose : on le garde.
+ *
+ * ON NE FABRIQUE JAMAIS : un texte muet laisse le champ tel quel, vide s'il
+ * l'était. C'est aussi ce qui protège le bulletin abonné BEP, dont la référence
+ * est imprimée en tête d'annonce et non dans le descriptif — son champ égale son
+ * `sourceRef` sans être pour autant un numéro inventé.
+ */
+function rescuedContact(occurrence: NormalizedListing, text: string): Contact {
+  const printed = parsePublishedReference(text);
+  if (printed === null) return occurrence.contact;
+
+  const current = occurrence.contact.reference;
+  if (current === printed) return occurrence.contact;
+  if (current !== null && current !== occurrence.sourceRef) return occurrence.contact;
+  return { ...occurrence.contact, reference: printed };
+}
+
 export function rederiveFromText(
   occurrence: NormalizedListing,
   nowMs: number = Date.now(),
@@ -936,7 +966,13 @@ export function rederiveFromText(
   const { flatShare, charges, deposit, tenantFees, rooms, dpe, district, maxOccupants } = filled;
   const { ges, furnished, availableAt } = filled;
 
+  // La référence s'affiche, et chez plusieurs agences le texte déjà stocké est
+  // le seul endroit où elle figure. Sans ce rejeu, la fiche continue d'annoncer
+  // le numéro que nous avions tiré de son URL.
+  const contact = rescuedContact(occurrence, text);
+
   if (
+    contact === occurrence.contact &&
     address === occurrence.address &&
     propertyType === occurrence.propertyType &&
     !featuresChanged &&
@@ -956,6 +992,7 @@ export function rederiveFromText(
   }
   return {
     ...occurrence,
+    contact,
     address,
     propertyType,
     features,

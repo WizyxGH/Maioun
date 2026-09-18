@@ -114,4 +114,30 @@ describe('parseBulletin — enrichissement', () => {
       'http://abonnes.beplogement.com/w_index_abonnes.php',
     );
   });
+
+  /**
+   * LA RÉFÉRENCE IMPRIMÉE, celle du titre en gras — « 1131634 : NICE EST
+   * ACROPOLIS » — et jamais l'identifiant du formulaire de demande.
+   *
+   * Le bulletin ne redit pas cette référence dans son descriptif : ce titre est
+   * le seul endroit où elle se lit. Faute de l'écrire ici, les annonces
+   * collectées depuis le retrait du repli sur l'identifiant interne
+   * n'affichaient plus rien, alors que le bulletin la publie et que c'est ce
+   * numéro-là que le champ de recherche du bulletin accepte.
+   */
+  it('publie la référence imprimée en tête d’annonce', () => {
+    const l = listings.find((x) => x.sourceRef === '9000001');
+    if (l === undefined) throw new Error('annonce absente');
+    expect(l.extra?.['reference']).toBe('9000001');
+    const n = normalizeListing(l, { sourceId: 'bep-abonnes', nowMs: NOW });
+    expect(n?.contact.reference).toBe('9000001');
+  });
+
+  it('n’affiche jamais l’identifiant du formulaire de demande', () => {
+    // `bullref` est un compteur de bulletin, dans un autre espace de
+    // numérotation : il sert à ouvrir le formulaire, pas à nommer le bien.
+    const l = listings.find((x) => x.sourceRef === '9000001');
+    expect(l?.contactFormUrl).toContain('bullref=500001');
+    expect(l?.extra?.['reference']).not.toBe('500001');
+  });
 });

@@ -294,11 +294,22 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   if (/\b(chambre|room)\b/.test(uncounted) && !/\b(appartement|apartment)\b/.test(lower)) {
     return 'room';
   }
+  /**
+   * « 0 PIÈCE » NE DÉCRIT PAS UN LOGEMENT. Aucune annonce d'habitation ne
+   * l'écrit ; c'est ainsi qu'une vitrine déclare un stationnement — « Box 0
+   * pièce à Nice ». Le seul mot « pièce » l'emportait sur « box », et un
+   * parking de 12 m² à 132 € par mois passait pour un appartement (relevé du
+   * 2026-09-18 sur une fiche Flatbay, que la source typait pourtant « Box »).
+   *
+   * Le compte est retiré avant les tests d'habitation, comme « 3 chambres »
+   * l'est plus haut : ce qui reste du texte décide alors seul.
+   */
+  const counted = lower.replace(/\b0 ?(pieces?|p)\b/g, ' ');
   // « 3P », « 2 P » : l'abréviation courante des pièces.
-  if (/\b(appartement|appart|apartment|flat|duplex|t\d|f\d|\d ?p)\b/.test(lower))
+  if (/\b(appartement|appart|apartment|flat|duplex|t\d|f\d|\d ?p)\b/.test(counted))
     return 'apartment';
   if (/\b(maison|villa|pavillon|house|townhouse)\b/.test(lower)) return 'house';
-  if (/\b(pieces?|bedrooms?)\b/.test(lower)) return 'apartment';
+  if (/\b(pieces?|bedrooms?)\b/.test(counted)) return 'apartment';
 
   // Aucun logement nommé : « Location Stationnement », box, garage, cave…
   if (
@@ -1094,6 +1105,31 @@ export function parseEmail(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);
   const match = cleaned.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
   return match ? match[0].toLowerCase() : null;
+}
+
+/**
+ * LA RÉFÉRENCE QUE L'AGENCE ÉCRIT DANS SON TEXTE, quand son gabarit ne la
+ * publie pas en champ.
+ *
+ * « Référence de l'annonce : 0603220 », en fin de descriptif. C'est le numéro
+ * qu'on cite au téléphone, et pour certaines sources le seul endroit où il
+ * figure : BEP Logement le donne là et nulle part ailleurs, et Paru Vendu le
+ * recopie tel quel en relayant l'annonce — ce qui rapproche les deux fiches.
+ *
+ * L'APOSTROPHE S'ÉCRIT DES DEUX FAÇONS, droite ou typographique, et c'est la
+ * courbe que les sources emploient : un motif qui n'accepte que la droite ne
+ * trouve rien. « n° » précède parfois le numéro.
+ *
+ * TROIS CARACTÈRES AU MOINS : en deçà ce n'est pas une référence mais la fin
+ * d'une phrase ramassée par hasard.
+ */
+const PUBLISHED_REFERENCE_IN_TEXT =
+  /r[ée]f[ée]rence\s+de\s+l['’ʼ]\s*annonce\s*:?\s*(?:n\s*[°o]\s*)?([A-Za-z0-9][A-Za-z0-9._/-]{2,})/i;
+
+/** La référence imprimée dans un texte libre, ou `null` s'il n'en porte pas. */
+export function parsePublishedReference(text: string | null | undefined): string | null {
+  if (text === null || text === undefined) return null;
+  return PUBLISHED_REFERENCE_IN_TEXT.exec(text)?.[1] ?? null;
 }
 
 /**

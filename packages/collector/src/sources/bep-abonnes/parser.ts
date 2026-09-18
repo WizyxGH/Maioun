@@ -205,6 +205,27 @@ function parseBulletinEntry(
     extra: {
       ...(dpe !== undefined ? { dpe: dpe.toUpperCase() } : {}),
       ...(place.district !== undefined ? { quartier: place.district } : {}),
+      /**
+       * LA RÉFÉRENCE IMPRIMÉE, celle que le bulletin met en gras au-dessus de
+       * chaque annonce — « 1131634 : NICE EST ACROPOLIS ». C'est elle que le
+       * champ de recherche du bulletin accepte, et elle que l'abonné cite à
+       * l'agence.
+       *
+       * IL FALLAIT L'ÉCRIRE ICI. Le bulletin ne redit pas la référence dans son
+       * descriptif — aucune des 128 annonces en base n'y porte la ligne
+       * « Référence de l'annonce » du site public —, donc le rejeu sur le texte
+       * ne peut pas la retrouver : le seul endroit où elle se lit est ce titre.
+       * Les annonces collectées depuis le retrait du repli sur l'identifiant
+       * interne n'affichaient plus aucune référence, alors que le bulletin la
+       * publie.
+       *
+       * SA VALEUR ÉGALE `sourceRef`, et ce n'est pas le repli retiré : ce
+       * numéro-là n'est pas tiré d'une URL (le bulletin n'a pas d'adresse par
+       * annonce), il est imprimé. L'identifiant d'URL du bulletin, c'est le
+       * `bullref` du bouton de demande, dans un tout autre espace de
+       * numérotation — et celui-là ne s'affiche jamais.
+       */
+      reference,
     },
   });
 }

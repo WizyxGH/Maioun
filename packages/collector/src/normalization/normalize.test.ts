@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RawListing } from '@maioun/shared';
-import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
+import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@maioun/shared';
 import {
   bestAddress,
   cleanAddress,
@@ -672,5 +672,70 @@ describe('contact.reference — publiée, ou rien (§17)', () => {
     expect(normalizeListing(raw({ extra: { reference: '  ' } }), OPTIONS)?.contact.reference).toBe(
       null,
     );
+  });
+});
+
+describe('rederiveFromText — la référence imprimée dans le texte déjà stocké', () => {
+  /** Une occurrence BEP telle qu'elle revient de la base. */
+  const bep = (reference: string | null, description: string): never =>
+    ({
+      id: 'bep:87116070',
+      sourceId: 'bep',
+      sourceRef: '87116070',
+      title: 'Studio proche Magnan',
+      description,
+      address: null,
+      propertyType: 'studio',
+      features: [],
+      contact: { ...EMPTY_CONTACT, agencyName: 'BEP Logement', reference },
+    }) as never;
+
+  // L'APOSTROPHE EST TYPOGRAPHIQUE dans les données : « l’annonce », pas
+  // « l'annonce ». Un motif qui n'accepte que la droite ne trouve rien, et les
+  // 113 fiches BEP qui impriment cette ligne resteraient sur leur faux numéro.
+  const COURBE = 'Studio rénové. Référence de l’annonce : 0603220 ';
+
+  it('remplace le numéro tiré de l’URL par la référence imprimée', () => {
+    expect(rederiveFromText(bep('87116070', COURBE))?.contact.reference).toBe('0603220');
+  });
+
+  it('lit aussi bien l’apostrophe droite', () => {
+    expect(
+      rederiveFromText(bep(null, "Studio rénové. Référence de l'annonce : 0603220"))?.contact
+        .reference,
+    ).toBe('0603220');
+  });
+
+  it('remplit une référence absente', () => {
+    expect(rederiveFromText(bep(null, COURBE))?.contact.reference).toBe('0603220');
+  });
+
+  it('laisse le champ VIDE quand le texte n’imprime aucune référence', () => {
+    // La référence ne se fabrique jamais : une annonce muette garde le silence
+    // plutôt que d'afficher notre identifiant interne.
+    const muette = rederiveFromText(bep(null, 'Studio meublé proche commodités.'));
+    expect(muette?.contact.reference ?? null).toBeNull();
+  });
+
+  it('ne touche pas une référence que la source a publiée dans un champ dédié', () => {
+    // Le bulletin abonné BEP imprime sa référence en tête d'annonce, pas dans le
+    // descriptif : son texte est muet, et son champ doit survivre au rejeu.
+    const bulletin = {
+      id: 'bep-abonnes:1131634',
+      sourceId: 'bep-abonnes',
+      sourceRef: '1131634',
+      title: 'STUDIO MEUBLE — NICE EST ACROPOLIS',
+      description: 'STUDIO MEUBLE , 18 M², BAIL A L ANNEE LIBRE DE SUITE. LOYER : 750.00 €',
+      address: null,
+      propertyType: 'studio',
+      features: [],
+      contact: { ...EMPTY_CONTACT, agencyName: 'BEP Logement', reference: '1131634' },
+    } as never;
+    expect(rederiveFromText(bulletin)?.contact.reference ?? '1131634').toBe('1131634');
+    expect(rederiveFromText(bep('LA2495', COURBE))?.contact.reference ?? 'LA2495').toBe('LA2495');
+  });
+
+  it('ne réannonce pas une correction déjà écrite', () => {
+    expect(rederiveFromText(bep('0603220', COURBE))).toBeNull();
   });
 });
