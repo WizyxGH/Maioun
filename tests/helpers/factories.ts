@@ -165,7 +165,9 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     favorites: field(pick(overrides.favorites, null)),
     occurrences: pick(overrides.occurrences, [makeOccurrence({ id, sourceId: 'test' })]),
     firstSeenAt: pick(overrides.firstSeenAt, TEST_NOW_ISO),
-    lastSeenAt: TEST_NOW_ISO,
+    // La date d'observation se règle comme la première : figée, elle ignorait
+    // en silence ce qu'un test lui demandait.
+    lastSeenAt: pick(overrides.lastSeenAt, TEST_NOW_ISO),
     lifecycle: pick(overrides.lifecycle, 'active'),
     tracking: 'new',
   };

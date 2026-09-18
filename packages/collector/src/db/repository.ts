@@ -1423,6 +1423,7 @@ export function createRepository(db: Database): Repository {
       );
 
       const statements: Statement[] = [];
+      const touches: string[] = [];
       let inserted = 0;
       let updated = 0;
       let unchanged = 0;
@@ -1432,6 +1433,7 @@ export function createRepository(db: Database): Repository {
         const previous = known.get(listing.id);
         if (previous === hash) {
           unchanged += 1;
+          touches.push(listing.id);
           continue;
         }
         if (previous === undefined) inserted += 1;
@@ -1526,6 +1528,24 @@ export function createRepository(db: Database): Repository {
             .map(() => '?')
             .join(',')})`,
           args: [listing.id, ...listing.occurrences.map((o) => o.id)],
+        });
+      }
+
+      // LA DATE D'UNE FICHE INCHANGÉE AVANÇAIT QUAND MÊME, côté occurrences,
+      // mais pas sur la fiche : elle n'était réécrite que si son contenu
+      // changeait. Une annonce republiée à l'identique pendant trois semaines
+      // gardait donc la date du dernier changement, et la fiche annonçait
+      // ensuite « vue pour la dernière fois » vingt jours trop tôt — au moment
+      // précis où cette date décide si l'on se déplace.
+      //
+      // Une seule requête pour tout le lot, comme pour les occurrences, et
+      // jamais en arrière : un passage plus ancien ne rajeunit pas une fiche.
+      if (touches.length > 0) {
+        const seenAt = listings[0]?.lastSeenAt ?? new Date().toISOString();
+        statements.push({
+          sql: `UPDATE listings SET last_seen_at = ?
+                WHERE id IN (${touches.map(() => '?').join(',')}) AND last_seen_at < ?`,
+          args: [seenAt, ...touches, seenAt],
         });
       }
 
