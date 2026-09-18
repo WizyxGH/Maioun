@@ -13,7 +13,8 @@ import { fetchStats } from '../api/client.js';
 import { UNKNOWN, formatSourceName, formatTracking } from '../format.js';
 import type { TrackingStatus } from '../types.js';
 import { HistoryChart } from './HistoryChart.js';
-import { PanelSkeleton } from './Skeletons.js';
+import { StatsSkeleton } from './Skeletons.js';
+import { useCountUp } from '../use-count-up.js';
 
 /**
  * COMBIEN DE TEMPS UNE ANNONCE RESTE EN LIGNE après que Maïoun l'a repérée —
@@ -82,7 +83,13 @@ function SurvivalBlock({
   );
 }
 
-/** Tuile compteur. */
+/**
+ * Tuile compteur : le chiffre monte jusqu'à sa valeur en arrivant.
+ *
+ * LE LECTEUR D'ÉCRAN NE COMPTE PAS AVEC LUI. La tuile porte la valeur finale
+ * en libellé et le chiffre qui défile est masqué pour lui : sans cela, chaque
+ * image de l'animation serait annoncée.
+ */
 function Stat({
   label,
   value,
@@ -92,10 +99,19 @@ function Stat({
   value: number;
   tone?: string;
 }): React.JSX.Element {
+  const affiche = useCountUp(value);
   return (
-    <div className="rounded-xl border border-border bg-card px-3 py-3 text-center">
-      <div className={`text-2xl font-bold ${tone ?? ''}`}>{value}</div>
-      <div className="text-[0.75rem] text-muted-foreground">{label}</div>
+    <div
+      className="rounded-xl border border-border bg-card px-3 py-3 text-center"
+      role="img"
+      aria-label={`${value} ${label}`}
+    >
+      <div aria-hidden="true" className={`text-2xl font-bold tabular-nums ${tone ?? ''}`}>
+        {affiche}
+      </div>
+      <div aria-hidden="true" className="text-[0.75rem] text-muted-foreground">
+        {label}
+      </div>
     </div>
   );
 }
@@ -133,7 +149,7 @@ export function StatsPanel(): React.JSX.Element {
   }, []);
 
   if (error) return <p className="text-bad">Impossible de charger les statistiques.</p>;
-  if (stats === null) return <PanelSkeleton rows={4} />;
+  if (stats === null) return <StatsSkeleton />;
 
   const { listings, byTracking, bySource, contacts } = stats;
   const sources = Object.entries(bySource).sort((a, b) => b[1] - a[1]);

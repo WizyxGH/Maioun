@@ -120,3 +120,38 @@ export function RowsSkeleton({ rows = 5 }: { readonly rows?: number }): React.JS
     </div>
   );
 }
+
+/**
+ * Silhouette de la page STATISTIQUES : le graphe, puis les grilles de tuiles.
+ *
+ * Elle montrait quatre barres génériques, sans rapport avec ce qui arrivait :
+ * la page sautait entièrement à l'affichage des chiffres. Les tuiles occupent
+ * désormais d'emblée leur place et leur nombre — le compteur peut alors monter
+ * jusqu'à sa valeur sans que rien ne bouge autour de lui.
+ */
+export function StatsSkeleton(): React.JSX.Element {
+  return (
+    <section
+      role="status"
+      aria-busy="true"
+      aria-label="Chargement des statistiques"
+      className="flex flex-col gap-5"
+    >
+      <Skeleton className="h-6 w-40" />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-32 w-full rounded-xl" />
+      </div>
+      {[6, 6].map((tuiles, bloc) => (
+        <div key={bloc} className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-28" />
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {Array.from({ length: tuiles }, (_, index) => (
+              <Skeleton key={index} className="h-[4.75rem] rounded-xl" />
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
