@@ -12,6 +12,7 @@
  */
 
 import type { RawListing, ScrapeContext, ScrapeResult } from '@maioun/shared';
+import { announcedTotal, shortCoverageWarning } from './announced-total.js';
 import { enrichNewListings } from './enrich.js';
 import type { RawDraft } from './raw-listing.js';
 import { withdrawnRefsFrom } from './withdrawn.js';
@@ -21,6 +22,16 @@ export interface ListAndDetailsOptions {
   readonly listUrls: readonly string[];
   /** Annonces esquissées depuis une page de liste. */
   readonly parseList: (body: string, url: string) => readonly RawListing[];
+  /**
+   * Le total que la page de liste ANNONCE, quand le site le publie.
+   *
+   * Défaut : le lecteur commun, qui reconnaît « 15 annonces trouvées », « 5
+   * biens disponibles », « 4 réponses » et le compte porté par le titre de la
+   * page. Une source dont le compteur a une forme à elle passe le sien ; une
+   * source qui n'en publie aucun rend `null`, et la couverture reste
+   * simplement indécidable.
+   */
+  readonly announcedTotal?: (body: string, url: string) => number | null;
   /**
    * `true` si la page porte le message « aucun résultat » de la plateforme :
    * sans lui, une liste vide passe pour un gabarit cassé.
@@ -37,6 +48,33 @@ export interface ListAndDetailsOptions {
   readonly maxDetails: number;
 }
 
+/**
+ * Le plus grand des deux totaux annoncés, `null` s'ils le sont tous les deux.
+ *
+ * Le PLUS GRAND, et non leur somme : sur un site paginé, chaque page annonce le
+ * total de la recherche entière et non le sien. Sur un site dont les listes
+ * couvrent plusieurs communes, le plus grand sous-total reste en deçà du vrai
+ * compte — et se taire vaut mieux que crier à tort.
+ */
+function larger(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Math.max(a, b);
+}
+
+/**
+ * LE SITE ANNONCE PLUS QUE CE QUE NOUS AVONS LU : c'est un trou de couverture,
+ * et il se dit ici plutôt que d'attendre qu'un utilisateur tombe sur l'annonce
+ * manquante ailleurs. Le passage n'en est pas dénaturé pour autant — ce qui a
+ * été lu reste bon —, d'où un avertissement et non un changement de verdict.
+ *
+ * @returns la ligne à consigner, ou `null` si rien ne manque.
+ */
+function shortOf(announced: number | null, collected: number): string | null {
+  if (announced === null || collected >= announced) return null;
+  return shortCoverageWarning(announced, collected);
+}
+
 export async function runListAndDetails(
   context: ScrapeContext,
   options: ListAndDetailsOptions,
@@ -49,6 +87,10 @@ export async function runListAndDetails(
   let unchanged = 0;
   let saidEmpty = 0;
   let listesEnEchec = 0;
+  /** Ce que les pages de liste disent publier, au plus. */
+  let announced: number | null = null;
+  const readTotal =
+    options.announcedTotal ?? ((body: string): number | null => announcedTotal(body));
 
   for (const url of options.listUrls) {
     try {
@@ -60,6 +102,7 @@ export async function runListAndDetails(
       }
       pagesFetched += 1;
       const found = options.parseList(response.body, url);
+      announced = larger(announced, readTotal(response.body, url));
       for (const stub of found) {
         if (!stubs.has(stub.sourceRef)) stubs.set(stub.sourceRef, stub);
       }
@@ -95,6 +138,12 @@ export async function runListAndDetails(
     warnings.push(`Aucune annonce sur la liste : ${options.listUrls[0] ?? ''}`);
     const stopReason = pagesFetched === 0 ? 'tooManyErrors' : 'completed';
     return { sourceId, listings: [], requestCount, pagesFetched, stopReason, warnings };
+  }
+
+  const short = shortOf(announced, stubs.size);
+  if (short !== null) {
+    warnings.push(short);
+    context.log('list.short', { announced, collected: stubs.size });
   }
 
   const all = [...stubs.values()];

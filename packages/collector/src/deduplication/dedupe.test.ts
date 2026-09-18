@@ -943,3 +943,67 @@ describe('« même référence » — ce qui rapproche vraiment deux annonces', 
     expect(communes).toContain('ref:87280764');
   });
 });
+
+/**
+ * DEUX VOISINS QUI SE SONT ÉCHANGÉ LEUR FICHE.
+ *
+ * Relevé sur l'inventaire : deux deux-pièces BEP du Vieux Nice, 30 m² chacun, à
+ * 1200 € et 1250 €, et leurs deux fiches Bien'ici. Les quatre paires atteignent
+ * le plafond de 100 — même standard téléphonique, même agence, mêmes chiffres à
+ * la tolérance près — et le regroupement, qui départage au score, a rattaché
+ * chaque logement au jumeau de l'autre. La référence publiée sépare pourtant
+ * les deux paires sans ambiguïté ; le plafond l'effaçait.
+ */
+describe('deux logements voisins ne se croisent pas', () => {
+  const STANDARD = '+33600000042';
+  const bep = (ref: string, price: number, numero: string) =>
+    listing({
+      id: `bep:${ref}`,
+      sourceId: 'bep',
+      sourceRef: ref,
+      title: 'Deux pièces au Vieux Nice',
+      description: `Deux pièces de 30 m² au Vieux Nice. Référence de l’annonce : ${numero}`,
+      price,
+      area: 30,
+      rooms: 2,
+      district: 'Vieux Nice',
+      contact: { ...EMPTY_CONTACT, phone: STANDARD, agencyName: 'BEP NICE', reference: ref },
+    });
+  const portail = (ref: string, price: number, numero: string) =>
+    listing({
+      id: `bienici:apimo-${ref}`,
+      sourceId: 'bienici',
+      sourceRef: `apimo-${ref}`,
+      title: 'Deux pièces au Vieux Nice',
+      description: `Deux pièces de 30 m² au Vieux Nice. Référence de l’annonce : ${numero}`,
+      price,
+      area: 30,
+      rooms: 2,
+      district: 'Vieux Nice',
+      contact: { ...EMPTY_CONTACT, phone: STANDARD, agencyName: 'BEP LOGEMENT', reference: ref },
+    });
+
+  it('rattache chaque logement à SA fiche de portail', () => {
+    // L'ORDRE COMPTE, et c'est celui-ci qui les a croisés : à score égal, la
+    // paire rencontrée en premier l'emporte, et ici c'est la mauvaise.
+    const corpus = [
+      bep('87302682', 1200, '0603571'),
+      portail('87305876', 1250, '0603701'),
+      portail('87302682', 1200, '0603571'),
+      bep('87305876', 1250, '0603701'),
+    ];
+    const { groups } = dedupe(corpus);
+    const ensembles = groups
+      .map((group) =>
+        group.occurrences
+          .map((one) => one.id)
+          .sort()
+          .join(' + '),
+      )
+      .sort();
+    expect(ensembles).toEqual([
+      'bep:87302682 + bienici:apimo-87302682',
+      'bep:87305876 + bienici:apimo-87305876',
+    ]);
+  });
+});

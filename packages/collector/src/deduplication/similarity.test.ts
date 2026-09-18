@@ -491,3 +491,82 @@ describe('photo d’agence servie par le redimensionneur d’un portail', () => 
     expect(result.signals.some((signal) => signal.code === 'image')).toBe(false);
   });
 });
+
+/**
+ * LA RÉFÉRENCE QUE SEULE LA DESCRIPTION PORTE.
+ *
+ * Paru Vendu republie les annonces de BEP sans en recopier la référence dans
+ * aucun champ, et son titre est un gabarit — « Appartement - 1 pièce(s) -
+ * 21 m² ». Prix, surface et pièces font 53 points sur les 70 exigés : 41
+ * annonces restaient en double, comptées comme « manquées » alors qu'elles
+ * étaient déjà collectées chez l'agence. Le même numéro figure pourtant en
+ * toutes lettres dans les deux descriptions.
+ */
+describe('référence lue dans la description', () => {
+  const texte = (ref: string) =>
+    `Studio meublé de 21 m² au 2e étage, cuisine équipée et climatisation. ` +
+    `Loyer 640 € + 50 € de charges. Référence de l’annonce : ${ref}`;
+
+  const chezBep = makeOccurrence({
+    id: 'bep:87334311',
+    sourceId: 'bep',
+    sourceRef: '87334311',
+    title: 'Charmant studio de 21m² Proche Jean Medecin',
+    description: texte('0603744'),
+    price: 690,
+    area: 21,
+    rooms: 1,
+    city: 'nice',
+    contact: makeContact({ agencyName: 'BEP NICE', reference: '87334311' }),
+  });
+
+  const surParuVendu = makeOccurrence({
+    id: 'paruvendu:1295241096',
+    sourceId: 'paruvendu',
+    sourceRef: '1295241096',
+    title: 'Appartement - 1 pièce(s) - 21 m²',
+    description: texte('0603744'),
+    price: 690,
+    area: 21,
+    rooms: 1,
+    city: 'nice',
+    contact: makeContact({ agencyName: 'BEP LOGEMENT', reference: null }),
+  });
+
+  it('rapproche l’annonce du portail de celle de l’agence', () => {
+    const result = similarity(chezBep, surParuVendu);
+    expect(result.signals.some((signal) => signal.code === 'reference')).toBe(true);
+    expect(result.verdict).toBe('duplicate');
+  });
+
+  it('ne rapproche pas deux logements dont la référence diffère', () => {
+    const autre = { ...surParuVendu, description: texte('0603701') };
+    const result = similarity(chezBep, autre);
+    expect(result.signals.some((signal) => signal.code === 'reference')).toBe(false);
+  });
+
+  it('ne rapproche pas sur le millésime d’un diagnostic', () => {
+    const dpe = 'Consommation estimée entre 950 € et 1300 € par an, année de référence 2021.';
+    const grand = makeOccurrence({
+      id: 'bienici:1',
+      sourceId: 'bienici',
+      title: 'Quatre pièces Carré d’or',
+      description: dpe,
+      price: 1590,
+      area: 78.85,
+      rooms: 4,
+      city: 'nice',
+    });
+    const petit = makeOccurrence({
+      id: 'valrose-immobilier:2',
+      sourceId: 'valrose-immobilier',
+      title: 'Deux pièces Valrose',
+      description: dpe,
+      price: 1100,
+      area: 45,
+      rooms: 2,
+      city: 'nice',
+    });
+    expect(similarity(grand, petit).signals.some((s) => s.code === 'reference')).toBe(false);
+  });
+});

@@ -116,3 +116,17 @@ export function portalCommunes(style: CommuneSlugStyle = {}): readonly PortalCom
 export function portalCommuneSlugs(style: CommuneSlugStyle = {}): readonly string[] {
   return portalCommunes(style).map((commune) => commune.slug);
 }
+
+/**
+ * La commune du périmètre portant ce slug canonique, ou `undefined`.
+ *
+ * UN NOM DE COMMUNE N'IDENTIFIE PAS UNE COMMUNE. « La Trinité » en désigne
+ * cinq en France, dont la nôtre (06340) et celle de Martinique (97220) : un
+ * portail qui adresse ses pages par le NOM en sert une seule, et rien ne dit
+ * laquelle. Le code postal, lui, tranche — d'où cette table, et d'où ce
+ * qu'elle sert à vérifier : la page qu'un portail a rendue est-elle bien celle
+ * qu'on lui a demandée.
+ */
+export function perimeterCommune(slug: string): Commune | undefined {
+  return PERIMETER_COMMUNES.find((commune) => commune.slug === slug);
+}

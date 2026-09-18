@@ -18,6 +18,7 @@ import { comparable, tokenize } from '../normalization/text.js';
 import { sameStreet } from '../normalization/parse-listing-fields.js';
 import { haversineKm } from '../core/geo.js';
 import { photoOrigin } from './photo-origin.js';
+import { referencesInText } from './published-reference.js';
 
 /** Verdict rendu pour une paire d'annonces. */
 export type SimilarityVerdict = 'duplicate' | 'ambiguous' | 'distinct';
@@ -30,6 +31,18 @@ export interface SimilaritySignal {
 
 export interface SimilarityResult {
   readonly score: number;
+  /**
+   * Le total des signaux AVANT plafonnement, qui seul classe deux paires
+   * également certaines.
+   *
+   * Le score s'arrête à 100, et deux BEP voisins — 1200 € et 1250 €, 30 m²
+   * chacun, au Vieux Nice — y arrivaient tous les deux contre la fiche Bien'ici
+   * de l'autre. Le regroupement départage à score égal dans l'ordre où les
+   * paires se présentent : il a croisé les deux logements, chacun rattaché au
+   * jumeau de son voisin. La référence publiée distingue pourtant les deux
+   * paires — 183 points contre 113 —, et c'est le plafond qui l'effaçait.
+   */
+  readonly strength: number;
   readonly verdict: SimilarityVerdict;
   readonly signals: readonly SimilaritySignal[];
   /** Renseigné quand un désaccord rédhibitoire a tranché la comparaison. */
@@ -295,9 +308,15 @@ const IDENTIFIER_MIN_LENGTH = 4;
  *
  * On garde donc les deux comme clés de rapprochement, et le champ affiché
  * n'en garde qu'une.
+ *
+ * UNE TROISIÈME FORME, LUE DANS LE TEXTE. Certains portails ne recopient la
+ * référence dans aucun champ, et l'écrivent pourtant dans la description :
+ * l'annonce Paru Vendu d'un studio BEP ne portait aucune référence, mais
+ * annonçait « Référence de l'annonce : 0603744 », comme la fiche de l'agence.
+ * Elle compte comme publiée — c'est bien l'agence qui l'imprime.
  */
 export function identifiers(listing: NormalizedListing): {
-  readonly published: string | null;
+  readonly published: readonly string[];
   readonly all: readonly string[];
 } {
   const keep = (value: string | null): string | null => {
@@ -305,8 +324,14 @@ export function identifiers(listing: NormalizedListing): {
     const key = comparable(value);
     return key.length >= IDENTIFIER_MIN_LENGTH ? key : null;
   };
-  const published = keep(listing.contact.reference);
-  const all = [...new Set([published, keep(listing.sourceRef)].filter((k) => k !== null))];
+  const published = [
+    ...new Set(
+      [keep(listing.contact.reference), ...referencesInText(listing.description)].filter(
+        (key) => key !== null,
+      ),
+    ),
+  ];
+  const all = [...new Set([...published, keep(listing.sourceRef)].filter((key) => key !== null))];
   return { published, all };
 }
 
@@ -327,7 +352,7 @@ function sameIdentifier(a: NormalizedListing, b: NormalizedListing): boolean {
   const left = identifiers(a);
   const right = identifiers(b);
   const shared = left.all.filter((key) => right.all.includes(key));
-  return shared.some((key) => key === left.published || key === right.published);
+  return shared.some((key) => left.published.includes(key) || right.published.includes(key));
 }
 
 /**
@@ -769,6 +794,7 @@ export function similarity(
   if (a.id === b.id) {
     return {
       score: 100,
+      strength: 100,
       verdict: 'duplicate',
       signals: [{ code: 'identity', label: 'même occurrence', points: 100 }],
       blocker: null,
@@ -779,7 +805,7 @@ export function similarity(
   const blocker =
     findBlocker(a, b, photos === 'shared') ?? sameSourceConflict(a, b, relaysListings);
   if (blocker !== null) {
-    return { score: 0, verdict: 'distinct', signals: [], blocker };
+    return { score: 0, strength: 0, verdict: 'distinct', signals: [], blocker };
   }
 
   const signals: SimilaritySignal[] = [];
@@ -830,10 +856,8 @@ export function similarity(
     push({ code: 'operator', label: `même opérateur (${operator})`, points: 30 });
   }
 
-  const score = Math.min(
-    100,
-    signals.reduce((total, signal) => total + signal.points, 0),
-  );
+  const strength = signals.reduce((total, signal) => total + signal.points, 0);
+  const score = Math.min(100, strength);
 
   let verdict: SimilarityVerdict = 'distinct';
   if (score >= DUPLICATE_THRESHOLD) verdict = 'duplicate';
@@ -860,5 +884,5 @@ export function similarity(
     verdict = 'ambiguous';
   }
 
-  return { score, verdict, signals, blocker: null };
+  return { score, strength, verdict, signals, blocker: null };
 }

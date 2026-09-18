@@ -27,6 +27,8 @@ import { ALL_SCRAPERS } from '../sources/index.js';
 import { wantedAdEvidence } from '../normalization/housing-wanted.js';
 import { agencyCoverage, sourceAliases } from '../sources/agency-names.js';
 import { DORMANT_CANDIDATES } from '../sources/dormant.js';
+import { outOfReach } from '../sources/out-of-reach.js';
+import { SHORT_COVERAGE_WARNING } from '../sources/shared/announced-total.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -474,6 +476,100 @@ async function reportRequestBudget(db: Database): Promise<void> {
   );
 }
 
+/** Ce qu'un arrêt de passage dit de la couverture du catalogue. */
+const SHORT_STOPS = new Set(['incomplete', 'maxPages', 'maxListings']);
+const FULL_STOPS = new Set(['completed', 'empty', 'notModified', 'knownTerritory']);
+
+/**
+ * LISONS-NOUS TOUT CE QUE CHAQUE SITE PUBLIE ?
+ *
+ * La question n'était posée nulle part. On voyait les annonces entrer, jamais
+ * celles qui n'entraient pas : un gabarit sans pagination a laissé vingt
+ * annonces dehors pendant des semaines, et c'est l'utilisateur qui l'a
+ * découvert. Un trou de couverture ne se signale pas tout seul — il faut le
+ * demander au site, qui sait ce qu'il publie.
+ *
+ * TROIS ÉTATS, ET PAS DEUX. « Courte » est le défaut à corriger. « Hors de
+ * notre portée » n'en est pas un : une agence qui diffuse sur les portails ce
+ * qu'elle ne met pas chez elle est lue en entier, et son stock nous parvient
+ * par ailleurs. Les confondre rendrait 100 % inatteignable et l'indicateur
+ * inutile.
+ *
+ * « PLEINE » SE LIT COMME ELLE EST ÉCRITE : rien ne dit qu'il en manque.
+ * C'est prouvé là où le site publie son total — le passage compare et se
+ * plaint —, et seulement présumé ailleurs. Une source qui s'arrête sur un
+ * plafond, elle, le dit, et compte comme courte.
+ */
+async function reportCatalogCoverage(db: Database): Promise<void> {
+  const rows = await db.execute(
+    `SELECT r.source_id AS src, r.stop_reason AS stop, r.warnings AS warnings, r.started_at AS le
+       FROM collection_runs r
+       JOIN (SELECT source_id, MAX(started_at) AS last FROM collection_runs GROUP BY source_id) d
+         ON d.source_id = r.source_id AND d.last = r.started_at`,
+  );
+  const last = new Map(rows.rows.map((one) => [String(one['src']), one]));
+
+  const courtes: string[] = [];
+  const muettes: string[] = [];
+  let pleines = 0;
+  const sources = ALL_SCRAPERS.map((one) => one.descriptor).filter((one) => one.enabled);
+  const horsPortee = sources.filter((one) => outOfReach(one.id) !== null);
+
+  for (const descriptor of sources) {
+    if (outOfReach(descriptor.id) !== null) continue;
+    const run = last.get(descriptor.id);
+    if (run === undefined) {
+      muettes.push(`${descriptor.id.padEnd(28)} jamais lancée`);
+      continue;
+    }
+    const stop = String(run['stop'] ?? '');
+    const short = String(run['warnings'] ?? '').includes(SHORT_COVERAGE_WARNING);
+    if (short || SHORT_STOPS.has(stop)) {
+      const raison = short ? 'le site annonce plus que ce que nous lisons' : `arrêt sur ${stop}`;
+      courtes.push(`${descriptor.id.padEnd(28)} ${raison}`);
+    } else if (FULL_STOPS.has(stop)) {
+      pleines += 1;
+    } else {
+      muettes.push(`${descriptor.id.padEnd(28)} dernier passage : ${stop}`);
+    }
+  }
+
+  console.log('\n── Couverture du catalogue, source par source ────────────────');
+  console.log(`   ${sources.length} source(s) active(s), au dernier passage de chacune :`);
+  console.log(
+    `     couverture pleine    ${String(pleines).padStart(5)}   rien ne dit qu'il en manque`,
+  );
+  console.log(
+    `     couverture courte    ${String(courtes.length).padStart(5)}   c'est ici que l'effort paie`,
+  );
+  console.log(
+    `     hors de notre portée ${String(horsPortee.length).padStart(5)}   consignées : ne se recomptent pas`,
+  );
+  console.log(
+    `     sans verdict         ${String(muettes.length).padStart(5)}   passage en échec, ou jamais lancée`,
+  );
+
+  if (courtes.length > 0) {
+    console.log('\n   Couverture courte :');
+    for (const one of courtes) console.log(`     ${one}`);
+  }
+  if (horsPortee.length > 0) {
+    console.log('\n   Hors de notre portée — le stock nous arrive par un autre chemin :');
+    for (const descriptor of horsPortee) {
+      const verdict = outOfReach(descriptor.id);
+      if (verdict === null) continue;
+      console.log(
+        `     ${descriptor.id.padEnd(28)} ${verdict.reason} (relevé ${verdict.checkedOn})` +
+          ` — nous parvient par ${verdict.reachedBy.join(', ')}`,
+      );
+    }
+  }
+  if (muettes.length > 0) {
+    console.log('\n   Sans verdict :');
+    for (const one of muettes) console.log(`     ${one}`);
+  }
+}
+
 /**
  * Les annonces de DEMANDE encore en base : quelqu'un qui cherche un logement,
  * pas qui en propose un.
@@ -669,6 +765,7 @@ async function main(): Promise<void> {
     await reportAilingSources(db);
     await reportVanishing(db);
     await reportRequestBudget(db);
+    await reportCatalogCoverage(db);
     await reportAgencyCoverage(db);
     await reportWantedAds(db);
     await reportSettings(db);

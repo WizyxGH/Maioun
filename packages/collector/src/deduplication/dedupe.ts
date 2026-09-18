@@ -204,7 +204,8 @@ export interface DedupeResult {
 interface MergeLink {
   readonly leftId: string;
   readonly rightId: string;
-  readonly score: number;
+  /** Le total non plafonné : c'est lui qui classe deux paires également sûres. */
+  readonly strength: number;
 }
 
 /** État mutable partagé par les comparaisons de paires d'un run de dédoublonnage. */
@@ -235,7 +236,7 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
 
   const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf, ctx.photoIdentifies);
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
-    ctx.links.push({ leftId, rightId, score: result.score });
+    ctx.links.push({ leftId, rightId, strength: result.strength });
   } else if (result.verdict === 'ambiguous') {
     ctx.ambiguous.push({ leftId, rightId, result });
   }
@@ -266,12 +267,17 @@ function comparePairsInBucket(bucket: readonly string[], ctx: CompareContext): n
  * mettait dans un même groupe deux occurrences d'une même source que
  * `sameSourceConflict` sépare. Les liens forts passent en premier : c'est le
  * plus faible qui cède.
+ *
+ * ET « FORT » SE MESURE SANS PLAFOND. Deux paires qui atteignent toutes deux
+ * 100 ne se départagent plus, alors que l'une porte la même référence publiée
+ * et l'autre non : c'est ainsi que deux deux-pièces du Vieux Nice se sont
+ * échangé leur fiche Bien'ici.
  */
 function joinGroups(ctx: CompareContext, unionFind: UnionFind): void {
   const members = new Map<string, NormalizedListing[]>();
   for (const [id, listing] of ctx.byId) members.set(id, [listing]);
 
-  for (const link of [...ctx.links].sort((x, y) => y.score - x.score)) {
+  for (const link of [...ctx.links].sort((x, y) => y.strength - x.strength)) {
     const rootA = unionFind.find(link.leftId);
     const rootB = unionFind.find(link.rightId);
     if (rootA === rootB) continue;
