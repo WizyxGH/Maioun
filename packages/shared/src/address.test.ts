@@ -130,3 +130,21 @@ describe('formatLocation — quartier', () => {
     ).toBe('19 Rue Michelet, 06100 Nice');
   });
 });
+
+describe('un code postal ne s’affiche jamais seul', () => {
+  it('complète les quatre codes de Nice, qui n’en désignent qu’une', () => {
+    expect(formatAddress({ street: null, postalCode: '06200', city: null })).toBe('06200 Nice');
+    expect(formatAddress({ street: null, postalCode: '06000', city: null })).toBe('06000 Nice');
+  });
+
+  it('n’invente rien quand le code désigne plusieurs communes', () => {
+    // 06340 couvre La Trinité, Drap et Cantaron : en nommer une serait faux.
+    expect(formatAddress({ street: null, postalCode: '06340', city: null })).toBe('06340');
+  });
+
+  it('laisse la commune publiée faire autorité', () => {
+    expect(formatAddress({ street: null, postalCode: '06200', city: 'cagnes sur mer' })).toBe(
+      '06200 Cagnes-sur-Mer',
+    );
+  });
+});

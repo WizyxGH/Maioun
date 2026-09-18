@@ -179,10 +179,44 @@ export interface AddressParts {
  * Les parties absentes sont omises sans laisser de séparateur orphelin (§17).
  * Rend une chaîne vide si rien n'est connu.
  */
+/**
+ * Les codes postaux qui ne désignent QU'UNE commune du périmètre.
+ *
+ * UN CODE POSTAL NE DOIT JAMAIS S'AFFICHER SEUL : « 06200 » ne dit rien à qui
+ * ne connaît pas Nice par cœur, et collé au bouton voisin il se lisait comme
+ * une adresse absurde.
+ *
+ * Nice en a quatre, et aucun autre ne les partage : un « 06200 » seul se lit
+ * donc « Nice » sans rien supposer. La table s'arrête là VOLONTAIREMENT — le
+ * 06340 couvre La Trinité, Drap et Cantaron, et nommer l'une des trois serait
+ * fabriquer une précision que la source n'a pas publiée.
+ */
+const SOLE_COMMUNE_BY_POSTAL: Record<string, string> = {
+  '06000': 'Nice',
+  '06100': 'Nice',
+  '06200': 'Nice',
+  '06300': 'Nice',
+};
+
+/**
+ * La commune qu'un code postal désigne à coup sûr, sinon rien.
+ *
+ * SANS ELLE, UNE LIGNE D'ADRESSE SE RÉDUISAIT AU SEUL CODE POSTAL — vingt-quatre
+ * annonces n'ont ni voie, ni quartier, ni commune. Sur la carte, le bouton
+ * « Voir l'annonce » suivait aussitôt, et la bulle se lisait « 06200 Voir
+ * l'annonce », comme si c'était là l'adresse.
+ */
+export function communeFromPostalCode(postalCode: string | null | undefined): string | null {
+  const code = postalCode?.trim() ?? '';
+  return SOLE_COMMUNE_BY_POSTAL[code] ?? null;
+}
+
 export function formatAddress(parts: AddressParts): string {
   const street = parts.street?.trim();
   const postalCode = parts.postalCode?.trim();
-  const city = parts.city?.trim();
+  // Commune absente : on la déduit du code postal SEULEMENT quand il n'en
+  // désigne qu'une. Sinon le code reste seul, ce qui est la vérité.
+  const city = parts.city?.trim() ?? communeFromPostalCode(parts.postalCode) ?? undefined;
 
   // « 06000 Nice » : en France le code postal précède la commune.
   const locality = [postalCode, city !== undefined && city !== '' ? formatCommune(city) : '']
