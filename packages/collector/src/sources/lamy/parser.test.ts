@@ -78,6 +78,17 @@ describe('parseDetailPage', () => {
     expect(listing?.imageUrls?.[0]).toContain('photo-1.jpg');
   });
 
+  it('prend la photo entière du diaporama, pas la vignette recadrée', () => {
+    // Le carrousel n'affiche qu'un bandeau 700×346 ; le lien porte le 1600 px.
+    expect(listing?.imageUrls?.[0]).toContain('/w_1600/');
+    // Une photo sans lien reste servie par sa vignette : mieux que rien.
+    expect(listing?.imageUrls?.[1]).toContain('/w_700/');
+  });
+
+  it('lit la référence que la fiche publie, avec sa casse', () => {
+    expect(listing?.extra?.['reference']).toBe('FL0000001');
+  });
+
   it('se normalise en annonce exploitable', () => {
     const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
       sourceId: 'lamy',

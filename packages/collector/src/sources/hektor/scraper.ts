@@ -3,9 +3,9 @@
  * Ajouter une agence = une entrée `makeHektorScraper({...})`.
  *
  * Méthode : pages de LISTE (server-rendered) → liens de fiches → visite des
- * fiches nouvelles, puis d'UNE fiche déjà connue par passage. Le sitemap n'est
- * pas utilisé : sur plusieurs sites de la plateforme il ne référence pas les
- * fiches.
+ * fiches nouvelles, puis d'une part des fiches connues par passage. Le sitemap
+ * n'est pas utilisé : sur plusieurs sites de la plateforme il ne référence pas
+ * les fiches.
  */
 
 import type {
@@ -62,17 +62,30 @@ const MAX_LIST_PAGES = 12;
  * annonces en ligne sont sans e-mail, 149 sans téléphone, alors que leur fiche
  * les porte.
  *
- * UNE SEULE PAR PASSAGE SUFFIT. Chaque agence est lue une dizaine de fois par
- * jour et n'a qu'un peu plus de quatre annonces : l'inventaire entier est
- * rattrapé en une demi-journée. Passé le rattrapage, la fraîcheur d'une
- * semaine (`isFreshMemory`) ramène la dépense à une trentaine de requêtes par
- * jour pour la plateforme entière, soit moins d'un demi pour cent des ~8 100
- * requêtes quotidiennes du projet.
+ * LE NOMBRE SUIT LA TAILLE DU STOCK. Une relecture par passage rattrapait en
+ * une demi-journée l'agence moyenne — quatre annonces — mais laissait les
+ * grosses figées des jours entiers : Giletta en a 51, soit deux jours et demi
+ * pendant lesquels ses annonces les plus anciennes affichaient encore la
+ * référence fabriquée depuis l'URL. Relevé du 2026-09-18 : 53 des 226 annonces
+ * en ligne de la plateforme sont dans ce cas, et 52 d'entre elles appartiennent
+ * aux quatre agences de plus de dix annonces. Un dixième du stock par passage
+ * ramène donc TOUTE agence à une dizaine de passages, soit la demi-journée
+ * promise. Les quarante agences de dix annonces ou moins n'y changent rien.
+ *
+ * Passé le rattrapage, la fraîcheur d'une semaine (`isFreshMemory`) fixe seule
+ * la dépense : une trentaine de requêtes par jour pour la plateforme entière,
+ * inchangée.
  */
-const RELECTURES_PAR_PASSAGE = 1;
+const PART_RELUE_PAR_PASSAGE = 10;
 
-/** En rattrapage, le plafond des relectures suit celui des nouveautés. */
-const RELECTURES_PAR_PASSAGE_BACKFILL = 5;
+/** En rattrapage, le plancher des relectures suit celui des nouveautés. */
+const RELECTURES_MINIMUM_BACKFILL = 5;
+
+/** Combien de fiches connues relire dans ce passage, selon la taille du stock. */
+function relecturesParPassage(connues: number, mode: ScrapeContext['mode']): number {
+  const part = Math.ceil(connues / PART_RELUE_PAR_PASSAGE);
+  return mode === 'backfill' ? Math.max(RELECTURES_MINIMUM_BACKFILL, part) : Math.max(1, part);
+}
 
 export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
   const maxBackfill = config.maxDetailsBackfill ?? 20;
@@ -97,7 +110,8 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
     notes:
       'Plateforme La Boîte Immo/Hektor (adaptateur générique). robots.txt ' +
       'permissif (interdits : /stats, /phpmv2, /fonctions, /templates, /admin). ' +
-      'Listes SSR → fiches nouvelles, plus une fiche connue relue par passage. ' +
+      'Listes SSR → fiches nouvelles, plus un dixième des fiches connues relu par ' +
+      'passage. ' +
       'DPE lu sur le seul gabarit à ' +
       'pastilles ; ailleurs image sous /admin, interdit par robots — laissé inconnu. ' +
       'La pagination des listes est suivie : une seule adresse à déclarer par liste.',
@@ -177,13 +191,7 @@ export function makeHektorScraper(config: HektorConfig): Scraper {
       // été servies et que rien n'a interrompu le passage.
       const relisibles =
         nouvelles.stopReason === null && candidates.length <= maxDetails
-          ? aRelire(
-              context,
-              connues,
-              context.mode === 'backfill'
-                ? RELECTURES_PAR_PASSAGE_BACKFILL
-                : RELECTURES_PAR_PASSAGE,
-            )
+          ? aRelire(context, connues, relecturesParPassage(connues.length, context.mode))
           : [];
       // SANS CACHE CONDITIONNEL : la page n'a pas changé, c'est le parseur qui
       // a changé — un 304 ne rendrait rien à relire.

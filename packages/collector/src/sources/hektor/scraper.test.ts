@@ -282,6 +282,32 @@ describe('makeHektorScraper — relecture des fiches connues', () => {
     expect(fiches(trace)[0]).not.toContain('/282-appartement');
   });
 
+  it('relit plus de fiches quand l’agence en a beaucoup', async () => {
+    // Une seule par passage figeait les grosses agences des jours entiers :
+    // Giletta, 51 annonces, gardait deux jours et demi ses vieilles références
+    // fabriquées. Un dixième du stock ramène toute agence à dix passages.
+    const nombreuses = Array.from({ length: 30 }, (_valeur, rang) => String(100 + rang));
+    const trace: { url: string; conditional: boolean }[] = [];
+    const base = contexte(nombreuses, []);
+    const connues = new Set(nombreuses);
+    await scrapeur.run({
+      ...base,
+      isKnown: (reference) => connues.has(reference),
+      knownRefs: connues,
+      fetch: (url, init) => {
+        trace.push({ url, conditional: init?.conditional !== false });
+        return base.fetch(url);
+      },
+    });
+    expect(fiches(trace)).toHaveLength(3);
+  });
+
+  it('en reste à une relecture pour une petite agence', async () => {
+    const trace: { url: string; conditional: boolean }[] = [];
+    await scrapeur.run(contexteRelecture({ connues: REFS }, trace, []));
+    expect(fiches(trace)).toHaveLength(1);
+  });
+
   it('en rattrapage, relit plusieurs fiches d’un coup', async () => {
     const trace: { url: string; conditional: boolean }[] = [];
     await scrapeur.run(contexteRelecture({ connues: REFS, mode: 'backfill' }, trace, []));

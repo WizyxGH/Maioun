@@ -12,6 +12,12 @@
  * avec une référence `flXXXXXXX`. Fiche ancrée sur les classes `estate__*` :
  * titre, localisation, prix (« par mois / CC »), référence, description,
  * caractéristiques, DPE/GES.
+ *
+ * PHOTOS INAFFICHABLES AILLEURS. Le CDN (res.cloudinary.com, type `private`)
+ * ne les sert qu'aux pages de lamy-immobilier.fr : sans ce référent il répond
+ * 401 « ACL deny », quelle que soit l'adresse. Nous enregistrons donc les
+ * adresses que la fiche publie, mais aucune ne s'affichera hors du site de
+ * l'agence tant qu'un relais ne les rapatrie pas.
  */
 
 import * as cheerio from 'cheerio';
@@ -66,6 +72,51 @@ export interface ParsedDetail {
   readonly warnings: readonly string[];
 }
 
+/**
+ * Photos du bien, en pleine taille.
+ *
+ * LE CARROUSEL N'EN MONTRE QU'UNE VIGNETTE RECADRÉE en 700×346 — un bandeau
+ * deux fois plus large que haut, où la moitié de la pièce est coupée — et
+ * c'est elle que nous gardions. Le lien du diaporama qui l'enveloppe porte la
+ * même photo entière, en 1600 px : c'est celle-là. La vignette reste le repli
+ * pour une photo sans lien. Les adresses sont enregistrées, jamais l'image.
+ */
+function photos($: cheerio.CheerioAPI): string[] {
+  const imageUrls: string[] = [];
+  $('img.estate__img').each((_i, el) => {
+    const entiere = $(el).closest('a[data-fancybox]').attr('href');
+    const src = (entiere ?? $(el).attr('src') ?? '').trim();
+    if (src.startsWith('https://') && !imageUrls.includes(src)) imageUrls.push(src);
+  });
+  return imageUrls;
+}
+
+/**
+ * « Référence FL0000001 » : le code que l'agence cite au téléphone.
+ *
+ * Il ressemble à l'identifiant d'URL, mais c'est la fiche qui le publie, et
+ * avec sa casse. Absent de la page, il reste absent.
+ */
+function publishedReference($: cheerio.CheerioAPI): string | undefined {
+  const written = cleanText($('.estate__reference').first().text());
+  return /^R[ée]f[ée]rence\s+(\S+)$/i.exec(written)?.[1];
+}
+
+/** Ce que la fiche apprend au-delà des champs communs — un absent reste absent. */
+function extra(
+  citySlug: string,
+  features: readonly string[],
+  dpe: string | undefined,
+  reference: string | undefined,
+): Record<string, string> {
+  return {
+    citySlug,
+    ...(reference !== undefined ? { reference } : {}),
+    ...(features.length > 0 ? { features: features.join(' · ') } : {}),
+    ...(dpe !== undefined ? { dpe } : {}),
+  };
+}
+
 /** Analyse une fiche bien et en extrait l'annonce. */
 export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
   const parsedUrl = parseListingUrl(pageUrl);
@@ -102,12 +153,8 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
     if (feature !== '') features.push(feature);
   });
 
-  // Photos du carrousel (URLs publiques Cloudinary — jamais téléchargées, §11).
-  const imageUrls: string[] = [];
-  $('img.estate__img').each((_i, el) => {
-    const src = $(el).attr('src') ?? '';
-    if (src.startsWith('https://') && !imageUrls.includes(src)) imageUrls.push(src);
-  });
+  const imageUrls = photos($);
+  const reference = publishedReference($);
 
   // DPE : la lettre active de l'échelle (« estate__score-dpe--e ») ; le texte
   // « DPE : E - 314 kWh/m².an » sert de secours.
@@ -140,12 +187,7 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
     contactFormUrl: parsedUrl.canonicalUrl,
     ...(availability !== '' ? { availableAtText: availability } : {}),
     ...(imageUrls.length > 0 ? { imageUrls } : {}),
-    extra: {
-      // L'identifiant d'URL n'est pas la référence de l'agence (§17).
-      citySlug: parsedUrl.citySlug,
-      ...(features.length > 0 ? { features: features.join(' · ') } : {}),
-      ...(dpe !== undefined ? { dpe } : {}),
-    },
+    extra: extra(parsedUrl.citySlug, features, dpe, reference),
   };
 
   return { listing, warnings };
