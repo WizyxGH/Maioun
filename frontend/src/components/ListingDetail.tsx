@@ -7,7 +7,7 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import type { StoredReferencePoint, TenantProfile } from '@maioun/shared';
-import { rentAllIn } from '@maioun/shared';
+import { rentAllIn, RISK_ALERT } from '@maioun/shared';
 import { fetchReferencePoints } from '../api/client.js';
 import { archiveReasonOf, isArchivedBySource, isUncertain } from '../availability.js';
 import { directionsUrl } from '../directions.js';
@@ -261,6 +261,46 @@ function AvailabilityNotice({
     <Alert variant={variant} className="mb-3">
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription>{detail}</AlertDescription>
+    </Alert>
+  );
+}
+
+/**
+ * CE QUI A ÉTÉ OBSERVÉ SUR CETTE ANNONCE, AVANT D'ÉCRIRE.
+ *
+ * Le score de risque était le seul à n'avoir aucune place dans la décision :
+ * un badge de deux mots sur la carte, et ses raisons repliées en bas de fiche,
+ * sous le message déjà rédigé. Elles arrivent donc ici, à côté des conditions
+ * du bailleur, parce que savoir qu'un loyer est trois fois sous le marché
+ * change ce qu'on demande — ou la décision de demander.
+ *
+ * IL ALERTE, IL N'ACCUSE PAS. Pas un mot de verdict, pas d'« arnaque » : les
+ * raisons sont recopiées telles que le score les a écrites, chacune disant ce
+ * qui a été vu. Le reste du score — ce qui joue en faveur de l'annonce, ce
+ * qu'aucune source n'a fourni — garde sa place plus bas, entière.
+ */
+function RiskAlert({ listing }: { readonly listing: ListingView }): React.JSX.Element | null {
+  const risk = listing.scores.risk;
+  if (risk.value < RISK_ALERT) return null;
+  // Seules les raisons qui PÈSENT : « Loyer cohérent avec le marché » et
+  // « Agence identifiable » valent zéro point et n'ont rien à avertir.
+  const observed = (risk.reasons ?? []).filter((reason) => reason.delta > 0);
+  if (observed.length === 0) return null;
+
+  return (
+    <Alert variant="warning" className="mb-3">
+      <AlertTitle>Signaux d’alerte</AlertTitle>
+      <AlertDescription>
+        <ul>
+          {observed.map((reason, index) => (
+            <li key={`${reason.code}-${index}`}>{reason.label}</li>
+          ))}
+        </ul>
+        <p>
+          Aucun de ces constats ne prouve quoi que ce soit. Ils demandent une vérification avant
+          d’envoyer un dossier, et surtout avant tout versement.
+        </p>
+      </AlertDescription>
     </Alert>
   );
 }
@@ -637,6 +677,9 @@ export function ListingDetail({
         message déjà rédigé arrive trop tard. Ne s'affiche que si l'annonce
         énonce quelque chose, ce qui est rare. */}
       <RequirementsPanel listing={listing} profile={profile} />
+
+      {/* Même raison, même place : ce qui change la décision se lit avant. */}
+      <RiskAlert listing={listing} />
 
       {/* §22 : préparation du contact, en haut de page car c'est l'action utile. */}
       <ContactPanel

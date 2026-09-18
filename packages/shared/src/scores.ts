@@ -73,6 +73,30 @@ export const PRIORITY_HOT = 58;
 export const PRIORITY_WORTH_SEEING = 50;
 
 /**
+ * LE SEUL SEUIL DU SCORE DE RISQUE, au-delà duquel la fiche met ses raisons
+ * sous les yeux au lieu de les laisser repliées.
+ *
+ * Il vit ici, et non dans un composant, parce qu'il y avait DEUX notions
+ * concurrentes pour une seule question : la carte portait son propre
+ * `SUSPICIOUS_RISK = 40` sous le nom « Trop beau ? », la fiche montrait le même
+ * score sous le nom « Signaux d'alerte ». Un seul calcul donnait l'impression
+ * de deux vérifications. Le badge est retiré, le nom et le seuil sont uniques.
+ *
+ * Volontairement haut. Un avertissement posé à tort sur une annonce honnête
+ * coûte plus qu'un avertissement manquant : on écarte un vrai logement, et on
+ * met en cause une agence qui n'a rien fait. Relevé du 2026-09-17, une fois le
+ * score corrigé : six annonces actives sur 3 210 atteignent 40, toutes pour un
+ * loyer au m² hors de proportion — c'est l'ordre de grandeur d'un
+ * avertissement qu'on croit quand il paraît.
+ *
+ * `AutoContactLimits.thresholds.maxRisk` lit le même score mais ne dit pas la
+ * même chose : ce n'est pas un second verdict, c'est la règle de dépense d'un
+ * envoi automatique, délibérément plus sévère. Le verdict affiché, lui, n'a
+ * que ce seuil-ci.
+ */
+export const RISK_ALERT = 40;
+
+/**
  * Score de tri global, utilisé pour classer la liste principale (§36).
  *
  * L'interface doit répondre à « que dois-je contacter maintenant ? ». On

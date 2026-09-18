@@ -1,6 +1,14 @@
 /**
  * RISK SCORE — « cette annonce est-elle suspecte ? ».
  *
+ * LE SEUL INDICATEUR DE CE GENRE, et il n'y en aura pas d'autre. « Trop beau
+ * pour être vrai » et « fausse annonce » sont la même question posée deux
+ * fois : un loyer hors de proportion, un bailleur qu'on ne peut pas nommer, une
+ * demande d'argent sans visite. Un second détecteur d'arnaque aurait eu son
+ * propre seuil et son propre libellé, donc ses propres faux positifs, pour
+ * relire les mêmes annonces. Tout ce qui relève du doute entre donc ici, et
+ * s'affiche sous un nom unique — le seuil d'affichage est `RISK_ALERT`.
+ *
  * Le score n'est jamais bloquant : une annonce à risque élevé reste visible et
  * consultable, accompagnée de ses raisons. Un signal inhabituel n'est pas une
  * preuve, et masquer une annonce légitime coûterait une visite.
@@ -14,6 +22,12 @@
  *   ⚠ Prix inhabituellement faible
  *   ⚠ Informations contradictoires entre sources
  *   ✓ Agence identifiable
+ *
+ * CE QU'IL NE SAIT PAS VOIR, ET POURQUOI : le faux particulier qui reprend les
+ * photos d'une location de courte durée. Ce scénario a été mesuré sur
+ * l'inventaire, il ne s'y trouve pas, et les règles qui prétendaient le
+ * détecter ne désignaient que des annonceurs honnêtes. Le relevé complet et la
+ * condition qui rendrait le contrôle utile sont dans `docs/risque-arnaque.md`.
  */
 
 import type { AggregatedListing, ExplainedScore, MergedField, ScoreReason } from '@maioun/shared';

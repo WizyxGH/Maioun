@@ -163,12 +163,13 @@ critères, sans lancer la collecte à la main :
 
 ## Documentation
 
-| Document                                | Contenu                                                                                                                            |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| [architecture.md](docs/architecture.md) | composants et flux, puis par sections : scoring, détection de risque, dédoublonnage, scheduler, scraping, base de données, contact |
-| [sources.md](docs/sources.md)           | étude datée des sources (robots.txt, verdicts, priorités)                                                                          |
-| [deployment.md](docs/deployment.md)     | installation locale, `.env`, notifications, et option cloud gratuite (Turso + Actions + Pages)                                     |
-| [privacy.md](docs/privacy.md)           | cartographie des données, les six barrières anti-fuite                                                                             |
+| Document                                    | Contenu                                                                                                                            |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| [architecture.md](docs/architecture.md)     | composants et flux, puis par sections : scoring, détection de risque, dédoublonnage, scheduler, scraping, base de données, contact |
+| [sources.md](docs/sources.md)               | étude datée des sources (robots.txt, verdicts, priorités)                                                                          |
+| [deployment.md](docs/deployment.md)         | installation locale, `.env`, notifications, et option cloud gratuite (Turso + Actions + Pages)                                     |
+| [privacy.md](docs/privacy.md)               | cartographie des données, les six barrières anti-fuite                                                                             |
+| [risque-arnaque.md](docs/risque-arnaque.md) | fausses annonces : le croisement courte durée / longue durée mesuré, les règles écartées et leur compte de faux positifs           |
 
 Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 [`packages/collector/src/sources/index.ts`](packages/collector/src/sources/index.ts).

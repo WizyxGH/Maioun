@@ -60,14 +60,6 @@ interface ListingCardProps {
 }
 
 /**
- * Score de risque à partir duquel l'annonce mérite un avertissement.
- *
- * Volontairement haut : un badge « suspect » posé à tort sur une annonce
- * honnête coûte plus qu'un badge manquant — on écarte un vrai logement.
- */
-const SUSPICIOUS_RISK = 40;
-
-/**
  * Palier de priorité → libellé. La COULEUR, elle, ne varie plus : la barre est
  * verte partout, et c'est sa LONGUEUR qui compare deux annonces. Un dégradé de
  * teintes ajoutait un second code à déchiffrer pour la même information.
@@ -213,17 +205,12 @@ function StatusBadges({
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
       <ApplicationsFullBadge listing={listing} rented={rented} />
       <RequirementBadges listing={listing} profile={profile} />
-      {/* « Trop beau pour être vrai ? » — le doute, pas le verdict, d'où le
-        point d'interrogation : la fiche en donne les raisons, ligne à ligne.
-        Ce badge attendait que le score cesse de se tromper. Il désignait 57
-        annonces, dont 46 colocations dont on divisait le loyer d'une chambre
-        par la surface de tout l'appartement, et pas une arnaque. La règle du
-        €/m² ne s'applique plus à elles, ni aux communes dont nous n'avons pas
-        le loyer de référence, ni aux biens qui ne sont pas des logements : au
-        2026-09-17 il désigne UNE annonce sur 3 209, un digest SeLoger sans
-        description ni contact. C'est le bon ordre de grandeur pour un badge
-        qu'on croit quand il apparaît. */}
-      {listing.scores.risk.value >= SUSPICIOUS_RISK && <Badge variant="bad">Trop beau ?</Badge>}
+      {/* PLUS DE BADGE « TROP BEAU ? » ICI. C'était un second nom, avec son
+        propre seuil, pour le score que la fiche appelle « Signaux d'alerte » :
+        un seul calcul donnait l'impression de deux vérifications. Le doute se
+        lit désormais à un seul endroit, la fiche, avec ses raisons et avant le
+        message à écrire — deux mots sur une carte ne se vérifient pas. Ce que
+        le risque pèse reste ici, dans la note de priorité qui l'intègre. */}
       {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
       {/* Bail de neuf mois : le logement n'est pas louable l'été. Le taire
         laisserait croire à un logement à l'année (§17). */}

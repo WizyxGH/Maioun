@@ -95,6 +95,13 @@ Calculés sur 100 pour chaque logement, avec trois règles transverses :
 `visitProbability` (chances d'obtenir une visite), `risk` (signaux douteux —
 prix anormalement bas, bailleur non identifiable).
 
+`risk` est **le seul** indicateur de suspicion : il n'y a ni second score, ni
+second badge, ni second seuil. Il s'affiche sur la fiche sous le nom « Signaux
+d'alerte » dès `RISK_ALERT`, avec ses raisons, avant le message à écrire. Ce
+qu'il sait voir, ce qu'il ne sait pas voir, et les règles écartées faute de
+savoir distinguer l'annonce honnête de la suspecte :
+[risque-arnaque.md](risque-arnaque.md).
+
 ## Dédoublonnage
 
 Deux annonces du même bien doivent former **une seule fiche**, sans jamais
