@@ -1363,11 +1363,16 @@ export function createRepository(db: Database): Repository {
         // vingt-trois occurrences gardaient « voir l annonce » quoi qu'on
         // corrige en amont. Les alertes e-mail n'envoient chaque annonce qu'une
         // fois : sans ce rejeu, rien ne les réécrira jamais.
+        // LA RÉFÉRENCE ÉTAIT DANS LE MÊME CAS : colonne dédiée, absente de la
+        // charge utile, absente d'ici. Le rejeu la corrigeait en mémoire et la
+        // base gardait sa valeur — 336 occurrences d'alerte e-mail affichaient
+        // ainsi une référence que nous avions composée nous-mêmes.
         // `content_hash` suit, pour que la prochaine collecte ne réécrive pas
         // la ligne pour rien.
         sql: `UPDATE occurrences
               SET address = ?, city = ?, property_type = ?, flat_share = ?, furnished = ?,
-                  charges = ?, rooms = ?, available_at = ?, payload = ?, content_hash = ?
+                  charges = ?, rooms = ?, available_at = ?, contact_reference = ?,
+                  payload = ?, content_hash = ?
               WHERE id = ?`,
         args: [
           listing.address,
@@ -1378,6 +1383,7 @@ export function createRepository(db: Database): Repository {
           listing.charges,
           listing.rooms,
           listing.availableAt,
+          listing.contact.reference,
           JSON.stringify(occurrencePayload(listing)),
           occurrenceHash(listing),
           listing.id,

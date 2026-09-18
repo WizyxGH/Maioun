@@ -436,6 +436,22 @@ describe('parseAlertEmail — la référence de repli ne bouge pas avec la mise 
       parseAlertEmail(digest('24 m² 620 €'))[0]?.sourceRef,
     );
   });
+
+  /**
+   * ET ELLE NE SORT PAS DE CHEZ NOUS. Cette identité de repli a un temps rempli
+   * aussi le champ « Réf. agence », où elle ne désignait personne : un numéro
+   * qu'aucune agence ne reconnaît au téléphone et qu'aucune autre source ne
+   * publie. La garde qui devait l'en empêcher comparait à `null` une valeur qui
+   * vaut `undefined`, et laissait donc la clé partir.
+   */
+  it('ne met AUCUNE référence dans l’annonce quand le digest n’en imprime pas', () => {
+    const [l] = parseAlertEmail(digest('31 m² 670 € CC'));
+    expect(Object.keys(l?.extra ?? {})).not.toContain('reference');
+  });
+
+  it('et l’identité de l’annonce ne change pas pour autant', () => {
+    expect(parseAlertEmail(digest('31 m² 670 € CC'))[0]?.sourceRef).toBe('seloger:31-670-06300');
+  });
 });
 
 describe('parseAlertEmail — ce qu’on jette se compte', () => {

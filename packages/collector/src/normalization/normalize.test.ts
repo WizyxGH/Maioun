@@ -303,6 +303,7 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
       address: null,
       propertyType: 'studio',
       features: ['Ascenseur', '2e étage'],
+      contact: { ...EMPTY_CONTACT },
       ...over,
     }) as never;
 
@@ -779,6 +780,94 @@ describe('rederiveFromText — la référence imprimée dans le texte déjà sto
   });
 });
 
+describe('rederiveFromText — la référence que NOUS avions composée', () => {
+  /**
+   * Les alertes e-mail se donnent une identité de repli quand le lien du digest
+   * reste une redirection opaque : surface, loyer, code postal. Elle a un temps
+   * rempli aussi le champ affiché, où elle ne désignait personne — « Réf.
+   * agence : 31-m-670-cc-06000 » pour un studio de 31 m² à 670 € à Nice.
+   */
+  const alerte = (over: Record<string, unknown> = {}): never =>
+    ({
+      id: 'email-alerts:seloger:267SDHT8ZH7K',
+      sourceId: 'email-alerts',
+      sourceRef: 'seloger:267SDHT8ZH7K',
+      title: 'coeur de nice, studio vide balcon',
+      description: null,
+      address: null,
+      propertyType: 'studio',
+      features: [],
+      area: 31,
+      price: 670,
+      city: 'nice',
+      postalCode: '06000',
+      contact: { ...EMPTY_CONTACT, reference: '31-m-670-cc-06000' },
+      ...over,
+    }) as never;
+
+  it('efface un champ qui ne fait que recomposer surface, loyer et code postal', () => {
+    const rejoue = rederiveFromText(alerte());
+    expect(rejoue).not.toBeNull();
+    expect(rejoue?.contact.reference).toBeNull();
+  });
+
+  it('reconnaît la forme sans code postal comme celle qui le porte', () => {
+    expect(
+      rederiveFromText(alerte({ contact: { ...EMPTY_CONTACT, reference: '31-m-670-cc' } }))?.contact
+        .reference,
+    ).toBeNull();
+    expect(
+      rederiveFromText(
+        alerte({
+          area: 20.65,
+          price: 650,
+          postalCode: '06100',
+          contact: { ...EMPTY_CONTACT, reference: '20-65-m-650-cc-06100' },
+        }),
+      )?.contact.reference,
+    ).toBeNull();
+  });
+
+  it('ne bouge pas l’identité de l’annonce', () => {
+    // Le `sourceRef` de ces annonces porte parfois le même calcul. Le déplacer
+    // ferait revenir tout le lot comme neuf, et notifierait l'utilisateur en
+    // masse : le rejeu ne touche que le champ affiché.
+    const rejoue = rederiveFromText(
+      alerte({ id: 'email-alerts:seloger:31-670-06000', sourceRef: 'seloger:31-670-06000' }),
+    );
+    expect(rejoue?.id).toBe('email-alerts:seloger:31-670-06000');
+    expect(rejoue?.sourceRef).toBe('seloger:31-670-06000');
+    expect(rejoue?.contact.reference).toBeNull();
+  });
+
+  it('garde la référence que l’annonceur publie', () => {
+    // Celle-là se cite au téléphone, et c'est elle qui rapproche l'alerte d'une
+    // source directe.
+    expect(
+      rederiveFromText(alerte({ contact: { ...EMPTY_CONTACT, reference: '87322271' } })),
+    ).toBeNull();
+  });
+
+  it('n’efface pas une référence qui ne recompose que le loyer', () => {
+    // « FS850 » sur un 33 m² à 850 € : deux occurrences réelles tombaient dans
+    // le filet quand la surface n'était pas exigée elle aussi.
+    const agence = alerte({
+      id: 'isit-immobilier:87280712',
+      sourceId: 'isit-immobilier',
+      sourceRef: '87280712',
+      area: 33,
+      price: 850,
+      contact: { ...EMPTY_CONTACT, reference: 'FS850' },
+    });
+    expect(rederiveFromText(agence)).toBeNull();
+  });
+
+  it('le texte imprimé l’emporte sur notre calcul', () => {
+    const avecTexte = alerte({ description: 'Studio vide. Référence de l’annonce : 0603220' });
+    expect(rederiveFromText(avecTexte)?.contact.reference).toBe('0603220');
+  });
+});
+
 describe('normalizeListing — la commune refusée quand ce n’en est pas une', () => {
   it('ne garde pas un libellé d’action comme commune, quelle que soit la source', () => {
     // Mesuré en base : vingt-trois occurrences portaient « voir l annonce »,
@@ -820,6 +909,7 @@ describe('rederiveFromText — la commune reprise dans le titre', () => {
       features: [],
       city: 'voir l annonce',
       postalCode: '06100',
+      contact: { ...EMPTY_CONTACT },
       ...over,
     }) as never;
 

@@ -918,32 +918,71 @@ function rescuedPropertyType(occurrence: NormalizedListing): NormalizedListing['
 }
 
 /**
+ * UNE RÉFÉRENCE QUE NOUS AVONS COMPOSÉE NOUS-MÊMES, et qui n'est celle de
+ * personne.
+ *
+ * Les alertes e-mail ont porté quelque temps, dans ce champ, l'identité de repli
+ * qu'elles se donnent quand le lien du digest reste une redirection opaque :
+ * surface, loyer et code postal collés bout à bout — « 31-m-670-cc-06000 » pour
+ * un studio de 31 m² à 670 € charges comprises à Nice. Aucune agence ne la
+ * reconnaît au téléphone, aucune autre source ne la publie, et elle occupe la
+ * place de la vraie.
+ *
+ * ON LA RECONNAÎT EN LA RECOMPOSANT, jamais à sa forme : les chiffres du champ
+ * doivent être exactement ceux de la surface, puis du loyer, puis du code postal
+ * de l'occurrence elle-même — les unités écrites (« m² », « cc ») et le nom de
+ * commune n'en apportant aucun. Surface ET loyer sont exigés : sur le seul
+ * loyer, « FS850 » d'une agence tombait dans le filet. Mesuré sur l'inventaire
+ * du 2026-09-18, 4 817 références en base : 336 reconnues, toutes aux alertes
+ * e-mail, aucune ailleurs.
+ */
+function madeUpReference(occurrence: NormalizedListing): boolean {
+  const reference = occurrence.contact.reference;
+  if (reference === null || occurrence.area === null || occurrence.price === null) return false;
+
+  const figures = (value: string | number): string => String(value).replace(/\D+/g, '');
+  const area = figures(occurrence.area);
+  const price = figures(occurrence.price);
+  if (area === '' || price === '') return false;
+
+  const postal = occurrence.postalCode === null ? '' : figures(occurrence.postalCode);
+  const written = figures(reference);
+  return written === `${area}${price}${postal}` || written === `${area}${price}`;
+}
+
+/**
  * Le contact d'une fiche déjà en base, sa référence remise sur celle que
  * l'agence imprime dans son texte.
  *
- * TROIS SITUATIONS, UNE SEULE RÈGLE : le texte fait autorité quand il parle,
+ * QUATRE SITUATIONS, UNE SEULE RÈGLE : le texte fait autorité quand il parle,
  * et rien ne bouge quand il se taît.
  *
  *   champ vide          → on le remplit, comme tout le reste du rattrapage ;
  *   champ = `sourceRef` → c'est la trace du repli retiré, un numéro que nous
  *                         avions fabriqué depuis l'URL et que l'agence ne
  *                         reconnaît pas au téléphone ; le texte le remplace ;
+ *   champ recomposable  → surface, loyer et code postal collés : notre propre
+ *                         fabrication (voir `madeUpReference`) ; le texte la
+ *                         remplace, et à défaut elle s'efface ;
  *   champ autre         → la source l'a publié dans un champ dédié, donc plus
  *                         sûr qu'un repêchage dans de la prose : on le garde.
  *
  * ON NE FABRIQUE JAMAIS : un texte muet laisse le champ tel quel, vide s'il
- * l'était. C'est aussi ce qui protège le bulletin abonné BEP, dont la référence
- * est imprimée en tête d'annonce et non dans le descriptif — son champ égale son
- * `sourceRef` sans être pour autant un numéro inventé.
+ * l'était — ou vidé, quand il ne portait que notre propre calcul. C'est aussi ce
+ * qui protège le bulletin abonné BEP, dont la référence est imprimée en tête
+ * d'annonce et non dans le descriptif — son champ égale son `sourceRef` sans
+ * être pour autant un numéro inventé.
  */
 function rescuedContact(occurrence: NormalizedListing, text: string): Contact {
+  // Une référence que nous avons nous-mêmes composée compte pour un champ vide :
+  // ou le texte la remplace, ou elle s'en va.
+  const current = madeUpReference(occurrence) ? null : occurrence.contact.reference;
   const printed = parsePublishedReference(text);
-  if (printed === null) return occurrence.contact;
+  const replaceable = current === null || current === occurrence.sourceRef;
+  const reference = printed !== null && replaceable ? printed : current;
 
-  const current = occurrence.contact.reference;
-  if (current === printed) return occurrence.contact;
-  if (current !== null && current !== occurrence.sourceRef) return occurrence.contact;
-  return { ...occurrence.contact, reference: printed };
+  if (reference === occurrence.contact.reference) return occurrence.contact;
+  return { ...occurrence.contact, reference };
 }
 
 /**

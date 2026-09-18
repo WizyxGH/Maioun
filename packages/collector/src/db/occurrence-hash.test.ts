@@ -138,3 +138,67 @@ describe('le rejeu écrit bien la commune en base', () => {
     expect(relue?.city).toBe('nice');
   });
 });
+
+/**
+ * LA RÉFÉRENCE ÉTAIT DANS LE MÊME CAS QUE LA COMMUNE : colonne dédiée, absente
+ * de la charge utile, absente de la requête du rejeu. Le rattrapage la corrigeait
+ * en mémoire, l'annonçait corrigée, et la base gardait sa valeur.
+ *
+ * Les alertes e-mail n'envoient chaque annonce qu'une fois : sans cette
+ * écriture, les 336 occurrences qui portaient une référence composée par nous la
+ * porteraient indéfiniment.
+ */
+describe('le rejeu écrit bien la référence en base', () => {
+  let db: Database;
+
+  beforeEach(async () => {
+    db = openDatabase({ url: ':memory:' });
+    await migrate(db, MIGRATIONS, silentLogger);
+  });
+
+  it('efface la référence que nous avions composée', async () => {
+    const repository = createRepository(db);
+    const stockee = makeOccurrence({
+      id: 'email-alerts:seloger:267SDHT8ZH7K',
+      sourceId: 'email-alerts',
+      sourceRef: 'seloger:267SDHT8ZH7K',
+      title: 'coeur de nice, studio vide balcon',
+      description: 'Studio avec balcon.',
+      area: 31,
+      price: 670,
+      postalCode: '06000',
+      contact: { ...EMPTY_CONTACT, reference: '31-m-670-cc-06000' },
+    });
+    await repository.upsertOccurrences([stockee]);
+
+    const corrigee = rederiveFromText(stockee);
+    expect(corrigee?.contact.reference).toBeNull();
+    await repository.updateDerivedFields([corrigee as NormalizedListing]);
+
+    const relue = (await repository.allActiveOccurrences())[0];
+    expect(relue?.contact.reference).toBeNull();
+    // L'IDENTITÉ NE BOUGE PAS. Le `source_ref` de ces annonces porte parfois le
+    // même calcul : le déplacer ferait revenir tout le lot comme neuf, et
+    // l'utilisateur serait notifié en masse.
+    expect(relue?.id).toBe('email-alerts:seloger:267SDHT8ZH7K');
+    expect(relue?.sourceRef).toBe('seloger:267SDHT8ZH7K');
+    expect(relue?.firstSeenAt).toBe(stockee.firstSeenAt);
+  });
+
+  it('écrit la référence imprimée dans le texte', async () => {
+    const repository = createRepository(db);
+    const stockee = makeOccurrence({
+      id: 'bep:87116070',
+      sourceId: 'bep',
+      description: 'Studio rénové. Référence de l’annonce : 0603220',
+      contact: { ...EMPTY_CONTACT, agencyName: 'BEP Logement', reference: '87116070' },
+    });
+    await repository.upsertOccurrences([stockee]);
+
+    const corrigee = rederiveFromText(stockee);
+    await repository.updateDerivedFields([corrigee as NormalizedListing]);
+
+    const relue = (await repository.allActiveOccurrences())[0];
+    expect(relue?.contact.reference).toBe('0603220');
+  });
+});

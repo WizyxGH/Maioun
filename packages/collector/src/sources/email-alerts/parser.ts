@@ -559,8 +559,12 @@ function buildFromTitle(
       // La référence de l'ANNONCEUR, quand le digest la donne. À défaut, RIEN :
       // la nôtre est soit l'identifiant du portail, soit une empreinte
       // titre+surface+prix que nous fabriquons — ni l'une ni l'autre ne se cite
-      // au téléphone (§17).
-      ...(advertiserReference !== null ? { reference: advertiserReference } : {}),
+      // au téléphone.
+      //
+      // La garde comparait à `null` une valeur qui vaut `undefined` quand le
+      // digest se tait : la clé partait quand même, et le champ n'était donc
+      // jamais franchement absent.
+      ...(advertiserReference !== undefined ? { reference: advertiserReference } : {}),
       portal: portal.id,
       ...(district !== undefined ? { quartier: district } : {}),
       // Le loyer PRECEDENT, quand le digest annonce lui-meme une baisse.
