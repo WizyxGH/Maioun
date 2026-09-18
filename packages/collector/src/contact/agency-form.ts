@@ -19,6 +19,12 @@
  * Un CAPTCHA dit que le site ne veut pas d'envoi automatisé : on s'en tient
  * alors à « copier le message et ouvrir le formulaire ».
  *
+ * Relevé le 2026-09-18, à la demande d'automatiser Immobilière Roseland :
+ *   - Immobilière Roseland (La Boîte Immo) : reCAPTCHA v3 déclenché à l'envoi,
+ *     et deux champs d'anti-spam dont le gabarit remplace la valeur par du
+ *     JavaScript. Écarté. L'adresse de destination est pourtant dans la page :
+ *     le message part par courrier, à cette adresse-là.
+ *
  * Relevé le 2026-09-17 :
  *   - ImmoJeune : le formulaire `candidate` porte un Turnstile Cloudflare
  *     entre le message et le bouton « Candidater », et un jeton CSRF lié à la
@@ -98,6 +104,9 @@ export const AGENCY_FORM_REFUSALS: Readonly<Record<string, string>> = {
   elitimo: 'Le formulaire d’Elitimo est protégé par un reCAPTCHA.',
   immojeune:
     'Le formulaire de candidature d’ImmoJeune est protégé par un Turnstile. ' +
+    'Le message se copie et le formulaire s’ouvre dans le navigateur.',
+  roseland:
+    'Le formulaire d’Immobilière Roseland est protégé par un reCAPTCHA. ' +
     'Le message se copie et le formulaire s’ouvre dans le navigateur.',
 };
 

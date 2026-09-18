@@ -309,3 +309,32 @@ describe('runAgencyForm — envoi', () => {
     expect(posts(calls)).toHaveLength(0);
   });
 });
+
+describe('Immobilière Roseland : le gabarit La Boîte Immo', () => {
+  const page = fixture('roseland-formulaire.html');
+
+  it('porte un reCAPTCHA, et la source est écartée avec sa raison', () => {
+    // Demande d'automatiser ce formulaire, le 2026-09-18. Le site déclenche un
+    // reCAPTCHA à l'envoi et remplace par du JavaScript la valeur d'un champ
+    // d'anti-spam : le poster automatiquement, c'est passer outre deux refus.
+    expect(detectCaptcha(page)).toBe('reCAPTCHA');
+    expect(page).toContain('name="as_dyna"');
+    expect(agencyFormSupported('roseland')).toBe(false);
+    expect(AGENCY_FORM_REFUSALS['roseland']).toContain('reCAPTCHA');
+  });
+
+  it('un envoi demandé malgré tout ne fait pas sonner le site', async () => {
+    const { fetchImpl, calls } = fakeNetwork({ page });
+    const outcome = await runAgencyForm(
+      request({
+        sourceId: 'roseland',
+        pageUrl:
+          'https://www.immobiliereroseland.fr/location/06-alpes-maritimes/1-nice/studio-essai/2849-appartement',
+        fetchImpl,
+      }),
+    );
+    expect(outcome.status).toBe('unavailable');
+    expect(outcome).toMatchObject({ message: AGENCY_FORM_REFUSALS['roseland'] });
+    expect(calls).toHaveLength(0);
+  });
+});

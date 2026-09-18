@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  Formulaire de contact d'une agence La Boîte Immo, relevé le 2026-09-18 et
+  RÉDUIT à ce qui décide : l'adresse de destination que porte le gabarit, les
+  deux champs d'anti-spam et l'appel au reCAPTCHA. Adresse anonymisée.
+-->
+<html lang="fr">
+  <body>
+    <div class="formContBien containerBlock">
+      <h2 class="titleBien">Nous Contacter</h2>
+      <a href="tel:06 00 00 00 12" class="dispPhoneAgency">06 00 00 00 12</a>
+      <form method="post" action="/location/06-alpes-maritimes/1-nice/studio-essai/2849-appartement">
+        <input type="hidden" value="2849" />
+        <input type="hidden" value="contact@example.invalid" name="data[Contact][to]" />
+        <input type="text" name="data[Contact][nom]" placeholder="Votre nom *" required />
+        <input type="email" name="data[Contact][email]" placeholder="Votre adresse mail *" required />
+        <input type="text" name="data[Contact][tel]" placeholder="Votre Téléphone" />
+        <textarea name="data[Contact][message]" placeholder="Votre message *" required></textarea>
+        <input type="hidden" name="data[idbien][]" value="2849" />
+        <!-- Anti-spam du gabarit : la valeur de `as_dyna` est remplacée par du
+             JavaScript après un délai, `as_stat` doit rester vide. -->
+        <input type="text" name="as_dyna" data-wait="e8d3ac86" data-orig="bd5b5d04" value="bd5b5d04" />
+        <input type="text" name="as_stat" class="as_field" value="" />
+        <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response-3" value="" />
+        <input type="hidden" name="action" id="action-3" value="submit_LBI_form" />
+        <input type="checkbox" name="rgpd-agreement" id="rgpd-agreement" />
+        <label for="rgpd-agreement">J'accepte que mes données soient utilisées pour être recontacté.</label>
+        <button type="submit">Envoyer</button>
+      </form>
+    </div>
+    <script src="https://www.google.com/recaptcha/api.js?render=6LcPSwcjAAAAAExempleDeCle"></script>
+    <script>
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        grecaptcha.ready(function () {
+          grecaptcha.execute('6LcPSwcjAAAAAExempleDeCle', { action: 'submit_LBI_form' });
+        });
+      });
+    </script>
+  </body>
+</html>
