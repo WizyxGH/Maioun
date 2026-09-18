@@ -2260,6 +2260,7 @@ function AppView(): React.JSX.Element {
           <HomePanel
             listings={listings}
             searchCount={filtered.length}
+            loading={loading}
             sources={sources}
             savedSearches={savedSearches}
             nowMs={nowMs}

@@ -36,6 +36,8 @@ import { Card } from '@/components/ui/card.js';
 import { Button } from '@/components/ui/button.js';
 import { ItemButton, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item.js';
 import { cn } from '@/lib/utils.js';
+import { useCountUp } from '../use-count-up.js';
+import { Skeleton } from '@/components/ui/skeleton.js';
 import { ArrowRight, Bell, Bookmark, Heart, PhoneCall, Search, TriangleAlert } from './icons.js';
 
 /** Au-delà, une annonce n'est plus une nouveauté. */
@@ -49,6 +51,8 @@ interface HomePanelProps {
    * donnait un autre chiffre à chaque filtre ajouté.
    */
   readonly searchCount: number;
+  /** `true` tant que la première liste n'est pas arrivée : on ne montre pas de zéros. */
+  readonly loading?: boolean;
   readonly sources: readonly SourceStateView[];
   readonly savedSearches: readonly SavedSearch[];
   readonly nowMs: number;
@@ -78,17 +82,26 @@ function StatTile({
   readonly onClick: () => void;
   readonly accent?: boolean;
 }): React.JSX.Element {
+  const affiche = useCountUp(value);
   return (
     <ItemButton
       onClick={onClick}
+      aria-label={`${value} ${label}`}
       className={cn('flex-col items-start gap-0.5', accent && 'border-hot')}
     >
       <Icon
         aria-hidden="true"
         className={`size-4 ${accent ? 'text-hot' : 'text-muted-foreground'}`}
       />
-      <span className="text-xl leading-tight font-bold">{value}</span>
-      <span className="text-muted-foreground text-[0.8rem] leading-tight">{label}</span>
+      {/* Le chiffre monte jusqu'à sa valeur ; le bouton, lui, porte la valeur
+        FINALE en nom accessible — sinon un lecteur d'écran annoncerait chaque
+        image de l'animation. */}
+      <span aria-hidden="true" className="text-xl leading-tight font-bold tabular-nums">
+        {affiche}
+      </span>
+      <span aria-hidden="true" className="text-muted-foreground text-[0.8rem] leading-tight">
+        {label}
+      </span>
     </ItemButton>
   );
 }
@@ -161,6 +174,7 @@ function ChoreRow({
 export function HomePanel({
   listings,
   searchCount,
+  loading = false,
   sources,
   savedSearches,
   nowMs,
@@ -293,35 +307,51 @@ export function HomePanel({
       {/* 3. DE QUOI REPARTIR. */}
       <section>
         <h2 className="mb-2 text-lg font-bold">Votre recherche</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, filtres actifs
+        {/* PAS DE ZÉROS EN ATTENDANT. Les tuiles affichaient « 0 dans vos
+          critères » le temps que la liste arrive : un chiffre faux, présenté
+          comme les vrais, puis un saut. La silhouette tient leur place. */}
+        {loading && listings.length === 0 ? (
+          <div
+            role="status"
+            aria-busy="true"
+            aria-label="Chargement de vos compteurs"
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          >
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton key={index} className="h-[5.25rem] rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, filtres actifs
             compris : 81 ici pour 76 résultats là-bas ne se retrouvait pas. */}
-          <StatTile
-            label="dans vos critères"
-            value={searchCount}
-            Icon={Search}
-            onClick={onOpenSearch}
-          />
-          <StatTile
-            label="à contacter"
-            value={toCall.length}
-            Icon={PhoneCall}
-            onClick={onOpenSearch}
-            accent={toCall.length > 0}
-          />
-          <StatTile
-            label="favoris"
-            value={favorites.length}
-            Icon={Heart}
-            onClick={onOpenFavorites}
-          />
-          <StatTile
-            label="signalées récemment"
-            value={fresh.length}
-            Icon={Bell}
-            onClick={onOpenAlerts}
-          />
-        </div>
+            <StatTile
+              label="dans vos critères"
+              value={searchCount}
+              Icon={Search}
+              onClick={onOpenSearch}
+            />
+            <StatTile
+              label="à contacter"
+              value={toCall.length}
+              Icon={PhoneCall}
+              onClick={onOpenSearch}
+              accent={toCall.length > 0}
+            />
+            <StatTile
+              label="favoris"
+              value={favorites.length}
+              Icon={Heart}
+              onClick={onOpenFavorites}
+            />
+            <StatTile
+              label="signalées récemment"
+              value={fresh.length}
+              Icon={Bell}
+              onClick={onOpenAlerts}
+            />
+          </div>
+        )}
       </section>
 
       <section>
