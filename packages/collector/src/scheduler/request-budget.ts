@@ -232,6 +232,46 @@ export function cadence(startsMs: readonly number[]): Cadence {
   };
 }
 
+/** Ce que les cycles peuvent servir, face à ce que les intervalles réclament. */
+export interface Service {
+  /** Passages par jour réclamés par les intervalles des sources. */
+  readonly demandPerDay: number;
+  /** Passages par jour que les cycles peuvent offrir. */
+  readonly capacityPerDay: number;
+  /** Part de la demande servie, plafonnée à 1. */
+  readonly serviceRate: number;
+  /** Vrai quand le plafond de places, et non le temps, décide du service. */
+  readonly capped: boolean;
+}
+
+/**
+ * LE PLAFOND DE PLACES SE COMPARE À LA DEMANDE, PAS AU TEMPS D'UN CYCLE.
+ *
+ * Un cycle qui finit en avance mais refuse des sources dues ne perd pas de
+ * temps : il perd des places. Tant que la capacité reste sous la demande,
+ * raccourcir un intervalle n'avance rien — la source attendra son tour.
+ *
+ * Relevé du 2026-09-18 : 5 400 passages réclamés par jour, 4 800 offerts par
+ * quatre-vingt-seize cycles de cinquante places.
+ */
+export function service(
+  intervalsMinutes: readonly number[],
+  cyclesPerDay: number,
+  maxSourcesPerRun: number,
+): Service {
+  const demandPerDay = intervalsMinutes.reduce(
+    (total, minutes) => (minutes > 0 ? total + 1_440 / minutes : total),
+    0,
+  );
+  const capacityPerDay = cyclesPerDay * maxSourcesPerRun;
+  return {
+    demandPerDay,
+    capacityPerDay,
+    serviceRate: demandPerDay === 0 ? 1 : Math.min(1, capacityPerDay / demandPerDay),
+    capped: capacityPerDay < demandPerDay,
+  };
+}
+
 /**
  * CE QUE LES REQUÊTES CONDITIONNELLES ATTEIGNENT VRAIMENT.
  *

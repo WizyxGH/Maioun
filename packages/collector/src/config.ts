@@ -56,7 +56,22 @@ export const PUBLIC_CONFIG: PublicConfig = {
   // Collectées en parallèle et bornées par un budget de temps (voir le pipeline) :
   // à six, cent trente sources attendaient près de trois heures leur tour ; à
   // cent quatre-vingt-dix, trente par passage ne suivaient plus.
-  maxSourcesPerRun: 50,
+  //
+  // CINQUANTE ÉTAIT SOUS LA DEMANDE. Quatre-vingt-seize cycles à cinquante
+  // places offrent 4 800 passages par jour ; les 216 sources en réclament 4 790
+  // au repos, et 6 720 quand le scheduler les accélère vers leur plancher. Le
+  // plafond mordait donc dès qu'une source s'animait — un cycle sur quatre — et
+  // faisait attendre une agence deux heures au lieu de soixante-quinze minutes.
+  // Soixante-quinze places en offrent 7 200, au-dessus du pire cas.
+  //
+  // CE N'EST PAS LE TEMPS QUI LIMITAIT : 97 s par cycle en médiane, 273 s au
+  // neuvième décile, pour un budget de phase de 480 s ; à soixante-quinze
+  // places, 311 s. Cent n'apportent plus rien.
+  //
+  // Aucune source n'est sollicitée plus souvent : les places libérées servent
+  // des sources DÉJÀ dues. Les planchers et les délais de politesse décident
+  // seuls du rythme, et le budget de temps du pipeline reste le garde-fou.
+  maxSourcesPerRun: 75,
   // Le repère par défaut, pour ce qui n'est pas niçois. Nice a le sien, calé
   // sur la Carte des loyers de l'État et découpé par taille de logement (voir
   // `rent-reference.ts`) : un nombre unique faisait passer le petit logement,
