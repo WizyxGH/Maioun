@@ -32,9 +32,17 @@ function bottomNav(): HTMLElement | null {
   return screen.queryByRole('navigation', { name: 'Navigation' });
 }
 
-/** Une sortie existe-t-elle sur cet écran ? Sinon, c'est un cul-de-sac. */
-function hasWayOut(): boolean {
-  return screen.queryAllByRole('button', { name: 'Retour' }).length > 0;
+/**
+ * Une sortie existe-t-elle sur cet écran ? Sinon, c'est un cul-de-sac.
+ *
+ * ELLE S'ATTEND. Les écrans secondaires sont chargés à la demande : leur
+ * fragment arrive APRÈS que la barre basse a disparu, si bien qu'un contrôle
+ * immédiat tombait sur une coquille vide — ce qui a fini par rougir
+ * l'intégration continue sans qu'aucune sortie ait été perdue.
+ */
+async function hasWayOut(): Promise<boolean> {
+  await screen.findByRole('button', { name: 'Retour' });
+  return true;
 }
 
 describe('la barre basse ne suit que ses quatre destinations', () => {
@@ -50,7 +58,7 @@ describe('la barre basse ne suit que ses quatre destinations', () => {
 
     await waitFor(() => expect(bottomNav()).toBeNull());
     // Et la fiche garde sa sortie : sans barre NI retour, on y resterait.
-    expect(hasWayOut()).toBe(true);
+    expect(await hasWayOut()).toBe(true);
   });
 
   it('est là sur les Paramètres, et plus dans leurs sous-écrans', async () => {
@@ -64,7 +72,7 @@ describe('la barre basse ne suit que ses quatre destinations', () => {
     await screen.findByText('État des sources');
 
     expect(bottomNav()).toBeNull();
-    expect(hasWayOut()).toBe(true);
+    expect(await hasWayOut()).toBe(true);
   });
 
   it('ni sur l’écran d’une source, deux niveaux plus bas', async () => {
@@ -76,7 +84,7 @@ describe('la barre basse ne suit que ses quatre destinations', () => {
     await user.click(await screen.findByRole('button', { name: formatSourceName('demo-agence') }));
 
     await waitFor(() => expect(bottomNav()).toBeNull());
-    expect(hasWayOut()).toBe(true);
+    expect(await hasWayOut()).toBe(true);
   });
 
   it('reste sur l’accueil et sur les favoris, qui sont bien des destinations', async () => {
@@ -101,6 +109,6 @@ describe('la barre basse ne suit que ses quatre destinations', () => {
     expect(await screen.findByText(formatSourceName('demo-agence'))).toBeInTheDocument();
 
     expect(bottomNav()).toBeNull();
-    expect(hasWayOut()).toBe(true);
+    expect(await hasWayOut()).toBe(true);
   });
 });

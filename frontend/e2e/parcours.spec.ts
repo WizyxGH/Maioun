@@ -112,10 +112,11 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
   // Les quatre actions restent à la main de l'utilisateur.
   await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copier' })).toBeVisible();
-  // `contact-action` et non l'intitulé : la fiche porte aussi un bouton
-  // « Appeler <numéro> » au-dessus du message, qui ne conclut pas le contact
-  // manuel mais lance un appel direct. Les deux se lisent « Appeler ».
-  await expect(page.getByTestId('contact-action')).toBeVisible();
+  // PAS DE BOUTON POUR LE COURRIER : `mailto:` ouvre un logiciel de courrier —
+  // souvent aucun — et le message préparé se perdait. L'adresse, elle, est
+  // affichée dans les coordonnées, où elle se lit et se copie.
+  await expect(page.getByTestId('agency-email')).toBeVisible();
+  await expect(page.getByTestId('contact-action')).toBeHidden();
   // PLUS DE « J'ai envoyé » : ouvrir le message consigne la démarche, comme le
   // font « Appeler » et « Écrire ». Le demander une seconde fois obligeait à y
   // penser une fois la page quittée.
@@ -435,13 +436,14 @@ test('« Favoris » est atteignable à toute largeur', async ({ page }) => {
     'aria-current',
     'page',
   );
-  // La page Favoris n'a ni recherche ni barre d'outils. On la quitte par
-  // « Recherche », qui les ramène.
-  await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeHidden();
+  // LA PAGE FAVORIS SE CHERCHE ET SE FILTRE, elle aussi : à quarante-huit
+  // favoris, on y cherche une annonce précise. Son titre la distingue.
+  await expect(page.getByRole('heading', { name: 'Favoris' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeVisible();
 
   // Et l'on en ressort : sans cela, la bascule qui l'éteint est masquée.
   await barre.getByRole('button', { name: 'Recherche' }).click();
-  await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Favoris' })).toBeHidden();
 });
 
 test('chaque écran a son adresse, et le retour navigateur la respecte (§39)', async ({ page }) => {
