@@ -10,8 +10,8 @@
  * livré.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import { GoogleSignIn } from './GoogleSignIn.js';
 
 describe('GoogleSignIn', () => {
@@ -34,5 +34,68 @@ describe('GoogleSignIn', () => {
     render(<GoogleSignIn onSignedIn={onSignedIn} onError={onError} />);
     expect(onSignedIn).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * ET LE CAS INVERSE, qui n'était pas couvert : une installation qui A branché
+ * Google. Les trois épreuves ci-dessus prouvent que rien ne s'affiche sans
+ * identifiant — elles passeraient tout aussi bien si le bouton ne s'affichait
+ * JAMAIS. C'est ce chemin-là qui s'allume le jour où l'identifiant arrive.
+ *
+ * L'identifiant est lu au chargement du module : on le pose AVANT d'importer
+ * le composant, et on redemande les modules pour que la constante soit relue.
+ */
+describe('GoogleSignIn, une fois configuré', () => {
+  const CLIENT_ID = 'exemple.apps.googleusercontent.com';
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    delete (globalThis as { google?: unknown }).google;
+  });
+
+  /** La bibliothèque de Google, déjà « chargée » : jsdom n'exécute pas son script. */
+  function libraryStub(): {
+    initialize: ReturnType<typeof vi.fn>;
+    render: ReturnType<typeof vi.fn>;
+  } {
+    const initialize = vi.fn();
+    const render = vi.fn();
+    (globalThis as { google?: unknown }).google = {
+      accounts: { id: { initialize, renderButton: render } },
+    };
+    return { initialize, render };
+  }
+
+  it('affiche le bouton et le confie à Google', async () => {
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', CLIENT_ID);
+    const { initialize, render: renderButton } = libraryStub();
+    vi.resetModules();
+    const { GoogleSignIn: Configure } = await import('./GoogleSignIn.js');
+
+    render(<Configure onSignedIn={vi.fn()} onError={vi.fn()} />);
+
+    const slot = await screen.findByTestId('google-signin');
+    await waitFor(() => expect(renderButton).toHaveBeenCalled());
+    // L'identifiant part bien à Google : c'est lui qui décide à quelle
+    // application le jeton est destiné, et le Worker refuse les autres.
+    expect(initialize.mock.calls[0]?.[0]).toMatchObject({ client_id: CLIENT_ID });
+    expect(renderButton.mock.calls[0]?.[0]).toBe(slot);
+  });
+
+  it('se retire si la bibliothèque ne répond pas', async () => {
+    // Réseau coupé, extension qui bloque : mieux vaut aucun bouton qu'un
+    // bouton qui ne fait rien — le mot de passe, lui, marche toujours.
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', CLIENT_ID);
+    vi.resetModules();
+    const { GoogleSignIn: Configure } = await import('./GoogleSignIn.js');
+
+    render(<Configure onSignedIn={vi.fn()} onError={vi.fn()} />);
+    const script = document.querySelector('script[src*="accounts.google.com"]');
+    expect(script).not.toBeNull();
+    script?.dispatchEvent(new Event('error'));
+
+    await waitFor(() => expect(screen.queryByTestId('google-signin')).not.toBeInTheDocument());
   });
 });
