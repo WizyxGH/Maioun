@@ -28,9 +28,36 @@ describe('parseListingUrl', () => {
 
 describe('parseListPage', () => {
   it('extrait les fiches résidentielles, dédoublonnées, sans parking', () => {
-    const { urls } = parseListPage(liste, BASE);
+    const { urls, warnings } = parseListPage(liste, BASE);
     // T3 + Maison (le parking et les pages de catégorie sont écartés).
     expect(urls.map((u) => u.reference).sort()).toEqual(['GES12345678-53', 'GES99999999-10']);
+    expect(warnings).toHaveLength(0);
+  });
+
+  /**
+   * LA PAGE D'UNE COMMUNE SANS STOCK S'ÉLARGIT. La liste des maisons de Nice
+   * n'en portait aucune à Nice, mais onze du Vaucluse, des Bouches-du-Rhône et
+   * du Var, plus une à Antibes — toutes enregistrées comme niçoises.
+   */
+  it('écarte les fiches des autres communes et le signale', () => {
+    const { urls, warnings } = parseListPage(
+      readFileSync(join(FIXTURES, 'liste-elargie.html'), 'utf8'),
+      'https://www.citya.com/annonces/location/maison/nice-06088',
+    );
+    expect(urls).toHaveLength(0);
+    // Signalé, et surtout pas confondu avec une page vide.
+    expect(warnings).toEqual([
+      expect.stringContaining('Liste élargie hors de nice : 6 fiche(s) écartée(s)'),
+    ]);
+  });
+
+  /** Antibes est dans le 06 sans être Nice : le département ne fait pas la commune. */
+  it('ne retient pas une commune voisine du même département', () => {
+    const { urls } = parseListPage(
+      readFileSync(join(FIXTURES, 'liste-elargie.html'), 'utf8'),
+      'https://www.citya.com/annonces/location/maison/nice-06088',
+    );
+    expect(urls.map((u) => u.citySlug)).not.toContain('antibes-06004');
   });
 });
 
@@ -63,6 +90,71 @@ describe('parseDetailPage', () => {
     expect(normalized.city).toBe('nice');
     expect(normalized.postalCode).toBe('06100');
     expect(normalized.propertyType).toBe('apartment');
+  });
+});
+
+/**
+ * COMMUNE ET CODE POSTAL DU BIEN. `cityText` valait « nice » en dur : tout ce
+ * que la liste ramenait entrait à Nice, et la liste s'élargit à d'autres
+ * départements. Onze fiches actives portaient Nice avec un code postal du
+ * Vaucluse, des Bouches-du-Rhône ou du Var (relevé du 2026-09-18).
+ */
+describe('parseDetailPage — la commune vient du bien', () => {
+  const HORS_NICE =
+    'https://www.citya.com/annonces/location/maison/pernes-les-fontaines-84210/GES31340619-84';
+  const { listing } = parseDetailPage(
+    readFileSync(join(FIXTURES, 'detail-hors-nice.html'), 'utf8'),
+    HORS_NICE,
+    'Citya Immobilier',
+  );
+
+  it('lit la commune et le code postal publiés par la fiche', () => {
+    expect(listing?.cityText).toBe('Pernes-les-Fontaines');
+    expect(listing?.postalCodeText).toBe('84210');
+  });
+
+  it('se normalise dans sa vraie commune, hors des critères de Nice', () => {
+    const normalized = normalizeListing(listing as NonNullable<typeof listing>, {
+      sourceId: 'citya',
+      nowMs: Date.parse('2026-09-18T12:00:00Z'),
+    });
+    expect(normalized?.city).toBe('pernes les fontaines');
+    expect(normalized?.postalCode).toBe('84210');
+  });
+
+  /**
+   * L'URL colle un INSEE au nom de commune à Nice (`nice-06088`) : le lire
+   * comme un code postal en fabriquait un qui n'existe pas, et une occurrence
+   * portait 06088.
+   */
+  it('ne prend pas l’INSEE de l’URL pour un code postal', () => {
+    const sansAdresse = `<!DOCTYPE html><html><head>
+      <title>Appartement à louer 2 pièces 45m² - Nice (06) - 900€ | Citya Immobilier</title>
+      </head><body><h1>
+      <span class="heading-2 block">Appartement à louer 2 pièces 45m²</span>
+      <span class="ville inline-flex">&nbsp;Nice (06200)</span>
+      </h1></body></html>`;
+    const { listing: fallback } = parseDetailPage(
+      sansAdresse,
+      'https://www.citya.com/annonces/location/appartement/nice-06088/GES08470133-53',
+      'Citya Immobilier',
+    );
+    expect(fallback?.cityText).toBe('Nice');
+    expect(fallback?.postalCodeText).toBe('06200');
+  });
+
+  /** Ni fiche ni titre : le champ reste absent plutôt que deviné. */
+  it('laisse la commune absente quand la fiche ne la publie pas', () => {
+    const muette = `<!DOCTYPE html><html><head>
+      <title>Appartement à louer 2 pièces 45m² | Citya Immobilier</title>
+      </head><body><h1>Appartement à louer 2 pièces 45m²</h1></body></html>`;
+    const { listing: rien } = parseDetailPage(
+      muette,
+      'https://www.citya.com/annonces/location/appartement/nice-06088/GES08470133-53',
+      'Citya Immobilier',
+    );
+    expect(rien?.cityText).toBeUndefined();
+    expect(rien?.postalCodeText).toBeUndefined();
   });
 });
 

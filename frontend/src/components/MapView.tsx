@@ -22,7 +22,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { PRIORITY_HOT } from '@maioun/shared';
 import type { ListingView } from '../types.js';
-import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../format.js';
+import {
+  formatAddress,
+  formatArea,
+  formatCity,
+  formatPrice,
+  formatPropertyType,
+} from '../format.js';
 import { photoVariant } from '../photo-variant.js';
 import { iconMarkup } from './icons.js';
 import { clusterByPixelGrid, type MapCluster } from './map-clusters.js';
@@ -210,14 +216,24 @@ function listingPopup(listing: ListingView, open: (id: string) => void): HTMLEle
   ].join(' · ');
   popup.append(title);
 
-  // L'adresse exacte, quand l'annonce la publie.
-  const address = listing.address.value !== null ? formatAddress(listing.address.value) : null;
-  if (address !== null) {
-    const addr = document.createElement('div');
-    addr.textContent = address;
-    addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
-    popup.append(addr);
-  }
+  /**
+   * LA LIGNE DE LOCALISATION EST TOUJOURS LÀ, réduite à la commune quand la
+   * voie n'est pas publiée — comme sur les cartes de la liste.
+   *
+   * Elle manquait, et le bouton « Voir l'annonce » prenait alors sa place,
+   * juste sous le titre : la bulle d'une annonce sans voie se lisait comme si
+   * son adresse ÉTAIT « Voir l'annonce ». Le libellé n'a jamais été dans les
+   * données — c'était la place qu'il occupait qui trompait, et seulement pour
+   * les annonces dont la source ne publie pas la voie.
+   */
+  const postal = listing.postalCode?.value ?? null;
+  // Format postal français, comme partout ailleurs : « 06000 Nice ».
+  const place = `${postal !== null ? `${postal} ` : ''}${formatCity(listing.city.value)}`;
+  const street = listing.address.value !== null ? formatAddress(listing.address.value) : null;
+  const addr = document.createElement('div');
+  addr.textContent = street !== null ? `${street}, ${place}` : place;
+  addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
+  popup.append(addr);
 
   const button = document.createElement('button');
   button.type = 'button';

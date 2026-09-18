@@ -63,3 +63,34 @@ describe('parseDetail (Altarea Nice)', () => {
     expect(parseDetail('<html><body>Vente 250 000 €</body></html>')).toBeNull();
   });
 });
+
+/**
+ * UN STATIONNEMENT QUE LA SOURCE TYPE BIEN. Le titre visible ne nomme qu'un
+ * quartier (« NICE DIABLE BLEUS »), donc la règle qui redresse un type d'après
+ * le titre ne pouvait pas mordre ; c'est le JSON-LD qui dit « Box 0 pièce »,
+ * et « pièce » l'emportait sur « box » — un parking de 12 m² à 132 € par mois
+ * entrait comme appartement (relevé du 2026-09-18).
+ */
+describe('parseDetail — un box reste un box', () => {
+  const draft = parseDetail(read('fiche-7244-box.html'));
+
+  it('transmet le type publié par la source', () => {
+    expect(draft?.propertyTypeText).toBe('Box 0 pièce à Nice');
+    // « 0 » pièce n'est pas une information : le champ reste absent.
+    expect(draft?.roomsText).toBeUndefined();
+  });
+
+  it('se normalise en stationnement, pas en logement', () => {
+    const normalized = normalizeListing(
+      {
+        sourceRef: '7244',
+        sourceUrl: 'https://altarea.flatbay.fr/fr/property/show/7244',
+        ...draft,
+      },
+      { sourceId: 'altarea-nice', nowMs: Date.parse('2026-09-18T12:00:00Z') },
+    );
+    expect(normalized?.propertyType).toBe('parking');
+    expect(normalized?.price).toBe(132);
+    expect(normalized?.area).toBe(12);
+  });
+});

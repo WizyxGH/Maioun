@@ -179,6 +179,34 @@ describe('parseBedrooms', () => {
   });
 });
 
+/**
+ * « 0 pièce » NE DÉCRIT PAS UN LOGEMENT : c'est ainsi qu'une vitrine déclare un
+ * stationnement. Le mot « pièce » l'emportait sur « box », et un parking de
+ * 12 m² à 132 € par mois passait pour un appartement — alors que la source le
+ * typait « Box » (relevé du 2026-09-18).
+ */
+describe('parsePropertyType — un compte de zéro pièce', () => {
+  it('ne fait pas d’un box un appartement', () => {
+    expect(parsePropertyType('Box 0 pièce à Nice')).toBe('parking');
+    expect(parsePropertyType('Parking 0 pièce')).toBe('parking');
+    expect(parsePropertyType('Stationnement 0 p')).toBe('parking');
+  });
+
+  it('laisse un bien professionnel à sa place', () => {
+    expect(parsePropertyType('Locaux Commerciaux en location à Vallauris / 0 pièce 50 m²')).toBe(
+      'commercial',
+    );
+  });
+
+  /** Le compte ne disparaît que s'il vaut zéro : « 10 pièces » reste un logement. */
+  it('ne touche pas aux comptes non nuls', () => {
+    expect(parsePropertyType('Appartement 10 pièces')).toBe('apartment');
+    expect(parsePropertyType('Bien de 2 pièces')).toBe('apartment');
+    expect(parsePropertyType('20 pièces')).toBe('apartment');
+    expect(parsePropertyType('Box avec 2 pièces')).toBe('apartment');
+  });
+});
+
 describe('parsePropertyType', () => {
   it('reconnaît les types courants', () => {
     expect(parsePropertyType('Appartement')).toBe('apartment');

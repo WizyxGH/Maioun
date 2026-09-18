@@ -8,7 +8,13 @@
  * {ville-INSEE}` (Nice = 06088) et les fiches, toutes en SSR.
  *
  * Fiche : JSON-LD `RealEstateListing` → `mainEntity` (Offer + itemOffered),
- * qui porte prix, URL, type, nom (type/pièces/surface/ville) et description.
+ * qui porte prix, URL, type, nom (type/pièces/surface/ville), description et
+ * l'ADRESSE DU BIEN (`addressLocality`, `postalCode`).
+ *
+ * LA PAGE D'UNE COMMUNE SANS STOCK S'ÉLARGIT. La liste des maisons de Nice
+ * n'en porte aucune à Nice : elle rend des biens « autour de Nice », jusqu'au
+ * Vaucluse et aux Bouches-du-Rhône. La commune ne peut donc pas se déduire de
+ * la page interrogée — elle se lit sur la fiche, bien par bien.
  */
 
 import * as cheerio from 'cheerio';
@@ -55,6 +61,16 @@ export function parseListingUrl(href: string, baseUrl: string): ParsedCityaUrl |
   };
 }
 
+/**
+ * Le NOM de commune d'un segment d'URL, sans le code qui y est collé.
+ *
+ * Citya y met l'INSEE pour Nice (`nice-06088`) et le code postal ailleurs
+ * (`bedoin-84410`) : ces chiffres ne se comparent pas, le nom si.
+ */
+function communeOf(citySlug: string): string {
+  return citySlug.replace(/-\d{5}$/, '');
+}
+
 /** `true` si la fiche est un logement (pas parking/terrain/local pro). */
 export function isResidential(url: ParsedCityaUrl): boolean {
   return RESIDENTIAL_TYPES.test(url.typeSlug);
@@ -65,23 +81,50 @@ export interface ParsedList {
   readonly warnings: readonly string[];
 }
 
-/** Extrait les liens de fiches d'une page de liste (cartes `property-card`). */
+/**
+ * Extrait les liens de fiches d'une page de liste (cartes `property-card`).
+ *
+ * LA PAGE D'UNE COMMUNE SANS STOCK S'ÉLARGIT, sans le dire autrement que par
+ * un « autour de Nice » dans son texte. Relevé du 2026-09-18 : la liste des
+ * maisons de Nice ne porte AUCUNE maison niçoise, mais onze biens du Vaucluse,
+ * des Bouches-du-Rhône et du Var — Bédoin, Entraigues-sur-la-Sorgue, Marseille
+ * — plus une à Antibes. Prendre tous les liens de la page faisait entrer ces
+ * biens dans l'inventaire.
+ *
+ * On ne garde donc que les fiches de la commune DEMANDÉE, et l'élargissement
+ * est signalé au lieu de passer pour une page vide.
+ */
 export function parseListPage(html: string, pageUrl: string): ParsedList {
   const $ = cheerio.load(html);
   const seen = new Map<string, ParsedCityaUrl>();
+  const wanted = communeOf(
+    new URL(pageUrl).pathname
+      .split('/')
+      .filter((part) => part !== '')
+      .pop() ?? '',
+  );
+  let elsewhere = 0;
 
   $('a[href]').each((_i, el) => {
     const parsed = parseListingUrl($(el).attr('href') ?? '', pageUrl);
-    if (parsed !== null && isResidential(parsed) && !seen.has(parsed.reference)) {
-      seen.set(parsed.reference, parsed);
+    if (parsed === null || !isResidential(parsed) || seen.has(parsed.reference)) return;
+    if (communeOf(parsed.citySlug) !== wanted) {
+      elsewhere += 1;
+      return;
     }
+    seen.set(parsed.reference, parsed);
   });
 
   const urls = [...seen.values()];
-  return {
-    urls,
-    warnings: urls.length === 0 ? [`Aucune fiche trouvée sur la liste : ${pageUrl}`] : [],
-  };
+  const warnings: string[] = [];
+  if (elsewhere > 0) {
+    warnings.push(
+      `Liste élargie hors de ${wanted} : ${elsewhere} fiche(s) écartée(s) (${pageUrl})`,
+    );
+  } else if (urls.length === 0) {
+    warnings.push(`Aucune fiche trouvée sur la liste : ${pageUrl}`);
+  }
+  return { urls, warnings };
 }
 
 /** Sous-ensemble utile du JSON-LD RealEstateListing. */
@@ -90,6 +133,10 @@ interface CityaJsonLd {
   readonly name?: string;
   readonly description?: string;
   readonly propertyType?: string;
+  /** `addressLocality` de l'adresse du BIEN. */
+  readonly city?: string;
+  /** `postalCode` de l'adresse du BIEN — le vrai, pas l'INSEE de l'URL. */
+  readonly postalCode?: string;
 }
 
 /** Décode le JSON-LD RealEstateListing d'une fiche. `null` si absent. */
@@ -99,11 +146,43 @@ function parseJsonLd($: cheerio.CheerioAPI): CityaJsonLd | null {
     { price?: unknown; itemOffered?: Record<string, unknown> } | undefined;
   if (offer === undefined) return null;
   const item = offer.itemOffered ?? {};
+  const address = (item['address'] ?? {}) as Record<string, unknown>;
   return {
     ...(typeof offer.price === 'number' ? { price: offer.price } : {}),
     ...(typeof item['name'] === 'string' ? { name: item['name'] } : {}),
     ...(typeof item['description'] === 'string' ? { description: item['description'] } : {}),
     ...(typeof item['@type'] === 'string' ? { propertyType: item['@type'] } : {}),
+    ...(typeof address['addressLocality'] === 'string' ? { city: address['addressLocality'] } : {}),
+    ...(typeof address['postalCode'] === 'string' ? { postalCode: address['postalCode'] } : {}),
+  };
+}
+
+/**
+ * COMMUNE ET CODE POSTAL DU BIEN, jamais de la recherche qui l'a trouvé.
+ *
+ * `cityText` valait « nice » EN DUR : tout ce que la liste ramenait entrait
+ * donc à Nice, et la liste s'élargit (voir `parseListPage`). Onze fiches
+ * actives portaient ainsi Nice avec un code postal du Vaucluse, des
+ * Bouches-du-Rhône ou du Var — relevé du 2026-09-18.
+ *
+ * Le JSON-LD de la fiche publie l'adresse du bien (`addressLocality`,
+ * `postalCode`) ; le titre visible la répète, « Pernes-les-Fontaines
+ * (84210) ». L'URL, elle, colle un INSEE au nom de commune à Nice
+ * (`nice-06088`) : le lire comme un code postal en fabriquait un qui n'existe
+ * pas, et une occurrence portait 06088.
+ *
+ * Sans l'un ni l'autre, les deux champs restent absents : le titre ne nomme que
+ * le département (« (84) »), et un nombre à cinq chiffres pris dans la
+ * description n'est pas un code postal.
+ */
+function propertyPlace(
+  $: cheerio.CheerioAPI,
+  jsonLd: CityaJsonLd | null,
+): { cityText: string | undefined; postalCodeText: string | undefined } {
+  const shown = /^(.+?)\s*\((\d{5})\)$/.exec(cleanText($('h1 .ville').first().text()));
+  return {
+    cityText: jsonLd?.city ?? shown?.[1],
+    postalCodeText: jsonLd?.postalCode ?? shown?.[2],
   };
 }
 
@@ -133,8 +212,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
 
   const areaText = name.match(/\d+(?:[.,]\d+)?\s*m²/i)?.[0];
   const roomsText = name.match(/\d+\s*pi[eè]ces?/i)?.[0];
-  // Code postal réel : dans la description/titre (« 06100 ») — l'URL a l'INSEE.
-  const postalCode = `${name} ${description}`.match(/\b(06\d{3})\b/)?.[1];
+  const { cityText, postalCodeText } = propertyPlace($, jsonLd);
 
   /**
    * Photos du bien : sous `/media/images/agences/biens/…/location/`.
@@ -183,10 +261,8 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     roomsText,
     propertyTypeText: `${parsedUrl.typeSlug} ${jsonLd?.propertyType ?? ''}`,
     furnishedText: `${name} ${description}`,
-    cityText: 'nice',
-    // Le titre visible donne le vrai code postal (« Nice (06000) ») ; l'URL
-    // porte le code INSEE.
-    postalCodeText: /\((\d{5})\)/.exec($('h1 .ville').first().text())?.[1] ?? postalCode,
+    cityText,
+    postalCodeText,
     agencyName,
     ...heroFields($),
     phoneText: agencyPhone($),

@@ -106,4 +106,38 @@ describe('MapView — regroupement', () => {
     expect(container.querySelectorAll('.leaflet-marker-icon')).toHaveLength(1);
     expect(screen.getByText(/1 annonce localisée sur les 2 de la liste/)).toBeTruthy();
   });
+
+  /**
+   * LA LIGNE DE LOCALISATION EST TOUJOURS LÀ. Sans elle, le bouton « Voir
+   * l'annonce » prenait sa place juste sous le titre, et la bulle d'une annonce
+   * sans voie se lisait comme si son adresse ÉTAIT « Voir l'annonce » — d'où un
+   * signalement portant sur « certaines » adresses : celles que la source ne
+   * publie pas.
+   */
+  it('garde une ligne de localisation même sans voie publiée', async () => {
+    const sansVoie: ListingView = {
+      ...at('sans-voie', 43.7, 7.26),
+      address: { ...MOCK_LISTINGS[0]!.address, value: null },
+    };
+    const { container } = render(<MapView listings={[sansVoie]} onOpen={() => undefined} />);
+    await userEvent.click(container.querySelector('.leaflet-marker-icon') as Element);
+    const bulle = container.querySelector('.leaflet-popup-content')?.firstElementChild;
+    const blocs = [...(bulle?.children ?? [])];
+    // Titre, localisation, bouton : le bouton n'est jamais le deuxième bloc.
+    expect(blocs).toHaveLength(3);
+    expect(blocs[1]?.tagName.toLowerCase()).toBe('div');
+    expect(blocs[1]?.textContent).toContain('Nice');
+    expect(blocs[2]?.tagName.toLowerCase()).toBe('button');
+  });
+
+  it('écrit la voie et la commune quand la source publie les deux', async () => {
+    const { container } = render(
+      <MapView listings={[at('avec-voie', 43.7, 7.26)]} onOpen={() => undefined} />,
+    );
+    await userEvent.click(container.querySelector('.leaflet-marker-icon') as Element);
+    const blocs = [
+      ...(container.querySelector('.leaflet-popup-content')?.firstElementChild?.children ?? []),
+    ];
+    expect(blocs[1]?.textContent).toMatch(/Démonstration.*Nice/);
+  });
 });

@@ -43,7 +43,12 @@ export const CITYA_DESCRIPTOR: SourceDescriptor = {
     'robots.txt vérifié le 2026-08-19 : /annonces/* autorisé ; /recherche, ' +
     '/api, /carte et les URLs à paramètres interdits. Pages SEO par commune ' +
     '(Nice = INSEE 06088), SSR. Fiche : JSON-LD RealEstateListing (prix, nom, ' +
-    'description). Seules les fiches résidentielles nouvelles sont visitées ; le ' +
+    'description, adresse du bien). La page d’une commune sans stock S’ÉLARGIT ' +
+    '« autour de Nice » et rend des biens du Vaucluse, des Bouches-du-Rhône et ' +
+    'du Var : seules les fiches de la commune demandée sont retenues, et la ' +
+    'commune comme le code postal se lisent sur la fiche, jamais sur la ' +
+    'recherche (relevé du 2026-09-18). ' +
+    'Seules les fiches résidentielles nouvelles sont visitées ; le ' +
     'rattrapage relit aussi les connues. Montants, disponibilité, DPE et téléphone ' +
     'de l’agence référente lus dans le HTML de la fiche (relevé du 2026-09-15).',
 };

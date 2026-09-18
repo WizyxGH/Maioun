@@ -645,6 +645,25 @@ describe('liste sans liens de fiche (Riviera Angels)', () => {
       'https://a.staticlbi.com/1600xauto/images/biens/1/aaa/photo_2.jpg',
     ]);
   });
+
+  // Relevé du 2026-09-18 : le carrousel « biens similaires » de la plateforme
+  // glisse UNE vignette face à UNE seule photo de galerie. À égalité, compter
+  // les photos ne départage plus ; c'est l'ordre du document qui tranche, la
+  // galerie du bien venant toujours avant le carrousel.
+  it('garde la photo du bien quand le carrousel « similaires » en glisse autant', () => {
+    const html = `<html><head><title>Location Appartement Nice</title></head><body>
+      <img src="//a.staticlbi.com/1100x1100/images/biens/1/aaa/photo_1.jpg">
+      <div class="bienSim"><div id="carouselSim"><ul class="carousel-inner"><li>
+        <article onClick="location.href='/18314-autre-bien.html'">
+          <div class="imgSim"><img src="//a.staticlbi.com/220xauto/images/biens/1/bbb/photo_9.jpg"></div>
+        </article>
+      </li></ul></div></div>
+      </body></html>`;
+    const { listing } = parseDetailPage(html, 'https://www.agence-fictive.fr/7-t2.html', 'Agence');
+    expect(listing?.imageUrls).toEqual([
+      'https://a.staticlbi.com/1600xauto/images/biens/1/aaa/photo_1.jpg',
+    ]);
+  });
 });
 
 // Gabarit à liste de caractéristiques (Cabinet AGIR), relevé du 2026-09-16 :
