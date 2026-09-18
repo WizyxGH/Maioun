@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { lireReponse, type AnnonceCandidate, type MessageRecu } from './reply-reader.js';
 
 const AGENCE = 'contact@agence-azur.example.invalid';
-const PORTAIL = 'ne-pas-repondre@mail.seloger.com';
+const PORTAIL = 'ne-pas-repondre@mail.seloger.com'; // secret-scan-ignore : adresse d’envoi du portail, publique
 const UTILISATEUR = 'moi@boite-perso.example.invalid';
 
 /** Fixtures écrites pour ce test : aucune agence réelle, aucun message réel. */

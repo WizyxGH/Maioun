@@ -59,7 +59,7 @@ ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 # là-bas, le bouton ne s'affiche pas. Dans les deux cas le mot de passe reste
 # disponible, et rien ne ment (§17).
 #
-# GOOGLE_CLIENT_ID = "….apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "216576095460-dlreje0qvoggaueah8eg44dk4c00gtsq.apps.googleusercontent.com"
 
 # --- Mot de passe oublié (§26) ------------------------------------------------
 #

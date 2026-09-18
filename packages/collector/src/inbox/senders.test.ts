@@ -23,13 +23,13 @@ describe('expediteursSuivis', () => {
    */
   it('ne suit une messagerie grand public que par l’adresse entière', () => {
     const suivis = fragments(
-      { email: 'agence.exemple@gmail.com' },
-      { email: 'gerance@orange.fr' },
-      { email: 'location@wanadoo.fr' },
+      { email: 'agence.exemple@gmail.com' }, // secret-scan-ignore : adresse inventée : la règle qu’on teste PORTE sur ces hébergeurs
+      { email: 'gerance@orange.fr' }, // secret-scan-ignore : adresse inventée : la règle qu’on teste PORTE sur ces hébergeurs
+      { email: 'location@wanadoo.fr' }, // secret-scan-ignore : adresse inventée : la règle qu’on teste PORTE sur ces hébergeurs
     );
-    expect(suivis).toContain('agence.exemple@gmail.com');
-    expect(suivis).toContain('gerance@orange.fr');
-    expect(suivis).toContain('location@wanadoo.fr');
+    expect(suivis).toContain('agence.exemple@gmail.com'); // secret-scan-ignore : adresse inventée : la règle qu’on teste PORTE sur ces hébergeurs
+    expect(suivis).toContain('gerance@orange.fr'); // secret-scan-ignore : adresse inventée : la règle qu’on teste PORTE sur ces hébergeurs
+    expect(suivis).toContain('location@wanadoo.fr'); // secret-scan-ignore : adresse inventée : la règle qu’on teste PORTE sur ces hébergeurs
     expect(suivis).not.toContain('gmail.com');
     expect(suivis).not.toContain('orange.fr');
     expect(suivis).not.toContain('wanadoo.fr');
@@ -42,7 +42,7 @@ describe('expediteursSuivis', () => {
   });
 
   it('ne réinscrit pas une agence déjà couverte par un portail', () => {
-    expect(fragments({ email: 'annonces@seloger.com' })).toEqual([...ALERT_SENDER_MATCHES]);
+    expect(fragments({ email: 'annonces@seloger.com' })).toEqual([...ALERT_SENDER_MATCHES]); // secret-scan-ignore : adresse inventée, propre à ce test
   });
 
   it('ne double pas une adresse dont le domaine est déjà suivi', () => {
@@ -74,21 +74,20 @@ describe('expediteursSuivis', () => {
   it('dit d’où vient chaque expéditeur', () => {
     const suivis = expediteursSuivis([
       { email: 'contact@agence-test.invalid', nom: 'Agence Test' },
-      { email: 'agence.exemple@gmail.com', nom: 'Agence Exemple' },
+      { email: 'agence.exemple@gmail.com', nom: 'Agence Exemple' }, // secret-scan-ignore : adresse inventée, propre à ce test
     ]);
     expect(suivis.find((s) => s.match === 'agence-test.invalid')).toMatchObject({
       origine: 'agence-domaine',
       label: 'Agence Test',
     });
-    expect(suivis.find((s) => s.match === 'agence.exemple@gmail.com')).toMatchObject({
-      origine: 'agence-adresse',
-    });
+    const surGmail = suivis.find((s) => s.match === 'agence.exemple@gmail.com'); // secret-scan-ignore : adresse inventée
+    expect(surGmail).toMatchObject({ origine: 'agence-adresse' });
   });
 });
 
 describe('vientDUnPortail', () => {
   it('reconnaît un portail et rejette une agence', () => {
-    expect(vientDUnPortail('alertes@mail.seloger.com')).toBe(true);
+    expect(vientDUnPortail('alertes@mail.seloger.com')).toBe(true); // secret-scan-ignore : adresse inventée, propre à ce test
     expect(vientDUnPortail('Agence <contact@agence-test.invalid>')).toBe(false);
     expect(vientDUnPortail(null)).toBe(false);
   });
