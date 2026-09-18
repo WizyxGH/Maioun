@@ -370,7 +370,9 @@ function Photos({ urls }: { readonly urls: readonly string[] }): React.JSX.Eleme
   if (photos.embeddable.length > 0) {
     return (
       <div className="mb-3 overflow-hidden rounded-xl">
-        <PhotoCarousel urls={photos.embeddable.slice(0, 12)} tall />
+        {/* `expandable` ICI et pas sur la carte de liste : la fiche est le seul
+            endroit où un clic sur la photo n'a pas déjà un autre travail. */}
+        <PhotoCarousel urls={photos.embeddable.slice(0, 12)} tall expandable />
       </div>
     );
   }

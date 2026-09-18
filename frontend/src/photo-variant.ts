@@ -9,6 +9,23 @@
  * Si une déclinaison échoue malgré tout, le carrousel retente l'originale.
  */
 
+/**
+ * Largeurs demandées à l'hébergeur, en pixels RÉELS, selon l'usage et l'état du
+ * réseau. Table partagée : la carte, la fiche et le plein écran doivent choisir
+ * leurs tailles au même endroit, sinon la fiche en demande une et le plein
+ * écran une autre sans qu'aucune ne sache ce que l'autre a déjà chargé.
+ *
+ * `card` : ~450 px de carte sur un écran à densité 2. `detail` : ~600 px de
+ * fiche. `full` : la BORNE du plein écran — au-delà, les hébergeurs observés
+ * n'ont plus rien de plus grand et se mettent à agrandir, ce qui alourdit sans
+ * rien montrer de mieux.
+ */
+export const PHOTO_WIDTH = {
+  card: { normal: 800, constrained: 500 },
+  detail: { normal: 1200, constrained: 800 },
+  full: { normal: 1600, constrained: 1000 },
+} as const;
+
 type Rule = (url: URL, width: number) => URL | null;
 
 /**
