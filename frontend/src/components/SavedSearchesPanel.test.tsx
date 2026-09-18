@@ -159,55 +159,33 @@ describe('modifier les critères sur place', () => {
   });
 });
 
-describe('adresse de référence, sans quitter la page', () => {
-  it('modifie l’adresse et la durée depuis la carte', async () => {
-    const user = userEvent.setup();
-    const { onUpdateCriteria, onEdit } = renderPanel();
+describe('l’adresse de référence ne se règle PAS ici', () => {
+  it('ne propose aucun bouton d’adresse sur une recherche', async () => {
+    // Elle est commune au compte : la régler depuis une recherche laissait
+    // croire que chacune vise un lieu de travail différent. Elle vit dans les
+    // Paramètres, avec les autres points de repère.
+    renderPanel();
     await screen.findByText(/Trajet depuis 1 place Masséna/);
+    expect(screen.queryByRole('button', { name: /Adresse de référence/ })).toBeNull();
+  });
 
-    await user.click(
-      screen.getByRole('button', { name: 'Adresse de référence de « Studio Libération »' }),
-    );
-    const field = screen.getByRole('combobox', {
-      name: 'Adresse de référence de « Studio Libération »',
-    });
-    await user.clear(field);
-    await user.type(field, '5 rue de France, 06000 Nice');
-    await user.type(screen.getByLabelText(/Trajet max/), '45');
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
-
-    // Le premier repère change, le second reste tel quel.
-    await waitFor(() =>
-      expect(saveReferencePoints).toHaveBeenCalledWith([
-        { label: 'Travail', address: '5 rue de France, 06000 Nice', mode: 'transit' },
-        { label: 'Gare', address: 'Avenue Thiers, 06000 Nice', mode: 'walking' },
-      ]),
-    );
-    expect(onUpdateCriteria).toHaveBeenCalledWith('s1', {
-      cities: ['nice'],
-      maxPrice: 700,
-      minArea: 20,
-      maxCommuteMinutes: 45,
-    });
-    // Et l'écran de recherche n'a pas été ouvert.
+  it('DIT depuis où le trajet se compte, sans permettre d’y toucher', async () => {
+    const { onEdit } = renderPanel();
+    // La mention reste : sans elle, on ne saurait pas d'où viennent les durées.
+    await screen.findByText(/Trajet depuis 1 place Masséna/);
     expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('pose l’adresse en créant une recherche', async () => {
+  it('crée une recherche avec son seul nom', async () => {
     const user = userEvent.setup();
-    vi.mocked(fetchReferencePoints).mockResolvedValue(null);
     const { onSaveCurrent } = renderPanel();
 
     await user.click(screen.getByRole('button', { name: /Enregistrer la recherche actuelle/ }));
-    await user.type(
-      screen.getByRole('combobox', { name: 'Adresse de référence de la nouvelle recherche' }),
-      '5 rue de France, 06000 Nice',
-    );
+    expect(screen.queryByRole('combobox', { name: /Adresse de référence/ })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() => expect(onSaveCurrent).toHaveBeenCalledWith('Ma recherche'));
-    expect(saveReferencePoints).toHaveBeenCalledWith([
-      { label: 'Travail', address: '5 rue de France, 06000 Nice', mode: 'transit' },
-    ]);
+    // Rien n'est écrit dans les points de repère du compte.
+    expect(saveReferencePoints).not.toHaveBeenCalled();
   });
 });

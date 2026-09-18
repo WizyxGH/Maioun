@@ -14,12 +14,26 @@
  * LE MOUVEMENT SE REFUSE. Qui a demandé à son système de réduire les
  * animations voit la valeur finale immédiatement — un compteur qui défile est
  * exactement le genre de mouvement que ce réglage vise.
+ *
+ * ET IL NE SE REJOUE PAS. Le décompte dit « voilà ce qui vient de charger » :
+ * revenir sur un écran déjà vu n'a rien chargé du tout, et refaire défiler les
+ * mêmes chiffres à chaque aller-retour n'apprend rien tout en attirant l'œil.
+ * Un compteur nommé ne s'anime donc qu'une fois par session.
  */
 
 import { useEffect, useRef, useState } from 'react';
 
 /** Assez pour voir le mouvement, trop court pour retarder la lecture. */
 const DUREE_MS = 550;
+
+/**
+ * Les compteurs déjà déroulés dans cette session, par leur nom.
+ *
+ * Volontairement hors de React : l'information doit survivre au démontage de
+ * l'écran — c'est justement le retour sur cet écran qu'on ne veut pas animer.
+ * Elle se perd au rechargement de la page, et c'est bien : là, tout recharge.
+ */
+const dejaDeroules = new Set<string>();
 
 /** `true` si le système demande de limiter les animations. */
 function mouvementRefuse(): boolean {
@@ -36,14 +50,24 @@ function mouvementRefuse(): boolean {
  * @param value La valeur finale. Un changement relance le décompte DEPUIS
  *   l'affichage courant, et non depuis zéro : un rafraîchissement qui fait
  *   passer 48 à 49 ne doit pas redérouler tout le compteur.
+ * @param name Nom du compteur. Donné, il ne s'anime qu'à sa PREMIÈRE arrivée
+ *   dans la session ; revenir sur l'écran affiche la valeur sans défilement.
+ *   Omis, le compteur s'anime à chaque montage.
  */
-export function useCountUp(value: number): number {
-  const [displayed, setDisplayed] = useState(() => (mouvementRefuse() ? value : 0));
+export function useCountUp(value: number, name?: string): number {
+  // LU UNE SEULE FOIS, au premier rendu : l'effet inscrit le nom juste après,
+  // et relire l'ensemble à chaque rendu couperait l'animation en cours dès sa
+  // première image.
+  const premiereFois = useRef(name === undefined || !dejaDeroules.has(name));
+  const [displayed, setDisplayed] = useState(() =>
+    mouvementRefuse() || !premiereFois.current ? value : 0,
+  );
   // La valeur d'où repart l'animation, lue sans redéclencher l'effet.
   const depuis = useRef(displayed);
 
   useEffect(() => {
-    if (mouvementRefuse() || typeof requestAnimationFrame !== 'function') {
+    if (name !== undefined) dejaDeroules.add(name);
+    if (mouvementRefuse() || !premiereFois.current || typeof requestAnimationFrame !== 'function') {
       depuis.current = value;
       setDisplayed(value);
       return undefined;
@@ -68,7 +92,7 @@ export function useCountUp(value: number): number {
     };
     frame = requestAnimationFrame(avance);
     return () => cancelAnimationFrame(frame);
-  }, [value]);
+  }, [value, name]);
 
   return displayed;
 }

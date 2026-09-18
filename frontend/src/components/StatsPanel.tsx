@@ -99,7 +99,8 @@ function Stat({
   value: number;
   tone?: string;
 }): React.JSX.Element {
-  const affiche = useCountUp(value);
+  // Nommé : revenir sur la page ne redéroule pas des chiffres déjà vus.
+  const affiche = useCountUp(value, `stats:${label}`);
   return (
     <div
       className="rounded-xl border border-border bg-card px-3 py-3 text-center"

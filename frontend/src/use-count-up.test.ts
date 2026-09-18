@@ -64,3 +64,31 @@ describe('useCountUp', () => {
     expect(result.current).toBe(49);
   });
 });
+
+describe('un compteur NOMMÉ ne se déroule qu’une fois', () => {
+  it('ne rejoue pas l’animation au retour sur l’écran', async () => {
+    reglerMouvement(false);
+    const premier = renderHook(() => useCountUp(48, 'accueil:favoris'));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 900));
+    });
+    expect(premier.result.current).toBe(48);
+    premier.unmount();
+
+    // Rien n'a rechargé : la valeur est là d'emblée, sans défilement.
+    const retour = renderHook(() => useCountUp(48, 'accueil:favoris'));
+    expect(retour.result.current).toBe(48);
+  });
+
+  it('s’anime encore pour un compteur d’un autre nom', () => {
+    reglerMouvement(false);
+    const { result } = renderHook(() => useCountUp(48, 'accueil:jamais-vu'));
+    expect(result.current).toBe(0);
+  });
+
+  it('SANS NOM, il s’anime à chaque montage', () => {
+    reglerMouvement(false);
+    expect(renderHook(() => useCountUp(48)).result.current).toBe(0);
+    expect(renderHook(() => useCountUp(48)).result.current).toBe(0);
+  });
+});

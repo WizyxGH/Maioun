@@ -82,7 +82,8 @@ function StatTile({
   readonly onClick: () => void;
   readonly accent?: boolean;
 }): React.JSX.Element {
-  const affiche = useCountUp(value);
+  // Nommé : l'aller-retour vers la liste ne redéroule pas les mêmes chiffres.
+  const affiche = useCountUp(value, `accueil:${label}`);
   return (
     <ItemButton
       onClick={onClick}

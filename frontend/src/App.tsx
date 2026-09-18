@@ -1893,17 +1893,6 @@ function AppView(): React.JSX.Element {
     }
   };
 
-  /** Remplace les critères d'une recherche depuis sa carte, écran courant intact. */
-  const updateSavedSearchCriteria = async (id: string, criteria: FilterConfig): Promise<void> => {
-    const next = savedSearches.map((saved) => (saved.id === id ? { ...saved, criteria } : saved));
-    setSavedSearches(next);
-    try {
-      await saveSavedSearches(next);
-    } catch {
-      setError('La recherche n’a pas pu être mise à jour');
-    }
-  };
-
   /** Rappelle une recherche ET ouvre ses réglages, pour les corriger sur place. */
   const editSavedSearch = async (saved: SavedSearch): Promise<void> => {
     await applySavedSearch(saved);
@@ -2361,7 +2350,6 @@ function AppView(): React.JSX.Element {
             onRename={(id, name) => void renameSavedSearch(id, name)}
             onUpdate={(id) => void updateSavedSearch(id)}
             onEdit={(saved) => void editSavedSearch(saved)}
-            onUpdateCriteria={(id, criteria) => void updateSavedSearchCriteria(id, criteria)}
             onSaveCurrent={(name) => void saveCurrentSearch(name)}
             suggestion={suggestName(
               {
