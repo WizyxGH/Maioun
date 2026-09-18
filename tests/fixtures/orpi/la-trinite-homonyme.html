@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE de /location-immobiliere-la-trinite/, relevée le
+  2026-09-18. Références, agence et montants FICTIFS — voir
+  tests/fixtures/README.md. La géographie, elle, est celle du site.
+
+  CE QUE LE SITE FAIT, et qui ne ressemble à aucune panne : il adresse ses
+  pages par le NOM de la commune, et « la-trinite » lui en désigne une en
+  MARTINIQUE. La page répond 200, son lien canonique est exactement celui
+  qu'on a demandé, ses cartes sont normales — et ses biens sont à 6 700 km.
+  La nôtre est La Trinité (06340) ; Orpi n'a pas de page pour elle, et
+  /location-immobiliere-la-trinite-06340/ répond 404.
+
+  CE QUI LE DIT : les liens de filtre par type publient le code postal de la
+  commune servie, 97220, là où notre table du périmètre attend 06340. Les
+  dix pages du périmètre qu'Orpi connaît publient toutes, à l'inverse,
+  exactement le code postal de notre table.
+-->
+<html lang="fr">
+  <head>
+    <title>Locations immobilières La Trinité, Martinique | Orpi (fixture)</title>
+    <link rel="canonical" href="https://www.orpi.com/location-immobiliere-la-trinite/" />
+  </head>
+  <body>
+    <h1>Biens à louer à La Trinité</h1>
+
+    <ul class="c-tabs">
+      <li>
+        <a
+          href="/location-immobiliere-la-trinite/louer-appartement/"
+          data-eulerian-action="{&quot;eventName&quot;:&quot;recherche_bien_filtre&quot;,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;quartierNom&quot;:&quot;&quot;,&quot;nomVille&quot;:&quot;La Trinité&quot;,&quot;codePostal&quot;:&quot;97220&quot;,&quot;departementId&quot;:&quot;972&quot;,&quot;departementNom&quot;:&quot;Martinique&quot;,&quot;nbResults&quot;:2}"
+          >Appartement</a
+        >
+      </li>
+    </ul>
+
+    <div class="o-grid o-grid--3 mt-p" data-oncrawl="estate-list">
+      <article
+        class="c-estate-thumb c-box"
+        data-test-estate
+        data-oncrawl="estate-card"
+        data-reference="00000000-0000-4000-8000-000000000972"
+      >
+        <div class="c-estate-thumb__banner">
+          <span class="h4 font-bold">763&nbsp;&euro;</span> par mois
+        </div>
+        <a
+          href="/annonce-location-appartement-t2-la-trinite-97220-00000000-0000-4000-8000-000000000972/"
+          class="link-unstyled c-overlay__link"
+        >
+          <b>
+            <span class="text-dark-grey capitalize"> Location Appartement </span>
+            2 pièces 45,91 m<sup>2</sup>
+          </b>
+          <br />
+          <span class="c-estate-thumb__infos__location">La Trinité</span>
+        </a>
+        <button
+          type="button"
+          data-eulerian-action="{&quot;eventName&quot;:&quot;bien_ajout_favoris&quot;,&quot;prdref&quot;:&quot;00000000-0000-4000-8000-000000000972&quot;,&quot;prdamount&quot;:763,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;agenceNom&quot;:&quot;Agence Fictive&quot;,&quot;codePostal&quot;:null,&quot;nomVille&quot;:&quot;La Trinité&quot;,&quot;departementId&quot;:972,&quot;departementNom&quot;:&quot;Martinique&quot;,&quot;nbPieces&quot;:2,&quot;surfaceBien&quot;:45.91,&quot;latitude&quot;:14.7391526,&quot;longitude&quot;:-60.9654787}"
+        >
+          Favori
+        </button>
+      </article>
+
+      <article
+        class="c-estate-thumb c-box"
+        data-test-estate
+        data-oncrawl="estate-card"
+        data-reference="00000000-0000-4000-8000-000000000973"
+      >
+        <div class="c-estate-thumb__banner">
+          <span class="h4 font-bold">650&nbsp;&euro;</span> par mois
+        </div>
+        <a
+          href="/annonce-location-appartement-t1-la-trinite-97220-00000000-0000-4000-8000-000000000973/"
+          class="link-unstyled c-overlay__link"
+        >
+          <b>
+            <span class="text-dark-grey capitalize"> Location Appartement </span>
+            1 pièce 20,44 m<sup>2</sup>
+          </b>
+          <br />
+          <span class="c-estate-thumb__infos__location">La Trinité</span>
+        </a>
+      </article>
+    </div>
+  </body>
+</html>

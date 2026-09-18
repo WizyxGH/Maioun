@@ -11,6 +11,7 @@ import {
   parseDetail,
   parseEulerianData,
   parseListingUrl,
+  parseRentalSitemap,
   parseSearchPage,
 } from './parser.js';
 
@@ -416,5 +417,71 @@ describe('parseSearchPage — le repli départemental qu’Orpi sert en 200', ()
     // vérification du canonique, ses biens cannois entraient dans l'inventaire
     // de la commune demandée.
     expect(page.listings.length).toBeGreaterThan(0);
+  });
+});
+
+describe('parseSearchPage — le code postal que la page se donne', () => {
+  const homonyme = parseSearchPage(
+    readFileSync(join(FIXTURES, 'la-trinite-homonyme.html'), 'utf8'),
+    'https://www.orpi.com/location-immobiliere-la-trinite/',
+  );
+
+  it('rend celui de la commune servie, lu sur les liens de filtre', () => {
+    expect(parseSearchPage(nominal, PAGE_URL).pagePostalCode).toBe('06000');
+  });
+
+  it('rend 97220 sur la page servie sous le nom de La Trinité', () => {
+    // La nôtre est en 06340. Rien d'autre sur la page ne le dit : le lien
+    // canonique est exactement celui qu'on a demandé.
+    expect(homonyme.pagePostalCode).toBe('97220');
+    expect(homonyme.canonicalPath).toBe('/location-immobiliere-la-trinite/');
+  });
+
+  it('porte bien des annonces — celles d’une commune homonyme', () => {
+    // C'est tout le piège : la page n'est ni vide ni en erreur, et ses cartes
+    // se lisent normalement. Seul le code postal la démasque.
+    expect(homonyme.listings.length).toBe(2);
+  });
+
+  it('rend null quand la page ne publie aucun code postal', () => {
+    // Sans la donnée, on n'invente pas de verdict : la page est lue.
+    const muette = nominal.replace(
+      /&quot;codePostal&quot;:&quot;\d+&quot;/g,
+      '&quot;x&quot;:&quot;&quot;',
+    );
+    expect(parseSearchPage(muette, PAGE_URL).pagePostalCode).toBeNull();
+  });
+});
+
+describe('parseRentalSitemap — ce qu’Orpi énumère lui-même', () => {
+  const xml = `<?xml version="1.0"?><urlset>
+    <url><loc>https://www.orpi.com/annonce-location-appartement-t2-nice-06200-x-1/</loc></url>
+    <url><loc>https://www.orpi.com/annonce-location-stationnement-nice-06300-x-2/</loc></url>
+    <url><loc>https://www.orpi.com/annonce-location-appartement-t1-la-trinite-97220-x-3/</loc></url>
+    <url><loc>https://www.orpi.com/location-immobiliere-nice/</loc></url>
+    <url><loc>https://www.orpi.com/annonce-vente-appartement-t2-nice-06000-x-4/</loc></url>
+  </urlset>`;
+  const annonces = parseRentalSitemap(xml);
+
+  it('ne garde que les fiches de location', () => {
+    // Une page de recherche et une annonce de vente ne sont pas des locations.
+    expect(annonces.map((one) => one.reference)).toEqual(['x-1', 'x-2', 'x-3']);
+  });
+
+  it('rend le code postal DU BIEN, qui distingue les communes homonymes', () => {
+    // C'est la seule chose qui sépare notre Trinité (06340) de celle de
+    // Martinique : l'adresse porte les deux.
+    expect(annonces.map((one) => one.postalCode)).toEqual(['06200', '06300', '97220']);
+  });
+
+  it('dit lesquelles ne sont pas des logements', () => {
+    expect(annonces.find((one) => one.reference === 'x-2')?.nonResidential).toBe(true);
+    expect(annonces.find((one) => one.reference === 'x-1')?.nonResidential).toBe(false);
+  });
+
+  it('ne rend rien d’un document illisible plutôt que de lever', () => {
+    // Un sitemap tronqué ou remplacé par une page d'erreur ne doit pas abattre
+    // le passage : la source retombe sur le total que chaque page annonce.
+    expect(parseRentalSitemap('<html><body>Service indisponible</body></html>')).toEqual([]);
   });
 });

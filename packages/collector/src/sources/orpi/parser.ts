@@ -120,6 +120,33 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
 }
 
 /**
+ * Les annonces de location qu'Orpi ÉNUMÈRE LUI-MÊME, lues dans son sitemap.
+ *
+ * POURQUOI UN SITEMAP QUAND ON A DÉJÀ LES PAGES. Parce que les pages de liste
+ * ne sont pas un instantané : deux requêtes faites à quelques secondes d'écart
+ * n'ont pas le même ordre, si bien qu'une annonce se retrouve sur deux pages et
+ * une autre sur aucune (relevé du 2026-09-18 : page 3 relue quatre minutes plus
+ * tard, trois biens venus de la page 2 en tête et quatre repoussés vers la page
+ * suivante, déjà lue). Le sitemap, lui, est UN SEUL document : ce qu'il
+ * énumère est cohérent avec lui-même.
+ *
+ * Il ne remplace pas les pages — il ne porte ni loyer, ni surface, ni GPS —,
+ * il dit seulement QUELLES annonces existent. C'est exactement ce qui manquait
+ * pour savoir si la lecture a tout vu.
+ *
+ * L'URL porte la commune et le CODE POSTAL du bien, ce qui règle du même coup
+ * le cas des communes homonymes : `la-trinite-97220` n'est pas la nôtre.
+ */
+export function parseRentalSitemap(xml: string): readonly ParsedListingUrl[] {
+  const annonces: ParsedListingUrl[] = [];
+  for (const match of xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
+    const parsed = parseListingUrl(match[1] ?? '');
+    if (parsed !== null) annonces.push(parsed);
+  }
+  return annonces;
+}
+
+/**
  * Sous-ensemble utile du JSON `data-eulerian-action`. Tous les champs sont
  * optionnels : le tracking peut changer de forme à tout moment.
  */
@@ -208,6 +235,15 @@ export interface ParsedPage {
    * Cap-d'Ail.
    */
   readonly canonicalPath: string | null;
+  /**
+   * Le code postal que la page se donne, `null` si elle ne le publie pas.
+   *
+   * IL DIT QUELLE COMMUNE ON A OBTENUE, quand le chemin ne dit que son nom.
+   * `/location-immobiliere-la-trinite/` est servie, canonique en règle, et
+   * c'est La Trinité de MARTINIQUE (97220) : la nôtre est en 06340, et Orpi
+   * n'a pas de page pour elle.
+   */
+  readonly pagePostalCode: string | null;
   readonly hasNextPage: boolean;
   readonly warnings: readonly string[];
 }
@@ -375,18 +411,25 @@ function parseCard(
 
 /**
  * Ce que les LIENS DE FILTRE par type apprennent sur la recherche : le total
- * annoncé, et la commune telle que le site l'écrit.
+ * annoncé, la commune telle que le site l'écrit, et SON CODE POSTAL.
  *
  * Chaque lien porte son propre `nbResults` (appartement, maison,
  * stationnement…) ; leur somme est l'inventaire entier de la recherche, celui
  * qu'on compare aux cartes lues pour savoir si l'on a tout vu.
+ *
+ * LE CODE POSTAL DIT QUELLE COMMUNE LE SITE A SERVIE, et c'est la seule chose
+ * qui le dise : l'adresse demandée ne porte qu'un nom, et un nom peut désigner
+ * plusieurs communes. Relevé du 2026-09-18 : les dix pages du périmètre qu'Orpi
+ * connaît publient exactement le code postal que notre table leur donne.
  */
 function readSearchTotals($: cheerio.CheerioAPI): {
   announcedTotal: number | null;
   city: string | undefined;
+  postalCode: string | undefined;
 } {
   let announcedTotal: number | null = null;
   let city: string | undefined;
+  let postalCode: string | undefined;
   $('[data-eulerian-action*="nbResults"]').each((_index, element) => {
     const raw = $(element).attr('data-eulerian-action');
     if (raw === undefined || raw === '') return;
@@ -406,8 +449,11 @@ function readSearchTotals($: cheerio.CheerioAPI): {
     if (city === undefined && data.nomVille !== undefined && data.nomVille !== '') {
       city = data.nomVille;
     }
+    if (postalCode === undefined && data.codePostal != null && data.codePostal !== '') {
+      postalCode = data.codePostal;
+    }
   });
-  return { announcedTotal, city };
+  return { announcedTotal, city, postalCode };
 }
 
 export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
@@ -415,7 +461,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const warnings: string[] = [];
   const byReference = new Map<string, RawListing>();
   const cardRefs: string[] = [];
-  const { announcedTotal, city } = readSearchTotals($);
+  const { announcedTotal, city, postalCode } = readSearchTotals($);
 
   $(`${RESULTS_CONTAINER} article[data-reference]`).each((_index, element) => {
     const card = $(element);
@@ -455,6 +501,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     cardRefs,
     announcedTotal,
     canonicalPath: canonicalPathOf(canonical),
+    pagePostalCode: postalCode ?? null,
     hasNextPage,
     warnings,
   };

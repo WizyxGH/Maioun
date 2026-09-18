@@ -27,11 +27,18 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { portalCommuneSlugs } from '../shared/communes.js';
+import { shortCoverageWarning } from '../shared/announced-total.js';
+import { portalCommunes, type PortalCommune } from '../shared/communes.js';
 import { enrichNewListings } from '../shared/enrich.js';
 import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import { compactListing } from '../shared/raw-listing.js';
-import { CHARGES_INCLUDED_KEY, isWithdrawnDetail, parseDetail, parseSearchPage } from './parser.js';
+import {
+  CHARGES_INCLUDED_KEY,
+  isWithdrawnDetail,
+  parseDetail,
+  parseRentalSitemap,
+  parseSearchPage,
+} from './parser.js';
 
 /**
  * Fiches visitées par exécution, pour les annonces NOUVELLES d'abord.
@@ -94,9 +101,45 @@ const BASE_URL = (slug: string): string => `https://www.orpi.com${COMMUNE_PATH(s
  * liste : elles coûtent une requête, et le jour où Orpi y publiera, la page
  * existera sans qu'on ait à y penser (§ agences vides suivies quand même).
  *
- * Orpi écrit les communes comme nous : ni code postal, ni abréviation.
+ * Orpi écrit les communes comme nous : ni code postal, ni abréviation. À une
+ * exception près, ci-dessous.
  */
-const COMMUNES = portalCommuneSlugs();
+const COMMUNES = portalCommunes({
+  exceptions: {
+    /**
+     * LA TRINITÉ S'ÉCRIT AVEC SON DÉPARTEMENT, sans quoi c'est la Martinique.
+     *
+     * `/location-immobiliere-la-trinite/` est servie, canonique en règle, et
+     * porte deux appartements de La Trinité (97220) — le sitemap ne connaît
+     * aucun autre `la-trinite` à louer. Notre commune est en 06340 et ne
+     * s'atteignait par aucune adresse : ni `-la-trinite-06340/`, ni
+     * `-la-trinite-06/`, tous deux en 404.
+     *
+     * Orpi lève pourtant l'ambiguïté, et son propre sitemap de pages le
+     * montre : `/annonces-immobilieres-la-trinite-alpes-maritimes/` répond 200,
+     * se déclare canonique sous ce nom et publie le code postal 06340 (relevé
+     * du 2026-09-18). La même écriture vaut pour la location.
+     *
+     * Elle répond aujourd'hui par le repli départemental, comme Cap-d'Ail,
+     * Drap et Contes : Orpi n'a aucune location à La Trinité — zéro annonce en
+     * 06340 dans son sitemap des biens à louer. Le jour où il en aura une, la
+     * page existera, et ce sera la bonne commune.
+     */
+    'la-trinite': 'la-trinite-alpes-maritimes',
+  },
+});
+
+/**
+ * TOUTES les locations qu'Orpi publie, énumérées par le site lui-même.
+ *
+ * Une page de liste n'est pas un instantané : voir `parseRentalSitemap`. Ce
+ * document-ci l'est, et c'est lui qui dit désormais si la lecture a tout vu.
+ * Une requête par passage, pour treize communes.
+ */
+const SITEMAP_URL = 'https://www.orpi.com/sitemap-biens-a-louer.xml';
+
+/** Les communes du périmètre sous leur nom canonique, pour lire le sitemap. */
+const PERIMETRE = portalCommunes();
 
 export const ORPI_DESCRIPTOR: SourceDescriptor = {
   id: 'orpi',
@@ -113,13 +156,14 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
   budget: budgetFor('agencyNetwork', {
     // Le budget compte TOUTES les requêtes, pages de liste et fiches. Seize
     // pages de liste en pratique (quatre pour Nice, une par autre commune),
-    // douze fiches, et de quoi confirmer une fiche absente par une seconde
-    // lecture.
-    maxPagesPerRun: COMMUNES.length + MAX_PAGES_PER_COMMUNE + 2 * MAX_DETAILS,
+    // le sitemap, douze fiches, et de quoi confirmer une fiche absente par une
+    // seconde lecture. Mesuré le 2026-09-18 : seize à dix-huit requêtes par
+    // passage, pour un plafond de quarante-six — le plafond n'a jamais coupé.
+    maxPagesPerRun: 1 + COMMUNES.length + MAX_PAGES_PER_COMMUNE + 2 * MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
-  allowedPaths: ['/location-immobiliere-*', '/annonce-location-*'],
+  allowedPaths: ['/location-immobiliere-*', '/annonce-location-*', '/sitemap-biens-a-louer.xml'],
   notes:
     'robots.txt revérifié le 2026-09-16 : /recherche/* interdit, pages ville et ' +
     'pagination ?page=N autorisées ; les paramètres agency/sujet/contact/orderBy ' +
@@ -133,7 +177,20 @@ export const ORPI_DESCRIPTOR: SourceDescriptor = {
     'sert la page du DÉPARTEMENT — reconnue par son lien canonique, et ignorée. ' +
     'Un carrousel « communes à proximité » répète six annonces d’autres ' +
     'communes sur chaque page : seules les cartes du conteneur de résultats ' +
-    'sont lues. Cartes riches (GPS, quartier, agence) via data-eulerian-action — ' +
+    'sont lues. UNE PAGE S’ADRESSE PAR LE NOM DE LA COMMUNE, et un nom en ' +
+    'désigne plusieurs : /location-immobiliere-la-trinite/ sert La Trinité de ' +
+    'MARTINIQUE (97220), canonique en règle, et non la nôtre (06340). Orpi sait ' +
+    'lever l’ambiguïté par le département — la-trinite-alpes-maritimes, 200 et ' +
+    'code postal 06340 sur les ventes —, et c’est cette écriture qui est ' +
+    'demandée. Les liens de filtre publient le code postal de la commune ' +
+    'servie : il doit être celui du périmètre, sans quoi la page est celle ' +
+    'd’une homonyme et rien n’en est lu (relevé du 2026-09-18). ' +
+    'LA PAGINATION N’EST PAS UN INSTANTANÉ : l’ordre des résultats bouge d’une ' +
+    'requête à l’autre, une annonce se retrouve sur deux pages et une autre sur ' +
+    'aucune. Le sitemap des biens à louer, lui, est un seul document : c’est ' +
+    'lui qui dit ce qu’Orpi publie dans le périmètre, et ce qui manque à la ' +
+    'lecture des pages. ' +
+    'Cartes riches (GPS, quartier, agence) via data-eulerian-action — ' +
     'traité comme enrichissement fragile, le HTML visible fait foi ; ses champs ' +
     'meuble et dateCreation sont écartés, ils se contredisent. Fiches des ' +
     'nouvelles : JSON data-estate (description entière, chambres, surface, ' +
@@ -163,12 +220,17 @@ export const orpiScraper: Scraper = {
     let stopReason: StopReason = 'completed';
     let incomplete = false;
 
-    for (const slug of COMMUNES) {
-      const pass = await readCommune(context, slug, counters);
+    const inventaire = await lireInventaire(context, counters, warnings);
+    /** Toutes les cartes croisées, non résidentielles comprises. */
+    const vues = new Set<string>();
+
+    for (const commune of COMMUNES) {
+      const pass = await readCommune(context, commune, counters, inventaire !== null);
       for (const listing of pass.listings) {
         if (!byRef.has(listing.sourceRef)) byRef.set(listing.sourceRef, listing);
       }
       for (const ref of pass.confirmedRefs) confirmed.add(ref);
+      for (const ref of pass.cardRefs) vues.add(ref);
       warnings.push(...pass.warnings);
       incomplete ||= pass.incomplete;
       if (pass.stopReason !== 'completed') {
@@ -179,11 +241,16 @@ export const orpiScraper: Scraper = {
 
     // TOUT LE PÉRIMÈTRE MUET N'EST JAMAIS CRÉDIBLE. Une commune inconnue du
     // portail ne fait pas un trou — elle n'a rien à publier —, mais si AUCUNE
-    // n'a rien rendu alors qu'on connaît déjà des annonces, c'est le gabarit ou
-    // les adresses qui ont changé, et rien ne doit s'éteindre là-dessus.
-    if (byRef.size === 0 && confirmed.size === 0 && context.knownRefs.size > 0) {
+    // n'a rien rendu alors qu'on sait le stock non vide, c'est le gabarit ou
+    // les adresses qui ont changé, et rien ne doit s'éteindre là-dessus. Les
+    // CARTES en font foi, et non les annonces rendues : depuis que le sitemap
+    // confirme, un passage qui ne lirait plus rien resterait plein de
+    // confirmations.
+    if (vues.size === 0 && (context.knownRefs.size > 0 || (inventaire?.refs.size ?? 0) > 0)) {
       warnings.push('Aucune annonce sur aucune commune — gabarit probablement modifié');
       incomplete = true;
+    } else if (inventaire !== null) {
+      warnings.push(...reconcilier(context, inventaire, vues, confirmed));
     }
     if (incomplete && stopReason === 'completed') stopReason = 'incomplete';
 
@@ -285,10 +352,161 @@ async function pageInchangee(
 
 interface CommunePass {
   readonly listings: readonly RawListing[];
+  /** Les cartes croisées, non résidentielles comprises : le dénominateur. */
+  readonly cardRefs: readonly string[];
   readonly confirmedRefs: readonly string[];
   readonly warnings: readonly string[];
   readonly incomplete: boolean;
   readonly stopReason: StopReason;
+}
+
+/** Ce qu'Orpi publie dans le périmètre, d'après son propre sitemap. */
+interface Inventaire {
+  /** Les références des LOGEMENTS du périmètre. */
+  readonly refs: ReadonlySet<string>;
+  /** L'adresse de chaque fiche, vide si le sitemap n'a pas bougé. */
+  readonly urls: ReadonlyMap<string, string>;
+  /** Ce que le sitemap énumérait au passage précédent : ce qui n'y est pas est neuf. */
+  readonly precedentes: ReadonlySet<string>;
+}
+
+/**
+ * La commune du périmètre à laquelle cette annonce appartient, ou `undefined`.
+ *
+ * DEUX CONDITIONS, ET LA SECONDE EST LE CODE POSTAL. Le nom seul rattacherait
+ * La Trinité de Martinique à la nôtre ; on exige donc que le département du
+ * bien soit celui que notre table donne à la commune. Nice s'étale sur 06000,
+ * 06100, 06200 et 06300 : c'est le département qui les réunit, pas le code
+ * postal exact.
+ */
+function communeDuPerimetre(annonce: {
+  typeAndCitySlug: string;
+  postalCode: string;
+}): string | undefined {
+  return PERIMETRE.find(
+    (commune) =>
+      annonce.typeAndCitySlug.endsWith(`-${commune.commune}`) &&
+      annonce.postalCode.slice(0, 2) === commune.postalCode.slice(0, 2),
+  )?.commune;
+}
+
+/**
+ * Lit le sitemap des biens à louer et en garde ce qui relève du périmètre.
+ *
+ * `null` si le sitemap n'a pas répondu : on s'en remet alors au total que
+ * chaque page annonce, comme avant. Mieux vaut une lecture prudente qu'une
+ * conclusion tirée d'un inventaire absent.
+ *
+ * Les stationnements et les locaux sont écartés : on ne les enregistre pas, et
+ * les compter ferait un trou permanent.
+ */
+async function lireInventaire(
+  context: ScrapeContext,
+  counters: { requestCount: number; pagesFetched: number },
+  warnings: string[],
+): Promise<Inventaire | null> {
+  let response;
+  try {
+    response = await context.fetch(SITEMAP_URL);
+    counters.requestCount += 1;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    warnings.push(`Sitemap des locations injoignable : ${message}`);
+    context.log('sitemap.failed', { error: message });
+    return null;
+  }
+
+  const precedentes = new Set((await context.pageRefs.get(SITEMAP_URL)) ?? []);
+
+  if (response.notModified) {
+    // Rien n'a changé depuis le dernier passage : ce qu'on avait retenu vaut
+    // toujours. L'adresse des fiches n'est plus sous la main, la référence
+    // suffit à dire ce qui manque.
+    if (precedentes.size === 0) return null;
+    return { refs: precedentes, urls: new Map(), precedentes };
+  }
+
+  counters.pagesFetched += 1;
+  const urls = new Map<string, string>();
+  for (const annonce of parseRentalSitemap(response.body)) {
+    if (annonce.nonResidential) continue;
+    if (communeDuPerimetre(annonce) === undefined) continue;
+    urls.set(annonce.reference, annonce.canonicalUrl);
+  }
+  context.log('sitemap.read', { perimetre: urls.size });
+  await context.pageRefs.set(SITEMAP_URL, [...urls.keys()]);
+  return { refs: new Set(urls.keys()), urls, precedentes };
+}
+
+/**
+ * Confronte ce que les pages ont rendu à ce que le sitemap énumère.
+ *
+ * UNE ANNONCE QUE LA PAGINATION A SAUTÉE N'EST PAS UN TROU : sa fiche existe,
+ * le site le dit, et nous la tenons déjà. Elle est CONFIRMÉE, sans une
+ * requête de plus — c'est ce qui faisait conclure « incomplet » à quarante-six
+ * pour cent des passages du 2026-09-17, alors que rien ne manquait vraiment.
+ *
+ * UNE ANNONCE QUE NOUS N'AVONS JAMAIS EUE, elle, est un vrai manque, et il se
+ * dit : le relevé de couverture relit cet avertissement. Le passage n'est pas
+ * déclaré incomplet pour autant — ce serait interdire à la source d'éteindre
+ * quoi que ce soit pour une annonce qui lui échappe.
+ *
+ * Une référence parue depuis le dernier passage échappe au verdict : le
+ * sitemap est régénéré en continu quand les pages de liste sont servies d'un
+ * cache, et le reproche tomberait à chaque parution.
+ */
+function reconcilier(
+  context: ScrapeContext,
+  inventaire: Inventaire,
+  vues: ReadonlySet<string>,
+  confirmed: Set<string>,
+): readonly string[] {
+  const jamaisLues: string[] = [];
+  let sautees = 0;
+
+  for (const ref of inventaire.refs) {
+    if (vues.has(ref)) continue;
+    if (context.isKnown(ref)) {
+      confirmed.add(ref);
+      sautees += 1;
+      continue;
+    }
+    if (!inventaire.precedentes.has(ref)) continue;
+    jamaisLues.push(inventaire.urls.get(ref) ?? ref);
+  }
+
+  context.log('sitemap.reconcilie', {
+    publiees: inventaire.refs.size,
+    sautees,
+    jamaisLues: jamaisLues.length,
+  });
+  if (jamaisLues.length === 0) return [];
+  return [
+    shortCoverageWarning(inventaire.refs.size, inventaire.refs.size - jamaisLues.length),
+    `Publiées par Orpi dans le périmètre et jamais lues : ${jamaisLues.slice(0, 5).join(', ')}`,
+  ];
+}
+
+/**
+ * Ce qu'il y a à dire d'une page servie sous le nom d'une AUTRE commune, ou
+ * `null` si celle qu'on a obtenue est bien la nôtre.
+ *
+ * LE NOM NE SUFFIT PAS À DÉSIGNER UNE COMMUNE. Orpi adresse ses pages par le
+ * nom seul, et « la-trinite » lui en désigne une en Martinique : page servie,
+ * lien canonique en règle, cartes normales, deux appartements à 6 700 km. Le
+ * code postal que la page publie tranche, et notre table dit celui qu'on
+ * attendait. Une page qui n'en publie aucun n'est pas condamnée pour autant.
+ */
+function reprocheHomonyme(
+  slug: string,
+  attendu: string | undefined,
+  servi: string | null,
+): string | null {
+  if (attendu === undefined || servi === null || servi === attendu) return null;
+  return (
+    `Orpi sert une autre commune sous le nom de ${slug} : ` +
+    `code postal ${servi} au lieu de ${attendu} — rien n'en est lu`
+  );
 }
 
 /**
@@ -300,8 +518,9 @@ interface CommunePass {
  */
 async function readCommune(
   context: ScrapeContext,
-  slug: string,
+  commune: PortalCommune,
   counters: { requestCount: number; pagesFetched: number },
+  inventaireLu: boolean,
 ): Promise<CommunePass> {
   const refs = new Set<string>();
   const listings: RawListing[] = [];
@@ -311,12 +530,22 @@ async function readCommune(
   let incomplete = false;
   /** Le portail ne connaît pas cette commune : zéro annonce, et pas un trou. */
   let inconnue = false;
+  const slug = commune.slug;
+  /** Le code postal que le périmètre attend sous ce nom, pour démasquer une homonyme. */
+  const attendu = commune.postalCode;
 
   for (let page = 1; page <= MAX_PAGES_PER_COMMUNE; page += 1) {
     if (context.shouldStop()) {
       // Le budget coupe au milieu du périmètre : inventaire partiel, et un
       // inventaire partiel ne condamne rien.
-      return { listings, confirmedRefs, warnings, incomplete: true, stopReason: 'incomplete' };
+      return {
+        listings,
+        cardRefs: [...refs],
+        confirmedRefs,
+        warnings,
+        incomplete: true,
+        stopReason: 'incomplete',
+      };
     }
 
     const url = page === 1 ? BASE_URL(slug) : `${BASE_URL(slug)}?page=${page}`;
@@ -332,6 +561,7 @@ async function readCommune(
       context.log('page.failed', { url, error: message });
       return {
         listings,
+        cardRefs: [...refs],
         confirmedRefs,
         warnings,
         incomplete: true,
@@ -362,6 +592,22 @@ async function readCommune(
       break;
     }
 
+    const reproche = reprocheHomonyme(slug, attendu, parsed.pagePostalCode);
+    if (reproche !== null) {
+      // Rien n'a été lu, et rien ne manque : la commune du périmètre n'a pas de
+      // page ici. En faire un trou rendrait la source éternellement incomplète.
+      context.log('commune.homonyme', { slug, attendu, servi: parsed.pagePostalCode });
+      warnings.push(reproche);
+      return {
+        listings: [],
+        cardRefs: [],
+        confirmedRefs,
+        warnings,
+        incomplete: false,
+        stopReason: 'completed',
+      };
+    }
+
     warnings.push(...parsed.warnings);
     if (page === 1) announcedTotal = parsed.announcedTotal;
     for (const listing of parsed.listings) {
@@ -388,8 +634,19 @@ async function readCommune(
     incomplete = true;
   } else if (announcedTotal - refs.size > tolerated(announcedTotal)) {
     context.log('commune.incomplete', { slug, lues: refs.size, annoncees: announcedTotal });
-    incomplete = true;
+    // LE MANQUE EST PRESQUE TOUJOURS UNE ANNONCE PASSÉE D'UNE PAGE À L'AUTRE
+    // pendant la lecture, et le sitemap sait laquelle : il tranche à la place
+    // de ce compte-là. Sans lui, on en reste au total de la page, quitte à se
+    // déclarer incomplet pour rien.
+    incomplete = !inventaireLu;
   }
 
-  return { listings, confirmedRefs, warnings, incomplete, stopReason: 'completed' };
+  return {
+    listings,
+    cardRefs: [...refs],
+    confirmedRefs,
+    warnings,
+    incomplete,
+    stopReason: 'completed',
+  };
 }
