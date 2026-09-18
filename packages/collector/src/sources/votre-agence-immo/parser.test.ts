@@ -20,12 +20,35 @@ describe('parseListPage (Votre Agence Immo)', () => {
    */
   it('n’garde que les locations', () => {
     expect(listings).toHaveLength(2);
-    expect(listings.map((l) => l.sourceRef)).toEqual(['100001', '100002']);
+    expect(listings.map((l) => l.sourceRef)).toEqual([
+      'nice-exemple-3-pieces',
+      'nice-exemple-studio-meuble',
+    ]);
     expect(warnings).toEqual([]);
   });
 
+  /**
+   * Le site réimporte son stock chaque nuit : même bien, même permalien,
+   * `post-<id>` neuf. Sur le numéro d'article, un studio a fabriqué neuf
+   * annonces en huit jours.
+   */
+  it('garde la même référence quand l’article est recréé', () => {
+    const republie = PAGE.replace(/100002/g, '446197');
+    const apres = parseListPage(republie);
+    expect(apres.listings.map((l) => l.sourceRef)).toEqual(listings.map((l) => l.sourceRef));
+  });
+
+  /** Sans permalien exploitable, le numéro d'article reste un repli. */
+  it('se rabat sur le numéro d’article si le lien est illisible', () => {
+    const casse = PAGE.replace(
+      /https:\/\/votre-agence-immo\.fr\/biens\/nice-exemple-3-pieces\//g,
+      'pas-une-url',
+    );
+    expect(parseListPage(casse).listings[0]?.sourceRef).toBe('100001');
+  });
+
   it('lit surface, pièces, type et loyer mensuel', () => {
-    const l = listings.find((x) => x.sourceRef === '100001');
+    const l = listings.find((x) => x.sourceRef === 'nice-exemple-3-pieces');
     expect(l?.areaText).toBe('55.86 m²');
     expect(l?.roomsText).toBe('3 pièces');
     expect(l?.propertyTypeText).toMatch(/appartement/i);
@@ -34,7 +57,7 @@ describe('parseListPage (Votre Agence Immo)', () => {
   });
 
   it('reconnaît un studio et sa photo', () => {
-    const l = listings.find((x) => x.sourceRef === '100002');
+    const l = listings.find((x) => x.sourceRef === 'nice-exemple-studio-meuble');
     expect(l?.propertyTypeText).toMatch(/studio/i);
     expect(l?.imageUrls?.[0]).toContain('media.apimo.pro');
   });

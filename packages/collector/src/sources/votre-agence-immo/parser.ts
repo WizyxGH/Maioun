@@ -25,6 +25,28 @@ import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 /** L'identifiant WordPress de l'article : `post-445540` → `445540`. */
 const POST_ID = /(?:^|\s)post-(\d+)(?:\s|$)/;
 
+/**
+ * L'IDENTITÉ D'UNE ANNONCE EST SON PERMALIEN, PAS SON NUMÉRO D'ARTICLE.
+ *
+ * Le site réimporte son stock chaque nuit : WordPress supprime les articles et
+ * les recrée, avec un `post-<id>` neuf à chaque fois. Le même studio a porté
+ * neuf numéros en huit jours (445473, 445559, 445658, …) et fabriquait donc
+ * neuf annonces, quand son adresse, elle, n'a jamais bougé. Le dernier segment
+ * du permalien est ce que le site garde stable.
+ *
+ * Le numéro d'article reste en repli : sans permalien exploitable, mieux vaut
+ * une identité instable que pas d'annonce du tout.
+ */
+function permalinkRef(href: string): string | undefined {
+  try {
+    const segment = new URL(href).pathname.replace(/\/+$/, '').split('/').at(-1);
+    if (segment === undefined || segment === '') return undefined;
+    return decodeURIComponent(segment).toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
 export function parseListPage(html: string): ParsedList {
   const $ = cheerio.load(html);
   const listings: RawListing[] = [];
@@ -32,10 +54,11 @@ export function parseListPage(html: string): ParsedList {
 
   $('article.type_biens-location').each((_i, element) => {
     const article = $(element);
-    const reference = POST_ID.exec(article.attr('class') ?? '')?.[1];
     const link = article.find('.entry-title a').first();
     const href = link.attr('href');
-    if (reference === undefined || href === undefined) return;
+    if (href === undefined) return;
+    const reference = permalinkRef(href) ?? POST_ID.exec(article.attr('class') ?? '')?.[1];
+    if (reference === undefined) return;
 
     // « Appartement 55.86 m² » puis « 3 pièces dont 2 chambres », séparés par
     // des <br> : on lit le texte entier et l'on y cherche chaque motif.

@@ -12,6 +12,7 @@
 import { ONE_SHOT_SOURCES, type NormalizedListing } from '@maioun/shared';
 import {
   identifiers,
+  listingAddress,
   photoKeys,
   sameSourceConflict,
   similarity,
@@ -117,6 +118,13 @@ export function blockingKeys(listing: NormalizedListing): string[] {
     }
   }
 
+  // L'ADRESSE DE L'ANNONCE EST UNE CLÉ. Le signal « même page » vaut à lui seul
+  // la fusion, encore faut-il que la paire soit comparée : une alerte de
+  // portail n'a souvent ni ville, ni surface, ni téléphone à partager avec la
+  // fiche qu'elle cite. `dedupe` écarte ensuite les adresses génériques.
+  const address = listingAddress(listing.sourceUrl);
+  if (address !== null) keys.push(`url:${address}`);
+
   // CHAQUE PHOTO EST UNE CLÉ. Sans elle, la comparaison fine n'avait jamais
   // lieu : une annonce d'agrégateur sans ville et au loyer hors charges ne
   // tombe dans aucun seau commun avec l'annonce d'origine, alors même qu'elles
@@ -172,6 +180,33 @@ function catalogPhotos(
   return catalog;
 }
 
+/**
+ * Combien d'annonces peuvent citer une même adresse avant qu'elle cesse d'en
+ * désigner une seule.
+ *
+ * TROIS, PARCE QU'UNE ADRESSE LÉGITIME EN RÉUNIT PEU : une page de portail est
+ * citée par la source qui la collecte et par les alertes qui l'annoncent —
+ * mesuré sur l'inventaire le 2026-09-18, jamais plus de deux annonces. Au-delà,
+ * c'est un lien que la source pose faute d'en avoir un par annonce : le
+ * bulletin abonné de BEP renvoie ainsi cent vingt-huit logements vers sa page
+ * d'accueil. Les compter comme un seul bien serait la pire des fusions.
+ */
+const ADRESSE_PARTAGEE_MAX = 3;
+
+/** Les adresses qui ne désignent aucune annonce en particulier. */
+function genericAddresses(listings: readonly NormalizedListing[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const listing of listings) {
+    const address = listingAddress(listing.sourceUrl);
+    if (address !== null) counts.set(address, (counts.get(address) ?? 0) + 1);
+  }
+  const generic = new Set<string>();
+  for (const [address, count] of counts) {
+    if (count > ADRESSE_PARTAGEE_MAX) generic.add(address);
+  }
+  return generic;
+}
+
 export interface DedupeOptions {
   /**
    * Si `true`, les paires ambiguës sont fusionnées.
@@ -218,6 +253,7 @@ interface CompareContext {
   readonly relaysListings: (sourceId: string) => boolean;
   readonly operatorOf: (sourceId: string) => string | null;
   readonly photoIdentifies: (key: string) => boolean | null;
+  readonly addressIdentifies: (address: string) => boolean | null;
 }
 
 /**
@@ -234,7 +270,14 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
   const right = ctx.byId.get(rightId);
   if (left === undefined || right === undefined) return 0;
 
-  const result = similarity(left, right, ctx.relaysListings, ctx.operatorOf, ctx.photoIdentifies);
+  const result = similarity(
+    left,
+    right,
+    ctx.relaysListings,
+    ctx.operatorOf,
+    ctx.photoIdentifies,
+    ctx.addressIdentifies,
+  );
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
     ctx.links.push({ leftId, rightId, strength: result.strength });
   } else if (result.verdict === 'ambiguous') {
@@ -313,6 +356,7 @@ export function dedupe(
 
   const relaysListings = options.relaysListings ?? ((): boolean => false);
   const catalog = catalogPhotos(listings, relaysListings);
+  const generic = genericAddresses(listings);
   const ctx: CompareContext = {
     byId,
     comparedPairs: new Set<string>(),
@@ -322,9 +366,13 @@ export function dedupe(
     relaysListings,
     operatorOf: options.operatorOf ?? ((): string | null => null),
     photoIdentifies: (key) => !catalog.has(key),
+    addressIdentifies: (address) => !generic.has(address),
   };
   let comparisonCount = 0;
-  for (const bucket of buckets.values()) {
+  for (const [key, bucket] of buckets) {
+    // Une adresse générique ne rapproche rien : la comparer coûterait huit
+    // mille comparaisons pour le seul bulletin BEP.
+    if (key.startsWith('url:') && generic.has(key.slice(4))) continue;
     // Un bucket dégénéré (toutes les annonces d'une ville sans surface ni prix)
     // ferait exploser le coût : on l'ignore plutôt que de ralentir la collecte.
     if (bucket.length >= 2 && bucket.length <= 200) {

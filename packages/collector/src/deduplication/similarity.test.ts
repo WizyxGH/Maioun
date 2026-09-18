@@ -225,6 +225,66 @@ describe('même page d’annonce', () => {
     const b = { ...portail, sourceUrl: 'https://agence.example.invalid/bien.php?id=2' };
     expect(similarity(a, b).signals.map((s) => s.code)).not.toContain('url');
   });
+
+  /**
+   * Le même lien ne s'écrit pas pareil selon qui le publie : le courriel
+   * d'alerte y colle son mouchard, la fiche écrit `www.` et une majuscule.
+   */
+  it('reconnaît le même lien sous deux écritures', () => {
+    const a = {
+      ...alerte,
+      sourceUrl: 'https://portail.example.invalid/Annonce/AG000000-1?utm_source=alerte&x=2',
+    };
+    const b = {
+      ...portail,
+      sourceUrl: 'https://www.portail.example.invalid/annonce/ag000000-1?x=2',
+    };
+    expect(similarity(a, b).signals.map((s) => s.code)).toContain('url');
+  });
+
+  /**
+   * UNE ADRESSE GÉNÉRIQUE NE PROUVE RIEN. Une source sans lien par annonce en
+   * pose un seul sur tout son stock : le tenir pour une preuve d'identité
+   * réunirait des logements entièrement différents.
+   */
+  it('refuse une adresse que sa source pose sur tout son stock', () => {
+    const generique = 'https://bulletin.example.invalid/w_index_abonnes.php';
+    const a = { ...alerte, sourceUrl: generique };
+    const b = { ...portail, sourceUrl: generique };
+    expect(similarity(a, b).signals.map((s) => s.code)).toContain('url');
+    const garde = similarity(
+      a,
+      b,
+      () => false,
+      () => null,
+      () => null,
+      () => false,
+    );
+    expect(garde.signals.map((s) => s.code)).not.toContain('url');
+  });
+
+  /**
+   * Chez un RELAIS, chaque annonce pointe par construction la page d'origine :
+   * deux alertes qui citent la même page annoncent le même studio. Deux
+   * références se sont succédé pour un studio Valrose, et il comptait double.
+   */
+  it('fusionne deux annonces d’un relais qui citent la même page', () => {
+    const a = makeOccurrence({
+      id: 'email-alerts:seloger:19-47-700',
+      sourceId: 'email-alerts',
+      sourceUrl: page,
+      title: 'Studio meublé Valrose',
+      price: 700,
+      area: 19.47,
+      city: null,
+      postalCode: null,
+      description: null,
+      imageUrls: [],
+    });
+    const b = { ...a, id: 'email-alerts:seloger:19-47-700-06100', postalCode: '06100' };
+    expect(similarity(a, b).signals.map((s) => s.code)).not.toContain('url');
+    expect(similarity(a, b, (id) => id === 'email-alerts').verdict).toBe('duplicate');
+  });
 });
 
 /** Relevé du 2026-09-15 : alertes SeLoger restées seules, doubles FNAIM enchaînés. */

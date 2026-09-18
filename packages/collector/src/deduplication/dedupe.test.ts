@@ -1007,3 +1007,56 @@ describe('deux logements voisins ne se croisent pas', () => {
     ]);
   });
 });
+
+/**
+ * L'ADRESSE QUI NE DÉSIGNE PERSONNE.
+ *
+ * Une source sans lien par annonce en pose un seul sur tout son stock — le
+ * bulletin abonné de BEP renvoie ses cent vingt-huit logements vers sa page
+ * d'accueil. Ce lien vaut pourtant à lui seul la fusion : sans garde-fou, il
+ * réunirait des logements entièrement différents.
+ */
+describe('adresse partagée par tout un stock', () => {
+  const generique = 'https://bulletin.example.invalid/w_index_abonnes.php';
+  const stock = [1, 2, 3, 4, 5].map((n) =>
+    listing({
+      id: `bulletin:${n}`,
+      sourceId: 'bulletin',
+      sourceUrl: generique,
+      title: `Bien ${n}`,
+      price: 600 + n * 100,
+      area: 18 + n * 4,
+    }),
+  );
+  // Une alerte n'a souvent ni loyer, ni surface, ni commune : l'adresse est
+  // tout ce qu'elle partage, et c'est bien là le danger.
+  const alerte = listing({
+    id: 'alerte:1',
+    sourceId: 'alerte',
+    sourceUrl: generique,
+    title: 'Appartement',
+    price: null,
+    area: null,
+    city: null,
+    postalCode: null,
+  });
+
+  it('ne rapproche aucun de ces logements', () => {
+    const { groups } = dedupe([...stock, alerte]);
+    expect(groups).toHaveLength(6);
+  });
+
+  /** La même adresse, citée par deux annonces seulement, reste une preuve. */
+  it('laisse fusionner une adresse que deux annonces seulement citent', () => {
+    const { groups } = dedupe([stock[0] as NormalizedListing, alerte]);
+    expect(groups).toHaveLength(1);
+  });
+
+  /**
+   * LA CLÉ DE BLOCAGE AUSSI. Sans elle, la paire n'est jamais comparée : une
+   * alerte sans loyer, sans surface et sans commune ne tombe dans aucun seau.
+   */
+  it('indexe l’adresse comme clé de rapprochement', () => {
+    expect(blockingKeys(alerte)).toContain('url:bulletin.example.invalid/w_index_abonnes.php');
+  });
+});

@@ -23,12 +23,21 @@ import { compactListing } from '../shared/raw-listing.js';
 /**
  * URL vers laquelle pointe une annonce du bulletin abonné.
  *
- * Les références du bulletin sont ÉPHÉMÈRES : elles changent à chaque nouveau
- * bulletin, si bien qu'un lien `?references=<ref>` d'hier renvoie « référence
- * inconnue » aujourd'hui. Il n'existe donc AUCUN lien stable par annonce — on
- * pointe vers le bulletin lui-même (page d'accueil abonné), où l'utilisateur,
- * une fois connecté, retrouve l'annonce par sa référence (affichée sur la
- * fiche Maïoun). Voir `docs/sources.md`.
+ * IL N'EXISTE AUCUNE ADRESSE PAR ANNONCE, et la capture du bulletin le prouve :
+ * la page entière tient dans UN formulaire `method="post"`, et tout y passe.
+ * « Contacter » n'est pas un lien mais `sendreq(bref)`, qui écrit dans un champ
+ * caché et soumet le formulaire ; la recherche par référence de même. La seule
+ * adresse en GET qui vise une annonce est la vue d'impression
+ * `w_classeurs_imprimer.php`, qui exige un jeton de session éphémère
+ * (`abontempid`) — elle meurt avec la session. Quant aux références du
+ * bulletin, elles changent d'un bulletin à l'autre.
+ *
+ * ON POINTE DONC VERS LE BULLETIN LUI-MÊME, la même adresse pour toutes les
+ * annonces. C'est une adresse GÉNÉRIQUE, et elle ne prouve aucune identité :
+ * le dédoublonnage écarte les adresses que trop d'annonces partagent, sans quoi
+ * ce seul lien réunirait tout le stock en un logement. L'utilisateur, une fois
+ * connecté, retrouve l'annonce par sa référence (affichée sur la fiche Maïoun).
+ * Voir `docs/sources.md`.
  */
 const BULLETIN_URL = 'http://abonnes.beplogement.com/w_index_abonnes.php';
 /** Le formulaire de demande, une annonce à la fois. */

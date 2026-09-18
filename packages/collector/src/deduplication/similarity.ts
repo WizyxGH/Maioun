@@ -537,32 +537,70 @@ function sameDistinctiveTitle(a: NormalizedListing, b: NormalizedListing): boole
   return shorter.cut || new Set(shorter.tokens).size === others.size;
 }
 
-/** Une page d'annonce, sans fragment ni barre finale ; `null` pour une racine ou un lien illisible. */
-function listingPage(url: string): string | null {
+/**
+ * Ce qui, dans un lien, désigne la page — le reste ne sert qu'au pisteur.
+ *
+ * `utm_*` et consorts sont ajoutés par l'expéditeur du message, pas par le
+ * site : deux liens vers la MÊME annonce n'en portent pas les mêmes.
+ */
+const TRACKING_PARAM = /^(utm_|xtor|mtm_|pk_|at_|cm[pu]|gclid|fbclid|mc_|_hs|ref_src)/i;
+
+/**
+ * L'adresse d'une annonce, sous la forme qui permet de la reconnaître ;
+ * `null` pour une racine de site ou un lien illisible.
+ *
+ * DEUX ÉCRITURES DU MÊME LIEN DOIVENT SE RECONNAÎTRE : `www.` ou non, une
+ * majuscule dans le chemin, une barre finale, un paramètre de suivi collé par
+ * le courriel qui l'annonce, l'ordre des paramètres. Ce qui reste — l'hôte, le
+ * chemin, les paramètres porteurs de sens — est ce que le site, lui, publie.
+ * `?cle=0602287` en est un : le retirer confondrait toutes les fiches d'une
+ * même agence.
+ */
+export function listingAddress(url: string): string | null {
   try {
     const parsed = new URL(url);
-    const path = parsed.pathname.replace(/\/+$/, '');
+    const path = parsed.pathname.replace(/\/+$/, '').toLowerCase();
     if (path === '') return null;
-    return `${parsed.host.toLowerCase()}${path}${parsed.search}`;
+    const params = [...parsed.searchParams]
+      .filter(([name]) => !TRACKING_PARAM.test(name))
+      .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+      .map(([name, value]) => `${name.toLowerCase()}=${value}`)
+      .join('&');
+    const host = parsed.host.toLowerCase().replace(/^www\./, '');
+    return `${host}${path}${params === '' ? '' : `?${params}`}`;
   } catch {
     return null;
   }
 }
 
 /**
- * DEUX SOURCES QUI POINTENT LA MÊME PAGE PUBLIENT LA MÊME ANNONCE.
+ * DEUX ANNONCES QUI POINTENT LA MÊME PAGE SONT LA MÊME ANNONCE.
  *
  * Une alerte Bien'ici renvoie vers la page que la source Bien'ici collecte :
  * même lien, mais ni adresse, ni texte, ni photo. Prix, surface et pièces ne
  * faisaient que quarante-six points, et l'alerte restait seule.
  *
- * Entre sources différentes seulement : au sein d'une source, un lien partagé
- * est une page de liste (le bulletin BEP en porte quarante).
+ * ENCORE FAUT-IL QUE L'ADRESSE DÉSIGNE UNE ANNONCE, ce que dit
+ * `addressIdentifies`. Une source qui n'a pas de lien par annonce en pose un
+ * générique sur tout son stock — le bulletin abonné de BEP renvoie ses cent
+ * vingt-huit logements vers la même page d'accueil. Sans ce garde-fou, ce seul
+ * lien les fusionnerait tous.
+ *
+ * AU SEIN D'UNE SOURCE, le partage d'un lien reste suspect : c'est le signe
+ * d'une page de liste. Sauf chez un RELAIS, dont chaque annonce pointe par
+ * construction la page d'origine — deux alertes qui citent la même page SeLoger
+ * annoncent le même studio.
  */
-function sameListingPage(a: NormalizedListing, b: NormalizedListing): boolean {
-  if (a.sourceId === b.sourceId) return false;
-  const page = listingPage(a.sourceUrl);
-  return page !== null && page === listingPage(b.sourceUrl);
+function sameListingPage(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  relaysListings: (sourceId: string) => boolean,
+  addressIdentifies: (address: string) => boolean | null,
+): boolean {
+  const page = listingAddress(a.sourceUrl);
+  if (page === null || page !== listingAddress(b.sourceUrl)) return false;
+  if (addressIdentifies(page) === false) return false;
+  return a.sourceId !== b.sourceId || relaysListings(a.sourceId);
 }
 
 function collectStrongSignals(
@@ -570,9 +608,11 @@ function collectStrongSignals(
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
   photos: PhotoAgreement,
+  relaysListings: (sourceId: string) => boolean,
+  addressIdentifies: (address: string) => boolean | null,
 ): void {
   // Suffit à fusionner, sous réserve des garde-fous.
-  if (sameListingPage(a, b)) {
+  if (sameListingPage(a, b, relaysListings, addressIdentifies)) {
     push({ code: 'url', label: 'même page d’annonce', points: DUPLICATE_THRESHOLD });
   }
 
@@ -782,6 +822,10 @@ function collectMediumSignals(
  *   n'en sait rien (`null`). Seul `dedupe` peut trancher, lui qui voit tout le
  *   lot ; sans lui on répond « je ne sais pas », l'hypothèse prudente, celle
  *   qui fusionne le moins.
+ * @param addressIdentifies dit si une adresse désigne UNE annonce (`true`),
+ *   si elle est le lien générique que sa source pose sur tout son stock
+ *   (`false`), ou si l'on n'en sait rien (`null`) — même partage des rôles que
+ *   `photoIdentifies`.
  */
 export function similarity(
   a: NormalizedListing,
@@ -789,6 +833,7 @@ export function similarity(
   relaysListings: (sourceId: string) => boolean = () => false,
   operatorOf: (sourceId: string) => string | null = () => null,
   photoIdentifies: (key: string) => boolean | null = () => null,
+  addressIdentifies: (address: string) => boolean | null = () => null,
 ): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
@@ -813,7 +858,7 @@ export function similarity(
     signals.push(signal);
   };
 
-  collectStrongSignals(a, b, push, photos);
+  collectStrongSignals(a, b, push, photos, relaysListings, addressIdentifies);
   collectMediumSignals(a, b, push);
 
   /**
