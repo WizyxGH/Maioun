@@ -181,7 +181,7 @@ describe('formulations : il faut qu’elles parlent d’argent, et du bailleur',
       flags(
         described(
           'Dossier avec revenus au moins 2,7 fois le montant du loyer exigé. ' +
-            'Dossier à faire parvenir avant la visite à mirabelloimmobilier@gmail.com.',
+            'Dossier à faire parvenir avant la visite à agence@example.invalid.',
         ),
       ),
     ).not.toContain('suspicious.wording');
@@ -243,11 +243,11 @@ describe('une annonce d’agence honnête n’est jamais signalée', () => {
       rooms: 2,
       city: 'nice',
       postalCode: '06000',
-      address: '9 Avenue Denis Séméria',
+      address: '12 Avenue d’Essai',
       contact: makeContact({
-        agencyName: 'Acropolis’immo',
-        phone: '+33493265000',
-        email: 'contact@acropolisimmo.com',
+        agencyName: 'Agence d’essai',
+        phone: '+33600000078',
+        email: 'contact@example.invalid',
         reference: '6005099',
       }),
     });
