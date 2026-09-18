@@ -26,15 +26,27 @@ import {
 import type { ListingView } from './types.js';
 
 export function useNewListingAlerts({
+  enabled,
   onFresh,
   onOpen,
 }: {
+  /**
+   * `false` tant qu'aucun compte n'est connu : sans session, le serveur ne
+   * peut pas appliquer les critères de quelqu'un. Il rend alors le CATALOGUE —
+   * tout ce qui n'est ni parking ni local commercial dans les communes du
+   * projet —, sans budget, sans surface et sans exclusion de colocation. Le
+   * sondage signalait donc des annonces que la liste n'affiche pas, dès que la
+   * session expirait : l'accord « je suis prévenu » survit dans le navigateur,
+   * la session non.
+   */
+  readonly enabled: boolean;
   /** Annonces jamais vues jusqu'ici, dans les critères. Jamais appelé à vide. */
   readonly onFresh: (fresh: readonly ListingView[]) => void;
   /** Ouverture d'une fiche depuis une notification cliquée. */
   readonly onOpen: (id: string) => void;
 }): void {
   useEffect(() => {
+    if (!enabled) return undefined;
     if (isDemoMode()) return undefined; // pas de vraies données à surveiller
 
     let cancelled = false;
@@ -63,5 +75,5 @@ export function useNewListingAlerts({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [onFresh, onOpen]);
+  }, [enabled, onFresh, onOpen]);
 }

@@ -1549,7 +1549,13 @@ function AppView(): React.JSX.Element {
     (fresh: readonly ListingView[]): void => setToasts((current) => mergeToasts(current, fresh)),
     [],
   );
-  useNewListingAlerts({ onFresh: handleFresh, onOpen: openListing });
+  useNewListingAlerts({
+    // Sans compte connu, le serveur rend le catalogue et non VOS critères :
+    // on ne sonde pas.
+    enabled: currentUser !== null && currentUser !== undefined,
+    onFresh: handleFresh,
+    onOpen: openListing,
+  });
 
   /**
    * Efface les repères « non lue » de l'historique, d'un geste.

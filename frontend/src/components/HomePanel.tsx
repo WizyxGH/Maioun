@@ -26,6 +26,7 @@ import {
   RENT_REFERENCE_SOURCE,
   RENT_REFERENCE_YEAR,
 } from '@maioun/shared';
+import { archiveReasonOf } from '../availability.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { SearchSummary } from './SearchSummary.js';
 import { ListingThumbnail } from './ListingThumbnail.js';
@@ -173,7 +174,16 @@ export function HomePanel({
   onOpenProfile,
   onApplySearch,
 }: HomePanelProps): React.JSX.Element {
-  const active = listings.filter((listing) => listing.lifecycle === 'active');
+  /**
+   * SANS LES ARCHIVÉES, quoi qu'affiche la liste. Les compteurs de cet écran
+   * sont des choses À FAIRE : une annonce mise de côté — à la main, ou parce
+   * qu'elle est louée, retirée ou fermée aux candidatures — n'en est pas une.
+   * Ils suivaient la bascule « afficher les archivées », qui est un réglage
+   * d'AFFICHAGE : l'activer gonflait le nombre d'annonces à contacter.
+   */
+  const active = listings.filter(
+    (listing) => listing.lifecycle === 'active' && archiveReasonOf(listing) === null,
+  );
 
   /**
    * Nouveautés : signalées depuis la dernière visite, ou apparues dans les
@@ -197,10 +207,7 @@ export function HomePanel({
   // À FAIRE : ce qui attend un geste. Une annonce « à contacter » n'a pas
   // encore été appelée ; un favori laissé en « nouvelle » non plus.
   const toCall = active.filter(
-    (listing) =>
-      listing.actionPriority >= PRIORITY_HOT &&
-      awaitsContact(listing.tracking) &&
-      listing.archived !== true,
+    (listing) => listing.actionPriority >= PRIORITY_HOT && awaitsContact(listing.tracking),
   );
   const favorites = active.filter((listing) => listing.favorite === true);
   const favoritesUntouched = favorites.filter((listing) => listing.tracking === 'new');
