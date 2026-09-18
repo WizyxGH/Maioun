@@ -33,6 +33,7 @@ import {
 } from '../api/client.js';
 import {
   convertEstimatedDuration,
+  districtBySlug,
   normalizeTravelMode,
   REFERENCE_TRAVEL_MODES,
   type ReferenceTravelMode,
@@ -379,7 +380,12 @@ export function FiltersPanel({
               summarize={(count) => `${count} quartier${count > 1 ? 's' : ''}`}
               options={districts.map((district) => ({
                 value: district.slug,
-                label: `${district.label} (${district.count})`,
+                // « Nice Nord » n'est pas un quartier mais un SECTEUR, que les
+                // portails emploient faute de situer mieux. Le dire ici évite
+                // de le chercher parmi les vrais quartiers de la liste.
+                label: `${district.label} (${district.count})${
+                  districtBySlug(district.slug)?.sector === true ? ' · secteur' : ''
+                }`,
               }))}
               selected={new Set(filters.districts ?? [])}
               onToggle={(slug) => {

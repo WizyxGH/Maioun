@@ -38,6 +38,13 @@ export interface District {
    * Comparées sans casse ni accent, sur des mots entiers.
    */
   readonly aliases?: readonly string[];
+  /**
+   * SECTEUR, ET NON QUARTIER. « Nice Nord » n'est pas un quartier de Nice :
+   * c'est une zone large que les portails emploient quand ils ne situent pas
+   * mieux. On la garde pour qu'une annonce qui ne dit que cela reste située
+   * quelque part — mais l'écran ne doit pas la présenter comme les autres.
+   */
+  readonly sector?: boolean;
 }
 
 export const NICE_DISTRICTS: readonly District[] = [
@@ -155,9 +162,9 @@ export const NICE_DISTRICTS: readonly District[] = [
   },
 
   // --- Secteurs : en dernier recours, faute de quartier plus précis --------
-  { slug: 'nice-nord', label: 'Nice Nord' },
-  { slug: 'nice-ouest', label: 'Nice Ouest' },
-  { slug: 'nice-est', label: 'Nice Est' },
+  { slug: 'nice-nord', label: 'Nice Nord', sector: true },
+  { slug: 'nice-ouest', label: 'Nice Ouest', sector: true },
+  { slug: 'nice-est', label: 'Nice Est', sector: true },
 ];
 
 /** Le quartier portant ce `slug`, s'il existe. */

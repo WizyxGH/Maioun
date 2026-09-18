@@ -21,7 +21,12 @@ import {
   ToastViewport,
 } from '@/components/ui/toast.js';
 import { formatArea, formatCity, formatPrice, formatRooms } from '../format.js';
+import { splitPhotos } from '../photos.js';
+import { photoVariant } from '../photo-variant.js';
 import type { ListingView } from '../types.js';
+
+/** Côté de la vignette, en pixels : de quoi reconnaître un logement d'un coup d'œil. */
+const VIGNETTE = 56;
 
 /** Durée d'affichage. Assez pour lire trois faits, trop court pour gêner. */
 const TOAST_MS = 9_000;
@@ -31,10 +36,16 @@ export interface Toast {
   readonly id: string;
   readonly title: string;
   readonly body: string;
+  /** La première photo affichable, absente si la source n'en publie aucune. */
+  readonly photo?: string;
 }
 
 /** Bandeau d'une annonce fraîche, à partir des mêmes faits que la notification. */
 function toastFor(listing: ListingView): Toast {
+  // Le même chemin que partout ailleurs : relais des photos servies en clair,
+  // doublons écartés, puis une variante à la taille demandée. Rien n'est
+  // affiché si la source ne publie aucune photo — la cloche reprend sa place.
+  const affichable = splitPhotos(listing.imageUrls).embeddable[0];
   return {
     id: listing.id,
     title: `Nouvelle annonce · ${formatCity(listing.city.value)}`,
@@ -43,6 +54,7 @@ function toastFor(listing: ListingView): Toast {
       formatArea(listing.area.value),
       formatRooms(listing.rooms.value),
     ].join(' · '),
+    ...(affichable === undefined ? {} : { photo: photoVariant(affichable, VIGNETTE * 2) }),
   };
 }
 
@@ -93,7 +105,21 @@ export function ToastStack({
           // que le mouvement attire l'œil vers lui.
           className="rf-rise"
         >
-          <Bell aria-hidden="true" className="text-hot mt-0.5 size-4 shrink-0" />
+          {toast.photo === undefined ? (
+            <Bell aria-hidden="true" className="text-hot mt-0.5 size-4 shrink-0" />
+          ) : (
+            // LA PHOTO PLUTÔT QUE LA CLOCHE : on reconnaît un logement d'un
+            // coup d'œil bien avant d'avoir lu « 690 € · 32 m² ».
+            <img
+              src={toast.photo}
+              alt=""
+              width={VIGNETTE}
+              height={VIGNETTE}
+              loading="lazy"
+              decoding="async"
+              className="size-14 shrink-0 rounded-lg object-cover"
+            />
+          )}
           <button
             type="button"
             onClick={() => {
