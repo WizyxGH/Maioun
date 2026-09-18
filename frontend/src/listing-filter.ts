@@ -25,13 +25,17 @@ export interface ListingFilter {
   /** Masquer les annonces disparues de leur source depuis plusieurs collectes. */
   readonly hideUncertain: boolean;
   /**
-   * Ne garder que les annonces dont on n'a rien fait — celles que la carte
-   * laisse sans badge de suivi, et que le modèle appelle `new`.
+   * Ne garder que les annonces QU'ON N'A PAS ENCORE OUVERTES.
    *
-   * C'EST LE SUIVI, PAS LA FRAÎCHEUR. « Découverte il y a deux heures » se lit
-   * sur la carte et se classe par le tri « Plus récentes » ; ce qu'aucun
-   * réglage ne savait faire, c'était écarter les annonces déjà contactées,
-   * refusées ou ignorées, qui s'accumulent dans la liste sans jamais en sortir.
+   * Première version : le statut de suivi. L'utilisateur voulait autre chose —
+   * « celles que je n'ai pas encore regardées » — et une annonce ouverte, lue,
+   * puis laissée sans décision garde le statut « nouvelle » : elle repassait
+   * donc devant lui à chaque visite, ce que ce filtre devait précisément
+   * éviter.
+   *
+   * CE N'EST TOUJOURS PAS LA FRAÎCHEUR. « Découverte il y a deux heures » se
+   * lit sur la carte et se classe par le tri « Plus récentes » ; ici on écarte
+   * ce qu'on a déjà parcouru, quel que soit son âge.
    */
   readonly newOnly: boolean;
 }
@@ -61,8 +65,8 @@ export function filterListings(
       (quick === null || matchesQuickFilters(listing, quick)) &&
       matchesSearch(listing, filter.search) &&
       !(filter.hideUncertain && isUncertain(listing)) &&
-      // « À contacter » ne passe pas : c'est un statut que l'utilisateur a
-      // posé lui-même, donc une annonce dont il a déjà fait quelque chose.
-      !(filter.newOnly && listing.tracking !== 'new'),
+      // Ouverte une fois suffit à la retirer : le but est de ne plus revoir ce
+      // qu'on a déjà parcouru, même sans avoir rien décidé ensuite.
+      !(filter.newOnly && listing.viewed === true),
   );
 }

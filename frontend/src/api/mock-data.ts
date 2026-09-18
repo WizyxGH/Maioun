@@ -379,6 +379,8 @@ export const MOCK_LISTINGS: readonly ListingView[] = [
     matchesCriteria: true,
     actionPriority: 61,
     tracking: 'contacted',
+    // Déjà ouverte : c'est elle que « Pas encore vues » doit écarter.
+    viewed: true,
     lifecycle: 'active',
     firstSeenAt: '2026-08-13T09:10:00.000Z',
     lastSeenAt: OBSERVED_AT,

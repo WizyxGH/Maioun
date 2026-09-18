@@ -92,14 +92,22 @@ describe('filterListings', () => {
 
   // « Nouvelle » = le SUIVI, pas la date de découverte : tout statut posé —
   // y compris « À contacter », que l'utilisateur a choisi lui-même — sort.
-  it('« nouvelles uniquement » ne garde que les annonces sans statut de suivi', () => {
-    const contactee = { ...MOCK_LISTINGS[0]!, id: 'contactee', tracking: 'contacted' as const };
-    const aContacter = { ...MOCK_LISTINGS[0]!, id: 'a-contacter', tracking: 'toContact' as const };
-    const listings = [MOCK_LISTINGS[0]!, contactee, aContacter];
+  it('« pas encore vues » ne garde que les annonces jamais ouvertes', () => {
+    // Le statut ne décide pas : une annonce ouverte puis laissée sans décision
+    // garde le statut « nouvelle », et c'est elle qu'on ne veut plus revoir.
+    const ouverte = { ...MOCK_LISTINGS[0]!, id: 'ouverte', viewed: true };
+    const ouverteEtContactee = {
+      ...MOCK_LISTINGS[0]!,
+      id: 'ouverte-contactee',
+      viewed: true,
+      tracking: 'contacted' as const,
+    };
+    const jamaisOuverte = { ...MOCK_LISTINGS[0]!, id: 'jamais-ouverte', viewed: false };
+    const listings = [jamaisOuverte, ouverte, ouverteEtContactee];
 
     expect(filterListings(listings, base)).toHaveLength(3);
     expect(filterListings(listings, { ...base, newOnly: true }).map((one) => one.id)).toEqual([
-      MOCK_LISTINGS[0]!.id,
+      'jamais-ouverte',
     ]);
   });
 

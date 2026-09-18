@@ -443,7 +443,7 @@ export function anyClientFilter(view: {
   readonly sources: SourceSelection;
   readonly search: string;
   readonly hideUncertain: boolean;
-  /** « Nouvelles uniquement » : il vide la liste dès qu'on a tout dépouillé. */
+  /** « Pas encore vues » : il vide la liste dès qu’on a tout parcouru. */
   readonly newOnly: boolean;
 }): boolean {
   return (
@@ -693,7 +693,7 @@ function SearchResults({
   /** `true` si le vide vient d'un filtre, et non d'un inventaire vide. */
   readonly emptyBecauseFiltered: boolean;
   /**
-   * `true` si « Nouvelles uniquement » est en vigueur.
+   * `true` si « Pas encore vues » est en vigueur.
    *
    * Ce filtre-là VIDE LA LISTE QUAND TOUT VA BIEN — avoir traité chaque annonce
    * est le but, pas une panne. « Aucune annonce ne correspond à ces filtres »
@@ -716,7 +716,7 @@ function SearchResults({
         {favoritesOnly
           ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
           : newOnly
-            ? 'Plus rien de nouveau : chaque annonce de cette liste porte déjà un statut. Retirez la puce « Nouvelles uniquement » pour toutes les revoir.'
+            ? 'Vous avez tout parcouru : chaque annonce de cette liste a déjà été ouverte. Retirez la puce « Pas encore vues » pour toutes les revoir.'
             : emptyBecauseFiltered
               ? 'Aucune annonce ne correspond à ces filtres.'
               : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
@@ -935,7 +935,7 @@ function AppView(): React.JSX.Element {
   const [hideUncertain, setHideUncertain] = useState(restored.hideUncertain);
   const [showArchived, setShowArchived] = useState(restored.showArchived);
   /**
-   * « Nouvelles uniquement » : les annonces dont on n'a encore rien fait.
+   * « Pas encore vues » : les annonces qu’on n’a pas encore ouvertes.
    *
    * Le suivi, et non la date de découverte — voir `listing-filter.ts`. Mémorisé
    * comme les autres bascules : on le pose le matin pour dépouiller l'arrivage,
@@ -1215,7 +1215,7 @@ function AppView(): React.JSX.Element {
     [sourceCounts, sourceFilter],
   );
   /**
-   * « Nouvelles uniquement » RESTE INERTE DANS LES FAVORIS.
+   * « Pas encore vues » RESTE INERTE DANS LES FAVORIS.
    *
    * La barre de puces disparaît entièrement sur cet écran : le filtre y
    * restreindrait sans rien afficher, sans pastille et sans croix pour le
@@ -1259,7 +1259,7 @@ function AppView(): React.JSX.Element {
       listing.actionPriority >= PRIORITY_HOT && awaitsContact(listing.tracking),
     [],
   );
-  // « Nouvelles uniquement » RÉTRÉCIT AUSSI CETTE SECTION, et c'est voulu : les
+  // « Pas encore vues » RÉTRÉCIT AUSSI CETTE SECTION, et c'est voulu : les
   // annonces marquées « À contacter » ont déjà reçu une décision, elles sortent
   // donc de la liste entière, en-tête compris.
   const hot = useMemo(() => (grouped ? ranked.filter(urgent) : []), [ranked, grouped, urgent]);
@@ -2524,7 +2524,7 @@ function AppView(): React.JSX.Element {
       ['Favoris uniquement', favoritesOnly, () => setFavoritesOnly(false)],
       ['Annonces archivées', showArchived, () => setShowArchived(false)],
       ['Sans les annonces à vérifier', hideUncertain, () => setHideUncertain(false)],
-      ['Nouvelles uniquement', newOnly, () => setNewOnly(false)],
+      ['Pas encore vues', newOnly, () => setNewOnly(false)],
     ]),
   );
 
@@ -2799,7 +2799,7 @@ function AppView(): React.JSX.Element {
             toggles={[
               ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
               // Dépouiller l'arrivage : ne garder que ce dont on n'a rien fait.
-              ['Nouvelles uniquement', newOnly, setNewOnly],
+              ['Pas encore vues', newOnly, setNewOnly],
               ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
               ['Annonces archivées', showArchived, setShowArchived],
             ]}

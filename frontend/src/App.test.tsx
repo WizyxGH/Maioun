@@ -460,7 +460,7 @@ describe('anyClientFilter', () => {
  * scénario rejoue les trois obligations d'affilée, du clic jusqu'au retour en
  * arrière.
  */
-describe('filtre « Nouvelles uniquement »', () => {
+describe('filtre « Pas encore vues »', () => {
   /**
    * Le nombre porté par la pastille du bouton « Filtres », `0` s'il n'y en a
    * pas. On le lit plutôt que de l'écrire en dur : la pastille compte aussi le
@@ -472,22 +472,22 @@ describe('filtre « Nouvelles uniquement »', () => {
     return last === undefined ? 0 : Number(last.textContent);
   }
 
-  it('écarte les annonces suivies, se montre en puce, se compte et s’efface', async () => {
+  it('écarte les annonces déjà ouvertes, se montre en puce, se compte et s’efface', async () => {
     const user = userEvent.setup();
     await renderSearch();
-    // Quatre annonces dans les critères, dont une déjà contactée.
+    // Quatre annonces dans les critères, dont une déjà ouverte.
     expect(await screen.findAllByTestId('listing-card')).toHaveLength(4);
     const before = filtersBadge();
 
     await user.click(screen.getByRole('button', { name: 'Filtres' }));
     await user.click(screen.getByRole('button', { name: /^Afficher/ }));
-    await user.click(screen.getByRole('checkbox', { name: 'Nouvelles uniquement' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Pas encore vues' }));
     await user.click(screen.getByRole('button', { name: 'Fermer' }));
 
     expect(await screen.findAllByTestId('listing-card')).toHaveLength(3);
     // La puce, et sa croix : le filtre se voit et se retire d'un clic.
     expect(
-      screen.getByRole('button', { name: 'Retirer le filtre Nouvelles uniquement' }),
+      screen.getByRole('button', { name: 'Retirer le filtre Pas encore vues' }),
     ).toBeInTheDocument();
     // UNE PUCE = UN FILTRE COMPTÉ, et un seul.
     expect(filtersBadge()).toBe(before + 1);
