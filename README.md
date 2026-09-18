@@ -160,6 +160,7 @@ critères, sans lancer la collecte à la main :
 | `pnpm build:landing`          | construit la page de présentation publique (`landing/`)                         |
 | `pnpm verify`                 | **tout** : format, lint, types, tests, end-to-end, secrets — avant tout commit  |
 | `pnpm check:secrets`          | scanner de secrets seul                                                         |
+| `pnpm query "<SELECT …>"`     | interroger la base EN LECTURE (tout le reste est refusé)                        |
 
 ## Documentation
 
@@ -169,6 +170,7 @@ critères, sans lancer la collecte à la main :
 | [sources.md](docs/sources.md)               | étude datée des sources (robots.txt, verdicts, priorités)                                                                          |
 | [deployment.md](docs/deployment.md)         | installation locale, `.env`, notifications, et option cloud gratuite (Turso + Actions + Pages)                                     |
 | [privacy.md](docs/privacy.md)               | cartographie des données, les six barrières anti-fuite                                                                             |
+| [CLAUDE.md](CLAUDE.md)                      | ce qu'il ne faut pas se tromper quand on travaille sur le dépôt, humain ou agent                                                   |
 | [risque-arnaque.md](docs/risque-arnaque.md) | fausses annonces : le croisement courte durée / longue durée mesuré, les règles écartées et leur compte de faux positifs           |
 
 Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
