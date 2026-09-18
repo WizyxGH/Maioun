@@ -326,11 +326,20 @@ type FullState = ReadonlyMap<string, 'ok' | 'ko'>;
 /**
  * La photo, en grand, sur fond noir.
  *
+ * L'IMAGE VA JUSQU'AUX BORDS. `max-w-full` ne fait que rétrécir : une photo
+ * plus petite que l'écran restait à sa taille, cernée de noir — une fenêtre
+ * dans une fenêtre, ce qu'un plein écran doit précisément éviter. Elle occupe
+ * donc tout, et `object-contain` la garde ENTIÈRE : une photo d'annonce rognée
+ * perd ce qu'on venait y chercher. Seuls la croix, le compteur et les flèches
+ * gardent une marge, celle des encoches et des barres système.
+ *
  * CE QU'ELLE DOIT SURTOUT NE PAS FAIRE : montrer un écran vide le temps qu'une
  * grande image arrive. On repart donc de la déclinaison que la fiche a DÉJÀ
  * chargée — elle est en cache, elle s'affiche immédiatement —, et la version
- * pleine largeur la remplace quand elle est prête. Sur un réseau maigre, les
- * deux se confondent et rien n'est rechargé.
+ * pleine largeur la remplace quand elle est prête. Même règle à la ROTATION :
+ * l'appareil tourné, la photo affichée reste à l'écran pendant que la
+ * déclinaison plus large se charge derrière. Sur un réseau maigre, tout cela se
+ * confond et rien n'est rechargé.
  *
  * ON NE PRÉCHARGE QUE LES DEUX VOISINES, ET APRÈS COUP. Douze photos en grand à
  * l'ouverture, c'est près de quatre mégaoctets pour onze images que personne ne
@@ -357,23 +366,25 @@ function PhotoGallery({
 }): React.JSX.Element {
   const [index, setIndex] = useState(startAt);
   const [full, setFull] = useState<FullState>(new Map());
+  // La plus grande largeur ARRIVÉE pour chaque photo. C'est elle qu'on affiche :
+  // après une rotation, la déclinaison d'avant reste à l'écran le temps que la
+  // nouvelle charge, au lieu de retomber sur la vignette de la fiche.
+  const [best, setBest] = useState<ReadonlyMap<string, number>>(new Map());
   // Repli d'une photo dont la déclinaison a échoué : l'originale, puis l'aveu.
   const [fallen, setFallen] = useState<ReadonlyMap<string, 'raw' | 'gone'>>(new Map());
   const panel = useRef<HTMLDivElement>(null);
   const touch = useRef<{ readonly x: number; readonly y: number } | null>(null);
   const lastWheel = useRef(0);
   const constrained = useConstrainedNetwork();
-  // Figée à l'ouverture : une rotation d'écran redemanderait toute la série
-  // dans une autre largeur, sans que rien ne s'affiche mieux.
-  const [width] = useState(() => fullscreenWidth(constrained, shownWidth));
+  const [width, setWidth] = useState(() => fullscreenWidth(constrained, shownWidth));
 
   const last = urls.length - 1;
   const at = Math.min(index, last);
   const photo = urls[at]!;
   const big = photoVariant(photo, width);
   const step = fallen.get(photo);
-  const quick = photoVariant(photo, shownWidth);
-  const src = step === 'raw' ? photo : full.get(big) === 'ok' ? big : quick;
+  const arrived = best.get(photo) ?? 0;
+  const src = step === 'raw' ? photo : photoVariant(photo, Math.max(arrived, shownWidth));
 
   const close = useCallback((): void => {
     // Dépiler NOTRE entrée : le « Retour » du téléphone doit refermer la
@@ -415,6 +426,25 @@ function PhotoGallery({
   useEffect(() => {
     panel.current?.focus();
   }, []);
+
+  /**
+   * LA ROTATION EST UN AGRANDISSEMENT. Une photo de logement est presque
+   * toujours en paysage : tournée, elle passe du tiers de l'écran à l'écran
+   * entier, et la déclinaison qui suffisait ne suffit plus.
+   *
+   * La largeur ne REDESCEND jamais — remettre le téléphone droit rechargerait
+   * une image plus petite que celle déjà affichée, pour la montrer moins bien.
+   */
+  useEffect(() => {
+    const resize = (): void =>
+      setWidth((current) => Math.max(current, fullscreenWidth(constrained, shownWidth)));
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    return () => {
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+    };
+  }, [constrained, shownWidth]);
 
   const go = useCallback(
     (next: number): void => setIndex(Math.max(0, Math.min(next, last))),
@@ -462,8 +492,14 @@ function PhotoGallery({
     return () => document.removeEventListener('keydown', onKey);
   }, [at, last, go, close]);
 
-  const settle = (url: string, state: 'ok' | 'ko'): void =>
-    setFull((current) => new Map(current).set(url, state));
+  const settle = (target: string, state: 'ok' | 'ko'): void =>
+    setFull((current) => new Map(current).set(target, state));
+
+  /** Retient la plus grande déclinaison arrivée pour cette photo. */
+  const keep = (url: string, got: number): void =>
+    setBest((current) =>
+      (current.get(url) ?? 0) >= got ? current : new Map(current).set(url, got),
+    );
 
   // Ce qu'on garde chaud : la photo regardée, et une de chaque côté. Sur un
   // réseau maigre, rien d'autre que celle qu'on regarde.
@@ -483,10 +519,16 @@ function PhotoGallery({
       aria-modal="true"
       aria-label="Photos de l’annonce, en plein écran"
       tabIndex={-1}
-      className="rf-fade fixed inset-0 z-[2200] flex items-center justify-center bg-black/95 outline-none"
-      // La galerie prend les deux axes : le glissement latéral change de photo,
-      // le glissement vers le bas referme.
-      style={{ touchAction: 'none' }}
+      className="rf-fade fixed inset-0 z-[2200] flex items-center justify-center overflow-hidden bg-black/95 outline-none"
+      style={{
+        // La galerie prend les deux axes : le glissement latéral change de
+        // photo, le glissement vers le bas referme.
+        touchAction: 'none',
+        // `dvh` et non la hauteur héritée d'`inset-0` : sur un téléphone, la
+        // barre d'adresse se rétracte et se redéploie, et la rotation change
+        // tout. `dvh` suit la fenêtre RÉELLEMENT visible, comme la carte.
+        height: '100dvh',
+      }}
       onTouchStart={(event) => {
         const start = event.touches[0];
         touch.current = start === undefined ? null : { x: start.clientX, y: start.clientY };
@@ -530,7 +572,7 @@ function PhotoGallery({
           alt={`Photo ${at + 1} sur ${urls.length}`}
           decoding="async"
           referrerPolicy="no-referrer"
-          className="max-h-full max-w-full object-contain"
+          className="size-full object-contain"
           onError={() => {
             // Comme le carrousel : l'originale d'abord, l'aveu ensuite.
             setFallen((current) =>
@@ -554,7 +596,10 @@ function PhotoGallery({
             decoding="async"
             referrerPolicy="no-referrer"
             className="hidden"
-            onLoad={() => settle(target, 'ok')}
+            onLoad={() => {
+              settle(target, 'ok');
+              keep(url, width);
+            }}
             onError={() => settle(target, 'ko')}
           />
         );

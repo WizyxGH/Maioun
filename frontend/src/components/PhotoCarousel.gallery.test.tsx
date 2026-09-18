@@ -39,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(navigator, 'connection');
+  Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
 });
 
 describe('PhotoCarousel — ouverture de la galerie', () => {
@@ -245,6 +246,51 @@ describe('PhotoCarousel — qualité et poids en plein écran', () => {
     // 390 px de large : les 800 px de la fiche couvrent déjà l'écran, même à
     // densité 2. La galerie s'ouvre sur l'image déjà chargée, sans une requête.
     expect(new Set(galleryImages(openGallery()))).toEqual(new Set([variant(0, 800)]));
+  });
+
+  it('occupe tout l’écran, sans marge et sans rogner', () => {
+    render(<PhotoCarousel urls={SERIES} tall expandable />);
+    const dialog = openGallery();
+    const image = dialog.querySelector('img')!;
+    // `size-full` et non `max-w-full` : une photo plus petite que l'écran
+    // laissait une bande noire tout autour — une fenêtre dans une fenêtre.
+    expect(image.className).toContain('size-full');
+    // Entière, jamais rognée : une photo d'annonce coupée perd ce qu'on
+    // venait y chercher.
+    expect(image.className).toContain('object-contain');
+    // La fenêtre réellement visible, barres du navigateur comprises.
+    expect(dialog.style.height).toBe('100dvh');
+  });
+
+  it('suit la rotation : demande plus grand sans repartir de zéro', () => {
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    render(<PhotoCarousel urls={SERIES} tall expandable />);
+    const dialog = openGallery();
+
+    // Téléphone droit : les 1200 px de la fiche couvrent déjà les 780 px utiles.
+    expect(galleryImages(dialog)[0]).toBe(variant(0, FICHE));
+    [...dialog.querySelectorAll('img')].forEach((img) => fireEvent.load(img));
+
+    // On tourne l'appareil : 844 px à densité 2, la photo mérite mieux.
+    Object.defineProperty(window, 'innerWidth', { value: 844, configurable: true });
+    fireEvent(window, new Event('orientationchange'));
+
+    // La photo NE DISPARAÎT PAS le temps du chargement : on garde la
+    // déclinaison arrivée et la plus grande se prépare à côté.
+    expect(galleryImages(dialog)[0]).toBe(variant(0, FICHE));
+    expect(galleryImages(dialog)).toContain(variant(0, 1600));
+    fireEvent.load(dialog.querySelectorAll('img')[1]!);
+    expect(galleryImages(dialog)[0]).toBe(variant(0, 1600));
+
+    // Le rang ne bouge pas : on regarde toujours la même photo.
+    expect(within(dialog).getByText('Photo 1 sur 12')).toBeInTheDocument();
+
+    // Et l'on repose l'appareil à plat : rien à recharger, surtout pas plus
+    // petit que ce qui est à l'écran.
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    fireEvent(window, new Event('resize'));
+    expect(galleryImages(dialog)).toEqual([variant(0, 1600), variant(1, 1600)]);
   });
 
   it('le dit quand une photo ne charge pas, et la galerie reste navigable', async () => {
