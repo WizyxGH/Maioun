@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ListingView } from '../types.js';
 import { MOCK_LISTINGS } from '../api/mock-data.js';
+import type { TenantProfile } from '@maioun/shared';
 import { ContactPanel } from './ContactPanel.js';
 
 const base = MOCK_LISTINGS[0]!;
@@ -42,7 +43,7 @@ const PROFIL = {
   monthlyIncome: 2400,
   incomeBasis: 'net',
   guarantors: [],
-} as never;
+} as unknown as TenantProfile;
 
 function renderPanel(listing: ListingView, profile: unknown = null): void {
   render(
@@ -205,5 +206,28 @@ describe('le courrier : l’adresse plutôt qu’un bouton', () => {
       PROFIL,
     );
     expect(screen.getByTestId('contact-action')).toBeInTheDocument();
+  });
+});
+
+describe('le dossier vérifié remplace la liste des pièces', () => {
+  const LIEN = 'https://www.dossierfacile.logement.gouv.fr/file/abc123';
+
+  it('annonce le dossier au lieu de réclamer des dépôts', async () => {
+    renderPanel(base, { ...PROFIL, dossierFacileUrl: LIEN });
+    expect(await screen.findByText(/Dossier vérifié, joint au message/)).toBeInTheDocument();
+    // Plus de compte « 0/5 prêtes » ni d'invitation à compléter : le dossier
+    // est hébergé et contrôlé ailleurs.
+    expect(screen.queryByText('Pièces pour candidater')).toBeNull();
+    expect(screen.queryByText(/Compléter le dossier/)).toBeNull();
+  });
+
+  it('montre le lien tel qu’il partira', async () => {
+    renderPanel(base, { ...PROFIL, dossierFacileUrl: LIEN });
+    expect(await screen.findByRole('link', { name: LIEN })).toHaveAttribute('href', LIEN);
+  });
+
+  it('IGNORE une adresse qui n’est pas celle du service', () => {
+    renderPanel(base, { ...PROFIL, dossierFacileUrl: 'https://exemple.invalid/dossier' });
+    expect(screen.queryByText(/Dossier vérifié, joint au message/)).toBeNull();
   });
 });

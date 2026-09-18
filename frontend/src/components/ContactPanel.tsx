@@ -19,6 +19,7 @@ import { formatArea, formatPhone, formatPrice, formatSourceName, telHref } from 
 import { safeHref } from '../safe-url.js';
 import {
   awaitsContact,
+  dossierFacileLink,
   FOLLOW_UP_TEMPLATE,
   portalLabel,
   prepareMessage,
@@ -349,6 +350,11 @@ function openInApp(event: React.MouseEvent<HTMLAnchorElement>): void {
  * La liste est celle du dossier (décret n° 2015-1437), selon les garanties du
  * profil : on voit avant d'écrire si tout est prêt. Les pièces présentes sont
  * consignées avec le contact.
+ *
+ * UN LIEN DOSSIERFACILE REND TOUT CELA SANS OBJET. Le dossier est alors
+ * hébergé et vérifié par le service public, et le message le porte : réclamer
+ * des dépôts ici ferait croire qu'il manque quelque chose, et ferait déposer
+ * une seconde fois des pièces qu'on n'a plus besoin de garder.
  */
 function useDossierChecklist(profile: TenantProfile | null): {
   readonly attached: readonly string[];
@@ -357,15 +363,40 @@ function useDossierChecklist(profile: TenantProfile | null): {
   // `null` tant que la liste n'est pas arrivée : tout afficher « à déposer »
   // un instant ferait croire à un dossier vide.
   const [documents, setDocuments] = useState<readonly DocumentInfo[] | null>(null);
+  const dossier = dossierFacileLink(profile?.dossierFacileUrl);
 
   useEffect(() => {
-    if (!canStoreDocuments()) return;
+    // Rien à demander au serveur quand le dossier vit ailleurs.
+    if (dossier !== null || !canStoreDocuments()) return;
     void fetchDocuments()
       .then(setDocuments)
       .catch(() => {
         /* espace des pièces indisponible : pas de liste */
       });
-  }, []);
+  }, [dossier]);
+
+  if (dossier !== null) {
+    return {
+      attached: [],
+      checklist: (
+        <section className="border-good/40 bg-good/5 mt-3 rounded-lg border px-3 py-2">
+          <h3 className="text-[0.85rem] font-medium">Dossier vérifié, joint au message</h3>
+          <p className="text-muted-foreground mt-1 text-[0.85rem]">
+            Le message porte votre lien DossierFacile : le bailleur ouvre un dossier déjà contrôlé,
+            et vous choisissez à qui vous le transmettez. Aucune pièce à déposer ici.
+          </p>
+          <a
+            href={dossier}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary mt-1.5 inline-block text-[0.85rem] break-all underline"
+          >
+            {dossier}
+          </a>
+        </section>
+      ),
+    };
+  }
 
   if (profile === null || documents === null) return { attached: [], checklist: null };
 
