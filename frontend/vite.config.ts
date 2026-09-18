@@ -53,10 +53,53 @@ function shareMetadata(): Plugin {
   };
 }
 
+/**
+ * Ouvrir la connexion à l'API PENDANT que le code se télécharge.
+ *
+ * Le site est servi par GitHub Pages, l'API par un Worker : deux domaines.
+ * Aujourd'hui la seconde connexion — nom de domaine, TCP, TLS, soit trois
+ * allers-retours — ne commence qu'une fois le bundle chargé et exécuté, donc
+ * au plus tôt trois secondes après l'ouverture sur un réseau lent. Ces trois
+ * allers-retours se font aussi bien pendant le téléchargement.
+ *
+ * `use-credentials` et non l'ancrage anonyme : toutes les requêtes portent le
+ * cookie de session (`credentials: 'include'`), et une connexion ouverte dans
+ * l'autre mode ne leur servirait pas.
+ *
+ * L'ADRESSE VIENT DE L'ENVIRONNEMENT, jamais d'une constante : c'est la même
+ * variable que le code lit (`VITE_API_URL`), posée par le déploiement. Absente
+ * — aperçu local, démonstration —, on n'écrit rien plutôt qu'une adresse
+ * inventée.
+ */
+function apiPreconnect(): Plugin {
+  let origin: string | null = null;
+  try {
+    const raw = process.env['VITE_API_URL'];
+    origin = raw === undefined || raw === '' ? null : new URL(raw).origin;
+  } catch {
+    // Adresse illisible : pas de connexion anticipée, l'application reste.
+  }
+  return {
+    name: 'rf-api-preconnect',
+    transformIndexHtml: {
+      order: 'pre',
+      // En TÊTE : c'est la première chose utile que l'analyseur de préchargement
+      // rencontre, donc la connexion part avant même le téléchargement du code.
+      handler: (html) =>
+        origin === null
+          ? html
+          : html.replace(
+              '<head>',
+              `<head>\n    <link rel="preconnect" href="${origin}" crossorigin="use-credentials" />`,
+            ),
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
     base,
-    plugins: [react(), tailwindcss(), pagesDeepLinkFallback(), shareMetadata()],
+    plugins: [react(), tailwindcss(), pagesDeepLinkFallback(), shareMetadata(), apiPreconnect()],
     resolve: {
       // Alias shadcn/ui standard — permet `npx shadcn add <composant>`.
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

@@ -461,41 +461,111 @@ function jsonValue(value: unknown): string {
 }
 
 /**
+ * Le nombre de photos que la LISTE transporte.
+ *
+ * Relevé du 2026-09-18 sur cinq cents fiches : la liste envoie 10,4 adresses de
+ * photo par annonce et la carte n'en affiche que 5,1 — elle dédoublonne les
+ * variantes de taille, puis coupe à six. Ces adresses portent des empreintes,
+ * donc ne se compriment pas : à elles seules, 103 des 188 ko de la réponse
+ * comprimée, soit 55 %. C'est le premier poste de la liste, devant tout le
+ * reste réuni.
+ *
+ * SEPT ET NON SIX, parce que la carte dédoublonne AVANT de couper : à six,
+ * trois photos disparaissaient sur l'ensemble des cinq cents fiches ; à sept,
+ * aucune.
+ *
+ * La FICHE les a toutes : elle se recharge entièrement à l'ouverture
+ * (`getListing` ne passe pas par ici).
+ */
+const LIST_PHOTOS_MAX = 7;
+
+/**
+ * Coupe `"imageUrls"` au-delà du plafond, DANS LE TEXTE.
+ *
+ * Analyser la fiche pour la réémettre coûterait le temps de processeur que
+ * l'assemblage par texte économise : mesuré sur cinq cents fiches, 17 ms par
+ * `JSON.parse` puis `JSON.stringify`, contre 2 ms en repérant le tableau dans
+ * le texte. On compte donc ses éléments à la main, en traversant les chaînes
+ * JSON comme il se doit — une adresse peut contenir un crochet, et
+ * `indexOf(']')` couperait au mauvais endroit.
+ *
+ * Devant un texte inattendu, on le rend intact : une liste un peu lourde vaut
+ * mieux qu'une réponse tronquée.
+ */
+export function capListPhotos(json: string, max: number = LIST_PHOTOS_MAX): string {
+  const open = json.indexOf('"imageUrls":[');
+  if (open < 0) return json;
+  const GUILLEMET = 34;
+  const VIRGULE = 44;
+  const ANTISLASH = 92;
+  const CROCHET = 93;
+  const fin = json.length;
+  let i = open + 13;
+  let gardees = 0;
+  // Fin du dernier élément gardé ; -1 tant que le plafond n'est pas atteint.
+  let coupe = -1;
+  for (;;) {
+    if (i >= fin) return json;
+    const c = json.charCodeAt(i);
+    if (c === CROCHET) break;
+    if (c === VIRGULE) {
+      i += 1;
+      continue;
+    }
+    // Pas un tableau d'adresses : on ne touche à rien.
+    if (c !== GUILLEMET) return json;
+    i += 1;
+    for (;;) {
+      if (i >= fin) return json;
+      const d = json.charCodeAt(i);
+      if (d === GUILLEMET) break;
+      i += d === ANTISLASH ? 2 : 1;
+    }
+    i += 1;
+    gardees += 1;
+    if (gardees === max) coupe = i;
+  }
+  return coupe < 0 || coupe === i ? json : json.slice(0, coupe) + json.slice(i);
+}
+
+/**
  * Une fiche de la liste, en JSON, par ASSEMBLAGE de textes déjà encodés.
  *
  * `JSON.parse` de ce texte vaut `rowToListing(row)`, clé pour clé. L'ordre
  * compte : les champs de la ligne d'abord, la fiche ensuite, les scores et
  * trajets du lecteur en dernier — c'est la dernière occurrence d'une clé qui
  * l'emporte à la lecture, comme l'étalement dans `rowToListing`.
+ *
+ * Les photos y sont plafonnées, par les deux chemins : voir `capListPhotos`.
  */
 export function listItemJson(row: Record<string, unknown>): string {
   const stored = row['list_payload'];
   if (typeof stored !== 'string' || !stored.startsWith('{') || !stored.endsWith('}')) {
-    return JSON.stringify(rowToListing(row));
+    return capListPhotos(JSON.stringify(rowToListing(row)));
   }
   const body = stored.slice(1, -1);
   const reason = archiveReason(row, Number(row['application_full']) === 1);
   const scores = listScoresJson(row);
-  return (
+  return capListPhotos(
     `{"id":${JSON.stringify(String(row['id']))}` +
-    `,"lifecycle":${jsonValue(row['lifecycle'])}` +
-    `,"tracking":${jsonValue(row['user_tracking'] ?? 'new')}` +
-    `,"firstSeenAt":${jsonValue(row['first_seen_at'])}` +
-    `,"lastSeenAt":${jsonValue(row['last_seen_at'])}` +
-    `,"matchesCriteria":${Number(row['user_matches_criteria'] ?? 0) === 1}` +
-    `,"actionPriority":${jsonValue(Number(row['user_action_priority'] ?? 0))}` +
-    `,"viewed":${Number(row['user_viewed'] ?? 0) === 1}` +
-    `,"archived":${reason !== null}` +
-    `,"archiveReason":${jsonValue(reason)}` +
-    `,"favorite":${Number(row['user_favorite'] ?? 0) === 1}` +
-    `,"rented":${Number(row['rented'] ?? 0) === 1}` +
-    `,"partial":true` +
-    `,"notifiedAt":${jsonValue(row['user_notified_at'])}` +
-    `,"goneNotifiedAt":${jsonValue(row['gone_notified_at'])}` +
-    `,"remindedAt":${jsonValue(row['reminded_at'])}` +
-    (body === '' ? '' : `,${body}`) +
-    (scores === null ? '' : `,"scores":${scores}`) +
-    `,"distances":${listDistancesJson(row)}}`
+      `,"lifecycle":${jsonValue(row['lifecycle'])}` +
+      `,"tracking":${jsonValue(row['user_tracking'] ?? 'new')}` +
+      `,"firstSeenAt":${jsonValue(row['first_seen_at'])}` +
+      `,"lastSeenAt":${jsonValue(row['last_seen_at'])}` +
+      `,"matchesCriteria":${Number(row['user_matches_criteria'] ?? 0) === 1}` +
+      `,"actionPriority":${jsonValue(Number(row['user_action_priority'] ?? 0))}` +
+      `,"viewed":${Number(row['user_viewed'] ?? 0) === 1}` +
+      `,"archived":${reason !== null}` +
+      `,"archiveReason":${jsonValue(reason)}` +
+      `,"favorite":${Number(row['user_favorite'] ?? 0) === 1}` +
+      `,"rented":${Number(row['rented'] ?? 0) === 1}` +
+      `,"partial":true` +
+      `,"notifiedAt":${jsonValue(row['user_notified_at'])}` +
+      `,"goneNotifiedAt":${jsonValue(row['gone_notified_at'])}` +
+      `,"remindedAt":${jsonValue(row['reminded_at'])}` +
+      (body === '' ? '' : `,${body}`) +
+      (scores === null ? '' : `,"scores":${scores}`) +
+      `,"distances":${listDistancesJson(row)}}`,
   );
 }
 

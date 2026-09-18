@@ -11,6 +11,7 @@ import { listColumns, reasonlessScores } from '../core/list-payload.js';
 import {
   buildListQuery,
   buildPriceHistogram,
+  capListPhotos,
   etagMatches,
   listItemJson,
   RENT_FOR_BUDGET_SQL,
@@ -516,6 +517,68 @@ describe('listItemJson', () => {
       score_ready: 0,
     };
     expect(JSON.parse(listItemJson(brut))).toEqual(rowToListing(avant));
+  });
+
+  /**
+   * LES PHOTOS SONT LE PREMIER POIDS DE LA LISTE : des adresses à empreinte,
+   * que la compression ne réduit pas, pour un carrousel qui en montre six.
+   */
+  const photos = (n: number): string[] =>
+    Array.from({ length: n }, (_, i) => `https://photos.example.invalid/${i}.jpg`);
+
+  it('ne transporte que sept photos, par les deux chemins', () => {
+    const { avant, apres } = lignes(fiche({ imageUrls: photos(30) }));
+    for (const ligne of [avant, apres]) {
+      expect((JSON.parse(listItemJson(ligne)) as { imageUrls: string[] }).imageUrls).toEqual(
+        photos(7),
+      );
+    }
+  });
+
+  it('laisse intacte une fiche qui en a moins, et une fiche sans photo', () => {
+    for (const n of [0, 1, 7]) {
+      const { apres } = lignes(fiche({ imageUrls: photos(n) }));
+      expect((JSON.parse(listItemJson(apres)) as { imageUrls: string[] }).imageUrls).toEqual(
+        photos(n),
+      );
+    }
+  });
+
+  it('ne coupe rien d’autre que les photos', () => {
+    const { avant, apres } = lignes(fiche({ imageUrls: photos(30) }));
+    const attendu = rowToListing(avant) as Record<string, unknown>;
+    expect(JSON.parse(listItemJson(apres))).toEqual({ ...attendu, imageUrls: photos(7) });
+  });
+});
+
+describe('capListPhotos', () => {
+  /**
+   * La coupe se fait dans le TEXTE, sans analyser la fiche : elle doit donc
+   * savoir traverser une chaîne JSON, y compris quand celle-ci contient un
+   * crochet ou un guillemet échappé.
+   */
+  it('respecte les échappements et les crochets dans une adresse', () => {
+    const urls = ['a"b', 'c]d', 'e\\f', 'g', 'h', 'i', 'j', 'k', 'l'];
+    const texte = `{"imageUrls":${JSON.stringify(urls)},"suite":1}`;
+    expect(JSON.parse(capListPhotos(texte))).toEqual({
+      imageUrls: urls.slice(0, 7),
+      suite: 1,
+    });
+  });
+
+  it('rend le texte intact quand il n’y a rien à couper', () => {
+    for (const texte of [
+      '{"titre":"sans photo"}',
+      '{"imageUrls":[]}',
+      '{"imageUrls":[1,2,3,4,5,6,7,8]}',
+      '{"imageUrls":[',
+    ]) {
+      expect(capListPhotos(texte)).toBe(texte);
+    }
+  });
+
+  it('coupe au plafond demandé', () => {
+    expect(capListPhotos('{"imageUrls":["a","b","c"]}', 2)).toBe('{"imageUrls":["a","b"]}');
   });
 });
 
