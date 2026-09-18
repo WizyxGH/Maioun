@@ -323,6 +323,29 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
     ).toBe('Boulevard Fictif');
   });
 
+  it('rattrape la colocation dite au pluriel, ou en tête de description', () => {
+    // Le rejeu est ce qui repêchera le stock : ces deux annonces sont en base
+    // sans drapeau, et rien ne les fera recollecter.
+    expect(
+      rederiveFromText(
+        stored({
+          flatShare: null,
+          title: 'Appartement meublé à louer',
+          description: 'J’ai l’habitude de faire des colocations et je m’entends avec mes colocs.',
+        }),
+      )?.flatShare,
+    ).toBe(true);
+    expect(
+      rederiveFromText(
+        stored({
+          flatShare: null,
+          title: 'Appartement meublé à louer',
+          description: 'Chambre de 57 m² à louer sur Nice\n\nDeuxième étage sans ascenseur.',
+        }),
+      )?.flatShare,
+    ).toBe(true);
+  });
+
   it('retrouve la rue restée dans la description', () => {
     // Le cas qui laissait 86 fiches sur 93 sans adresse : l'extraction ne
     // savait pas lire une voie sans numéro le jour de la collecte.
@@ -645,6 +668,22 @@ describe('faux positifs relevés le 2026-09-14', () => {
         description: 'Grand 2P rénové. Possibilité colocation, canapé lit.',
       })?.flatShare,
     ).toBe(false);
+  });
+
+  /**
+   * LA DESCRIPTION DOIT ARRIVER ENTIÈRE au lecteur de colocation : c'est sa
+   * première ligne qui porte l'intitulé de l'annonceur quand le titre vient
+   * d'un gabarit de portail. Noyée dans le reste du texte, elle ne dit plus
+   * quel logement est loué.
+   */
+  it('lit l’intitulé de l’annonceur en tête de description', () => {
+    expect(
+      normalize({
+        title: 'Appartement meublé à louer',
+        description:
+          'Chambre de 57 m² à louer sur Nice\n\nLe logement se trouve près du Palais des Expositions.',
+      })?.flatShare,
+    ).toBe(true);
   });
 });
 

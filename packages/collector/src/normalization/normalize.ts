@@ -559,7 +559,10 @@ export function normalizeListing(
     // de la source, que plusieurs agences laissent à sa valeur par défaut.
     furnished: parseFurnished(raw.title) ?? parseFurnished(text.furnished),
     flatShare:
-      declaredFlatShare(raw) ?? parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
+      declaredFlatShare(raw) ??
+      // La description à part : sa PREMIÈRE LIGNE est l'intitulé de l'annonceur
+      // quand le titre vient d'un gabarit de portail.
+      parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title, raw.description),
     dpe: resolveDpe(raw),
     ges: resolveGes(raw),
     /**
@@ -636,7 +639,8 @@ function fillGaps(
     // chambre, et on ne loue une chambre seule que dans un logement partagé.
     // Noyé dans la description, ce signal se perdait.
     flatShare:
-      occurrence.flatShare === null && parseFlatShare(text, occurrence.title) === true
+      occurrence.flatShare === null &&
+      parseFlatShare(text, occurrence.title, occurrence.description) === true
         ? true
         : occurrence.flatShare,
     /**

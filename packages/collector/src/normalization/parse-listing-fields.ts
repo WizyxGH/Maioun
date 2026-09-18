@@ -373,7 +373,8 @@ const FLAT_SHARE_WORD = String.raw`co ?l{1,2}oc`;
  *     « possibilité de faire une co-location » : le bailleur admet des
  *     colocataires, il ne loue pas une place ;
  *   - LE REFUS — « pas de colocation », « sans colocation », « ni colocation »,
- *     « colocation non autorisée », « colocation interdite ». IL MANQUAIT, et
+ *     « colocation non autorisée », « les colocations ne sont pas permises »,
+ *     « la colocation n'est pas autorisée », « colocation interdite ». IL MANQUAIT, et
  *     c'était le faux positif le plus coûteux du lot : le mot suffisait à
  *     déclarer colocation l'annonce qui disait précisément le contraire.
  *     Quinze annonces actives étaient dans ce cas le 2026-09-17 — dont un
@@ -389,12 +390,12 @@ const FLAT_SHARE_WORD = String.raw`co ?l{1,2}oc`;
  */
 const WHOLE_DWELLING_SHARE = new RegExp(
   [
-    String.raw`${FLAT_SHARE_WORD}ation (?:possible|acceptees?|autorisees?|envisageable)`,
+    String.raw`${FLAT_SHARE_WORD}ations? (?:possibles?|acceptees?|autorisees?|envisageables?)`,
     String.raw`possibilite (?:de |d une |de faire une )?${FLAT_SHARE_WORD}ation`,
     String.raw`\b(?:pas|plus) de ${FLAT_SHARE_WORD}`,
     String.raw`\b(?:sans|ni|aucune) ${FLAT_SHARE_WORD}`,
-    String.raw`${FLAT_SHARE_WORD}ation (?:non|pas) (?:acceptees?|autorisees?|possible|souhaitee)`,
-    String.raw`${FLAT_SHARE_WORD}ation (?:interdite|refusee|impossible|exclue)`,
+    String.raw`${FLAT_SHARE_WORD}ations?(?: n est| ne sont)? (?:non|pas) (?:accepte|autorise|permis|possible|souhaite)\w*`,
+    String.raw`${FLAT_SHARE_WORD}ations? (?:interdites?|refusees?|impossibles?|exclues?)`,
   ].join('|'),
 );
 
@@ -405,6 +406,14 @@ const WHOLE_DWELLING_SHARE = new RegExp(
  * ne dit rien d'autre : « F2 en co étudiante chambre indépendante », dix fois
  * l'expression sur la page, « cuisine équipée collective » dans le texte. Elle
  * entrait dans la liste d'un locataire qui exclut les colocations.
+ *
+ * LE PLURIEL ÉTAIT INVISIBLE, et il a coûté une annonce signalée par
+ * l'utilisateur : une propriétaire qui écrit « j'ai l'habitude de faire des
+ * colocationS » et « mes colocS » ne disait le mot qu'au pluriel, et la
+ * frontière de mot qui fermait le motif butait sur le « s ». Six annonces
+ * actives sont dans ce cas le 2026-09-18 — c'est peu, mais l'oubli portait sur
+ * les DEUX bords : le refus « les colocationS ne sont pas permises » était tout
+ * aussi muet, d'où la même tolérance dans `WHOLE_DWELLING_SHARE`.
  *
  * CE QUI A ÉTÉ MESURÉ ET REFUSÉ, faute d'être sûr :
  *
@@ -418,7 +427,7 @@ const WHOLE_DWELLING_SHARE = new RegExp(
  *     C'est l'inverse d'un indice de partage.
  */
 const FLAT_SHARE_SAID = new RegExp(
-  String.raw`\b${FLAT_SHARE_WORD}ation\b|\b${FLAT_SHARE_WORD}\b|\bco etudiant\w*\b`,
+  String.raw`\b${FLAT_SHARE_WORD}ations?\b|\b${FLAT_SHARE_WORD}s?\b|\bco etudiant\w*\b`,
 );
 
 /**
@@ -446,9 +455,29 @@ export function parseFlatShare(
    * par les autres règles — le critère les rejoint plus qu'il n'invente.
    */
   title?: string | null,
+  /**
+   * LA DESCRIPTION SEULE, dont on ne lira QUE LA PREMIÈRE LIGNE.
+   *
+   * Le titre n'est pas toujours celui de l'annonceur. Les syndicateurs en
+   * composent un — 123 Loger intitule toutes ses annonces « Appartement meublé
+   * à louer », y compris celle d'une propriétaire dont le texte commence par
+   * « Chambre de 57 m² à louer sur Nice ». Le vrai intitulé est alors la
+   * première ligne de la description, et elle mérite la même lecture que le
+   * titre.
+   *
+   * SEULEMENT LA PREMIÈRE LIGNE, pour la raison qui vaut déjà pour le titre :
+   * « trois chambres » est la composition ordinaire d'un T4. Relevé du
+   * 2026-09-18 sur les 4 044 annonces actives : trente-deux ouvrent leur texte
+   * sur « Chambre… », trente et une étaient DÉJÀ reconnues, et la seule qui ne
+   * l'était pas loue 7 m² dans un appartement « aménagé en trois studios
+   * privatifs » avec salle d'eau et WC à partager.
+   */
+  description?: string | null,
 ): boolean | null {
   const lower = comparable(text);
   const heading = comparable(title);
+  // L'intitulé qu'a réellement écrit l'annonceur, quand le titre est un gabarit.
+  const opening = comparable(description?.split('\n').find((line) => line.trim() !== ''));
   if (lower === '' && heading === '') return null;
   /**
    * TROIS LECTURES, DANS CET ORDRE, ET L'ORDRE EST TOUT.
@@ -466,11 +495,15 @@ export function parseFlatShare(
    * Titre et description sont lus séparément, pour qu'une fin de titre et un
    * début de description ne se touchent jamais au point de former une tournure
    * que ni l'un ni l'autre ne contient.
+   *
+   * L'INTITULÉ DE LA DESCRIPTION vient APRÈS le refus, et non avec le titre :
+   * il est moins sûr que celui-ci, et un texte qui s'ouvre sur « Chambre… »
+   * puis écrit « pas de colocation » reste un logement entier.
    */
   if (FLAT_SHARE_SAID.test(heading) && !WHOLE_DWELLING_SHARE.test(heading)) return true;
   if (WHOLE_DWELLING_SHARE.test(lower) || WHOLE_DWELLING_SHARE.test(heading)) return false;
   if (FLAT_SHARE_SAID.test(lower)) return true;
-  if (/^chambre\b/.test(heading)) return true;
+  if (/^chambre\b/.test(heading) || /^chambre\b/.test(opening)) return true;
   if (RENT_PER_PERSON.test(lower)) return true;
   return SHARED_DWELLING.test(lower) ? true : null;
 }

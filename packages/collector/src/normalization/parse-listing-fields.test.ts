@@ -1049,6 +1049,66 @@ describe('parseFlatShare — logement partagé sans le mot « colocation »', ()
   });
 });
 
+describe('parseFlatShare — le pluriel, et l’intitulé caché dans la description', () => {
+  /**
+   * LE PLURIEL ÉTAIT INVISIBLE. L'annonce signalée ne dit jamais le mot au
+   * singulier — « faire des colocations », « mes colocs » — et la frontière de
+   * mot qui fermait le motif butait sur le « s ». Elle restait donc dans la
+   * liste d'un locataire qui exclut les colocations.
+   */
+  it('reconnaît « colocations » et « colocs » au pluriel', () => {
+    expect(
+      parseFlatShare(
+        'Je suis la propriétaire du bien et j’ai l’habitude de faire des colocations ; je m’entends bien avec mes colocs.',
+      ),
+    ).toBe(true);
+    expect(parseFlatShare('Appartement partagé, deux colocs déjà sur place')).toBe(true);
+  });
+
+  /**
+   * LE PLURIEL DU REFUS AUSSI, sans quoi le correctif ci-dessus ferait
+   * disparaître de la liste les logements ENTIERS qui écrivent le contraire :
+   * un T1 de 33 m² loué à une seule personne, et un deux-pièces qui se contente
+   * d'admettre des colocataires.
+   */
+  it('laisse un logement entier refuser ou admettre la colocation au pluriel', () => {
+    expect(
+      parseFlatShare(
+        'Ce tarif est établi pour un seul occupant : les colocations ne sont pas permises.',
+      ),
+    ).toBe(false);
+    expect(
+      parseFlatShare('Deux pièces meublées quartier Riquier. Colocations acceptées, bail d’un an.'),
+    ).toBe(false);
+    expect(
+      parseFlatShare('Le loyer est calculé pour une personne, la colocation n’est pas autorisée'),
+    ).toBe(false);
+  });
+
+  /**
+   * LE TITRE N'EST PAS TOUJOURS CELUI DE L'ANNONCEUR. Un syndicateur en compose
+   * un pour toutes ses annonces — « Appartement meublé à louer » — et le vrai
+   * intitulé devient alors la première ligne du texte.
+   */
+  it('lit « chambre » en tête de DESCRIPTION quand le titre est un gabarit', () => {
+    const texte =
+      'Chambre de 57 m² à louer sur Nice\n\nLe logement se trouve près du Palais des Expositions, au deuxième étage sans ascenseur.';
+    expect(
+      parseFlatShare(`Appartement meublé à louer ${texte}`, 'Appartement meublé à louer', texte),
+    ).toBe(true);
+  });
+
+  it('ne lit que la PREMIÈRE ligne, et s’efface devant un refus', () => {
+    // « chambre parentale » est la composition ordinaire d'un T4 : hors de la
+    // première ligne, le mot ne dit plus ce qui est loué.
+    const composition = 'Appartement T4 rénové avec terrasse.\nChambre parentale avec dressing.';
+    expect(parseFlatShare(composition, 'T4 rénové', composition)).toBeNull();
+
+    const refus = 'Chambre à louer dans le quartier des Poètes.\nPas de colocation.';
+    expect(parseFlatShare(refus, 'Appartement meublé à louer', refus)).toBe(false);
+  });
+});
+
 describe('isStudentOnlyHousing', () => {
   it('retient ce qui engage la durée ou l’éligibilité', () => {
     expect(isStudentOnlyHousing('Studio meublé - Libération - Bail Etudiant')).toBe(true);
