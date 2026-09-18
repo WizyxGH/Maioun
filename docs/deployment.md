@@ -362,11 +362,30 @@ irréversible pour les comptes créés ainsi. Le mot de passe reste le second
 chemin, toujours disponible : sans identifiant d'application configuré, le
 bouton ne s'affiche simplement pas.
 
-**1. Créer l'identifiant OAuth.** Sur
-[console.cloud.google.com](https://console.cloud.google.com) → _API et
-services_ → _Identifiants_ → _Créer des identifiants_ → _ID client OAuth_ →
-type **Application Web**. Y déclarer comme **origine JavaScript autorisée**
-l'adresse EXACTE du site, schéma et hôte, sans chemin ni barre finale :
+**1. Créer l'identifiant OAuth.** Google a déplacé cet écran : le chemin
+_API et services → Identifiants_ ne le propose plus, et l'entrée _ID client
+OAuth_ y reste introuvable. Elle vit désormais dans **Google Auth Platform**,
+[console.cloud.google.com/auth/clients](https://console.cloud.google.com/auth/clients).
+
+Trois choses doivent être en place, dans cet ordre, sans quoi le bouton
+_Créer un client_ est absent ou refusé :
+
+1. **un projet sélectionné** dans la barre du haut — sans projet, la console
+   n'affiche aucun de ces écrans ;
+2. **la configuration de l'application** (_Google Auth Platform → Démarrer_ ou
+   _Branding_) : nom de l'application, adresse d'assistance, audience
+   **Externe**, adresse de contact. C'est l'ancien « écran de consentement », et
+   c'est lui qui manque le plus souvent ;
+3. alors seulement **_Clients → Créer un client_ → type Application Web**.
+
+Tant que l'application reste en mode _Test_, **seuls les comptes inscrits comme
+utilisateurs de test peuvent se connecter** : s'y ajouter soi-même, sinon Google
+refuse la connexion sans que le site puisse l'expliquer. Publier l'application
+ne demande aucune vérification tant que les portées se limitent à `openid`,
+`email` et `profile`.
+
+Y déclarer comme **origine JavaScript autorisée** l'adresse EXACTE du site,
+schéma et hôte, sans chemin ni barre finale :
 
 ```
 https://wizyxgh.github.io
