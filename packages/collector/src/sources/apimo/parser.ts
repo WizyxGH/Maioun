@@ -21,7 +21,12 @@ import { cleanText, comparable } from '../../normalization/text.js';
 import { parsePropertyType } from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
-import { collectJsonLdNodes, findJsonLdNode, type JsonLdNode } from '../shared/json-ld.js';
+import {
+  collectJsonLdNodes,
+  findJsonLdNode,
+  jsonLdType,
+  type JsonLdNode,
+} from '../shared/json-ld.js';
 import {
   apimoBedrooms,
   apimoDpe,
@@ -196,9 +201,23 @@ function mapApimoJsonLd(property: JsonLdNode, agent: JsonLdNode | undefined): Js
  */
 function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
   const nodes = collectJsonLdNodes($);
-  const property = findJsonLdNode(nodes, ['apartment', 'house', 'residence']);
+  const property =
+    findJsonLdNode(nodes, ['apartment', 'house', 'residence']) ?? productProperty(nodes);
   if (property === undefined) return null;
   return mapApimoJsonLd(property, findJsonLdNode(nodes, ['realestateagent']));
+}
+
+/**
+ * Le bien décrit en `Product` plutôt qu'en `Apartment`/`House` : c'est le
+ * gabarit des garages et parkings, dont le graphe n'était donc pas lu du tout —
+ * chez Oréa, dix-huit occurrences sans téléphone ni e-mail alors que la page
+ * les porte. L'ancre `#property` posée par la plateforme distingue ce nœud du
+ * `Product` générique que certains sites ajoutent pour le référencement.
+ */
+function productProperty(nodes: readonly JsonLdNode[]): JsonLdNode | undefined {
+  return nodes.find(
+    (node) => jsonLdType(node) === 'product' && String(node['@id'] ?? '').endsWith('#property'),
+  );
 }
 
 export interface ParsedDetail {
@@ -206,6 +225,11 @@ export interface ParsedDetail {
   readonly warnings: readonly string[];
   /** `true` si la fiche affiche « déjà Loué/Vendu » : à marquer `rented`. */
   readonly rented?: boolean;
+  /**
+   * `true` si le site ne sert plus cette fiche : il en montre une autre page à
+   * la place — « introuvable », accueil, recherche. L'occurrence s'éteint.
+   */
+  readonly withdrawn?: boolean;
 }
 
 /**
@@ -432,20 +456,38 @@ function apimoLocation(
   };
 }
 
+/** Adresse que la page se donne à elle-même, ou chaîne vide. */
+function pageCanonical($: cheerio.CheerioAPI): string {
+  return (
+    $('link[rel="canonical"]').attr('href') ?? $('meta[property="og:url"]').attr('content') ?? ''
+  );
+}
+
+/**
+ * `true` si le site sert une AUTRE page que la fiche demandée : « introuvable »
+ * (Oréa redirige en 301 vers `/fr/not-found`), accueil, page de recherche.
+ *
+ * LE CRITÈRE EST LA RÉFÉRENCE, pas le chemin entier : une agence qui retouche
+ * le slug d'une annonce garde le même identifiant, et son occurrence ne doit
+ * pas s'éteindre pour un titre réécrit. La page qui ne porte plus du tout cet
+ * identifiant n'est plus celle qu'on a demandée.
+ */
+function servesAnotherPage($: cheerio.CheerioAPI, reference: string): boolean {
+  const canonical = pageCanonical($);
+  if (canonical === '') return false;
+  return !decodeURIComponent(canonical).includes(reference);
+}
+
 /** `true` si la page est une fiche retirée / introuvable (§17). */
 function isRemovedListing(
   $: cheerio.CheerioAPI,
   jsonLd: JsonLdData | null,
   priceText: string | undefined,
+  reference: string,
 ): boolean {
-  const canonical =
-    $('link[rel="canonical"]').attr('href') ?? $('meta[property="og:url"]').attr('content') ?? '';
-  // Redirection vers une page « not found », OU absence totale de signal (ni
-  // JSON-LD de bien, ni prix — une vraie location a un loyer).
-  return (
-    /\/(not-?found|introuvable|404)\b/i.test(canonical) ||
-    (jsonLd === null && priceText === undefined)
-  );
+  // Page de remplacement, OU absence totale de signal (ni JSON-LD de bien, ni
+  // prix — une vraie location a un loyer).
+  return servesAnotherPage($, reference) || (jsonLd === null && priceText === undefined);
 }
 
 export function parseDetailPage(
@@ -485,9 +527,13 @@ export function parseApimoDetail(
   const criteria = extractCriteria($);
 
   // Fiche retirée : on ne produit rien plutôt qu'une fiche fantôme (§17).
-  if (isRemovedListing($, jsonLd, priceText)) {
+  if (isRemovedListing($, jsonLd, priceText, parsedUrl.reference)) {
     return {
       listing: null,
+      // Une page de remplacement ÉTEINT l'occurrence ; une page seulement
+      // illisible, non : un gabarit qu'on ne sait pas lire effacerait sinon des
+      // annonces encore en ligne.
+      withdrawn: servesAnotherPage($, parsedUrl.reference),
       warnings: [...warnings, `Fiche retirée ou introuvable (ignorée) : ${pageUrl}`],
     };
   }

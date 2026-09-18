@@ -248,3 +248,84 @@ describe('parseDetailPage — position, quartier, DPE déclaré', () => {
     expect(parseDetailPage(page({}, none), url, AGENCY).listing?.extra?.['dpe']).toBeUndefined();
   });
 });
+
+/**
+ * Une fiche retirée redirige (301) vers `/fr/not-found` : le client HTTP suit
+ * le saut, et le parseur ne voyait alors qu'une page sans annonce. Il faut
+ * qu'il dise POURQUOI, pour que l'occurrence s'éteigne au lieu d'attendre.
+ */
+describe('parseDetailPage — fiche que le site ne sert plus', () => {
+  const url = 'https://exemple.fr/fr/propriete/location+appartement+nice+studio-gorbella+82625748';
+
+  /** Page servie à la place de la fiche, avec sa propre canonique. */
+  const remplacement = (canonical: string): string =>
+    `<!DOCTYPE html><html><head><link rel="canonical" href="${canonical}" /></head><body>Introuvable</body></html>`;
+
+  it('éteint la fiche remplacée par la page « introuvable »', () => {
+    const parsed = parseDetailPage(remplacement('https://exemple.fr/fr/not-found'), url, AGENCY);
+    expect(parsed.listing).toBeNull();
+    expect(parsed.withdrawn).toBe(true);
+  });
+
+  it('éteint la fiche remplacée par l’accueil du site', () => {
+    expect(parseDetailPage(remplacement('https://exemple.fr/fr'), url, AGENCY).withdrawn).toBe(
+      true,
+    );
+  });
+
+  it('n’éteint rien quand le site a seulement réécrit le slug', () => {
+    const html = residentialHtml().replace(
+      '<head>',
+      '<head><link rel="canonical" href="https://exemple.fr/fr/propriete/location+appartement+nice+studio-gorbella-calme+82625748" />',
+    );
+    const parsed = parseDetailPage(html, url, AGENCY);
+    expect(parsed.withdrawn).toBeFalsy();
+    expect(parsed.listing).not.toBeNull();
+  });
+
+  it('n’éteint rien sur une page seulement illisible', () => {
+    // Ni annonce ni canonique : on ne sait pas lire, on ne conclut pas.
+    const parsed = parseDetailPage('<html><body>gabarit inconnu</body></html>', url, AGENCY);
+    expect(parsed.listing).toBeNull();
+    expect(parsed.withdrawn).toBeFalsy();
+  });
+});
+
+/**
+ * Les garages et parkings décrivent le bien en `Product`, pas en `Apartment` :
+ * leur graphe n'était pas lu du tout, et l'occurrence sortait sans téléphone ni
+ * e-mail — que la page porte pourtant.
+ */
+describe('parseDetailPage — bien décrit en Product', () => {
+  const url =
+    'https://exemple.fr/fr/propriete/location+garage-parking+nice+nice-chambrun-garage+86355041';
+  const graphe = (id: string): string =>
+    `<!DOCTYPE html><html><head><script type="application/ld+json">${JSON.stringify({
+      '@graph': [
+        {
+          '@type': 'RealEstateAgent',
+          name: 'Agence Fictive',
+          telephone: '+33-600000012',
+          email: 'contact@example.invalid',
+        },
+        {
+          '@type': 'Product',
+          '@id': id,
+          name: 'Garage Chambrun',
+          offers: { price: 115 },
+          address: { addressLocality: 'Nice', postalCode: '06000' },
+        },
+      ],
+    })}</script></head><body></body></html>`;
+
+  it('lit le téléphone et l’e-mail de l’agence sur la fiche d’un garage', () => {
+    const { listing } = parseDetailPage(graphe(`${url}#property`), url, AGENCY);
+    expect(listing?.phoneText).toBe('+33-600000012');
+    expect(listing?.emailText).toBe('contact@example.invalid');
+  });
+
+  it('ignore un Product de référencement, qui ne porte pas l’ancre du bien', () => {
+    const { listing } = parseDetailPage(graphe(`${url}#organization`), url, AGENCY);
+    expect(listing?.phoneText).toBeUndefined();
+  });
+});

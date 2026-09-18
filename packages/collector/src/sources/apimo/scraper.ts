@@ -3,10 +3,17 @@
  *
  * Ajouter une agence = une entrée `makeApimoScraper({...})`, sans dupliquer la
  * logique de collecte : sitemap → filtrage des communes cibles → visite des
- * seules fiches nouvelles → confirmation des connues sans requête (§30, §32).
+ * fiches nouvelles, puis d'UNE fiche déjà connue par passage.
+ *
+ * LE SITEMAP NE PROUVE PAS QU'UNE ANNONCE EXISTE ENCORE. Ces sites ne le
+ * purgent pas : la fiche Oréa retirée le 2026-09-18, qui redirige vers
+ * `/fr/not-found`, y figurait encore, et la confirmation sans requête la
+ * gardait « en ligne » chez nous — lien mort compris. Relire les fiches
+ * connues est donc aussi ce qui les éteint.
  */
 
 import type {
+  DetailMemoryEntry,
   RawListing,
   Scraper,
   ScrapeContext,
@@ -15,7 +22,9 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { isFreshMemory } from '../shared/enrich.js';
 import { sitemapUrls } from '../shared/sitemap.js';
+import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import {
   isCommercialSlug,
   parseDetailPage,
@@ -75,9 +84,29 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
       `Plateforme Apimo/Cello (adaptateur générique, §47). robots.txt permissif ` +
       `(seul /app_dev.php interdit), sitemap déclaré. Méthode sitemap : la liste ` +
       `HTML est en lazy-load JS, le sitemap donne toutes les fiches + lastmod ; ` +
-      `seules les nouvelles des communes cibles sont visitées.`,
+      `les nouvelles des communes cibles sont visitées, plus une fiche connue ` +
+      `relue par passage — le sitemap gardant les fiches retirées.`,
   };
 }
+
+/**
+ * Fiches déjà CONNUES relues par passage, une fois les nouvelles servies.
+ *
+ * UNE FICHE CONNUE N'ÉTAIT JAMAIS RELUE : le sitemap la déclarait vivante et
+ * rien n'allait vérifier. Une annonce retirée gardait donc sa place et son lien
+ * mort jusqu'à quitter le sitemap — ce que ces sites ne font pas.
+ *
+ * UNE SEULE PAR PASSAGE SUFFIT. Les soixante agences de la plateforme sont lues
+ * une quinzaine de fois par jour et portent une quinzaine d'annonces chacune :
+ * l'inventaire entier y passe en une journée, la plus grosse (Oréa, 111
+ * annonces) en six. Passé ce rattrapage, la fraîcheur d'une semaine
+ * (`isFreshMemory`) ramène la dépense à environ 120 requêtes par jour pour la
+ * plateforme entière, soit 1,5 % des ~8 100 requêtes quotidiennes du projet.
+ */
+const RELECTURES_PAR_PASSAGE = 1;
+
+/** En rattrapage, le plafond des relectures suit celui des nouveautés. */
+const RELECTURES_PAR_PASSAGE_BACKFILL = 5;
 
 export function makeApimoScraper(config: ApimoConfig): Scraper {
   const descriptor = makeApimoDescriptor(config);
@@ -173,9 +202,7 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
           warnings,
         };
       }
-      const confirmedRefs = targeted
-        .filter((entry) => context.isKnown(entry.url.reference))
-        .map((entry) => entry.url.reference);
+      const connues = targeted.filter((entry) => context.isKnown(entry.url.reference));
       const candidates = targeted
         .filter((entry) => !context.isKnown(entry.url.reference))
         .sort((a, b) => (b.lastmod ?? '').localeCompare(a.lastmod ?? ''));
@@ -185,47 +212,80 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
       context.log('sitemap.parsed', {
         total: entries.length,
         targeted: targeted.length,
-        known: confirmedRefs.length,
+        known: connues.length,
         new: candidates.length,
         toFetch: Math.min(candidates.length, maxDetails),
       });
 
-      // --- 3. Visiter uniquement les fiches nouvelles ---------------------
-      for (const entry of candidates.slice(0, maxDetails)) {
-        if (context.shouldStop()) {
-          stopReason = 'maxPages';
-          break;
-        }
-        try {
-          const response = await context.fetch(entry.url.canonicalUrl);
-          requestCount += 1;
-          if (response.notModified) continue;
-          pagesFetched += 1;
+      // --- 3. Visiter les fiches nouvelles --------------------------------
+      const nouvelles = await visiterFiches(
+        context,
+        candidates.slice(0, maxDetails),
+        config.name,
+        true,
+      );
 
-          const parsed = parseDetailPage(response.body, entry.url.canonicalUrl, config.name);
-          warnings.push(...parsed.warnings);
-          if (parsed.listing !== null) listings.push(parsed.listing);
-          else if (parsed.rented === true) rentedRefs.push(entry.url.reference);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          warnings.push(`Échec sur ${entry.url.canonicalUrl} : ${message}`);
-          context.log('page.failed', { url: entry.url.canonicalUrl, error: message });
-          if (message.includes('429')) {
-            stopReason = 'rateLimited';
-            break;
-          }
-          if (message.includes('refusé')) {
-            stopReason = 'blocked';
-            break;
-          }
-        }
+      // --- 4. Relire une fiche connue -------------------------------------
+      // LA NOUVEAUTÉ PASSE AVANT : on ne relit que si toutes les nouvelles ont
+      // été servies et que rien n'a interrompu le passage.
+      const relisibles =
+        nouvelles.stopReason === null && candidates.length <= maxDetails
+          ? aRelire(
+              context,
+              connues,
+              context.mode === 'backfill'
+                ? RELECTURES_PAR_PASSAGE_BACKFILL
+                : RELECTURES_PAR_PASSAGE,
+            )
+          : [];
+      // SANS CACHE CONDITIONNEL : une fiche retirée peut très bien répondre
+      // « non modifiée », et on n'aurait rien relu ni rien appris.
+      const relues = await visiterFiches(context, relisibles, config.name, false);
+      if (relisibles.length > 0) {
+        context.log('detail.refreshed', { asked: relisibles.length, read: relues.lues.length });
       }
+
+      const passages = [nouvelles, relues];
+      listings.push(...passages.flatMap((passage) => passage.listings));
+      warnings.push(...passages.flatMap((passage) => passage.warnings));
+      rentedRefs.push(...passages.flatMap((passage) => passage.rented));
+      requestCount += passages.reduce((total, passage) => total + passage.requestCount, 0);
+      pagesFetched += passages.reduce((total, passage) => total + passage.pagesFetched, 0);
+      stopReason = nouvelles.stopReason ?? relues.stopReason ?? 'completed';
+
+      await noterLectures(
+        context,
+        passages.flatMap((passage) => passage.lues),
+      );
+
+      // Fiches dont la page dit qu'elle n'est plus servie, sous les garde-fous
+      // de `shared/withdrawn.ts` : une salve dénoncerait un gabarit changé, pas
+      // un inventaire loué d'un coup.
+      const withdrawnRefs = withdrawnRefsFrom(
+        context,
+        {
+          gone: passages.flatMap((passage) => passage.gone),
+          detailsRequested: passages.reduce(
+            (total, passage) => total + passage.detailsRequested,
+            0,
+          ),
+        },
+        stopReason,
+      );
+
+      // Une fiche éteinte n'est pas confirmée en ligne dans le même passage :
+      // le cœur la réécrirait active juste avant de l'éteindre.
+      const parties = new Set(withdrawnRefs);
+      const confirmedRefs = connues
+        .map((entry) => entry.url.reference)
+        .filter((reference) => !parties.has(reference));
 
       return {
         sourceId: config.id,
         listings,
         confirmedRefs,
         rentedRefs,
+        withdrawnRefs,
         requestCount,
         pagesFetched,
         stopReason,
@@ -233,4 +293,153 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
       };
     },
   };
+}
+
+/** Ce qu'une série de visites de fiches rapporte. */
+interface DetailPass {
+  readonly listings: readonly RawListing[];
+  readonly warnings: readonly string[];
+  /** Fiches que le site déclare déjà louées/vendues. */
+  readonly rented: readonly string[];
+  /** Fiches dont la page n'est plus servie. */
+  readonly gone: readonly GoneDetail[];
+  /** Références dont la page a réellement été lue pendant ce passage. */
+  readonly lues: readonly string[];
+  readonly requestCount: number;
+  readonly pagesFetched: number;
+  readonly detailsRequested: number;
+  /** Ce qui a interrompu la série, ou `null` si elle est allée au bout. */
+  readonly stopReason: StopReason | null;
+}
+
+/** Codes qui disent la page définitivement absente : introuvable, supprimée. */
+const PAGE_DISPARUE: ReadonlySet<number> = new Set([404, 410]);
+
+/**
+ * Visite une série de fiches. Le même code sert aux nouveautés et aux
+ * relectures : deux boucles jumelles auraient divergé au premier correctif.
+ *
+ * `conditionnel` : `false` désactive ETag et If-Modified-Since, pour une fiche
+ * qu'on relit sans qu'elle ait changé.
+ */
+async function visiterFiches(
+  context: ScrapeContext,
+  entries: readonly SitemapEntry[],
+  agencyName: string,
+  conditionnel: boolean,
+): Promise<DetailPass> {
+  const listings: RawListing[] = [];
+  const warnings: string[] = [];
+  const rented: string[] = [];
+  const gone: GoneDetail[] = [];
+  const lues: string[] = [];
+  let requestCount = 0;
+  let pagesFetched = 0;
+  let detailsRequested = 0;
+  let stopReason: StopReason | null = null;
+
+  for (const entry of entries) {
+    if (context.shouldStop()) {
+      stopReason = 'maxPages';
+      break;
+    }
+    const url = entry.url.canonicalUrl;
+    try {
+      const response = await context.fetch(url, conditionnel ? {} : { conditional: false });
+      requestCount += 1;
+      detailsRequested += 1;
+      if (response.notModified) continue;
+      pagesFetched += 1;
+      lues.push(entry.url.reference);
+
+      // Page absente : le client HTTP SUIT les redirections, et le saut vers la
+      // page « introuvable » arrive donc ici en 404, pas en 301.
+      if (PAGE_DISPARUE.has(response.status)) {
+        gone.push({ sourceRef: entry.url.reference, url, status: response.status });
+        continue;
+      }
+
+      const parsed = parseDetailPage(response.body, url, agencyName);
+      warnings.push(...parsed.warnings);
+      // Fiche retirée servie en 200 : le site rend l'accueil ou sa recherche.
+      // Le sitemap peut encore la montrer — c'est la fiche qui fait foi.
+      if (parsed.withdrawn === true) {
+        gone.push({ sourceRef: entry.url.reference, url, status: response.status });
+      }
+      if (parsed.listing !== null) listings.push(parsed.listing);
+      else if (parsed.rented === true) rented.push(entry.url.reference);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Échec sur ${url} : ${message}`);
+      context.log('page.failed', { url, error: message });
+      if (message.includes('429')) {
+        stopReason = 'rateLimited';
+        break;
+      }
+      if (message.includes('refusé')) {
+        stopReason = 'blocked';
+        break;
+      }
+    }
+  }
+
+  return {
+    listings,
+    warnings,
+    rented,
+    gone,
+    lues,
+    requestCount,
+    pagesFetched,
+    detailsRequested,
+    stopReason,
+  };
+}
+
+/**
+ * Les fiches connues à relire : jamais lue d'abord, puis la plus anciennement
+ * lue. Celles lues dans la semaine sont laissées de côté.
+ *
+ * L'ORDRE VIENT DE LA MÉMOIRE DES FICHES, qui existait déjà pour d'autres
+ * sources et porte la date de lecture : pas de second circuit à tenir. Le
+ * `lastmod` du sitemap dirait quand l'agence a touché l'annonce, jamais quand
+ * elle l'a retirée — et c'est le retrait qu'on cherche.
+ */
+function aRelire(
+  context: ScrapeContext,
+  connues: readonly SitemapEntry[],
+  max: number,
+): readonly SitemapEntry[] {
+  if (max <= 0) return [];
+  const nowMs = Date.now();
+  return connues
+    .map((entry) => ({ entry, memoire: context.detailMemory.get(entry.url.reference) }))
+    .filter((une) => !isFreshMemory(une.memoire, nowMs))
+    .sort((a, b) => luLe(a.memoire) - luLe(b.memoire))
+    .slice(0, max)
+    .map((une) => une.entry);
+}
+
+/** Date de dernière lecture, en millisecondes. `0` : jamais lue. */
+function luLe(memoire: DetailMemoryEntry | null): number {
+  if (memoire === null) return 0;
+  const date = Date.parse(memoire.fetchedAt);
+  return Number.isFinite(date) ? date : 0;
+}
+
+/**
+ * Note la date de lecture des fiches visitées.
+ *
+ * Le brouillon reste vide : ici la fiche EST l'annonce, elle part entière dans
+ * le résultat, et seule la date sert — c'est elle qui ordonne les relectures
+ * suivantes. L'échec n'est jamais bloquant : les fiches seront relues.
+ */
+async function noterLectures(context: ScrapeContext, refs: readonly string[]): Promise<void> {
+  if (refs.length === 0) return;
+  try {
+    await context.detailMemory.save(refs.map((sourceRef) => ({ sourceRef, draft: {} })));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    context.log('detail.memory_failed', { count: refs.length, error: message });
+  }
 }
