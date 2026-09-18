@@ -1060,3 +1060,71 @@ describe('adresse partagée par tout un stock', () => {
     expect(blockingKeys(alerte)).toContain('url:bulletin.example.invalid/w_index_abonnes.php');
   });
 });
+
+/**
+ * LE PERMALIEN D'UN SITE QUI REFABRIQUE SES IDENTIFIANTS.
+ *
+ * votre-agence-immo recrée ses articles chaque nuit : un même studio a porté
+ * quatre identifiants, tous sur le même lien. Le compte seul déclarait ce lien
+ * générique — au-delà de trois annonces — et le seul indice qui les
+ * rapprochait était écarté ; le site ne publie par ailleurs aucune adresse
+ * postale, donc plus rien ne les réunissait.
+ */
+describe('permalien cité par plusieurs occurrences d’un même bien', () => {
+  const permalien = 'https://agence.example.invalid/biens/nice-saint-roch-3-pieces';
+  const memeStudio = ['446260', '446349', '446438', 'nice-saint-roch-3-pieces'].map((ref) =>
+    listing({
+      id: `agence:${ref}`,
+      sourceId: 'agence',
+      sourceRef: ref,
+      sourceUrl: permalien,
+      title: 'Nice Saint-Roch 3 pièces avec balcon',
+      price: 970,
+      area: 55.86,
+      rooms: 3,
+    }),
+  );
+
+  it('les réunit en une seule fiche', () => {
+    const { groups } = dedupe(memeStudio);
+    expect(groups).toHaveLength(1);
+  });
+
+  /**
+   * Le garde-fou reste entier : un lien que sa source pose sur tout son stock
+   * réunit des logements qui ne s'accordent ni sur le loyer ni sur la surface.
+   */
+  it('laisse le bulletin sans lien par annonce éparpillé', () => {
+    const bulletin = [1, 2, 3, 4, 5].map((n) =>
+      listing({
+        id: `bulletin:${n}`,
+        sourceId: 'bulletin',
+        sourceUrl: 'https://bulletin.example.invalid/w_index_abonnes.php',
+        title: `Bien ${n}`,
+        price: 600 + n * 100,
+        area: 18 + n * 4,
+      }),
+    );
+    expect(dedupe(bulletin).groups).toHaveLength(5);
+  });
+
+  /**
+   * ET LE LIEN NE DÉCIDE PAS SEUL. Une page de liste rassemble des logements
+   * qui, eux, se démentent : au sein d'une source, le loyer et la surface
+   * doivent être identiques, faute de quoi la fusion est refusée quel que soit
+   * le lien partagé.
+   */
+  it('n’invente rien quand les chiffres de la source se démentent', () => {
+    const voisins = [1, 2, 3].map((n) =>
+      listing({
+        id: `residence:${n}`,
+        sourceId: 'residence',
+        sourceUrl: 'https://residence.example.invalid/nos-biens',
+        title: `Studio ${n}`,
+        price: 540 + n * 20,
+        area: 21 + n,
+      }),
+    );
+    expect(dedupe(voisins).groups).toHaveLength(3);
+  });
+});

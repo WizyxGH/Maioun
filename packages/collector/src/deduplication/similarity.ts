@@ -406,6 +406,11 @@ function photoAgreement(
     // AU SEIN D'UNE SOURCE, IL EN FAUT DEUX. Un cliché tamponné suffit à faire
     // « jeu identique » quand les deux annonces n'en publient qu'un — et une
     // agence pose volontiers la même façade sur dix biens.
+    //
+    // ET LE JEU DOIT ÊTRE ENTIER : un large recouvrement ne suffit pas. Mesuré
+    // le 2026-09-18, 87 paires d'une même source partagent au moins deux
+    // clichés hors catalogue sans être le même bien — akorimmo en partage
+    // quarante entre un 68 m² à 2 200 € et un 10 m² à 670 €.
     return memeJeu && communes >= 2 ? 'identical' : 'none';
   }
 
@@ -586,10 +591,16 @@ export function listingAddress(url: string): string | null {
  * vingt-huit logements vers la même page d'accueil. Sans ce garde-fou, ce seul
  * lien les fusionnerait tous.
  *
- * AU SEIN D'UNE SOURCE, le partage d'un lien reste suspect : c'est le signe
- * d'une page de liste. Sauf chez un RELAIS, dont chaque annonce pointe par
- * construction la page d'origine — deux alertes qui citent la même page SeLoger
- * annoncent le même studio.
+ * AU SEIN D'UNE SOURCE, IL FAUT SAVOIR que l'adresse désigne une annonce : un
+ * lien partagé y est d'abord le signe d'une page de liste, et « je ne sais
+ * pas » ne vaut pas preuve. Quand `dedupe` a vu tout le lot et répond oui, le
+ * lien vaut ce qu'il vaut ailleurs — un site sert une page par logement.
+ * C'est ce qui manquait à votre-agence-immo, dont un même studio portait
+ * quatre occurrences sous le même permalien.
+ *
+ * Un RELAIS échappe à cette exigence : chacune de ses annonces pointe par
+ * construction la page d'origine, et deux alertes qui citent la même page
+ * SeLoger annoncent le même studio.
  */
 function sameListingPage(
   a: NormalizedListing,
@@ -599,8 +610,10 @@ function sameListingPage(
 ): boolean {
   const page = listingAddress(a.sourceUrl);
   if (page === null || page !== listingAddress(b.sourceUrl)) return false;
-  if (addressIdentifies(page) === false) return false;
-  return a.sourceId !== b.sourceId || relaysListings(a.sourceId);
+  const identifies = addressIdentifies(page);
+  if (identifies === false) return false;
+  if (a.sourceId !== b.sourceId || relaysListings(a.sourceId)) return true;
+  return identifies === true;
 }
 
 function collectStrongSignals(

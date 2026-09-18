@@ -187,22 +187,40 @@ function catalogPhotos(
  * TROIS, PARCE QU'UNE ADRESSE LÉGITIME EN RÉUNIT PEU : une page de portail est
  * citée par la source qui la collecte et par les alertes qui l'annoncent —
  * mesuré sur l'inventaire le 2026-09-18, jamais plus de deux annonces. Au-delà,
- * c'est un lien que la source pose faute d'en avoir un par annonce : le
+ * c'est SOUVENT un lien que la source pose faute d'en avoir un par annonce : le
  * bulletin abonné de BEP renvoie ainsi cent vingt-huit logements vers sa page
- * d'accueil. Les compter comme un seul bien serait la pire des fusions.
+ * d'accueil. Les compter comme un seul bien serait la pire des fusions — d'où
+ * le désaccord des chiffres exigé en plus du nombre.
  */
 const ADRESSE_PARTAGEE_MAX = 3;
 
-/** Les adresses qui ne désignent aucune annonce en particulier. */
+/**
+ * Les adresses qui ne désignent aucune annonce en particulier.
+ *
+ * LE NOMBRE SEUL CONDAMNAIT DES PERMALIENS. votre-agence-immo recrée ses
+ * articles chaque nuit : quatre occurrences d'un même studio pointaient le même
+ * lien, et le compte suffisait à le déclarer générique — donc sans valeur. Les
+ * quatre s'affichaient en doublon, et le garde-fou posé contre le bulletin BEP
+ * les y maintenait.
+ *
+ * UN LIEN VRAIMENT GÉNÉRIQUE SE TRAHIT AUTREMENT : les annonces qui le citent
+ * ne s'accordent ni sur le loyer ni sur la surface. Les cinquante du bulletin
+ * BEP vont de 600 à 1 400 € ; les quatre du permalien affichent toutes
+ * 970 € et 55,86 m². Une annonce sans chiffres compte comme un désaccord —
+ * c'est l'hypothèse qui fusionne le moins.
+ */
 function genericAddresses(listings: readonly NormalizedListing[]): Set<string> {
-  const counts = new Map<string, number>();
+  const sharers = new Map<string, NormalizedListing[]>();
   for (const listing of listings) {
     const address = listingAddress(listing.sourceUrl);
-    if (address !== null) counts.set(address, (counts.get(address) ?? 0) + 1);
+    if (address === null) continue;
+    sharers.set(address, [...(sharers.get(address) ?? []), listing]);
   }
   const generic = new Set<string>();
-  for (const [address, count] of counts) {
-    if (count > ADRESSE_PARTAGEE_MAX) generic.add(address);
+  for (const [address, group] of sharers) {
+    if (group.length <= ADRESSE_PARTAGEE_MAX) continue;
+    const figures = new Set(group.map((one) => `${one.price ?? '?'}|${one.area ?? '?'}`));
+    if (figures.size > 1) generic.add(address);
   }
   return generic;
 }
