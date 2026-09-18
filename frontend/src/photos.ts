@@ -35,6 +35,7 @@
  */
 
 import { API_URL } from './api/client.js';
+import { uniquePhotos } from './photo-duplicates.js';
 
 /** Photos d'une annonce, réparties selon ce que la page peut en faire. */
 export interface PhotoSplit {
@@ -58,10 +59,14 @@ function pageIsSecure(): boolean {
  * @param urls  URLs telles que la source les publie.
  */
 export function splitPhotos(urls: readonly string[]): PhotoSplit {
-  if (!pageIsSecure()) return { embeddable: urls, linkOnly: [] };
+  // LE MÊME CLICHÉ NE PARAÎT QU'UNE FOIS, ici plutôt que chez chaque appelant :
+  // c'est le seul passage obligé avant l'affichage, carrousel, vignette et vue
+  // plein écran compris.
+  const photos = uniquePhotos(urls);
+  if (!pageIsSecure()) return { embeddable: photos, linkOnly: [] };
   const embeddable: string[] = [];
   const linkOnly: string[] = [];
-  for (const url of urls) {
+  for (const url of photos) {
     if (!url.startsWith('http://')) {
       embeddable.push(url);
       continue;
