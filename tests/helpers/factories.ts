@@ -117,6 +117,7 @@ export interface AggregatedOverrides {
   readonly contact?: Contact;
   readonly occurrences?: readonly NormalizedListing[];
   readonly firstSeenAt?: string;
+  readonly lastSeenAt?: string;
   readonly lifecycle?: AggregatedListing['lifecycle'];
 }
 
