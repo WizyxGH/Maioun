@@ -117,6 +117,7 @@ import {
 } from './cleared-criteria.js';
 import { clearedCriteria, criteriaChips } from './criteria-chips.js';
 import { filterListings } from './listing-filter.js';
+import { hasSessionToken } from './api/session-token.js';
 import { forgetListing, replaceListing } from './listing-store.js';
 import { loadInStages } from './progressive-load.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
@@ -1282,6 +1283,10 @@ function AppView(): React.JSX.Element {
    * temps : une réponse plus ancienne arrivée après écraserait la plus récente.
    */
   const loadGeneration = useRef(0);
+  /** La liste a-t-elle été demandée avant de savoir qui regarde ? */
+  const listeDemandee = useRef(false);
+  /** La valeur précédente de `currentUser`, pour reconnaître la première arrivée. */
+  const utilisateurPrecedent = useRef<string | null | undefined>(undefined);
   // Les paramètres de la liste affichée ; `null` tant que rien ne l'est.
   const shownParams = useRef<string | null>(null);
 
@@ -1372,9 +1377,34 @@ function AppView(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    // Rien à charger tant qu'on ne sait pas qui regarde. Un visiteur, lui, est
-    // une réponse : le catalogue se lit sans compte.
-    if (currentUser === undefined) return;
+    /**
+     * ON N'ATTEND PAS DE SAVOIR QUI REGARDE, on attend de savoir SI la requête
+     * partira signée — et cela se lit dans le navigateur, sans aller-retour.
+     *
+     * C'est le serveur qui déduit l'identité du jeton, pas l'écran : la liste
+     * demandée avec un jeton revient déjà filtrée sur les critères du compte.
+     * Attendre la réponse de l'identité ajoutait un aller-retour complet avant
+     * le premier octet de la liste, sur chaque ouverture à froid.
+     *
+     * Sans jeton, il n'y a rien à attendre non plus : c'est le catalogue.
+     */
+    const avant = utilisateurPrecedent.current;
+    utilisateurPrecedent.current = currentUser;
+    if (currentUser === undefined) {
+      // Sans jeton, il n'y a rien à attendre non plus : c'est le catalogue,
+      // et la réponse d'identité le confirmera dans l'instant.
+      if (!hasSessionToken()) return;
+      listeDemandee.current = true;
+      void load();
+      return;
+    }
+    // L'identité arrive APRÈS une liste déjà demandée avec le jeton : la
+    // réponse est la bonne, la redemander doublerait la plus grosse requête de
+    // l'application. Une connexion plus tard, elle, recharge bien.
+    if (avant === undefined && listeDemandee.current) {
+      listeDemandee.current = false;
+      return;
+    }
     void load();
   }, [load, currentUser]);
 

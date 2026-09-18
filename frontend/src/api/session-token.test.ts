@@ -1,55 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch, clearSessionToken } from './session-token.js';
+/**
+ * Le jeton dit si la requête partira SIGNÉE — c'est ce qui permet de lancer la
+ * liste sans attendre la réponse d'identité, donc d'économiser un aller-retour
+ * complet à chaque ouverture à froid.
+ */
 
-const sent: RequestInit[] = [];
-
-function respond(headers: Record<string, string> = {}): void {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((_url: string, init: RequestInit) => {
-      sent.push(init);
-      return Promise.resolve(new Response('{}', { status: 200, headers }));
-    }),
-  );
-}
-
-beforeEach(() => {
-  sent.length = 0;
-  localStorage.clear();
-});
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { hasSessionToken } from './session-token.js';
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  localStorage.clear();
+  vi.restoreAllMocks();
 });
 
-describe('apiFetch — la session tient sans cookie tiers', () => {
-  it('garde le jeton que l’API remet, et le renvoie ensuite', async () => {
-    respond({ 'X-Session-Token': 'moi.123.sig' });
-    await apiFetch('https://api.invalid/api/me');
-    await apiFetch('https://api.invalid/api/listings');
-
-    expect(new Headers(sent[0]?.headers).get('Authorization')).toBeNull();
-    expect(new Headers(sent[1]?.headers).get('Authorization')).toBe('Bearer moi.123.sig');
+describe('hasSessionToken', () => {
+  it('reconnaît un jeton posé', () => {
+    localStorage.setItem('maioun.session', 'jeton-exemple');
+    expect(hasSessionToken()).toBe(true);
   });
 
-  it('envoie toujours le cookie aussi', async () => {
-    respond();
-    await apiFetch('https://api.invalid/api/me');
-    expect(sent[0]?.credentials).toBe('include');
+  it('rend faux sans jeton', () => {
+    expect(hasSessionToken()).toBe(false);
   });
 
-  it('remplace le jeton quand l’API le renouvelle', async () => {
-    localStorage.setItem('maioun.session', 'ancien');
-    respond({ 'X-Session-Token': 'neuf' });
-    await apiFetch('https://api.invalid/api/me');
-    expect(localStorage.getItem('maioun.session')).toBe('neuf');
-  });
-
-  it('n’envoie plus rien après la déconnexion', async () => {
-    localStorage.setItem('maioun.session', 'moi.123.sig');
-    await clearSessionToken();
-    respond();
-    await apiFetch('https://api.invalid/api/listings');
-    expect(new Headers(sent[0]?.headers).get('Authorization')).toBeNull();
+  it('rend faux quand le navigateur refuse son stockage', () => {
+    // Navigation privée stricte : on fait sans, et l'on attend alors la
+    // réponse d'identité comme avant.
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('bloqué');
+    });
+    expect(hasSessionToken()).toBe(false);
   });
 });

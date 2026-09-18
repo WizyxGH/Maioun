@@ -29,6 +29,17 @@ function read(): string | null {
   }
 }
 
+/**
+ * `true` si ce navigateur détient un jeton de session.
+ *
+ * Ne dit PAS qu'il est encore valable — seul l'API le sait. Il sert à savoir
+ * si une requête partira signée, donc si la réponse sera celle d'un compte :
+ * cela suffit à lancer la liste sans attendre de savoir QUI regarde.
+ */
+export function hasSessionToken(): boolean {
+  return read() !== null;
+}
+
 /** Le jeton seul, que l'API ne reconnaît plus (expiré, compte supprimé). */
 export function dropSessionToken(): void {
   try {
