@@ -1344,8 +1344,8 @@ export function createRepository(db: Database): Repository {
     async updateDerivedFields(occurrences) {
       if (occurrences.length === 0) return 0;
       const statements: Statement[] = occurrences.map((listing) => ({
-        // Seuls l'adresse, le TYPE, la COLOCATION, les CHARGES, les PIÈCES et
-        // la charge utile bougent — le DPE voyage dans cette dernière.
+        // Seuls l'adresse, la COMMUNE, le TYPE, la COLOCATION, les CHARGES, les
+        // PIÈCES et la charge utile bougent — le DPE voyage dans cette dernière.
         // `flat_share` a sa propre colonne parce que le dédoublonnage et le
         // score la lisent sans ouvrir la charge utile : l'oublier ici aurait
         // rendu la correction invisible là où elle compte.
@@ -1357,14 +1357,21 @@ export function createRepository(db: Database): Repository {
         // rien ne change jamais — il relisait la colonne inchangée et
         // recommençait. Une correction qui se répète sans effet est le signe
         // qu'on écrit ailleurs qu'on ne lit.
+        // LA COMMUNE MANQUAIT ICI, et c'est ce qui rendait sa correction
+        // inatteignable. Elle figure bien dans l'empreinte — donc un changement
+        // MÉRITE une écriture — mais la requête du rejeu ne la touchait pas :
+        // vingt-trois occurrences gardaient « voir l annonce » quoi qu'on
+        // corrige en amont. Les alertes e-mail n'envoient chaque annonce qu'une
+        // fois : sans ce rejeu, rien ne les réécrira jamais.
         // `content_hash` suit, pour que la prochaine collecte ne réécrive pas
         // la ligne pour rien.
         sql: `UPDATE occurrences
-              SET address = ?, property_type = ?, flat_share = ?, furnished = ?, charges = ?,
-                  rooms = ?, available_at = ?, payload = ?, content_hash = ?
+              SET address = ?, city = ?, property_type = ?, flat_share = ?, furnished = ?,
+                  charges = ?, rooms = ?, available_at = ?, payload = ?, content_hash = ?
               WHERE id = ?`,
         args: [
           listing.address,
+          listing.city,
           listing.propertyType,
           listing.flatShare === null ? null : listing.flatShare ? 1 : 0,
           listing.furnished === null ? null : listing.furnished ? 1 : 0,

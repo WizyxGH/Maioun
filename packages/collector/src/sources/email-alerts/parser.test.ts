@@ -547,3 +547,57 @@ describe('locationFromUrl', () => {
     expect(locationFromUrl('pas une url')).toEqual({});
   });
 });
+
+describe('parseAlertEmail — « Commune, CP » suivie du bouton', () => {
+  /**
+   * LE GABARIT QUI A CAUSÉ LE DÉFAUT. SeLoger écrit « Nice, 06100 » puis, dans
+   * le même bloc, le bouton « Voir l'annonce ». La lecture « code postal puis
+   * commune » prenait ce libellé pour la ville, et l'adresse affichée devenait
+   * « 06100 Voir L Annonce ».
+   */
+  const DIGEST = `
+<html><body><table><tr><td>
+  <div>590 €cc</div>
+  <a href="https://click.by.seloger.com/?qs=AAAA1">1 pièce • 1 chambre • 12 m² Nice, 06100</a>
+  <a href="https://click.by.seloger.com/?qs=AAAA1">Voir l’annonce →</a>
+</td></tr>
+<tr><td>
+  <div>575 €cc</div>
+  <a href="https://click.by.seloger.com/?qs=AAAA2">1 pièce • 20 m² Cagnes-sur-Mer, 06800</a>
+  <a href="https://click.by.seloger.com/?qs=AAAA2">Voir l’annonce →</a>
+</td></tr></table></body></html>`;
+
+  const listings = parseAlertEmail(DIGEST);
+
+  it('ne prend jamais le libellé du bouton pour une commune', () => {
+    expect(listings.map((l) => l.cityText)).not.toContain('Voir l’annonce');
+    expect(listings.map((l) => l.cityText)).not.toContain("Voir l'annonce");
+  });
+
+  it('lit la commune là où le message l’écrit, avec son code postal', () => {
+    expect(listings[0]?.cityText).toBe('Nice');
+    expect(listings[0]?.postalCodeText).toBe('06100');
+    expect(listings[1]?.cityText).toBe('Cagnes-sur-Mer');
+    expect(listings[1]?.postalCodeText).toBe('06800');
+  });
+
+  it('ne range plus la commune dans le quartier', () => {
+    expect(listings[0]?.extra?.['quartier']).toBeUndefined();
+  });
+});
+
+describe('parseAlertEmail — « CP Commune » reste lu comme avant', () => {
+  // La forme Bien'ici : la commune suit le code postal, et le quartier précède.
+  const DIGEST = `
+<html><body><table><tr><td>
+  <a href="https://www.bienici.com/annonce/ag132582-549992417">Studio 28 m²</a>
+  <div>Fabron 06200 Nice — 650 € CC</div>
+</td></tr></table></body></html>`;
+
+  it('garde la commune après le code postal et le quartier avant', () => {
+    const listing = parseAlertEmail(DIGEST)[0];
+    expect(listing?.cityText).toBe('Nice');
+    expect(listing?.postalCodeText).toBe('06200');
+    expect(listing?.extra?.['quartier']).toBe('Fabron');
+  });
+});

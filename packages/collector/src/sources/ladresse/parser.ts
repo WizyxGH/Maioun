@@ -18,8 +18,20 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { isPlausibleCommune } from '../../normalization/commune.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
+
+/**
+ * Le secours `.bien-geo`, gardé seulement s'il NOMME une commune.
+ *
+ * Il vaut parfois « à 17 km de Nice » : une position, pas un lieu. Écrite comme
+ * commune, elle s'affichait telle quelle en guise d'adresse.
+ */
+function geoCity(geo: string): string | undefined {
+  const nom = geo.replace(/\s*\(\d+\)\s*$/, '').trim();
+  return isPlausibleCommune(nom) ? nom : undefined;
+}
 
 /** Type de bien depuis le libellé français de la carte. */
 const TYPE_LABELS = /appartement|maison|studio|villa|duplex|loft|chambre/i;
@@ -53,13 +65,9 @@ function buildListing(fields: {
     areaText: (description.match(/[\d.,]+\s*m²/i) ?? alt.match(/[\d.,]+\s*m²/i))?.[0],
     roomsText: (description.match(/\d+\s*pi[eè]ces?/i) ?? alt.match(/\d+\s*pi[eè]ces?/i))?.[0],
     propertyTypeText: TYPE_LABELS.test(typeText) ? typeText : undefined,
-    // Ville : depuis l'alt « {Type} {VILLE} ({CP}) … » — fiable (le `.bien-geo`
-    // vaut parfois « à 33 km de Nice » pour les communes lointaines, trompeur).
-    // CP depuis l'alt aussi.
-    cityText:
-      /^\S+\s+(.+?)\s*\(\d{5}\)/.exec(alt)?.[1]?.trim() ||
-      geo.replace(/\s*\(\d+\)\s*$/, '').trim() ||
-      undefined,
+    // Ville : depuis l'alt « {Type} {VILLE} ({CP}) … » — fiable. Le `.bien-geo`
+    // ne sert qu'en secours, filtré. CP depuis l'alt aussi.
+    cityText: /^\S+\s+(.+?)\s*\(\d{5}\)/.exec(alt)?.[1]?.trim() || geoCity(geo),
     postalCodeText: /\((\d{5})\)/.exec(alt)?.[1],
     agencyName,
     contactFormUrl: sourceUrl,

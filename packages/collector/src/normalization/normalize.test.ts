@@ -739,3 +739,68 @@ describe('rederiveFromText — la référence imprimée dans le texte déjà sto
     expect(rederiveFromText(bep('0603220', COURBE))).toBeNull();
   });
 });
+
+describe('normalizeListing — la commune refusée quand ce n’en est pas une', () => {
+  it('ne garde pas un libellé d’action comme commune, quelle que soit la source', () => {
+    // Mesuré en base : vingt-trois occurrences portaient « voir l annonce »,
+    // et l'adresse affichée devenait « 06200 Voir L Annonce ».
+    const n = normalizeListing(
+      raw({ cityText: 'Voir l’annonce', postalCodeText: '06200', title: 'Studio' }),
+      OPTIONS,
+    );
+    expect(n?.city).toBeNull();
+    // Le code postal, lui, situe encore : on ne perd que ce qui était faux.
+    expect(n?.postalCode).toBe('06200');
+  });
+
+  it('refuse une distance là où une commune est attendue', () => {
+    expect(normalizeListing(raw({ cityText: 'à 17 km de Nice' }), OPTIONS)?.city).toBeNull();
+  });
+
+  it('laisse passer une vraie commune, du périmètre ou non', () => {
+    expect(normalizeListing(raw({ cityText: 'Cagnes-sur-Mer' }), OPTIONS)?.city).toBe(
+      'cagnes sur mer',
+    );
+    expect(normalizeListing(raw({ cityText: 'Antibes' }), OPTIONS)?.city).toBe('antibes');
+  });
+
+  it('ne déduit JAMAIS la commune du code postal', () => {
+    // 06340 désigne La Trinité, Drap et Cantaron : rien ne dit laquelle.
+    expect(normalizeListing(raw({ postalCodeText: '06340' }), OPTIONS)?.city).toBeNull();
+  });
+});
+
+describe('rederiveFromText — la commune reprise dans le titre', () => {
+  const enBase = (over: Record<string, unknown> = {}): never =>
+    ({
+      id: 'email-alerts:seloger:12-590-06100',
+      title: '1 pièce • 1 chambre • 12 m² Nice, 06100',
+      description: null,
+      address: null,
+      propertyType: 'studio',
+      features: [],
+      city: 'voir l annonce',
+      postalCode: '06100',
+      ...over,
+    }) as never;
+
+  it('remplace le libellé du bouton par la commune que le titre publie', () => {
+    // Les alertes e-mail n'envoient chaque annonce qu'une fois : sans ce rejeu,
+    // rien ne réécrira jamais ces lignes.
+    expect(rederiveFromText(enBase())?.city).toBe('nice');
+  });
+
+  it('laisse le champ VIDE quand le titre ne nomme pas de commune', () => {
+    expect(rederiveFromText(enBase({ title: 'Appartement (06670) 1 pièce 18.00 m²' }))?.city).toBe(
+      null,
+    );
+  });
+
+  it('refuse un titre dont le code postal n’est pas celui de la fiche', () => {
+    expect(rederiveFromText(enBase({ title: 'Studio 20 m² Antibes, 06600' }))?.city).toBe(null);
+  });
+
+  it('ne touche pas à une commune déjà juste', () => {
+    expect(rederiveFromText(enBase({ city: 'nice', address: 'déjà propre' }))).toBeNull();
+  });
+});

@@ -29,6 +29,11 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
 import { parseArea, parsePrice } from '../../normalization/parse-listing-fields.js';
+import {
+  communeNameBefore,
+  communeWithPostalCode,
+  isPlausibleCommune,
+} from '../../normalization/commune.js';
 
 /** Portail reconnu et comment en tirer une référence stable depuis l'URL. */
 interface Portal {
@@ -169,15 +174,6 @@ function findArea(text: string): string | undefined {
   return /(\d[\d.,]*)\s*m²/i.exec(text)?.[0];
 }
 
-/**
- * Les mots qui LIENT deux morceaux d'un nom de commune.
- *
- * « Cagnes-sur-Mer », « Saint-Laurent-du-Var », « Villeneuve-lès-Avignon » :
- * ces particules s'écrivent en minuscules au milieu d'un nom propre, et les
- * refuser couperait la commune en deux.
- */
-const PARTICULES = new Set(['sur', 'de', 'du', 'des', 'la', 'le', 'les', 'en', 'd', 'l', 'lès']);
-
 /** Ce qu'un bloc de digest dit du lieu. */
 interface Place {
   city?: string;
@@ -186,14 +182,20 @@ interface Place {
   district?: string;
 }
 
-/** Nettoie un morceau de nom de lieu ; `undefined` s'il n'en reste rien. */
+/**
+ * Nettoie un morceau de nom de lieu ; `undefined` s'il n'en reste rien.
+ *
+ * Un libellé d'action — « Voir l'annonce », « En savoir plus » — est refusé
+ * ici : le digest le colle contre le code postal, et rien dans sa forme ne le
+ * distingue d'un nom propre.
+ */
 function placeName(raw: string | undefined): string | undefined {
   if (raw === undefined) return undefined;
   const clean = cleanText(raw)
     .replace(/[^A-Za-zÀ-ÿ'’ -]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return clean === '' ? undefined : clean;
+  return clean === '' || !isPlausibleCommune(clean) ? undefined : clean;
 }
 
 /**
@@ -221,48 +223,18 @@ const SELOGER_PLACE =
 const POSTAL_THEN_CITY = /(\d{5})\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]*(?:[ -][A-Za-zÀ-ÿ'’-]+){0,3})/;
 
 /**
- * La commune écrite juste AVANT un code postal, et rien de plus.
- *
- * ON REMONTE DEPUIS LE CODE POSTAL, mot à mot. Une version antérieure cherchait
- * « une suite de lettres suivie de cinq chiffres » et retenait la PLUS À
- * GAUCHE : sur « 790 € / mois charges comprises Fabron 06200 », elle rendait
- * « mois charges comprises Fabron » comme nom de commune.
- *
- * LA MAJUSCULE FAIT LA FRONTIÈRE. Un nom de commune en porte une, « comprises »
- * non. On remonte tant que le mot commence par une majuscule ou qu'il est une
- * particule, et l'on s'arrête au premier qui n'est ni l'un ni l'autre.
- *
- * Sans aucune majuscule — certains digests écrivent tout en minuscules —, on ne
- * rend RIEN plutôt qu'une ville inventée (§17). Le code postal, lui, reste : il
- * suffit à situer, et l'URL porte souvent la commune par ailleurs.
- */
-function nameBeforePostalCode(text: string, index: number): string | undefined {
-  const avant = text.slice(0, index).replace(/[,\s]+$/, '');
-  const mots = avant.split(/\s+/).filter((mot) => mot !== '');
-
-  const retenus: string[] = [];
-  // Quatre mots au plus : « Saint-Laurent-du-Var » n'en fait qu'un, « Villeneuve
-  // Loubet » deux ; au-delà on lit une phrase, pas un nom de lieu.
-  for (let i = mots.length - 1; i >= 0 && retenus.length < 4; i -= 1) {
-    const nu = (mots[i] ?? '').replace(/[^A-Za-zÀ-ÿ'’-]/g, '');
-    if (nu === '') break;
-    if (!/^[A-ZÀ-Ý]/.test(nu) && !PARTICULES.has(nu.toLowerCase())) break;
-    retenus.unshift(nu);
-  }
-
-  // Une particule en tête ne nomme rien : « de 06000 » n'est pas une commune.
-  while (retenus.length > 0 && PARTICULES.has((retenus[0] ?? '').toLowerCase())) retenus.shift();
-  if (retenus.length === 0) return undefined;
-  return cleanText(retenus.join(' ')).replace(/\s+/g, ' ').trim();
-}
-
-/**
  * Le lieu d'une annonce, lu dans le texte de son bloc.
  *
- * Trois écritures coexistent dans les digests, et l'ordre d'essai est celui de
- * leur précision : la forme parenthésée nomme les deux, la forme « code postal
- * puis commune » nomme la commune à coup sûr, la remontée mot à mot ne fait que
- * deviner et reste en dernier recours.
+ * QUATRE ÉCRITURES COEXISTENT, essayées de la plus explicite à la plus fragile.
+ * La forme parenthésée nomme les deux ; la virgule « Nice, 06100 » désigne la
+ * commune sans ambiguïté ; « 06000 Nice » la met après le code ; la remontée
+ * mot à mot ne fait que deviner et reste en dernier recours.
+ *
+ * L'ORDRE EST LE CORRECTIF. « Nice, 06100 Voir l'annonce » se lisait par la
+ * troisième forme, qui prenait le libellé du bouton pour la commune : vingt et
+ * une fiches affichaient « 06200 Voir L Annonce » en guise d'adresse. La
+ * virgule, elle, dit que la commune PRÉCÈDE le code — donc que ce qui suit
+ * n'en est pas une.
  */
 function findLocation(text: string): Place {
   const parenthese = SELOGER_PLACE.exec(text);
@@ -276,10 +248,13 @@ function findLocation(text: string): Place {
     };
   }
 
+  const virgule = communeWithPostalCode(text);
+  if (virgule !== undefined) return { city: virgule.city, postalCode: virgule.postalCode };
+
   const apres = POSTAL_THEN_CITY.exec(text);
   if (apres?.[1] !== undefined) {
     const city = placeName(apres[2]);
-    const district = placeName(nameBeforePostalCode(text, apres.index));
+    const district = placeName(communeNameBefore(text, apres.index));
     return {
       ...(city !== undefined ? { city } : {}),
       ...(district !== undefined && district !== city ? { district } : {}),
@@ -289,7 +264,7 @@ function findLocation(text: string): Place {
 
   const match = /(\d{5})\b/.exec(text);
   if (match?.[1] === undefined) return {};
-  const city = nameBeforePostalCode(text, match.index);
+  const city = communeNameBefore(text, match.index);
   return { ...(city !== undefined ? { city } : {}), postalCode: match[1] };
 }
 

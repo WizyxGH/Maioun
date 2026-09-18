@@ -7,9 +7,21 @@
  * dernière observation.
  */
 
-import { describe, expect, it } from 'vitest';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { EMPTY_CONTACT } from '@maioun/shared';
-import { occurrenceHash } from './repository.js';
+import type { NormalizedListing } from '@maioun/shared';
+import { createRepository, occurrenceHash } from './repository.js';
+import { openDatabase, type Database } from './client.js';
+import { migrate } from './migrate.js';
+import { silentLogger } from '../core/logger.js';
+import { rederiveFromText } from '../normalization/normalize.js';
+
+const MIGRATIONS = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../../database/migrations',
+);
 import { makeOccurrence } from '../../../../tests/helpers/factories.js';
 
 const bep = (reference: string | null) =>
@@ -75,5 +87,54 @@ describe('occurrenceHash et ce que le loyer comprend', () => {
         makeOccurrence({ id: 'rentumo:6536133', sourceId: 'rentumo', price: 670, charges: 40 }),
       ),
     );
+  });
+});
+
+/**
+ * LA COMMUNE : dans l'empreinte, et dans ce que le rejeu ÉCRIT.
+ *
+ * Être dans l'empreinte ne suffit pas. Vingt-trois occurrences portaient
+ * « voir l annonce » — le libellé d'un bouton pris pour une ville — et le rejeu
+ * ne pouvait pas les réparer : sa requête de mise à jour ne touchait pas la
+ * colonne. Une correction qu'aucune écriture ne transporte n'existe pas.
+ */
+describe('occurrenceHash et la commune affichée', () => {
+  const alerte = (city: string | null) =>
+    makeOccurrence({ id: 'email-alerts:seloger:12-590-06100', sourceId: 'email-alerts', city });
+
+  it('change quand la commune corrigée remplace le libellé du bouton', () => {
+    expect(occurrenceHash(alerte('nice'))).not.toBe(occurrenceHash(alerte('voir l annonce')));
+  });
+
+  it('change quand une commune fausse est retirée', () => {
+    expect(occurrenceHash(alerte(null))).not.toBe(occurrenceHash(alerte('voir l annonce')));
+  });
+});
+
+describe('le rejeu écrit bien la commune en base', () => {
+  let db: Database;
+
+  beforeEach(async () => {
+    db = openDatabase({ url: ':memory:' });
+    await migrate(db, MIGRATIONS, silentLogger);
+  });
+
+  it('remplace « voir l annonce » par la commune que le titre publie', async () => {
+    const repository = createRepository(db);
+    const stockee = makeOccurrence({
+      id: 'email-alerts:seloger:12-590-06100',
+      sourceId: 'email-alerts',
+      city: 'voir l annonce',
+      postalCode: '06100',
+      title: '1 pièce • 1 chambre • 12 m² Nice, 06100',
+    });
+    await repository.upsertOccurrences([stockee]);
+
+    const corrigee = rederiveFromText(stockee);
+    expect(corrigee?.city).toBe('nice');
+    await repository.updateDerivedFields([corrigee as NormalizedListing]);
+
+    const relue = (await repository.allActiveOccurrences())[0];
+    expect(relue?.city).toBe('nice');
   });
 });

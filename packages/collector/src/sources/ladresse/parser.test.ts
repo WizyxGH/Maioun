@@ -136,3 +136,31 @@ describe('parseDetail — montants, DPE et téléphone (L’Adresse)', () => {
     expect(normalized?.contact.phone).not.toBeNull();
   });
 });
+
+describe('parseListPage — le secours « .bien-geo » ne nomme pas toujours', () => {
+  /**
+   * Mesuré en base : une annonce portait « a 17 km de nice » comme commune. Le
+   * repli lit le bandeau de la carte, qui situe la commune au lieu de la nommer
+   * quand elle est lointaine.
+   */
+  const CARTE = (geo: string): string => `
+<html><body>
+  <a class="bien" href="/annonce/location/appartement/nice-06000/10529650" data-id="10529650">
+    <img alt="Appartement (06670) 1 pièce 18.00 m²" src="https://exemple.invalid/p.jpg">
+    <span class="bien-geo">${geo}</span>
+    <span class="bien-prix">590 € / mois</span>
+  </a>
+</body></html>`;
+
+  it('ne garde pas une distance en guise de commune', () => {
+    const { listings } = parseListPage(CARTE('à 17 km de Nice'), LIST_URL, "L'Adresse");
+    expect(listings[0]?.cityText).toBeUndefined();
+    // Le code postal de l'alt reste : il situe, lui.
+    expect(listings[0]?.postalCodeText).toBe('06670');
+  });
+
+  it('garde le secours quand il nomme vraiment une commune', () => {
+    const { listings } = parseListPage(CARTE('Colomars (3)'), LIST_URL, "L'Adresse");
+    expect(listings[0]?.cityText).toBe('Colomars');
+  });
+});

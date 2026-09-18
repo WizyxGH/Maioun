@@ -22,6 +22,7 @@ import {
   STUDENT_HOUSING_FEATURE,
 } from '@maioun/shared';
 import { cleanMultiline, cleanText, comparable } from './text.js';
+import { communeWithPostalCode, plausibleCommune } from './commune.js';
 import { wantedAdEvidence } from './housing-wanted.js';
 import {
   addressGrade,
@@ -341,9 +342,17 @@ function resolveLocation(raw: RawListing): {
     // Champ dédié d'abord — neuf sources sur quarante le remplissent —, puis
     // le texte, où la tournure « quartier X » se désigne elle-même.
     district: toNull(raw.extra?.['quartier']) ?? parseDistrictOf(raw.title, raw.description),
-    // Ville en forme comparable : les filtres et le dédoublonnage ignorent
-    // ainsi casse et accents.
-    city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,
+    /**
+     * Ville en forme comparable : les filtres et le dédoublonnage ignorent
+     * ainsi casse et accents.
+     *
+     * CE QUI N'EST PAS UNE COMMUNE N'EN DEVIENT PAS UNE ICI. Le champ récolte
+     * ce qui traîne autour du code postal : un digest y a mis le libellé de son
+     * bouton — « voir l annonce » sur vingt-trois occurrences —, une autre
+     * source « a 17 km de nice ». Refusé, le champ reste vide : une commune
+     * absente se cherche, une commune fausse s'affiche comme une adresse.
+     */
+    city: plausibleCommune(raw.cityText),
     postalCode:
       parsePostalCode(raw.postalCodeText) ??
       parsePostalCode(raw.addressText) ??
@@ -933,6 +942,27 @@ function rescuedContact(occurrence: NormalizedListing, text: string): Contact {
   return { ...occurrence.contact, reference: printed };
 }
 
+/**
+ * La commune d'une fiche DÉJÀ EN BASE, quand celle qu'on lui a donnée n'en est
+ * pas une.
+ *
+ * ON NE RELIT QUE CE QUI EST PUBLIÉ : ces annonces portent la commune dans leur
+ * titre — « 12 m² Nice, 06100 ». Sans titre qui la nomme, le champ retombe à
+ * vide, jamais déduit du code postal que trois communes peuvent partager. Et le
+ * code postal du titre doit être celui de la fiche, sans quoi le titre parle
+ * d'autre chose.
+ *
+ * Une commune ABSENTE le reste : lui en trouver une réécrirait tout le stock
+ * pour un gain qui n'a pas été mesuré.
+ */
+function rescuedCity(occurrence: NormalizedListing): string | null {
+  if (occurrence.city == null || plausibleCommune(occurrence.city) !== null) return occurrence.city;
+  const published = communeWithPostalCode(occurrence.title ?? '');
+  if (published === undefined) return null;
+  if (occurrence.postalCode !== null && published.postalCode !== occurrence.postalCode) return null;
+  return plausibleCommune(published.city);
+}
+
 export function rederiveFromText(
   occurrence: NormalizedListing,
   nowMs: number = Date.now(),
@@ -971,9 +1001,13 @@ export function rederiveFromText(
   // le numéro que nous avions tiré de son URL.
   const contact = rescuedContact(occurrence, text);
 
+  // La commune, quand la sienne est un libellé de bouton plutôt qu'un lieu.
+  const city = rescuedCity(occurrence);
+
   if (
     contact === occurrence.contact &&
     address === occurrence.address &&
+    city === occurrence.city &&
     propertyType === occurrence.propertyType &&
     !featuresChanged &&
     flatShare === occurrence.flatShare &&
@@ -994,6 +1028,7 @@ export function rederiveFromText(
     ...occurrence,
     contact,
     address,
+    city,
     propertyType,
     features,
     flatShare,
