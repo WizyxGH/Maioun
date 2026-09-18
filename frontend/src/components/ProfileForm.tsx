@@ -7,7 +7,13 @@
 
 import { useState } from 'react';
 import type { Guarantor, GuarantorKind, TenantProfile } from '@maioun/shared';
-import { MAX_GUARANTORS, MOVE_IN_ASAP, TENANT_SITUATIONS } from '@maioun/shared';
+import {
+  DOSSIER_FACILE_HOME,
+  dossierFacileLink,
+  MAX_GUARANTORS,
+  MOVE_IN_ASAP,
+  TENANT_SITUATIONS,
+} from '@maioun/shared';
 import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
@@ -101,6 +107,15 @@ export function ProfileForm({
   const update = <K extends keyof TenantProfile>(key: K, value: TenantProfile[K]): void => {
     setProfile((previous) => ({ ...previous, [key]: value }));
   };
+
+  /**
+   * Un lien saisi mais non reconnu : on le dit AVANT l'enregistrement.
+   *
+   * Le champ vide ne pose pas de problème — il est facultatif.
+   */
+  const dossierProbleme =
+    (profile.dossierFacileUrl ?? '').trim() !== '' &&
+    dossierFacileLink(profile.dossierFacileUrl) === null;
 
   /** `false` quand la situation est un texte libre : le champ « Autre » s'ouvre. */
   const knownSituation = TENANT_SITUATIONS.some(
@@ -271,6 +286,43 @@ export function ProfileForm({
             </Button>
           </p>
         )}
+
+        {/* LE DOSSIER VÉRIFIÉ DE L'ÉTAT. Un bailleur qui reçoit un dossier déjà
+            contrôlé répond plus volontiers qu'à une candidature nue, et sur ce
+            marché c'est ce qui départage. Seul le LIEN est gardé, jamais les
+            pièces : c'est DossierFacile qui les héberge et les tient à jour. */}
+        <label className="sm:col-span-2 flex flex-col gap-1">
+          <span className="text-muted-foreground text-[0.88rem]">
+            Lien DossierFacile <span className="text-[0.82rem]">(facultatif)</span>
+          </span>
+          <Input
+            type="url"
+            inputMode="url"
+            value={profile.dossierFacileUrl ?? ''}
+            placeholder="https://www.dossierfacile.logement.gouv.fr/file/…"
+            onChange={(event) => update('dossierFacileUrl', event.target.value)}
+          />
+          {dossierProbleme && (
+            <span role="alert" className="text-bad text-[0.82rem]">
+              Ce lien n’est pas une adresse DossierFacile. Copiez celui que le service vous donne,
+              depuis{' '}
+              <a
+                href={DOSSIER_FACILE_HOME}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary underline"
+              >
+                dossierfacile.logement.gouv.fr
+              </a>
+              .
+            </span>
+          )}
+          {!dossierProbleme && (
+            <span className="text-muted-foreground text-[0.8rem]">
+              Il sera joint à vos messages de candidature. Vos pièces restent chez DossierFacile.
+            </span>
+          )}
+        </label>
 
         {/* PLUSIEURS GARANTIES, et non plus une seule. Deux parents se portent
             souvent caution ensemble, et l'on cumule volontiers un garant

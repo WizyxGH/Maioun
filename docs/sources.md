@@ -1624,8 +1624,15 @@ déjà (profil et garanties) :
   répond d'avance à l'objection, et les annonces qui l'acceptent le disent
   parfois — ImmoJeune affiche d'ailleurs un bandeau « Cette annonce accepte ».
 
-Rien de tout cela n'est implémenté ici : c'est une piste pour le profil, pas
-pour la collecte, et elle sort du périmètre de cette étude.
+**DossierFacile est désormais implémenté** (2026-09-18) : le profil porte un
+champ « Lien DossierFacile », vérifié à la saisie — seul le domaine officiel
+est accepté, en HTTPS, parce que ce lien part dans des messages adressés à des
+agences. Le message de candidature le joint en le nommant. Seule l'adresse est
+conservée : les pièces restent chez DossierFacile, qui les contrôle et les
+tient à jour.
+
+Visale, elle, reste une piste : elle figure déjà parmi les garanties du profil,
+mais rien ne la met en avant auprès des annonces qui l'acceptent.
 
 ### Confiance Immobilière — l'agence est là, son site n'y est plus
 

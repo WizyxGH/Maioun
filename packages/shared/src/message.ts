@@ -16,6 +16,7 @@
 
 import type { Contact } from './contact.js';
 import type { PropertyType } from './listing.js';
+import { dossierFacileLink } from './dossier-facile.js';
 
 /**
  * Profil locataire (§25).
@@ -174,6 +175,18 @@ export interface TenantProfile {
   readonly applicationMessage?: string;
   /** Objet de l'e-mail de candidature ; vide → objet par défaut (avec réf.). */
   readonly applicationSubject?: string;
+  /**
+   * Lien vers le dossier vérifié DossierFacile, service public.
+   *
+   * Joint au message parce qu'un bailleur qui reçoit un dossier DÉJÀ contrôLÉ
+   * répond plus volontiers qu'à une candidature nue. Seule l'adresse est
+   * gardée, jamais les pièces : c'est DossierFacile qui les héberge.
+   *
+   * VÉRIFIÉE À LA SAISIE (`dossierFacileLink`) : ce lien part dans des messages
+   * adressés à des agences, et n'importe quelle adresse ferait de nous un
+   * relais d'hameçonnage au nom de l'utilisateur.
+   */
+  readonly dossierFacileUrl?: string;
 }
 
 /**
@@ -377,6 +390,17 @@ function subjectWithName(base: string, profile: TenantProfile): string {
   return name !== '' ? `${base} - ${name}` : base;
 }
 
+/**
+ * La ligne qui annonce le dossier vérifié, ou `''` s'il n'y en a pas.
+ *
+ * Elle NOMME le service : « mon dossier DossierFacile » se reconnaît d'un coup
+ * d'œil par une agence, là où un lien nu ne s'ouvre pas.
+ */
+function dossierLine(profile: TenantProfile): string {
+  const link = dossierFacileLink(profile.dossierFacileUrl);
+  return link === null ? '' : `Mon dossier vérifié (DossierFacile) : ${link}`;
+}
+
 /** Supprime les lignes vides consécutives laissées par un champ absent. */
 const tidy = (lines: readonly string[]): string =>
   lines.filter((line, index) => !(line === '' && lines[index - 1] === '')).join('\n');
@@ -396,6 +420,7 @@ export const AGENCY_TEMPLATE: MessageTemplate = {
       `Votre annonce concernant ${describeListing(listing)} m’intéresse.`,
       listingLink(listing),
       `${describeSolvency(profile)}${availability}`.trim(),
+      dossierLine(profile),
       '',
       'Serait-il possible de convenir d’une visite ? Je suis disponible rapidement, ' +
         'y compris en fin de journée.',
@@ -422,6 +447,7 @@ export const PRIVATE_TEMPLATE: MessageTemplate = {
       `Je vous contacte au sujet de ${describeListing(listing)}, qui correspond à ma recherche.`,
       listingLink(listing),
       `${describeSolvency(profile)}${availability}`.trim(),
+      dossierLine(profile),
       '',
       'Seriez-vous disponible pour une visite prochainement ?',
       '',

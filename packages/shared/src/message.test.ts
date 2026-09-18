@@ -4,6 +4,7 @@ import {
   AGENCY_TEMPLATE,
   FOLLOW_UP_TEMPLATE,
   prepareMessage,
+  PRIVATE_TEMPLATE,
   type MessageListing,
   type TenantProfile,
 } from './message.js';
@@ -199,5 +200,45 @@ describe('revenus nets ou bruts', () => {
     expect(body).toContain('revenus mensuels de 2400 €');
     expect(body).not.toContain('€ net');
     expect(body).not.toContain('€ brut');
+  });
+});
+
+describe('le dossier vérifié, joint au message', () => {
+  const LIEN = 'https://www.dossierfacile.logement.gouv.fr/file/abc123';
+
+  it('paraît dans le message adressé à une agence', () => {
+    const body = AGENCY_TEMPLATE.body({
+      listing: listing('agency'),
+      profile: { ...PROFILE, dossierFacileUrl: LIEN },
+    });
+    // Le service est NOMMÉ : une agence le reconnaît d'un coup d'œil, là où un
+    // lien nu ne s'ouvre pas.
+    expect(body).toContain('DossierFacile');
+    expect(body).toContain(LIEN);
+  });
+
+  it('paraît aussi dans le message adressé à un particulier', () => {
+    const body = PRIVATE_TEMPLATE.body({
+      listing: listing('private'),
+      profile: { ...PROFILE, dossierFacileUrl: LIEN },
+    });
+    expect(body).toContain(LIEN);
+  });
+
+  it('N’AJOUTE RIEN sans lien, ni de ligne vide', () => {
+    const body = AGENCY_TEMPLATE.body({ listing: listing('agency'), profile: PROFILE });
+    expect(body).not.toContain('DossierFacile');
+    expect(body).not.toContain('\n\n\n');
+  });
+
+  it('TAIT une adresse qui n’est pas celle du service', () => {
+    // Ce lien part vers une agence : une adresse quelconque ferait de nous un
+    // relais d'hameçonnage, au nom de l'utilisateur.
+    const body = AGENCY_TEMPLATE.body({
+      listing: listing('agency'),
+      profile: { ...PROFILE, dossierFacileUrl: 'https://exemple.invalid/mon-dossier' },
+    });
+    expect(body).not.toContain('exemple.invalid/mon-dossier');
+    expect(body).not.toContain('DossierFacile');
   });
 });
