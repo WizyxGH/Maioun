@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "icons": "node scripts/build-icons.mjs",
     "sources": "node scripts/build-sources.mjs",
+    "districts": "node scripts/build-districts.mjs",
     "app-icons": "node scripts/build-app-icons.mjs"
   },
   "dependencies": {

@@ -13,6 +13,12 @@
  * seul ce qui est visible est monté. Un amas s'ouvre toujours : en zoomant, ou
  * par la liste de ses annonces quand plus aucun zoom ne le sépare.
  *
+ * LES CONTOURS DE QUARTIERS se chargent APRÈS la carte, par un `import()` à
+ * part : ils viennent de l'IGN, font un morceau de 22 ko (6 ko compressés) et
+ * n'ont aucune raison de retarder l'affichage des annonces. Trente-trois
+ * quartiers sur quatre-vingt-huit en ont un — on ne dessine que les limites
+ * publiées, jamais une limite reconstituée.
+ *
  * Chargé PARESSEUSEMENT (React.lazy) : Leaflet ne pèse sur le bundle initial
  * que si la vue carte est ouverte (§65).
  */
@@ -31,7 +37,16 @@ import {
 } from '../format.js';
 import { photoVariant } from '../photo-variant.js';
 import { iconMarkup } from './icons.js';
+import { Select } from './ui/select.js';
 import { clusterByPixelGrid, type MapCluster } from './map-clusters.js';
+import {
+  BOUNDARY_ACTIVE_CLASS,
+  BOUNDARY_ATTRIBUTION,
+  BOUNDARY_CLASS,
+  boundaryOptions,
+  loadDistrictBoundaries,
+  type DistrictBoundaries,
+} from '../district-boundaries.js';
 
 /** Aperçu de 220 px de large, sur un écran à densité 2. */
 const POPUP_PHOTO_WIDTH = 500;
@@ -47,6 +62,12 @@ const VIEWPORT_PAD = 0.25;
 
 /** Centre par défaut : Nice. Utilisé quand aucune annonce n'est géolocalisée. */
 const NICE_CENTER: [number, number] = [43.7009, 7.2683];
+
+/**
+ * Ce que `L.geoJSON` accepte. Déduit de Leaflet plutôt qu'importé de
+ * `@types/geojson`, qui n'est pas une dépendance de l'interface.
+ */
+type GeoJsonInput = Parameters<typeof L.geoJSON>[0];
 
 export type MapStyle = 'plan' | 'satellite';
 
@@ -113,7 +134,9 @@ const CONTACTED_STATUSES = new Set([
  */
 function priceIcon(listing: ListingView): L.DivIcon {
   const hot = listing.actionPriority >= PRIORITY_HOT;
-  const label = listing.price.value !== null ? `${listing.price.value} €` : '— €';
+  // Même formatage que les cartes : centimes en virgule, « N/A » si le loyer
+  // n'est pas publié — un tiret aurait l'air d'une valeur.
+  const label = formatPrice(listing.price.value);
   const favorite = listing.favorite === true;
   const contacted = CONTACTED_STATUSES.has(listing.tracking);
   const viewed = listing.viewed === true;
@@ -346,6 +369,10 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   const layerRef = useRef<L.LayerGroup | null>(null);
   const tilesRef = useRef<L.TileLayer | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyle>(readMapStyle);
+  const [boundaries, setBoundaries] = useState<DistrictBoundaries | null>(null);
+  const [district, setDistrict] = useState<string | null>(null);
+  // Le tracé de chaque quartier, pour le mettre en évidence sans le redessiner.
+  const shapesRef = useRef(new Map<string, L.Polygon>());
   // `onOpen` change à chaque rendu : une ref évite de reconstruire les marqueurs.
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
@@ -360,6 +387,12 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
           typeof listing.longitude?.value === 'number',
       ),
     [listings],
+  );
+
+  // Les quartiers proposés dans la liste : ceux qui ont vraiment un contour.
+  const districtOptions = useMemo(
+    () => (boundaries === null ? [] : boundaryOptions(boundaries)),
+    [boundaries],
   );
 
   // Initialisation de la carte, une seule fois.
@@ -392,6 +425,21 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
     };
   }, []);
 
+  // LES CONTOURS ARRIVENT APRÈS : la carte s'affiche sans les attendre, et un
+  // réseau qui refuse ce morceau lui laisse une carte entière, sans quartiers.
+  useEffect(() => {
+    let monte = true;
+    void loadDistrictBoundaries().then(
+      (data) => {
+        if (monte) setBoundaries(data);
+      },
+      () => undefined,
+    );
+    return () => {
+      monte = false;
+    };
+  }, []);
+
   // Le fond se remplace sous les marqueurs, sans toucher ni à eux ni au cadrage.
   useEffect(() => {
     const map = mapRef.current;
@@ -402,6 +450,58 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
     tilesRef.current = tiles;
     writeMapStyle(mapStyle);
   }, [mapStyle]);
+
+  /**
+   * Les contours, posés sous les marqueurs.
+   *
+   * SOUS, et c'est tout l'enjeu : Leaflet range les tracés dans son panneau
+   * « overlay » et les marqueurs dans le sien, plus haut. Une pastille de prix
+   * posée sur un quartier reste donc cliquable — le polygone ne l'avale pas.
+   *
+   * Un clic sur un contour le choisit et s'arrête là ; un clic sur le fond
+   * remonte jusqu'à la carte et efface le choix.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null || boundaries === null) return;
+    const shapes = new Map<string, L.Polygon>();
+
+    const group = L.geoJSON(boundaries as unknown as GeoJsonInput, {
+      // La Licence Ouverte 2.0 des contours exige de citer l'IGN et l'INSEE.
+      attribution: BOUNDARY_ATTRIBUTION,
+      style: () => ({ className: BOUNDARY_CLASS, interactive: true }),
+      onEachFeature: (feature, layer) => {
+        const { slug } = feature.properties as { slug: string };
+        shapes.set(slug, layer as L.Polygon);
+        layer.on('click', (event: L.LeafletMouseEvent) => {
+          // Sans cela, la carte reçoit le même clic et efface aussitôt.
+          L.DomEvent.stopPropagation(event);
+          setDistrict(slug);
+        });
+      },
+    }).addTo(map);
+    shapesRef.current = shapes;
+
+    const efface = (): void => setDistrict(null);
+    map.on('click', efface);
+
+    return () => {
+      map.off('click', efface);
+      group.remove();
+      shapesRef.current = new Map<string, L.Polygon>();
+    };
+  }, [boundaries]);
+
+  // La mise en évidence se joue en CSS : une classe suffit, et le thème
+  // clair/sombre suit les tokens sans que ce composant les connaisse.
+  useEffect(() => {
+    for (const [slug, shape] of shapesRef.current) {
+      const actif = slug === district;
+      shape.getElement()?.classList.toggle(BOUNDARY_ACTIVE_CLASS, actif);
+      // Devant ses voisins, sinon un contour mitoyen recouvre son trait.
+      if (actif) shape.bringToFront();
+    }
+  }, [district, boundaries]);
 
   // Les annonces déjà cadrées : le cadrage ne se refait que si l'ENSEMBLE
   // change. Mettre un favori ou ouvrir une fiche renvoie une nouvelle liste au
@@ -553,6 +653,45 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
           </button>
         ))}
       </div>
+      {/* LE CONTOUR SE CLIQUE, MAIS PAS SEULEMENT.
+        Un polygone SVG n'est pas au clavier : le rendre focalisable
+        ajouterait trente-trois arrêts de tabulation dans une carte, ce qui
+        est pire que rien. Cette liste donne le même geste en un seul arrêt —
+        choisir un quartier le met en évidence, le cadre, et son NOM reste
+        affiché dans le contrôle. C'est aussi par elle qu'on découvre quels
+        quartiers ont une limite publiée : le reste de la carte ne le dit pas.
+
+        Elle ne paraît qu'une fois les contours chargés : un menu vide, ou un
+        menu qui pousse la carte à l'arrivée du morceau, ne vaut rien. */}
+      {districtOptions.length > 0 && (
+        <div className="absolute top-12 right-2.5 z-[1000]">
+          <label htmlFor="map-district" className="sr-only">
+            Délimiter un quartier
+          </label>
+          <Select
+            id="map-district"
+            size="sm"
+            value={district ?? ''}
+            onChange={(event) => {
+              const slug = event.target.value === '' ? null : event.target.value;
+              setDistrict(slug);
+              // Choisi dans la liste, le quartier est cadré : sans souris, on
+              // ne sait pas où regarder. Cliqué sur la carte, il ne l'est pas
+              // — on était déjà dessus, et la carte sauterait sous le doigt.
+              const shape = slug === null ? undefined : shapesRef.current.get(slug);
+              if (shape !== undefined) mapRef.current?.fitBounds(shape.getBounds().pad(0.1));
+            }}
+            className="bg-card shadow-md"
+          >
+            <option value="">Quartier…</option>
+            {districtOptions.map((option) => (
+              <option key={option.slug} value={option.slug}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       {/* §17 : les annonces non localisables sont dites, pas placées au hasard. */}
       {located.length < listings.length && <LocatedNote located={located} listings={listings} />}
     </div>

@@ -1,0 +1,52 @@
+/* ---------------------------------------------------------------------------
+   Contours de quartiers.
+
+   ELLE VOYAGE AVEC LA CARTE, pas avec la page : ce fichier n'est importé que
+   par le module de contours, lui-même chargé à la demande. Vite en fait un
+   morceau séparé, demandé en même temps que Leaflet.
+
+   LES COULEURS SONT DES TOKENS, pas des valeurs. `--color-foreground` et
+   `--color-primary` sont déjà des `light-dark()` déclarés dans `styles.css` :
+   les contours suivent donc le thème clair/sombre sans qu'on écrive deux jeux
+   de couleurs, et sans que JavaScript ait à connaître le thème.
+
+   ON DOIT LIRE LA CARTE AU TRAVERS. Un remplissage opaque cacherait les rues
+   et, surtout, les pastilles de prix — c'est-à-dire ce qu'on est venu voir.
+   D'où un fond à peine teinté, et un trait qui porte seul l'information.
+--------------------------------------------------------------------------- */
+
+.maioun-quartier {
+  fill: var(--color-foreground);
+  fill-opacity: 0.05;
+  stroke: var(--color-muted-foreground);
+  stroke-width: 1.5;
+  stroke-opacity: 0.6;
+  stroke-linejoin: round;
+  cursor: pointer;
+  transition:
+    fill-opacity 120ms ease,
+    stroke-opacity 120ms ease;
+}
+
+.maioun-quartier:hover {
+  fill-opacity: 0.1;
+  stroke-opacity: 0.9;
+}
+
+/* Le quartier choisi : le trait s'épaissit et prend l'accent du site. Le
+   remplissage monte à peine — assez pour désigner la zone, pas assez pour
+   effacer ce qu'elle contient. */
+.maioun-quartier-actif,
+.maioun-quartier-actif:hover {
+  fill: var(--color-primary);
+  fill-opacity: 0.14;
+  stroke: var(--color-primary);
+  stroke-width: 3;
+  stroke-opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maioun-quartier {
+    transition: none;
+  }
+}
