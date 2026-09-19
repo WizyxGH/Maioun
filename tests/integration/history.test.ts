@@ -105,7 +105,8 @@ describe('collecte de l’historique (§31)', () => {
    * effondrerait la médiane.
    */
   it('mesure la durée de vie sans compter les vivantes comme des mortes', async () => {
-    const jours = (n: number): string => new Date(Date.now() - n * 86_400_000).toISOString();
+    const maintenant = Date.now();
+    const jours = (n: number): string => new Date(maintenant - n * 86_400_000).toISOString();
 
     await db.batch(
       [
@@ -146,7 +147,19 @@ describe('collecte de l’historique (§31)', () => {
    * observation de l'OCCURRENCE — celle de la fiche n'est pas rafraîchie.
    */
   it('ne mesure que les annonces vues paraître', async () => {
-    const jours = (n: number): string => new Date(Date.now() - n * 86_400_000).toISOString();
+    /**
+     * L'HORLOGE EST LUE UNE SEULE FOIS, et c'est ce qui rend ce test stable.
+     *
+     * Chaque appel relisait `Date.now()` : la fiche « stock » et son occurrence
+     * demandaient toutes deux « il y a vingt jours », et une milliseconde
+     * écoulée entre les deux suffisait à produire deux horodatages différents.
+     * L'exclusion du stock joint pourtant la fiche à l'occurrence SUR CETTE
+     * DATE : elle échouait alors, le stock passait pour une naissance, et le
+     * compte valait deux au lieu d'un. Rouge sur la forge, vert sur la machine
+     * — le pire des défauts.
+     */
+    const maintenant = Date.now();
+    const jours = (n: number): string => new Date(maintenant - n * 86_400_000).toISOString();
     const fiche = (id: string, first: string, last: string) => ({
       sql: `INSERT INTO listings (id, first_seen_at, last_seen_at, lifecycle, rented, payload, content_hash, updated_at)
             VALUES (?, ?, ?, 'inactive', 0, '{}', ?, datetime('now'))`,
