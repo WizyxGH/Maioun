@@ -186,3 +186,35 @@ describe('l’adresse de référence ne se règle PAS ici', () => {
     expect(saveReferencePoints).not.toHaveBeenCalled();
   });
 });
+
+describe('la date dit ce qu’elle date', () => {
+  it('annonce l’enregistrement tant que rien n’a été remplacé', async () => {
+    renderPanel();
+    expect(await screen.findByText(/Enregistrée/)).toBeInTheDocument();
+    expect(screen.queryByText(/Mise à jour/)).toBeNull();
+  });
+
+  it('annonce la MISE À JOUR dès que les réglages ont été remplacés', async () => {
+    // « Enregistrée il y a dix jours » sur une recherche remplacée le matin
+    // même datait le NOM, pas les réglages : une recherche fraîche avait l'air
+    // d'une vieillerie.
+    render(
+      <SavedSearchesPanel
+        searches={[{ ...SEARCH, updatedAt: '2026-09-07T08:00:00.000Z' }]}
+        nowMs={Date.parse('2026-09-07T10:00:00.000Z')}
+        available
+        countFor={() => 3}
+        onBack={() => {}}
+        onApply={() => {}}
+        onDelete={() => {}}
+        onRename={() => {}}
+        onUpdate={vi.fn()}
+        onEdit={vi.fn()}
+        onSaveCurrent={vi.fn()}
+        suggestion="Ma recherche"
+      />,
+    );
+    expect(await screen.findByText(/Mise à jour/)).toBeInTheDocument();
+    expect(screen.queryByText(/Enregistrée/)).toBeNull();
+  });
+});

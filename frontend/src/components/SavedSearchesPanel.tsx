@@ -358,7 +358,9 @@ export function SavedSearchesPanel({
                             </p>
                           )}
                           <p className="text-muted-foreground mt-0.5 text-[0.78rem]">
-                            Enregistrée {formatAge(search.createdAt, nowMs)}
+                            {search.updatedAt === undefined
+                              ? `Enregistrée ${formatAge(search.createdAt, nowMs)}`
+                              : `Mise à jour ${formatAge(search.updatedAt, nowMs)}`}
                           </p>
                         </>
                       )}

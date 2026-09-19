@@ -67,6 +67,16 @@ export interface SavedSearch {
   readonly id: string;
   readonly name: string;
   readonly createdAt: string;
+  /**
+   * Dernier remplacement des réglages, s'il y en a eu un.
+   *
+   * La carte annonçait « Enregistrée il y a dix jours » même sur une recherche
+   * remplacée le matin même : la date disait l'âge du NOM, pas celui des
+   * réglages, et donnait à une recherche fraîche l'air d'une vieillerie.
+   * Absente sur les recherches enregistrées avant ce champ — on ne devine pas
+   * une date qu'on n'a pas.
+   */
+  readonly updatedAt?: string;
   /** Ce qu'on RAMÈNE : budget, surface, ville, exclusions. */
   readonly criteria: FilterConfig;
   /** Ce qu'on REGARDE dans ce qui a été ramené. */

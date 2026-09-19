@@ -1917,6 +1917,9 @@ function AppView(): React.JSX.Element {
               ...saved,
               criteria,
               view: toSavedView(quickFilters, { sources: sourceFilter, sort, search }),
+              // Ce qui vient d'être remplacé, ce sont les réglages : la carte
+              // doit dater CEUX-LÀ, pas le jour où le nom a été choisi.
+              updatedAt: new Date().toISOString(),
             }
           : saved,
       );
