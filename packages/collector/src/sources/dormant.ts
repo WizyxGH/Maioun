@@ -267,16 +267,6 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     wakesIf: 'cette interdiction disparaît du fichier — sinon rien, et c’est attendu',
     probe: { kind: 'robots', path: '/marketplace/' },
   },
-  {
-    id: 'square-habitat',
-    name: 'Square Habitat',
-    origin: 'https://www.squarehabitat.fr',
-    reason: 'robots',
-    checkedOn: '2026-08-15',
-    refusal: 'robots.txt interdit /resultat-location et les fiches de location',
-    wakesIf: 'les résultats de location ne sont plus interdits',
-    probe: { kind: 'robots', path: '/resultat-location' },
-  },
 
   // ── Conformes, mais rien dans le périmètre ──────────────────────────────
   {

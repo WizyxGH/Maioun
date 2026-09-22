@@ -78,6 +78,14 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '47 rue Arson', postalCode: '06300', city: 'Nice' },
   },
+  aequalis: {
+    name: 'Aequalis Immobilier',
+    domain: 'aequalis-immobilier.com',
+    kind: 'localAgency',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
   afedim: {
     name: 'AFEDIM',
     domain: 'afedim.fr',
@@ -1693,6 +1701,14 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: null,
     paidContact: false,
     address: { street: '30 rue Alphonse Karr', postalCode: '06000', city: 'Nice' },
+  },
+  'square-habitat': {
+    name: 'Square Habitat',
+    domain: 'squarehabitat.fr',
+    kind: 'agencyNetwork',
+    logo: null,
+    paidContact: false,
+    address: null,
   },
   studapart: {
     name: 'Studapart',

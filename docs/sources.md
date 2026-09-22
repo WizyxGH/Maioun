@@ -2010,3 +2010,53 @@ Trois mesures concordantes du 2026-09-22 :
 L'agence se présente comme faisant vente ET location ; son site ne publie que
 de la vente. Consignée dans `sources/dormant.ts` avec la sonde qui la réveille :
 l'apparition d'une catégorie `/action/location/` à son sitemap de transactions.
+
+## Square Habitat — un refus périmé, et la sonde qui ne pouvait pas le voir (2026-09-22)
+
+Demandée pour son agence de Cagnes-sur-Mer. Elle était **écartée depuis le
+2026-08-15** pour un motif qui reste vrai mot pour mot : « `robots.txt`
+interdit `/resultat-location` ». Il l'interdit encore aujourd'hui.
+
+**C'est le site qui a changé, pas la règle.** Son `robots.txt` s'ouvre
+désormais sur un commentaire sans ambiguïté — « bloquage des pages refonte » —
+et les annonces ont déménagé sous `/annonces/…`, que rien n'interdit. Cinq
+locations à Nice au relevé du 2026-09-22.
+
+### La leçon, et elle dépasse Square Habitat
+
+**La sonde de réveil re-testait la RAISON du refus, pas la QUESTION qu'il
+tranchait.** Elle demandait « est-ce que `/resultat-location` s'est rouvert ? »
+alors que la question était « peut-on lire leurs locations ? ». Elle a donc
+répondu « toujours refusée » pendant des semaines, en toute bonne foi, pendant
+que les annonces étaient lisibles à deux pas.
+
+123Loger avait exactement la même forme : écartée pour « aucune commune du 06
+au sitemap », sonde braquée sur le sitemap — alors que les fiches existaient
+hors sitemap. Il a fallu qu'une annonce arrive par e-mail pour s'en apercevoir.
+
+**Toute sonde d'un candidat écarté devrait viser l'INVENTAIRE**, pas
+l'obstacle : une page de recherche de la commune, une liste, un flux — quelque
+chose qui, s'il rend des annonces, prouve que le refus est caduc quel que soit
+le chemin qu'elles ont pris.
+
+### Ce que le site donne
+
+- `robots.txt` (relu le 2026-09-22) : ferme `/resultat-location`,
+  `/resultat-achat`, `/resultats-agence`, `/api`, `/espace-client/*` et les
+  pages `.aspx` de l'ancien site. `/annonces/` reste ouvert. Sitemap déclaré.
+- **Tout tient sur la page de liste** — prix, pièces, surface, commune, code
+  postal et description entière. Aucune fiche à visiter, une requête par page.
+- **Un bloc JSON-LD `Apartment` par bien**, avec l'URL canonique, le code
+  postal et les **coordonnées**. Elles valent trente points au dédoublonnage et
+  évitent un géocodage : c'est la meilleure donnée de la page.
+- **Le site élargit silencieusement.** La page de Cagnes-sur-Mer, qui n'a
+  aucune location, rend huit annonces de Nice, Cannes, Pégomas et Mandelieu
+  sans le dire autrement qu'en petits caractères. La commune de CHAQUE carte
+  est donc vérifiée — et c'est aussi pourquoi deux pages suffisent au lieu de
+  treize.
+- **Le périmètre se juge sur le NOM de la commune, pas sur le code postal** :
+  Nice en a quatre — 06000, 06100, 06200, 06300 — et le périmètre du projet
+  n'en nomme qu'un. Trois annonces niçoises sur cinq seraient parties sans un
+  mot.
+- On ne s'appuie sur aucun attribut `_ngcontent-*` : ce sont des identifiants
+  de build Angular, ils changent à chaque déploiement.

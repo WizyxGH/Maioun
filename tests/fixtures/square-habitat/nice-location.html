@@ -1,0 +1,95 @@
+<!--
+  Fixture — squarehabitat.fr, page « location appartement » d'une commune.
+  Structure observée le 2026-09-22 sur
+  https://www.squarehabitat.fr/annonces/location/bien/appartement/immobilier/provence-alpes-cote-d-azur/alpes-maritimes/nice-06000
+
+  Application Angular rendue côté serveur : chaque carte est un <msl-card>
+  dont l'id porte l'identifiant du bien, et chaque bien a son bloc JSON-LD
+  (url, coordonnées, code postal). La STRUCTURE est reproduite fidèlement,
+  y compris les attributs `_ngcontent-*` qui changent à chaque build et sur
+  lesquels on se garde bien de s'appuyer. Le CONTENU est fictif —
+  voir tests/fixtures/README.md.
+
+  La TROISIÈME carte est à Cannes : le site élargit silencieusement la
+  recherche aux communes voisines quand la commune demandée n'a rien. C'est
+  le repli qu'il faut voir refusé.
+-->
+<!doctype html>
+<html lang="fr">
+<head><title>Location appartement Nice (06000) | Square Habitat</title></head>
+<body>
+<afc-shared-card-bien _ngcontent-ng-c2172786321>
+  <msl-card class="afc-cursor-pointer card-properties card-resultat-bien"
+            id="id-3327d852-37cc-4e65-a2e7-a96b758883d2">
+    <div class="card-top card-imgs">
+      <a aria-label="aller au Appartement à louer - NICE, 2 pièces">
+        <img class="card-top-img"
+             alt="Location appartement 2 pièces - 41.8m² à Nice (06000)"
+             src="https://www.squarehabitat.fr/medias/biens/m/aaaa1111.webp">
+      </a>
+    </div>
+    <div class="card-bottom">
+      <h3 class="card-title">Appartement à louer - NICE, 2 pièces</h3>
+      <span class="card-localisation">NICE (06000)</span>
+      <div class="card-prix"><span class="prix-label">Au prix de (par mois)</span>
+        <span class="prix-valeur">849 €</span><span class="prix-mention">cc</span></div>
+      <p class="card-description">Quartier Pasteur - Deux pièces au deuxième étage avec balcon,
+        cuisine aménagée, salle de douche. Chauffage individuel. Disponible immédiatement.</p>
+    </div>
+  </msl-card>
+</afc-shared-card-bien>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Apartment",
+ "url":"https://www.squarehabitat.fr/square-habitat-provence-cote-d-azur/annonces/biens/location/appartement/nice/3327d852-37cc-4e65-a2e7-a96b758883d2",
+ "address":{"@type":"PostalAddress","addressCountry":"FRA","postalCode":"06000","addressLocality":"Nice (06000)"},
+ "geo":{"@type":"GeoCoordinates","latitude":43.722120047487586,"longitude":7.285941952512415},
+ "name":"Appartement à louer - Nice, 2 pièces"}
+</script>
+
+<afc-shared-card-bien>
+  <msl-card class="card-resultat-bien" id="id-fb625611-159c-4bcd-a335-4f84cf7f787d">
+    <div class="card-top card-imgs">
+      <img class="card-top-img" alt="Location appartement studio - 26.99m² à Nice (06300)"
+           src="https://www.squarehabitat.fr/medias/biens/m/bbbb2222.webp">
+    </div>
+    <div class="card-bottom">
+      <h3 class="card-title">Appartement à louer - NICE, 1 pièce</h3>
+      <span class="card-localisation">NICE (06300)</span>
+      <div class="card-prix"><span class="prix-label">Au prix de (par mois)</span>
+        <span class="prix-valeur">593.10 €</span><span class="prix-mention">cc</span></div>
+      <p class="card-description">Rue Auguste Gal - Studio meublé rénové, proche tramway.</p>
+    </div>
+  </msl-card>
+</afc-shared-card-bien>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Apartment",
+ "url":"https://www.squarehabitat.fr/square-habitat-provence-cote-d-azur/annonces/biens/location/appartement/nice/fb625611-159c-4bcd-a335-4f84cf7f787d",
+ "address":{"@type":"PostalAddress","addressCountry":"FRA","postalCode":"06300","addressLocality":"Nice (06300)"},
+ "geo":{"@type":"GeoCoordinates","latitude":43.70612,"longitude":7.29431},
+ "name":"Appartement à louer - Nice, 1 pièce"}
+</script>
+
+<afc-shared-card-bien>
+  <msl-card class="card-resultat-bien" id="id-cccc3333-0000-4000-8000-000000000001">
+    <div class="card-top card-imgs">
+      <img class="card-top-img" alt="Location appartement 3 pièces - 63.2m² à Cannes (06150)"
+           src="https://www.squarehabitat.fr/medias/biens/m/cccc3333.webp">
+    </div>
+    <div class="card-bottom">
+      <h3 class="card-title">Appartement à louer - CANNES, 3 pièces</h3>
+      <span class="card-localisation">CANNES (06150)</span>
+      <div class="card-prix"><span class="prix-label">Au prix de (par mois)</span>
+        <span class="prix-valeur">1 410 €</span><span class="prix-mention">cc</span></div>
+      <p class="card-description">Proche plages, trois pièces avec terrasse.</p>
+    </div>
+  </msl-card>
+</afc-shared-card-bien>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Apartment",
+ "url":"https://www.squarehabitat.fr/square-habitat-provence-cote-d-azur/annonces/biens/location/appartement/cannes/cccc3333-0000-4000-8000-000000000001",
+ "address":{"@type":"PostalAddress","addressCountry":"FRA","postalCode":"06150","addressLocality":"Cannes (06150)"},
+ "geo":{"@type":"GeoCoordinates","latitude":43.5513,"longitude":7.0128},
+ "name":"Appartement à louer - Cannes, 3 pièces"}
+</script>
+</body>
+</html>
