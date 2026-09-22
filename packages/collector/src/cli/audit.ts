@@ -14,7 +14,7 @@ import { openDatabaseFromEnv, databaseTarget, type Database } from '../db/client
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createLogger } from '../core/logger.js';
-import { loadDotEnv, PUBLIC_CONFIG } from '../config.js';
+import { collectorUserAgent, loadDotEnv, PUBLIC_CONFIG } from '../config.js';
 import { VANISH_WINDOW_DAYS } from '../pipeline.js';
 import { vanishingSources } from '../scheduler/scheduler.js';
 import {
@@ -25,7 +25,12 @@ import {
 } from '../scheduler/request-budget.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
 import { wantedAdEvidence } from '../normalization/housing-wanted.js';
-import { agencyCoverage, sourceAliases } from '../sources/agency-names.js';
+import {
+  agencyCoverage,
+  createAgencySourceResolver,
+  sourceAliases,
+} from '../sources/agency-names.js';
+import { lookupAgency } from '../core/company-registry.js';
 import { DORMANT_CANDIDATES } from '../sources/dormant.js';
 import { outOfReach } from '../sources/out-of-reach.js';
 import { SHORT_COVERAGE_WARNING } from '../sources/shared/announced-total.js';
@@ -673,6 +678,131 @@ async function reportAgencyCoverage(db: Database): Promise<void> {
   }
 }
 
+const LIGNE_TROUS = '\n── Annonces manquées chez une agence que nous lisons ──────────';
+const LIGNE_REGISTRE = '\n── Les agences lues, au registre des entreprises ──────────────';
+const CESSES = '\n   ÉTABLISSEMENT CESSÉ au registre — à vérifier en premier :';
+const SANS_REPONSE = '\n   Sans réponse (ne prouve rien : enseigne ≠ raison sociale) :\n     ';
+/** Le département interrogé au registre : celui de tout le périmètre. */
+const DEPARTEMENT = '06';
+
+/**
+ * L'ANNONCE EST CHEZ UNE AGENCE QUE NOUS LISONS, ET ELLE NOUS EST ARRIVÉE PAR
+ * UN PORTAIL.
+ *
+ * C'est un trou de PARSEUR, pas de source, et les deux ne se réparent pas de
+ * la même façon : là, il manque une agence à la liste ; ici, il manque une
+ * annonce à une agence déjà lue. Le second est invisible sans ce relevé —
+ * l'annonce est bien là, simplement plus tard et amputée de ce que le portail
+ * coupe.
+ *
+ * L'écran des agences le montre déjà, agence par agence. Ce tableau-ci le
+ * range PAR SOURCE, parce que c'est un parseur qu'on ouvre pour le réparer, et
+ * il garde une annonce en exemple : sans elle, il faut la retrouver à la main
+ * avant même de commencer.
+ */
+async function reportParserGaps(db: Database): Promise<void> {
+  const descriptors = ALL_SCRAPERS.map((one) => one.descriptor);
+  const relays = new Set(
+    descriptors
+      .filter((one) => one.kind === 'portal' || one.kind === 'aggregator')
+      .map((o) => o.id),
+  );
+  const resolver = createAgencySourceResolver(
+    descriptors.map(({ id, name, domain }) => ({ id, name, domain })),
+  );
+
+  const rows = await db.execute(
+    `SELECT group_id AS grp, source_id AS src, contact_agency AS nom, source_url AS url
+       FROM occurrences WHERE ${ACTIVE} AND group_id IS NOT NULL`,
+  );
+
+  // Qui a vu quoi : une fiche vue par sa propre agence n'a aucun trou.
+  const seenBy = new Map<string, Set<string>>();
+  for (const row of rows.rows) {
+    const group = String(row['grp']);
+    const set = seenBy.get(group) ?? new Set<string>();
+    set.add(String(row['src']));
+    seenBy.set(group, set);
+  }
+
+  interface Gap {
+    readonly listings: Set<string>;
+    example: string | null;
+  }
+  const gaps = new Map<string, Gap>();
+  for (const row of rows.rows) {
+    if (!relays.has(String(row['src']))) continue;
+    const name = row['nom'] === null ? '' : String(row['nom']).trim();
+    if (name === '') continue;
+    const target = resolver.resolve(name);
+    if (target === null) continue;
+    const group = String(row['grp']);
+    if (seenBy.get(group)?.has(target) === true) continue;
+    const gap = gaps.get(target) ?? { listings: new Set<string>(), example: null };
+    gap.listings.add(group);
+    gap.example ??= row['url'] === null ? null : String(row['url']);
+    gaps.set(target, gap);
+  }
+
+  const classement = [...gaps.entries()].sort((a, b) => b[1].listings.size - a[1].listings.size);
+  const manquees = classement.reduce((sum, [, gap]) => sum + gap.listings.size, 0);
+
+  console.log(LIGNE_TROUS);
+  console.log(
+    `   ${manquees} annonce(s) sur ${gaps.size} source(s) : en ligne chez l'agence, ` +
+      `arrivées seulement par un portail.`,
+  );
+  for (const [sourceId, gap] of classement.slice(0, 25)) {
+    console.log(`   ${sourceId.padEnd(30)} ${String(gap.listings.size).padStart(4)}`);
+    if (gap.example !== null) console.log(`   ${' '.repeat(30)}      ${gap.example}`);
+  }
+}
+
+/**
+ * LES AGENCES QUE NOUS LISONS EXISTENT-ELLES AU REGISTRE ?
+ *
+ * Sur demande (`--registre`) et jamais d'office : c'est le seul relevé de cet
+ * audit qui sorte sur le réseau, deux cents appels à une seconde d'intervalle.
+ *
+ * CE RELEVÉ NE CONCLUT RIEN, il rapporte. Ne pas trouver une agence ne prouve
+ * rien — les enseignes commerciales ne sont pas les raisons sociales, et
+ * « ERA Maresol » répond « ELMAN REAL ESTATE RIVIERA ». Une seule ligne est
+ * certaine : un établissement CESSÉ, qui vient du registre lui-même.
+ */
+async function reportRegistry(): Promise<void> {
+  const agences = ALL_SCRAPERS.map((one) => one.descriptor).filter(
+    (one) => one.kind === 'localAgency',
+  );
+
+  console.log(LIGNE_REGISTRE);
+  console.log(`   ${agences.length} agence(s) interrogée(s), une seconde entre deux appels.`);
+
+  const introuvables: string[] = [];
+  const cessees: string[] = [];
+  let trouvees = 0;
+  for (const agence of agences) {
+    const record = await lookupAgency(agence.name, DEPARTEMENT, {
+      userAgent: collectorUserAgent(),
+    });
+    if (record === null) {
+      introuvables.push(agence.name);
+    } else {
+      trouvees += 1;
+      if (!record.active) cessees.push(`${agence.name} → ${record.name} (${record.siren})`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  console.log(`   ${trouvees} rapprochée(s), ${introuvables.length} sans réponse.`);
+  if (cessees.length > 0) {
+    console.log(CESSES);
+    for (const ligne of cessees) console.log(`     ${ligne}`);
+  }
+  if (introuvables.length > 0) {
+    console.log(SANS_REPONSE + introuvables.join(', '));
+  }
+}
+
 /**
  * CE QUE CHAQUE SOURCE PERD ENTRE DEUX PASSAGES.
  *
@@ -767,6 +897,8 @@ async function main(): Promise<void> {
     await reportRequestBudget(db);
     await reportCatalogCoverage(db);
     await reportAgencyCoverage(db);
+    await reportParserGaps(db);
+    if (process.argv.includes('--registre')) await reportRegistry();
     await reportWantedAds(db);
     await reportSettings(db);
     console.log('');

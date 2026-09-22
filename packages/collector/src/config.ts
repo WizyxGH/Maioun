@@ -64,6 +64,12 @@ export const PUBLIC_CONFIG: PublicConfig = {
   // faisait attendre une agence deux heures au lieu de soixante-quinze minutes.
   // Soixante-quinze places en offrent 7 200, au-dessus du pire cas.
   //
+  // PUIS LE PARC A GRANDI. À 222 sources, le pire cas réclame 7 248 passages :
+  // soixante-quinze n'en offraient plus assez, d'un cycle. Quatre-vingt-cinq en
+  // offrent 8 160, soit de la place pour une trentaine de sources de plus au
+  // plancher d'une heure. Le test `request-budget` refait ce calcul à chaque
+  // source ajoutée, et c'est lui qui a prévenu.
+  //
   // CE N'EST PAS LE TEMPS QUI LIMITAIT : 97 s par cycle en médiane, 273 s au
   // neuvième décile, pour un budget de phase de 480 s ; à soixante-quinze
   // places, 311 s. Cent n'apportent plus rien.
@@ -71,7 +77,7 @@ export const PUBLIC_CONFIG: PublicConfig = {
   // Aucune source n'est sollicitée plus souvent : les places libérées servent
   // des sources DÉJÀ dues. Les planchers et les délais de politesse décident
   // seuls du rythme, et le budget de temps du pipeline reste le garde-fou.
-  maxSourcesPerRun: 75,
+  maxSourcesPerRun: 85,
   // Le repère par défaut, pour ce qui n'est pas niçois. Nice a le sien, calé
   // sur la Carte des loyers de l'État et découpé par taille de logement (voir
   // `rent-reference.ts`) : un nombre unique faisait passer le petit logement,

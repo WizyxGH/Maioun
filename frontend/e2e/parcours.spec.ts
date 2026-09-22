@@ -126,23 +126,19 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
 test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', async ({ page }) => {
   await page.getByTestId('listing-card').first().click();
 
-  // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
-  // et on scope les assertions au bloc déplié (le même libellé peut exister
-  // ailleurs, replié).
-  const risk = page.getByTestId('score-detail').filter({ hasText: 'Signaux d’alerte' });
-  await risk.locator('summary').click();
-  await expect(risk.getByText('Loyer cohérent avec le marché')).toBeVisible();
-  await expect(risk.getByText('Agence identifiable')).toBeVisible();
-
-  const visit = page.getByTestId('score-detail').filter({ hasText: 'Facilité de contact' });
-  await visit.locator('summary').click();
+  // UN SEUL DÉPLIANT, depuis qu'il n'y a qu'un score : les quatre mesures y
+  // sont groupées, sans note. On l'ouvre une fois et tout s'y lit.
+  const detail = page.getByTestId('score-detail');
+  await detail.locator('summary').click();
+  await expect(detail.getByText('Loyer cohérent avec le marché')).toBeVisible();
+  await expect(detail.getByText('Agence identifiable')).toBeVisible();
 
   // §17 : ce qui manque est dit, pas comblé.
-  await expect(visit.getByText(/Information non fournie par les sources/)).toBeVisible();
+  await expect(detail.getByText(/Information non fournie par les sources/).first()).toBeVisible();
 
   // §18 : aucune prétention à une précision statistique.
   await expect(
-    visit.getByText(/fondé sur des règles explicites, pas sur une statistique/),
+    detail.getByText(/fondé sur des règles explicites, pas sur une statistique/),
   ).toBeVisible();
 });
 
@@ -169,11 +165,11 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
 
   await risky.click();
 
-  // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
-  const risk = page.getByTestId('score-detail').filter({ hasText: 'Signaux d’alerte' });
-  await risk.locator('summary').click();
-  await expect(risk.getByText('Loyer très inférieur au marché (5,8 €/m²)')).toBeVisible();
-  await expect(risk.getByText('Le bailleur déclare être à l’étranger')).toBeVisible();
+  // Le détail est repliable : on le déplie pour lire ses raisons.
+  const detail = page.getByTestId('score-detail');
+  await detail.locator('summary').click();
+  await expect(detail.getByText('Loyer très inférieur au marché (5,8 €/m²)')).toBeVisible();
+  await expect(detail.getByText('Le bailleur déclare être à l’étranger')).toBeVisible();
 });
 
 test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ page }) => {

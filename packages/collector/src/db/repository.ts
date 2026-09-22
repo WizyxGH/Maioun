@@ -82,6 +82,8 @@ interface PreviousOccurrence {
   readonly price: number | null;
   readonly area: number | null;
   readonly availableAt: string | null;
+  /** Ce que la base disait d'elle AVANT ce passage — « inactive » si elle avait disparu. */
+  readonly lifecycle: string;
 }
 
 /**
@@ -90,6 +92,47 @@ interface PreviousOccurrence {
  * changé). À la première observation, une ligne « baseline » fixe le point de
  * départ de la trajectoire.
  */
+function historyRow(listing: NormalizedListing, change: string): Statement {
+  return {
+    sql: `INSERT INTO listing_history
+            (id, occurrence_id, source_id, source_ref, price, area, available_at, change, recorded_at)
+          VALUES (?,?,?,?,?,?,?,?,?)`,
+    args: [
+      randomUUID(),
+      listing.id,
+      listing.sourceId,
+      listing.sourceRef,
+      listing.price,
+      listing.area,
+      listing.availableAt,
+      change,
+      listing.scrapedAt,
+    ],
+  };
+}
+
+/**
+ * REVENUE EN LIGNE, et une ligne À PART.
+ *
+ * Une annonce retirée puis republiée repassait « active » sans un mot : sa
+ * première observation est préservée, donc elle ne compte pas comme nouvelle,
+ * ne déclenche aucune alerte, et se range au milieu des anciennes. Or c'est
+ * souvent le logement qu'on croyait perdu qui revient — une visite annulée, un
+ * dossier qui tombe.
+ *
+ * Sa propre ligne, et non un motif de plus dans la liste des changements :
+ * celle-ci se résume à « multiple » dès qu'il y en a deux, et le retour serait
+ * reparti avec. Une republication s'accompagne souvent d'une baisse de loyer,
+ * c'est-à-dire précisément du cas où les deux comptent.
+ */
+function reappearanceStatement(
+  listing: NormalizedListing,
+  previous: PreviousOccurrence | undefined,
+): Statement | null {
+  if (previous === undefined || previous.lifecycle === 'active') return null;
+  return historyRow(listing, 'reappeared');
+}
+
 function historyStatement(
   listing: NormalizedListing,
   previous: PreviousOccurrence | undefined,
@@ -129,22 +172,7 @@ function historyStatement(
     change = changed.length === 1 ? (changed[0] as string) : 'multiple';
   }
 
-  return {
-    sql: `INSERT INTO listing_history
-            (id, occurrence_id, source_id, source_ref, price, area, available_at, change, recorded_at)
-          VALUES (?,?,?,?,?,?,?,?,?)`,
-    args: [
-      randomUUID(),
-      listing.id,
-      listing.sourceId,
-      listing.sourceRef,
-      listing.price,
-      listing.area,
-      listing.availableAt,
-      change,
-      listing.scrapedAt,
-    ],
-  };
+  return historyRow(listing, change);
 }
 
 /** Empreinte stable des champs métier d'une occurrence. */
@@ -244,6 +272,7 @@ export function listingHash(listing: ScoredListing): string {
     // (ex. adresse enfin géocodée), sans churn ensuite car elles sont stables.
     listing.distances.map((d) => `${d.label}:${d.durationMinutes}`).sort(),
     listing.priceDropped,
+    listing.reappeared,
     // Contenu du payload affiché : sans ces champs dans le hash, une fiche
     // dont les photos, le DPE ou la description apparaissent après coup ne
     // serait JAMAIS réécrite (l'économie d'écriture § 30 deviendrait une perte
@@ -541,6 +570,8 @@ export interface Repository {
   updateDerivedFields(occurrences: readonly NormalizedListing[]): Promise<number>;
   /** Ids d'occurrences avec une baisse de loyer depuis `sinceIso` (§17, §31). */
   recentPriceDropIds(sinceIso: string): Promise<Set<string>>;
+  /** Ids d'occurrences retirées puis republiées depuis `sinceIso`. */
+  recentReappearedIds(sinceIso: string): Promise<Set<string>>;
   saveListings(listings: readonly ScoredListing[]): Promise<UpsertReport>;
   /**
    * Retire les fiches dont plus AUCUNE occurrence n'est vivante.
@@ -1159,7 +1190,7 @@ export function createRepository(db: Database): Repository {
       const ids = listings.map((listing) => listing.id);
       const placeholders = ids.map(() => '?').join(',');
       const existing = await db.execute({
-        sql: `SELECT id, content_hash, first_seen_at, price, area, available_at
+        sql: `SELECT id, content_hash, first_seen_at, price, area, available_at, lifecycle
               FROM occurrences WHERE id IN (${placeholders})`,
         args: ids,
       });
@@ -1173,6 +1204,7 @@ export function createRepository(db: Database): Repository {
             price: row['price'] === null ? null : Number(row['price']),
             area: row['area'] === null ? null : Number(row['area']),
             availableAt: row['available_at'] === null ? null : String(row['available_at']),
+            lifecycle: String(row['lifecycle']),
           },
         ]),
       );
@@ -1187,6 +1219,12 @@ export function createRepository(db: Database): Repository {
         const previous = known.get(listing.id);
 
         if (previous !== undefined && previous.hash === hash) {
+          // UNE REPUBLICATION EST SOUVENT À L'IDENTIQUE, et ce raccourci la
+          // rendait donc invisible : rien n'était consigné, seule la date de
+          // dernière observation bougeait. On garde le raccourci — la fiche n'a
+          // rien à réécrire — mais le retour, lui, s'inscrit.
+          const retour = reappearanceStatement(listing, previous);
+          if (retour !== null) inserts.push(retour);
           // Annonce identique : on ne réécrit rien d'autre que la date de
           // dernière observation, groupée plus bas en une seule requête.
           touches.push(listing.id);
@@ -1195,8 +1233,10 @@ export function createRepository(db: Database): Repository {
 
         // §31 : consigner l'historique — baseline à la 1re observation, puis
         // uniquement quand loyer / surface / disponibilité changent.
-        const historyRow = historyStatement(listing, previous);
-        if (historyRow !== null) inserts.push(historyRow);
+        const retour = reappearanceStatement(listing, previous);
+        if (retour !== null) inserts.push(retour);
+        const changement = historyStatement(listing, previous);
+        if (changement !== null) inserts.push(changement);
 
         if (previous === undefined) inserted += 1;
         else updated += 1;
@@ -1410,6 +1450,15 @@ export function createRepository(db: Database): Repository {
       }));
       await batchInSlices(db, statements);
       return statements.length;
+    },
+
+    async recentReappearedIds(sinceIso) {
+      const result = await db.execute({
+        sql: `SELECT DISTINCT occurrence_id FROM listing_history
+              WHERE change = 'reappeared' AND recorded_at >= ?`,
+        args: [sinceIso],
+      });
+      return new Set(result.rows.map((row) => String(row['occurrence_id'])));
     },
 
     async recentPriceDropIds(sinceIso) {
@@ -2953,6 +3002,7 @@ function serializeListing(listing: ScoredListing): Record<string, unknown> {
     scores: listing.scores,
     distances: listing.distances,
     priceDropped: listing.priceDropped,
+    reappeared: listing.reappeared,
     applicationStatus: listing.applicationStatus ?? null,
     occurrences: listing.occurrences.map((occurrence) => ({
       id: occurrence.id,

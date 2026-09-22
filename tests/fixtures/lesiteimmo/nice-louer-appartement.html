@@ -1,0 +1,66 @@
+<!--
+  Fixture — lesiteimmo.com, page « louer appartement » d'une commune.
+  Structure observée le 2026-09-22 sur
+  https://www.lesiteimmo.com/louer/appartement/nice-06000
+
+  La page porte un JSON-LD `CollectionPage` dont `mainEntity` est la liste
+  complète des annonces AFFICHÉES : prix, pièces, chambres, surface,
+  description entière, date de publication, photos, adresse ET l'agence qui
+  publie. La STRUCTURE est reproduite fidèlement ; le CONTENU est fictif —
+  voir tests/fixtures/README.md.
+
+  La TROISIÈME annonce est à Cannes : la pagination du site mélange parfois
+  des communes voisines, et c'est le garde-fou qu'il faut voir jouer.
+-->
+<!doctype html>
+<html lang="fr">
+<head><title>Louer appartement à Nice (06000) - 255 annonces</title></head>
+<body>
+<p class="resultats-total">255 annonces</p>
+<nav class="pagination">
+  <a href="/louer/appartement/nice-06000?page=2">2</a>
+  <a href="/louer/appartement/nice-06000?page=3">3</a>
+</nav>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"CollectionPage",
+ "name":"Louer appartement à Nice (06000)",
+ "url":"https://www.lesiteimmo.com/louer/appartement/nice-06000",
+ "mainEntity":{"@type":"ItemList","numberOfItems":3,"itemListElement":[
+  {"@type":"ListItem","position":1,"item":{
+    "@type":"RealEstateListing","datePosted":"2026-09-15",
+    "name":"Studio Nice - Malaussena - Liberation",
+    "description":"Studio situé dans une résidence rénovée à deux pas du tram. Entrée, pièce à vivre avec cuisine aménagée, salle d'eau avec WC. Grand balcon et cave.",
+    "url":"https://www.lesiteimmo.com/louer/appartement-1piece/nice-06000/33825046",
+    "image":["https://media.studio-net.fr/biens/33825046/aaa111","https://media.studio-net.fr/biens/33825046/aaa222"],
+    "address":{"@type":"PostalAddress","addressLocality":"Nice","postalCode":"06000","addressCountry":"FR"},
+    "offers":{"@type":"Offer","price":720,"priceCurrency":"EUR","availability":"https://schema.org/InStock"},
+    "itemOffered":{"@type":"Apartment","numberOfRooms":1,"numberOfBedrooms":0,
+      "floorSize":{"@type":"QuantitativeValue","value":24,"unitCode":"MTK"}},
+    "seller":{"@type":"RealEstateAgent","name":"Agence des Exemples",
+      "url":"https://www.lesiteimmo.com/agences-immobilieres/nice-06000/31192-agence-des-exemples",
+      "address":{"@type":"PostalAddress","addressLocality":"Nice","postalCode":"06000","addressCountry":"FR"}}}},
+  {"@type":"ListItem","position":2,"item":{
+    "@type":"RealEstateListing","datePosted":"2026-09-18",
+    "name":"Deux pièces Nice - Magnan",
+    "description":"Deux pièces au calme avec balcon, cuisine équipée, cave.",
+    "url":"https://www.lesiteimmo.com/louer/appartement-2pieces/nice-06000/33852325",
+    "image":["https://media.studio-net.fr/biens/33852325/bbb111"],
+    "address":{"@type":"PostalAddress","addressLocality":"Nice","postalCode":"06000","addressCountry":"FR"},
+    "offers":{"@type":"Offer","price":965,"priceCurrency":"EUR"},
+    "itemOffered":{"@type":"Apartment","numberOfRooms":2,"numberOfBedrooms":1,
+      "floorSize":{"@type":"QuantitativeValue","value":44,"unitCode":"MTK"}},
+    "seller":{"@type":"RealEstateAgent","name":"Cabinet Fictif Immobilier"}}},
+  {"@type":"ListItem","position":3,"item":{
+    "@type":"RealEstateListing","datePosted":"2026-09-19",
+    "name":"Trois pièces Cannes - Banane",
+    "description":"Trois pièces avec terrasse, proche plages.",
+    "url":"https://www.lesiteimmo.com/louer/appartement-3pieces/cannes-06150/33999999",
+    "address":{"@type":"PostalAddress","addressLocality":"Cannes","postalCode":"06150","addressCountry":"FR"},
+    "offers":{"@type":"Offer","price":1410,"priceCurrency":"EUR"},
+    "itemOffered":{"@type":"Apartment","numberOfRooms":3,
+      "floorSize":{"@type":"QuantitativeValue","value":63.2,"unitCode":"MTK"}},
+    "seller":{"@type":"RealEstateAgent","name":"Agence Hors Périmètre"}}}
+ ]}}
+</script>
+</body>
+</html>

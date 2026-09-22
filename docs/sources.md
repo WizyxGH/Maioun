@@ -2060,3 +2060,58 @@ le chemin qu'elles ont pris.
   mot.
 - On ne s'appuie sur aucun attribut `_ngcontent-*` : ce sont des identifiants
   de build Angular, ils changent à chaque déploiement.
+
+## LeSiteImmo (lesiteimmo.com) — implémenté le 2026-09-22
+
+Portail régional PACA, demandé par son nom. **Troisième source de suite dont le
+sitemap ment par omission** — après 123Loger et Square Habitat.
+
+### Le sitemap déclare 7 locations niçoises, la page publique en annonce 255
+
+`sitemap-annonces.xml.gz` porte 545 locations, dont **sept** à Nice. La page
+`/louer/appartement/nice-06000`, elle, annonce **255 annonces**, vingt-cinq par
+page, sur onze pages. Rien n'est caché : c'est le sitemap qui est partiel.
+
+C'est maintenant une règle du projet plutôt qu'une surprise : **un sitemap est
+une déclaration, pas un inventaire.** Quand le `robots.txt` est permissif, la
+page de recherche de la commune doit être essayée avant toute conclusion.
+
+### Ce que la page donne — la source la mieux renseignée du projet
+
+Un bloc JSON-LD `CollectionPage` dont `mainEntity` est la liste des annonces
+affichées. Chacune porte :
+
+| Champ                                            | Ce qu'il vaut ici                                                                                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `offers.price`                                   | le loyer                                                                                                                                          |
+| `itemOffered.numberOfRooms` / `numberOfBedrooms` | pièces et chambres                                                                                                                                |
+| `itemOffered.floorSize.value`                    | la surface                                                                                                                                        |
+| `description`                                    | le texte **entier**                                                                                                                               |
+| `image[]`                                        | les photos                                                                                                                                        |
+| `address`                                        | commune et code postal                                                                                                                            |
+| **`datePosted`**                                 | **la date de publication, qui manque aux deux tiers de nos fiches** — et c'est elle que le tri « plus récentes » préfère                          |
+| **`seller.name`**                                | **l'agence qui publie**, qui rattache l'annonce à sa source d'origine (signal `relayedAgency` du dédoublonnage) et nomme celles qui nous manquent |
+
+Aucune fiche à visiter : une requête par page de résultats, et rien de plus.
+
+### Ce qu'il apporte vraiment, mesuré avant d'implémenter
+
+Sur trois annonces niçoises examinées, **deux venaient d'agences déjà
+collectées en direct** — Optimmo et Agir. C'est de la seconde main, et le
+dédoublonnage s'en chargera. La troisième venait de **Sixième Avenue**, dont le
+site propre répond 403 : pour celle-là, ce portail est le **seul chemin
+conforme**. C'est exactement l'apport qu'on attend d'un portail, et c'est
+pourquoi il est marqué `relaysListings`.
+
+### Accès
+
+`robots.txt` (vérifié le 2026-09-22) ferme `/recherche`, `/recherche-avancee`,
+`/recherche-agences`, `/api`, `/a/`, `/honoraires` et `/index.php`. Les chemins
+`/louer/…` et leur pagination `?page=N` restent ouverts.
+
+**Le plafond de pages est délibéré** : six par recherche. Un portail qui se met
+à paginer à l'infini — ou à répéter la même page — ne doit pas dépenser tout le
+budget d'un passage. Ce qui dépasse est lu au passage suivant.
+
+**Le périmètre se juge sur le NOM de la commune**, comme pour Square Habitat :
+Nice a quatre codes postaux, et la pagination mélange parfois les voisines.

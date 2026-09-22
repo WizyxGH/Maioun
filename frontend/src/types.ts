@@ -100,6 +100,12 @@ export interface ListingView {
   readonly matchesCriteria: boolean;
   /** `true` si le loyer a récemment baissé (§17) — mis en avant dans l'UI. */
   readonly priceDropped?: boolean;
+  /**
+   * `true` si l'annonce avait disparu puis est revenue en ligne. Sa date de
+   * découverte reste l'ancienne : sans ce drapeau, le retour ne se voit nulle
+   * part.
+   */
+  readonly reappeared?: boolean;
   /** `true` dès que la fiche a été ouverte au moins une fois (posé automatiquement). */
   readonly viewed?: boolean;
   /** `true` si l'annonce est archivée, à la main ou d'office (voir `archiveReason`). */

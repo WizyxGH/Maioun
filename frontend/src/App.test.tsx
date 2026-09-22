@@ -118,14 +118,20 @@ describe('liste des annonces', () => {
   });
 
   it('signale un score calculé sur information partielle (§17)', async () => {
-    // L'astérisque marque les scores dont certains signaux sont inconnus. Il
-    // vit désormais sur la FICHE, seul endroit qui affiche encore les scores.
+    // L'ASTÉRISQUE A DISPARU AVEC LES NOTES. Les quatre mesures n'affichent
+    // plus de chiffre — il n'y a qu'un score sur la fiche —, donc plus rien à
+    // marquer d'une étoile. Ce que les sources n'ont pas fourni se dit
+    // maintenant en toutes lettres, ce qui vaut mieux qu'un astérisque.
     const user = userEvent.setup();
     await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     await user.click(cards[0]!);
-    expect(await screen.findByRole('heading', { name: 'Correspondance' })).toBeInTheDocument();
-    expect(screen.getAllByText('*').length).toBeGreaterThan(0);
+    expect(
+      await screen.findByRole('heading', { name: /Ce qui a fait ce score/ }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Information non fournie par les sources/).length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('affiche la bannière du mode démonstration', async () => {

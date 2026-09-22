@@ -472,4 +472,10 @@ export interface ScoredListing extends AggregatedListing {
    * d'opportunité — agir maintenant). Déduit de `listing_history`.
    */
   readonly priceDropped: boolean;
+  /**
+   * `true` si l'annonce avait disparu des sources puis y est revenue. Déduit de
+   * `listing_history` : la republication ne compte pas comme une découverte —
+   * la première observation est préservée — et passait donc inaperçue.
+   */
+  readonly reappeared: boolean;
 }

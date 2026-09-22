@@ -84,6 +84,54 @@ describe('collecte de l’historique (§31)', () => {
     expect(Number(change?.['price'])).toBe(650);
   });
 
+  /**
+   * LE RETOUR EN LIGNE, que rien ne disait.
+   *
+   * Une annonce retirée puis republiée à l'identique repassait « active » par
+   * le chemin le plus silencieux qui soit : l'empreinte n'ayant pas bougé, la
+   * collecte ne réécrivait que sa date de dernière observation. Sa première
+   * observation étant préservée, elle ne comptait pas davantage comme neuve.
+   */
+  it('consigne le retour d’une annonce republiée à l’identique', async () => {
+    const occ = makeOccurrence({ id: 'orpi:1', sourceId: 'orpi', price: 690 });
+    await repository.upsertOccurrences([occ]);
+    await db.execute("UPDATE occurrences SET lifecycle = 'inactive' WHERE id = 'orpi:1'");
+
+    await repository.upsertOccurrences([occ]);
+
+    const rows = await history(db);
+    expect(rows.map((r) => r['change'])).toContain('reappeared');
+    const actives = await db.execute("SELECT lifecycle FROM occurrences WHERE id = 'orpi:1'");
+    expect(actives.rows[0]?.['lifecycle']).toBe('active');
+  });
+
+  /**
+   * SA PROPRE LIGNE, et non un motif de plus : la liste des changements se
+   * résume à « multiple » dès qu'il y en a deux, et une republication
+   * s'accompagne souvent d'une baisse — le cas où les deux comptent.
+   */
+  it('distingue le retour de la baisse qui l’accompagne', async () => {
+    await repository.upsertOccurrences([
+      makeOccurrence({ id: 'orpi:1', sourceId: 'orpi', price: 690 }),
+    ]);
+    await db.execute("UPDATE occurrences SET lifecycle = 'inactive' WHERE id = 'orpi:1'");
+
+    await repository.upsertOccurrences([
+      makeOccurrence({ id: 'orpi:1', sourceId: 'orpi', price: 640 }),
+    ]);
+
+    const changes = (await history(db)).map((r) => r['change']);
+    expect(changes).toContain('reappeared');
+    expect(changes).toContain('price-drop');
+  });
+
+  it('ne consigne aucun retour pour une annonce restée en ligne', async () => {
+    const occ = makeOccurrence({ id: 'orpi:1', sourceId: 'orpi', price: 690 });
+    await repository.upsertOccurrences([occ]);
+    await repository.upsertOccurrences([occ]);
+    expect((await history(db)).map((r) => r['change'])).not.toContain('reappeared');
+  });
+
   it('marque « multiple » quand loyer ET surface changent', async () => {
     await repository.upsertOccurrences([
       makeOccurrence({ id: 'orpi:1', sourceId: 'orpi', price: 690, area: 34 }),

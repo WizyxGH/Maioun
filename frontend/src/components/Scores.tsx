@@ -1,8 +1,12 @@
 /**
  * LE SCORE DE LA FICHE, ET LE DÉTAIL DE CE QUI LE COMPOSE (§37).
  *
- * Un seul score se lit ; les trois mesures qui le composent se déplient.
- * La carte de liste, elle, n'en montre que le chiffre et sa barre.
+ * UN SEUL CHIFFRE SUR LA FICHE, et les raisons dessous. Les quatre mesures qui
+ * le composent s'affichaient encore chacune avec SA note sur cent : cinq
+ * chiffres pour une annonce, dont quatre qu'on ne savait pas quoi faire — et
+ * « Urgence 10/100 » se lisait comme un verdict alors que ce n'est qu'un
+ * ingrédient, pesé à 35 %. Elles restent là pour ce qu'elles apportent : le
+ * POURQUOI, en clair, sans note.
  *
  * Deux exigences du cahier des charges se rejoignent ici :
  *   - §19 : afficher les RAISONS, pas seulement le chiffre ;
@@ -25,8 +29,8 @@ import { Check, Dot, TriangleAlert } from './icons.js';
  * chiffre qui ne s'affichait nulle part.
  *
  * C'est ce cinquième chiffre qui est ici, avec sa recette et son échelle
- * écrites à côté. Les trois mesures qui le composent restent consultables
- * dessous : le score dit quoi faire, elles disent pourquoi.
+ * écrites à côté. Ce qui l'a fait monter ou descendre se déplie dessous : le
+ * score dit quoi faire, le détail dit pourquoi.
  */
 export function OverallScore({
   value,
@@ -36,7 +40,7 @@ export function OverallScore({
   readonly children: React.ReactNode;
 }): React.JSX.Element {
   const { label, rank } = scoreBand(value);
-  const tone = toneFor(value, false);
+  const tone = toneFor(value);
 
   return (
     <section className="mb-3">
@@ -70,10 +74,9 @@ export function OverallScore({
 }
 
 /** Palette par plage : vert au-dessus de 75, orange au-dessus de 50, rouge sinon. */
-function toneFor(value: number, invert: boolean): 'good' | 'medium' | 'bad' {
-  const effective = invert ? 100 - value : value;
-  if (effective >= 75) return 'good';
-  if (effective >= 50) return 'medium';
+function toneFor(value: number): 'good' | 'medium' | 'bad' {
+  if (value >= 75) return 'good';
+  if (value >= 50) return 'medium';
   return 'bad';
 }
 
@@ -87,40 +90,38 @@ const TONE_TEXT: Record<'good' | 'medium' | 'bad', string> = {
   bad: 'text-bad',
 };
 
-interface ScoreDetailProps {
+interface ScoreGroup {
   readonly title: string;
   readonly score: ExplainedScore;
+  /** Le score de risque se lit à l'envers : y monter est une mauvaise nouvelle. */
   readonly invert?: boolean;
-  /** Note méthodologique affichée sous le score, quand elle s'impose (§18). */
+  /** Note méthodologique affichée sous le groupe, quand elle s'impose (§18). */
   readonly caveat?: string;
 }
 
 /**
- * Score détaillé de la fiche : valeur, raisons, angles morts.
+ * CE QUI A FAIT LE SCORE, en un seul dépliant.
  *
- * Repliable (§37 : agir vite) — l'en-tête (titre + score) reste toujours
- * visible, le détail se déplie à la demande. `<details>` natif : accessible au
- * clavier, sans JavaScript.
+ * Quatre cartes portaient quatre notes sur cent, à égalité de taille avec le
+ * score lui-même. Les raisons restent — §19 demande d'afficher les RAISONS, et
+ * §17 de dire ce qui manque plutôt que de le taire — mais les notes partent :
+ * c'est le chiffre du haut qu'on regarde, et lui seul a une échelle écrite.
+ *
+ * Les groupes demeurent visibles, parce qu'une raison se comprend par ce
+ * qu'elle sert : « Agence identifiable » sous « Signaux d'alerte » ne dit pas
+ * la même chose que sous « Facilité de contact ».
  */
-export function ScoreDetail({
-  title,
-  score,
-  invert = false,
-  caveat,
-}: ScoreDetailProps): React.JSX.Element {
-  const tone = toneFor(score.value, invert);
-  const incomplete = score.unknownSignals.length > 0;
-
+export function ScoreBreakdown({
+  groups,
+}: {
+  readonly groups: readonly ScoreGroup[];
+}): React.JSX.Element {
   return (
     <Card className="mb-3 p-0">
-      {/* Repère de test : depuis que le score global porte lui aussi un
-        `<details>` — « Comment il est calculé », dont le texte cite les
-        signaux d'alerte —, « le details qui parle de X » ne désigne plus une
-        seule chose. */}
       <details data-testid="score-detail" className="group">
         <summary className="flex cursor-pointer list-none items-baseline justify-between p-3">
           <h3 className="text-base font-semibold">
-            {title}
+            Ce qui a fait ce score
             <span
               aria-hidden="true"
               className="ml-1.5 inline-block text-xs text-muted-foreground transition-transform group-open:rotate-90"
@@ -128,38 +129,41 @@ export function ScoreDetail({
               ▸
             </span>
           </h3>
-          <span className={`font-bold ${TONE_TEXT[tone]}`}>
-            {score.value}/100
-            {incomplete && <span className="text-[0.7rem] text-muted-foreground">*</span>}
-          </span>
         </summary>
 
         <div className="px-3 pb-3">
-          {caveat !== undefined && (
-            <p className="text-[0.82rem] text-muted-foreground italic">{caveat}</p>
-          )}
+          {groups.map((groupe) => (
+            <section key={groupe.title} className="mt-2 first:mt-0">
+              <h4 className="text-[0.82rem] font-semibold text-muted-foreground uppercase">
+                {groupe.title}
+              </h4>
+              {groupe.caveat !== undefined && (
+                <p className="text-[0.82rem] text-muted-foreground italic">{groupe.caveat}</p>
+              )}
+              <ul className="mt-1 text-sm">
+                {/* `?? []` : une annonce venue de la LISTE n'a pas le détail des
+                  raisons — il est retiré en SQL, avec la description. La fiche
+                  redemande la version complète, mais le rendu ne doit pas tomber
+                  en attendant. */}
+                {(groupe.score.reasons ?? []).map((reason, index) => (
+                  <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
+                    <span aria-hidden="true" className="flex w-4 shrink-0 justify-center pt-0.5">
+                      <ReasonIcon delta={reason.delta} invert={groupe.invert ?? false} />
+                    </span>
+                    <span>{reason.label}</span>
+                  </li>
+                ))}
+              </ul>
 
-          <ul className="mt-2 text-sm">
-            {/* `?? []` : une annonce venue de la LISTE n'a pas le détail des
-              raisons — il est retiré en SQL, avec la description. La fiche
-              redemande la version complète, mais le rendu ne doit pas tomber
-              en attendant. */}
-            {(score.reasons ?? []).map((reason, index) => (
-              <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
-                <span aria-hidden="true" className="flex w-4 shrink-0 justify-center pt-0.5">
-                  <ReasonIcon delta={reason.delta} invert={invert} />
-                </span>
-                <span>{reason.label}</span>
-              </li>
-            ))}
-          </ul>
-
-          {/* §17 : dire explicitement ce qui manquait plutôt que de le taire. */}
-          {score.unknownSignals.length > 0 && (
-            <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">
-              Information non fournie par les sources : {score.unknownSignals.join(', ')}.
-            </p>
-          )}
+              {/* §17 : dire explicitement ce qui manquait plutôt que de le taire. */}
+              {groupe.score.unknownSignals.length > 0 && (
+                <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">
+                  Information non fournie par les sources : {groupe.score.unknownSignals.join(', ')}
+                  .
+                </p>
+              )}
+            </section>
+          ))}
         </div>
       </details>
     </Card>

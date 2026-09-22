@@ -32,7 +32,7 @@ import {
   TRACKING_ORDER,
   UNKNOWN,
 } from '../format.js';
-import { OverallScore, ScoreDetail } from './Scores.js';
+import { OverallScore, ScoreBreakdown } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
 import { RequirementsPanel } from './RequirementsPanel.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
@@ -564,6 +564,7 @@ export function ListingDetail({
         </Button>
         <span className="flex items-center gap-2">
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+          {listing.reappeared === true && <Badge variant="good">De retour en ligne</Badge>}
           {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
           <DetailActions
             title={listing.title.value ?? 'Annonce Maïoun'}
@@ -754,24 +755,28 @@ export function ListingDetail({
 
       <div className="mt-4">
         <OverallScore value={listing.actionPriority}>
-          <div className="sm:grid sm:grid-cols-2 sm:gap-3">
-            <ScoreDetail title="Correspondance" score={listing.scores.match} />
-            <ScoreDetail title="Urgence" score={listing.scores.opportunity} />
-            <ScoreDetail
-              title="Facilité de contact"
-              score={listing.scores.visitProbability}
-              caveat="Indice fondé sur des règles explicites, pas sur une statistique. Il sert à comparer les annonces entre elles, pas à prédire un pourcentage réel."
-            />
-            {/* GARDÉ, ET DIT AUTREMENT : l'avertissement du haut de fiche ne
-              montre que ce qui PÈSE. Ce qui joue en faveur de l'annonce, et ce
-              qu'aucune source n'a fourni, n'a pas d'autre endroit où vivre. */}
-            <ScoreDetail
-              title="Signaux d’alerte"
-              score={listing.scores.risk}
-              invert
-              caveat="Ne se dilue pas dans le score : au-delà du seuil d’alerte, il le plafonne."
-            />
-          </div>
+          {/* GARDÉ, ET DIT AUTREMENT : l'avertissement du haut de fiche ne
+            montre que ce qui PÈSE. Ce qui joue en faveur de l'annonce, et ce
+            qu'aucune source n'a fourni, n'a pas d'autre endroit où vivre. */}
+          <ScoreBreakdown
+            groups={[
+              { title: 'Correspondance à vos critères', score: listing.scores.match },
+              { title: 'Urgence', score: listing.scores.opportunity },
+              {
+                title: 'Facilité de contact',
+                score: listing.scores.visitProbability,
+                caveat:
+                  'Indice fondé sur des règles explicites, pas sur une statistique. Il sert à comparer les annonces entre elles, pas à prédire un pourcentage réel.',
+              },
+              {
+                title: 'Signaux d’alerte',
+                score: listing.scores.risk,
+                invert: true,
+                caveat:
+                  'Ne se dilue pas dans le score : au-delà du seuil d’alerte, il le plafonne.',
+              },
+            ]}
+          />
         </OverallScore>
       </div>
     </div>

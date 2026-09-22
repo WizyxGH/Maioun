@@ -1198,6 +1198,14 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  lesiteimmo: {
+    name: 'LeSiteImmo',
+    domain: 'lesiteimmo.com',
+    kind: 'portal',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
   'liberty-agency': {
     name: 'Liberty Agency',
     domain: 'agence-liberty.com',

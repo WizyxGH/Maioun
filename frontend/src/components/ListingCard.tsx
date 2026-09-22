@@ -199,6 +199,7 @@ function StatusBadges({
         listing.viewed === true && !archived && <Badge>Consultée</Badge>
       )}
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+      {listing.reappeared === true && <Badge variant="good">De retour en ligne</Badge>}
       <ApplicationsFullBadge listing={listing} rented={rented} />
       <RequirementBadges listing={listing} profile={profile} />
       {/* PLUS DE BADGE « TROP BEAU ? » ICI. C'était un second nom, avec son

@@ -31,6 +31,8 @@ export interface ScoringOptions {
   readonly referencePoints: readonly ReferencePoint[];
   /** Ids d'occurrences dont le loyer a récemment baissé (§17). */
   readonly priceDroppedIds?: ReadonlySet<string>;
+  /** Ids d'occurrences retirées puis republiées récemment. */
+  readonly reappearedIds?: ReadonlySet<string>;
   /** Coordonnées issues du géocodage de l'adresse, si la source n'a pas de GPS (§20). */
   readonly resolvedCoordinates?: Coordinates | null;
   /**
@@ -93,6 +95,9 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
   const priceDropped =
     options.priceDroppedIds !== undefined &&
     listing.occurrences.some((occurrence) => options.priceDroppedIds?.has(occurrence.id));
+  const reappeared =
+    options.reappearedIds !== undefined &&
+    listing.occurrences.some((occurrence) => options.reappearedIds?.has(occurrence.id));
 
   const distances = computeDistances(
     listing,
@@ -118,5 +123,6 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
     // qui permet de changer d'avis sur le filtre sans rien recollecter.
     studentOnly: isStudentHousing(listing),
     priceDropped,
+    reappeared,
   };
 }

@@ -769,8 +769,9 @@ async function scoreForEachUser(deps: {
   readonly geocoded: ReadonlyMap<string, Coordinates | null>;
   readonly nowMs: number;
   readonly priceDroppedIds: ReadonlySet<string>;
+  readonly reappearedIds: ReadonlySet<string>;
 }): Promise<void> {
-  const { options, merged, scored, geocoded, nowMs, priceDroppedIds } = deps;
+  const { options, merged, scored, geocoded, nowMs, priceDroppedIds, reappearedIds } = deps;
   const { repository, logger, config } = options;
 
   const users = await repository.scorableUsers();
@@ -808,6 +809,7 @@ async function scoreForEachUser(deps: {
         referencePricePerSqm: config.referencePricePerSqm,
         referencePoints,
         priceDroppedIds,
+        reappearedIds,
         resolvedCoordinates: coords,
         ...(transitMinutes !== undefined ? { resolvedTransitMinutes: transitMinutes } : {}),
       });
@@ -880,8 +882,13 @@ export async function regroupAndScore(
   logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
 
   // Baisses de loyer des 14 derniers jours : signal d'opportunité (§17).
+  // Même fenêtre pour les retours en ligne : au-delà, la republication n'a plus
+  // rien d'une occasion à saisir.
   const priceDropSince = new Date(nowMs - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const priceDroppedIds = await repository.recentPriceDropIds(priceDropSince);
+  const [priceDroppedIds, reappearedIds] = await Promise.all([
+    repository.recentPriceDropIds(priceDropSince),
+    repository.recentReappearedIds(priceDropSince),
+  ]);
 
   const merged = groups.map((group) => mergeGroup(group.occurrences));
 
@@ -962,6 +969,7 @@ export async function regroupAndScore(
       referencePricePerSqm: config.referencePricePerSqm,
       referencePoints: options.referencePoints,
       priceDroppedIds,
+      reappearedIds,
       resolvedCoordinates: coords,
       ...(transitMinutes !== undefined ? { resolvedTransitMinutes: transitMinutes } : {}),
     });
@@ -977,7 +985,15 @@ export async function regroupAndScore(
   const retired = await repository.retireDepartedListings();
   if (retired > 0) logger.info('pipeline.listings_retired', { retired });
 
-  await scoreForEachUser({ options, merged, scored, geocoded, nowMs, priceDroppedIds });
+  await scoreForEachUser({
+    options,
+    merged,
+    scored,
+    geocoded,
+    nowMs,
+    priceDroppedIds,
+    reappearedIds,
+  });
 
   return { groups, comparisonCount, listingReport };
 }

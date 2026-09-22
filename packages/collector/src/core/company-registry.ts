@@ -97,3 +97,34 @@ export function registrySearchUrl(name: string, departement: string): string {
   });
   return `${ENDPOINT}?${params.toString()}`;
 }
+
+export interface RegistryLookupOptions {
+  /** Injection de `fetch` : aucun accès réseau en test (§59). */
+  readonly fetchImpl?: typeof fetch;
+  readonly userAgent: string;
+}
+
+/**
+ * Interroge le registre pour une enseigne, ou `null` si rien ne lui répond.
+ *
+ * UNE PANNE N'EST PAS UNE ABSENCE : une erreur réseau ou un statut non-200
+ * rendent `null` comme une recherche vide, et c'est voulu — l'appelant ne doit
+ * rien conclure d'un `null`, jamais. Seul un enregistrement rendu porte une
+ * information, et la seule qui soit certaine est `active: false`.
+ */
+export async function lookupAgency(
+  name: string,
+  departement: string,
+  options: RegistryLookupOptions,
+): Promise<RegistryRecord | null> {
+  const call = options.fetchImpl ?? fetch;
+  try {
+    const response = await call(registrySearchUrl(name, departement), {
+      headers: { 'User-Agent': options.userAgent },
+    });
+    if (!response.ok) return null;
+    return parseRegistrySearch(await response.json());
+  } catch {
+    return null;
+  }
+}
