@@ -2,12 +2,18 @@
  * Fiche détaillée d'une annonce (§37, §38).
  *
  * Elle doit permettre d'AGIR vite : les coordonnées et le message sont en haut,
- * le détail des scores et l'historique en dessous.
+ * le score et l'historique en dessous.
  */
 
 import { Fragment, useEffect, useState } from 'react';
 import type { StoredReferencePoint, TenantProfile } from '@maioun/shared';
-import { rentAllIn, RISK_ALERT } from '@maioun/shared';
+import {
+  amountOverCap,
+  legalDepositCap,
+  legalTenantFeeCap,
+  rentAllIn,
+  RISK_ALERT,
+} from '@maioun/shared';
 import { fetchReferencePoints } from '../api/client.js';
 import { archiveReasonOf, isArchivedBySource, isUncertain } from '../availability.js';
 import { directionsUrl } from '../directions.js';
@@ -332,17 +338,59 @@ function ChargesNote({ listing }: { readonly listing: ListingView }): React.JSX.
   );
 }
 
-/** Ce qui se paie à l'entrée, sous le loyer. Rien quand la source ne dit rien. */
+/**
+ * Ce qui se paie à l'entrée, sous le loyer. Rien quand la source ne dit rien.
+ *
+ * LES DEUX MONTANTS SONT PLAFONNÉS PAR LA LOI, et personne ne le vérifiait.
+ * Mesuré le 2026-09-22 : 548 annonces sur les 1 627 qui publient des
+ * honoraires avec une surface dépassent le plafond niçois, pour 138 000 €
+ * cumulés au-dessus — dont une chambre de 15 m² à 720 € dont le texte annonce
+ * « (hono 720) », soit 3,7 fois le plafond.
+ *
+ * ON MONTRE L'ÉCART, ON NE CONCLUT PAS. Un dépassement peut signer une
+ * infraction comme une donnée mal lue — et le plafond porte sur la part du
+ * LOCATAIRE, que toutes les sources ne distinguent pas forcément du total
+ * agence. Le chiffre est donné à côté du montant annoncé ; c'est au lecteur
+ * de poser la question à l'agence, pas à nous de porter l'accusation.
+ */
 function EntryCosts({ listing }: { readonly listing: ListingView }): React.JSX.Element | null {
   const deposit = listing.deposit?.value ?? null;
   const fees = listing.tenantFees?.value ?? null;
   if (deposit === null && fees === null) return null;
+
+  const feeCap = legalTenantFeeCap(listing.area.value);
+  const feesOver = amountOverCap(fees, feeCap);
+  const depositCap = legalDepositCap(
+    {
+      price: listing.price.value,
+      charges: listing.charges?.value ?? null,
+      chargesIncluded: listing.chargesIncluded ?? null,
+    },
+    listing.furnished.value,
+  );
+  const depositOver = amountOverCap(deposit, depositCap);
+
   return (
-    <p className="-mt-2 mb-3 text-sm text-muted-foreground">
-      {deposit !== null && <span>Dépôt de garantie : {formatPrice(deposit)}</span>}
-      {deposit !== null && fees !== null && <span aria-hidden="true"> · </span>}
-      {fees !== null && <span>Honoraires : {formatPrice(fees)}</span>}
-    </p>
+    <div className="-mt-2 mb-3 text-sm text-muted-foreground">
+      <p>
+        {deposit !== null && <span>Dépôt de garantie : {formatPrice(deposit)}</span>}
+        {deposit !== null && fees !== null && <span aria-hidden="true"> · </span>}
+        {fees !== null && <span>Honoraires : {formatPrice(fees)}</span>}
+      </p>
+      {feesOver !== null && feeCap !== null && (
+        <p className="text-medium mt-0.5 text-[0.85rem]">
+          Plafond légal des honoraires pour {formatArea(listing.area.value)} à Nice :{' '}
+          {formatPrice(Math.round(feeCap))}. L’annonce annonce {formatPrice(Math.round(feesOver))}{' '}
+          de plus.
+        </p>
+      )}
+      {depositOver !== null && depositCap !== null && (
+        <p className="text-medium mt-0.5 text-[0.85rem]">
+          Plafond légal du dépôt : {formatPrice(Math.round(depositCap))} —{' '}
+          {listing.furnished.value === true ? 'deux mois' : 'un mois'} de loyer hors charges.
+        </p>
+      )}
+    </div>
   );
 }
 

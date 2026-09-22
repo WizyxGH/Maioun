@@ -46,7 +46,7 @@ describe('la liste d’un visiteur sans compte', () => {
   });
 
   it('classe par nouveauté : sans score, la priorité est la même partout', () => {
-    expect(anonyme().orderBy).toBe('first_seen_at DESC');
+    expect(anonyme().orderBy).toBe('COALESCE(listings.published_at, listings.first_seen_at) DESC');
     expect(anonyme('?sort=price').orderBy).toBe('price IS NULL, price ASC');
   });
 
@@ -101,12 +101,14 @@ describe('pagination : ce que l’URL peut contenir de travers', () => {
 });
 
 describe('ordre de la liste', () => {
-  it('compte « récent » à la DÉCOUVERTE, pas à la dernière vue', () => {
+  it('compte « récent » sur la date AFFICHÉE, pas sur la dernière vue', () => {
     // `last_seen_at` se rafraîchit à chaque collecte : une annonce en ligne
     // depuis trois mois y paraissait plus récente qu'une trouvée le matin
-    // même. Mesuré : la 1re du classement datait de quatre jours, la 20e du
-    // jour même.
-    expect(query('?sort=recent').orderBy).toBe('first_seen_at DESC');
+    // même. Et la seule découverte ne suffisait pas non plus : la carte
+    // affiche la publication dès que la source la donne.
+    expect(query('?sort=recent').orderBy).toBe(
+      'COALESCE(listings.published_at, listings.first_seen_at) DESC',
+    );
     expect(query('?sort=recent').orderBy).not.toContain('last_seen_at');
   });
 
@@ -123,10 +125,11 @@ describe('ordre de la liste', () => {
     expect(query('?sort=area').orderBy).toBe('area IS NULL, area DESC, sc.action_priority DESC');
   });
 
-  it('départage la priorité par la découverte, pour la même raison', () => {
+  it('départage la priorité par la même date, pour la même raison', () => {
     // `sc.` : la priorité vient du score DU COMPTE, pas de la fiche.
-    expect(query('').orderBy).toBe('sc.action_priority DESC, first_seen_at DESC');
-    expect(query('?sort=priority').orderBy).toBe('sc.action_priority DESC, first_seen_at DESC');
+    const attendu = `sc.action_priority DESC, ${'COALESCE(listings.published_at, listings.first_seen_at) DESC'}`;
+    expect(query('').orderBy).toBe(attendu);
+    expect(query('?sort=priority').orderBy).toBe(attendu);
   });
 
   it('borne la pagination', () => {
@@ -932,5 +935,35 @@ describe('buildListQuery — le plafond de surface', () => {
   it('se relit depuis les critères enregistrés', () => {
     expect(parseLiveFilters({ maxPrice: 700, minArea: 20, maxArea: 60 })?.maxArea).toBe(60);
     expect(parseLiveFilters({ maxPrice: 700, minArea: 20 })?.maxArea).toBeUndefined();
+  });
+});
+
+/**
+ * LE TRI « PLUS RÉCENTES » NE CLASSAIT PAS CE QU'ON LISAIT.
+ *
+ * Il se faisait sur la seule date de DÉCOUVERTE, pendant que la carte affiche
+ * la date de PUBLICATION dès que la source la donne. Mesuré le 2026-09-22 :
+ * 1 254 annonces actives portent une publication, et 1 087 tombent un autre
+ * jour que leur découverte — « publiée il y a trois jours » s'affichait
+ * au-dessus de « publiée aujourd'hui », et le tri paraissait ne rien faire.
+ */
+describe('buildListQuery — le tri par fraîcheur', () => {
+  const trier = (sort: string): string =>
+    buildListQuery(new URL(`https://exemple.invalid/api/listings?sort=${sort}`)).orderBy;
+
+  it('classe sur la date affichée : publication, sinon découverte', () => {
+    expect(trier('recent')).toContain('COALESCE(listings.published_at, listings.first_seen_at)');
+    expect(trier('recent')).toContain('DESC');
+  });
+
+  /** Une date de collecte n'est pas une date d'annonce : elle bouge à chaque passage. */
+  it('ne classe jamais sur la dernière vue', () => {
+    expect(trier('recent')).not.toContain('last_seen_at');
+  });
+
+  it('départage la priorité par la même date, et non par une autre', () => {
+    const priorite = trier('priority');
+    expect(priorite).toContain('sc.action_priority DESC');
+    expect(priorite).toContain('COALESCE(listings.published_at, listings.first_seen_at)');
   });
 });

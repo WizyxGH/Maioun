@@ -97,14 +97,18 @@ export const PRIORITY_WORTH_SEEING = 50;
 export const RISK_ALERT = 40;
 
 /**
- * Score de tri global, utilisé pour classer la liste principale (§36).
+ * LE score — celui qui classe la liste, et le seul que la fiche affiche.
  *
- * L'interface doit répondre à « que dois-je contacter maintenant ? ». On
- * privilégie donc l'urgence (opportunité) et la faisabilité (probabilité de
- * visite) autant que la pertinence, et on pénalise le risque.
+ * Il a longtemps trié la liste sans jamais se montrer, pendant que la fiche
+ * exposait les quatre mesures qui le composent, à égalité de taille et sans
+ * dire laquelle regarder. C'est lui qu'on lit désormais ; elles se déplient
+ * dessous.
  *
- * Les poids sont volontairement simples et lisibles : ils seront réévalués à
- * partir de statistiques réelles en V3 (§71), pas avant.
+ * Il répond à « que dois-je contacter maintenant ? » : d'où le poids donné à
+ * l'urgence et à la faisabilité autant qu'à la pertinence. Les poids sont
+ * volontairement simples et lisibles ; ils seront réévalués sur des
+ * statistiques réelles (§71), pas avant. `SCORE_EXPLANATION` les dit à
+ * l'utilisateur dans les mêmes termes — une seule définition, deux lecteurs.
  */
 export function actionPriority(scores: ListingScores): number {
   const { match, opportunity, visitProbability, risk } = scores;

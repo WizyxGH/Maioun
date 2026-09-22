@@ -80,16 +80,11 @@ function priorityLabel(priority: number, awaits: boolean): string {
 }
 
 /**
- * Priorité d'action, en BARRE DE PROGRESSION (§36).
+ * Le score, en BARRE DE PROGRESSION (§36).
  *
- * La carte portait quatre anneaux de score — correspondance, opportunité,
- * visite, risque — plus une pastille de priorité : cinq chiffres à interpréter
- * pour une seule question, « dois-je contacter cette annonce maintenant ? ».
- * La priorité les résume déjà ; le détail des quatre reste sur la fiche, où
- * l'on vient précisément pour comprendre.
- *
- * Une barre plutôt qu'un nombre : deux cartes se comparent d'un coup d'œil,
- * sans lire, ce qu'un anneau de 48 px ne permettait pas.
+ * Une barre plutôt qu'un nombre seul : deux cartes se comparent d'un coup
+ * d'œil, sans lire. Le chiffre reste à côté, et la fiche porte le détail de ce
+ * qui le compose.
  */
 function PriorityBar({
   priority,

@@ -627,9 +627,30 @@ interface ListQuery {
  * elle permettrait de retrouver le domicile). Une durée de trajet répond de
  * toute façon mieux à la question qu'on se pose vraiment.
  */
+/**
+ * « RÉCENT », C'EST LA DATE QUE LA CARTE AFFICHE — et ce ne l'était pas.
+ *
+ * Le classement se faisait sur la seule date de DÉCOUVERTE, pendant que la
+ * carte affiche la date de PUBLICATION dès que la source la donne. Mesuré le
+ * 2026-09-22 : 1 254 annonces actives portent une date de publication, et
+ * 1 087 d'entre elles tombent un autre jour que leur découverte. Un tiers du
+ * catalogue s'affichait donc dans un ordre sans rapport avec les dates
+ * imprimées dessus — « publiée il y a trois jours » au-dessus de « publiée
+ * aujourd'hui ». Le tri ne semblait pas fonctionner : il ne classait
+ * simplement pas ce qu'on lisait.
+ *
+ * `COALESCE` RÉPOND À L'OBJECTION D'ALORS. On avait écarté `published_at`
+ * parce qu'il manque aux deux tiers des fiches — mais il ne s'agit pas de
+ * choisir l'un OU l'autre : la publication quand elle existe, la découverte
+ * sinon. C'est exactement la règle que le site applique déjà de son côté
+ * (`recency.ts`), et deux définitions du même mot valaient forcément une
+ * divergence.
+ */
+const RECENCY_SQL = 'COALESCE(listings.published_at, listings.first_seen_at) DESC';
+
 const ORDER_BY: Readonly<Record<string, string>> = {
-  priority: 'sc.action_priority DESC, first_seen_at DESC',
-  recent: 'first_seen_at DESC',
+  priority: `sc.action_priority DESC, ${RECENCY_SQL}`,
+  recent: RECENCY_SQL,
   price: 'price IS NULL, price ASC',
   closest: 'sc.commute_minutes IS NULL, sc.commute_minutes ASC, sc.action_priority DESC',
   // LA SURFACE, DE LA PLUS GRANDE À LA PLUS PETITE. `area IS NULL` en tête de
@@ -674,14 +695,12 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
   /**
    * §36 : par défaut, le classement suit la priorité d'action — pas le prix.
    *
-   * « RÉCENT » SE COMPTE À LA DÉCOUVERTE, pas à la dernière vue. `last_seen_at`
-   * se rafraîchit à CHAQUE collecte : une annonce en ligne depuis trois mois y
+   * « RÉCENT » NE SE COMPTE PAS À LA DERNIÈRE VUE. `last_seen_at` se
+   * rafraîchit à CHAQUE collecte : une annonce en ligne depuis trois mois y
    * paraissait plus récente qu'une trouvée le matin même. Relevé du
    * 2026-09-05 : la première du classement avait été découverte quatre jours
-   * plus tôt, la vingtième le jour même. `first_seen_at` est complet — aucune
-   * valeur nulle — et dit ce que l'utilisateur entend par « nouveau » :
-   * nouveau POUR LUI. `published_at` serait plus juste encore, mais manque
-   * dans deux tiers des fiches.
+   * plus tôt, la vingtième le jour même. Le classement suit désormais la date
+   * AFFICHÉE — publication, sinon découverte : voir `RECENCY_SQL`.
    *
    * « MOINS CHER » MET LES SANS-PRIX EN DERNIER. SQLite classe les valeurs
    * nulles EN TÊTE d'un tri croissant : les cinq premières annonces du

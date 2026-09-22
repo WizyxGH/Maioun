@@ -280,6 +280,18 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
 
   // ── Conformes, mais rien dans le périmètre ──────────────────────────────
   {
+    id: 'lanteri-nicolas',
+    name: 'Nicolas Lanteri Immobilier',
+    origin: 'https://www.lanterinicolasimmo.fr',
+    reason: 'noVolume',
+    checkedOn: '2026-09-22',
+    // LE NOM TROMPE : « Lanteri » sonne niçois, l'agence est bordelaise. Ses
+    // annonces sont à Bordeaux, Talence et Villenave-d'Ornon — Gironde.
+    refusal: 'agence bordelaise : aucune annonce dans les Alpes-Maritimes',
+    wakesIf: 'sa page de locations rend une commune du périmètre',
+    probe: { kind: 'page', url: 'https://www.lanterinicolasimmo.fr/location' },
+  },
+  {
     id: 'meta-immobilier',
     name: 'Meta Immobilier',
     origin: 'https://meta-immobilier.com',
