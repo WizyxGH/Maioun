@@ -26,17 +26,12 @@ describe('contours de quartiers', () => {
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
-  /**
-   * Un contour est une limite PUBLIÉE, jamais une limite reconstituée : on
-   * préfère un quartier sans contour à un contour approximatif. La carte n'en
-   * couvre donc qu'une partie, et c'est voulu.
-   */
-  it('laisse sans contour les quartiers dont la limite n’est pas publiée', () => {
+  it('réunit les IRIS lorsque la table de nommage l’autorise', () => {
     expect(DISTRICT_BOUNDARIES.features.length).toBeLessThan(NICE_DISTRICTS.length);
     const couverts = new Set(DISTRICT_BOUNDARIES.features.map((f) => f.properties.slug));
-    // « Cimiez » est trois IRIS : lui donner celui qui porte le nom nu
-    // dessinerait un tiers du quartier sous le nom du tout.
-    expect(couverts.has('cimiez')).toBe(false);
+    // Cimiez est composé de plusieurs IRIS, réunis par le générateur à partir
+    // de la table de nommage des quartiers.
+    expect(couverts.has('cimiez')).toBe(true);
     expect(couverts.has('mont-boron')).toBe(true);
   });
 

@@ -1,27 +1,51 @@
 /**
  * Engendre les contours de quartiers dessinés sur la carte.
  *
- * LA SOURCE. Il n'existe AUCUN jeu ouvert des quartiers de Nice : le portail
+ * LA GÉOMÉTRIE. Il n'existe AUCUN jeu ouvert des quartiers de Nice : le portail
  * de la Métropole ne publie que les six « territoires » de la ville, dix fois
  * plus larges qu'un quartier. Le seul découpage infra-communal officiel et
- * publié est l'IRIS de l'INSEE, diffusé par l'IGN — et ses libellés SONT des
- * noms de quartiers (« Mont Boron », « Carabacel », « Le Port »).
+ * publié est l'IRIS de l'INSEE, diffusé par l'IGN.
  *
  *   Contours…IRIS®, INSEE et IGN, édition 2026-01-01
  *   https://geoservices.ign.fr/contoursiris
  *   WFS Géoplateforme, couche STATISTICALUNITS.IRIS:contours_iris
  *   Licence Ouverte / Open Licence 2.0 (Etalab) — attribution exigée
  *
- * ON NE RAPPROCHE QUE CE QUI EST IDENTIQUE. Un IRIS ne donne son contour à un
- * quartier que si son nom est LE nom du quartier, une fois mis en forme
- * comparable, et qu'aucun autre IRIS ne porte ce nom en composant. La seconde
- * condition est la plus importante : « Cimiez » est un IRIS parmi « Cimiez-
- * Monastère » et « Cimiez-Valrose », et son seul contour couvrirait un tiers
- * du quartier sous le nom du tout. Réunir les trois serait une reconstitution,
- * pas une donnée publiée — on préfère laisser Cimiez sans contour.
+ * LE NOMMAGE, ET RIEN QUE LE NOMMAGE.
  *
- * LA GÉOMÉTRIE EST SIMPLIFIÉE. La précision utile est le quartier, pas le
- * trottoir : Douglas-Peucker à quinze mètres et cinq décimales.
+ *   https://fr.wikipedia.org/wiki/Liste_des_quartiers_de_Nice
+ *   Wikipédia, CC BY-SA — AUCUNE géométrie n'en vient
+ *
+ * Cette liste sert d'ARBITRE : elle dit que la mairie a découpé la ville en
+ * 41 quartiers EN REGROUPANT les 146 IRIS de l'INSEE. C'est ce qui autorise la
+ * réunion faite ici — Cimiez est un quartier, « Cimiez-Monastère » en est un
+ * morceau, et les rassembler n'invente aucune limite. Elle confirme aussi que
+ * « Nice Nord », « Nice Ouest » et « Nice Est » n'en sont pas : nos trois
+ * secteurs restent donc sans contour.
+ *
+ * LA RÈGLE, EN DEUX TEMPS.
+ *
+ * 1. REVENDICATION. Un de nos quartiers revendique un IRIS dès que son nom
+ *    apparaît en COMPOSANT ENTIER du nom de l'IRIS — où qu'il soit, pas
+ *    seulement en tête.
+ * 2. ATTRIBUTION. Il ne le REÇOIT que si le nom de l'IRIS COMMENCE par le
+ *    sien, le reste étant séparé par un tiret ou une espace.
+ *
+ * LE GARDE-FOU PRIME SUR LA RÈGLE : un IRIS revendiqué par plus d'un quartier
+ * n'est donné à aucun. « Bellet-Magnan » nomme Bellet et Magnan, « Cimiez-
+ * Valrose » nomme Cimiez et Valrose : on ne tranche pas à leur place. C'est
+ * bien la revendication sur TOUT composant qui compte, et non le seul premier
+ * — sinon Cimiez emporterait une zone que Valrose réclame aussi.
+ *
+ * LA RÉUNION EST EXACTE, PAS APPROCHÉE. Les IRIS d'une commune forment une
+ * couverture topologiquement propre : chaque frontière intérieure apparaît une
+ * fois dans un sens et une fois dans l'autre (vérifié : 8 194 arêtes appariées,
+ * zéro doublon de même sens). On retire donc les arêtes qui s'annulent et l'on
+ * recoud le reste — aucune bibliothèque de géométrie, aucun résultat approché,
+ * et surtout aucun trait qui traverserait le quartier réuni.
+ *
+ * LA GÉOMÉTRIE EST SIMPLIFIÉE APRÈS la réunion. La précision utile est le
+ * quartier, pas le trottoir : Douglas-Peucker à quinze mètres, cinq décimales.
  *
  * Usage : pnpm --filter @maioun/frontend run districts
  */
@@ -71,19 +95,149 @@ const iris = (await response.json()).features.map((feature) => ({
   geometry: feature.geometry,
 }));
 
-const retenus = [];
-const ecartes = [];
-for (const district of NICE_DISTRICTS) {
-  const formes = new Set([district.label, ...(district.aliases ?? [])].map(comparable));
-  const exacts = iris.filter((entry) => formes.has(entry.forme));
-  const composants = iris.filter(
-    (entry) =>
-      !exacts.includes(entry) &&
-      [...formes].some((forme) => new RegExp(`(^|\\s)${forme}($|\\s)`).test(entry.forme)),
+// --- Rapprochement --------------------------------------------------------
+
+/** Les secteurs ne sont pas des quartiers : la liste de référence le confirme. */
+const quartiers = NICE_DISTRICTS.filter((district) => district.sector !== true);
+
+function formesDe(district) {
+  return [district.label, ...(district.aliases ?? [])].map(comparable);
+}
+
+/** Le nom du quartier apparaît en composant entier du nom de l'IRIS. */
+function revendique(formes, forme) {
+  return formes.some((f) => new RegExp(`(^|\\s)${f}($|\\s)`).test(forme));
+}
+
+/** Le nom de l'IRIS commence par celui du quartier (tiret et espace valent
+ *  séparateur : `comparable` les a déjà ramenés à une espace). */
+function commencePar(formes, forme) {
+  return formes.some((f) => forme === f || forme.startsWith(`${f} `));
+}
+
+/**
+ * Attribue les IRIS aux quartiers.
+ *
+ * `revendiquer` décide qui PEUT prétendre à un IRIS — et donc qui le bloque.
+ * L'attribution, elle, se fait toujours sur le préfixe.
+ */
+function attribuer(revendiquer) {
+  const parQuartier = new Map(quartiers.map((district) => [district.slug, []]));
+  const disputes = [];
+  for (const entry of iris) {
+    const pretendants = quartiers.filter((district) =>
+      revendiquer(formesDe(district), entry.forme),
+    );
+    if (pretendants.length > 1) {
+      disputes.push([entry.nom, pretendants.map((district) => district.slug)]);
+      continue;
+    }
+    for (const district of pretendants) {
+      if (commencePar(formesDe(district), entry.forme)) parQuartier.get(district.slug).push(entry);
+    }
+  }
+  const couverts = [...parQuartier].filter(([, parts]) => parts.length > 0);
+  return { couverts, disputes };
+}
+
+// Deux lectures du garde-fou, pour savoir ce que la stricte coûte.
+const large = attribuer(commencePar);
+const strict = attribuer(revendique);
+const { couverts, disputes } = strict;
+
+// --- Réunion exacte des IRIS d'un quartier --------------------------------
+
+/**
+ * Réunit plusieurs IRIS en un seul contour, SANS trait intérieur.
+ *
+ * Les IRIS d'une commune forment une couverture propre : une frontière entre
+ * deux d'entre eux est décrite deux fois, une par voisin, dans des sens
+ * opposés. Retirer toute arête dont l'inverse est présente dans le groupe
+ * supprime donc exactement les frontières intérieures, sans toucher au bord.
+ * Il ne reste qu'à recoudre les arêtes survivantes bout à bout.
+ *
+ * Fait AVANT la simplification, sur les coordonnées brutes : deux arêtes ne
+ * s'annulent que si elles coïncident au sommet près.
+ */
+function reunir(parts) {
+  const cle = (a, b) => `${a[0]},${a[1]}|${b[0]},${b[1]}`;
+  const aretes = new Map();
+  for (const part of parts) {
+    const polygones =
+      part.geometry.type === 'MultiPolygon'
+        ? part.geometry.coordinates
+        : [part.geometry.coordinates];
+    for (const polygone of polygones) {
+      for (const ring of polygone) {
+        for (let i = 0; i < ring.length - 1; i += 1)
+          aretes.set(cle(ring[i], ring[i + 1]), [ring[i], ring[i + 1]]);
+      }
+    }
+  }
+  // Ce qui s'annule est intérieur au quartier réuni.
+  const bord = [...aretes].filter(([, [a, b]]) => !aretes.has(cle(b, a))).map(([, arete]) => arete);
+
+  // Recoud : depuis chaque sommet, l'arête qui en part et n'a pas servi.
+  const partantDe = new Map();
+  for (const arete of bord) {
+    const depart = `${arete[0][0]},${arete[0][1]}`;
+    if (!partantDe.has(depart)) partantDe.set(depart, []);
+    partantDe.get(depart).push(arete);
+  }
+  const anneaux = [];
+  const vues = new Set();
+  for (const depart of bord) {
+    if (vues.has(depart)) continue;
+    const anneau = [depart[0]];
+    let arete = depart;
+    while (arete !== undefined && !vues.has(arete)) {
+      vues.add(arete);
+      anneau.push(arete[1]);
+      const suite = partantDe.get(`${arete[1][0]},${arete[1][1]}`) ?? [];
+      arete = suite.find((candidate) => !vues.has(candidate));
+    }
+    // Un anneau qui ne se referme pas trahirait une topologie trouée : on
+    // préfère l'annoncer que dessiner une forme ouverte.
+    const [premier, dernier] = [anneau[0], anneau[anneau.length - 1]];
+    if (premier[0] !== dernier[0] || premier[1] !== dernier[1])
+      throw new Error(`anneau ouvert en réunissant ${parts.map((part) => part.nom).join(' + ')}`);
+    if (anneau.length >= 4) anneaux.push(anneau);
+  }
+
+  // Extérieurs et trous se distinguent au sens de parcours, que la réunion
+  // conserve. Chaque trou revient à l'extérieur qui le contient.
+  const aire = (ring) => {
+    let total = 0;
+    for (let i = 0; i < ring.length - 1; i += 1)
+      total += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    return total / 2;
+  };
+  const dedans = (point, ring) => {
+    let dans = false;
+    for (let i = 0, j = ring.length - 2; i < ring.length - 1; j = i, i += 1) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      if (
+        yi > point[1] !== yj > point[1] &&
+        point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
+      )
+        dans = !dans;
+    }
+    return dans;
+  };
+  const sens = Math.sign(
+    aire(anneaux.reduce((a, b) => (Math.abs(aire(a)) > Math.abs(aire(b)) ? a : b))),
   );
-  if (exacts.length === 1 && composants.length === 0) retenus.push({ district, entry: exacts[0] });
-  else if (exacts.length > 0 || composants.length > 0)
-    ecartes.push([district.slug, [...exacts, ...composants].map((entry) => entry.nom)]);
+  const exterieurs = anneaux.filter((ring) => Math.sign(aire(ring)) === sens);
+  const trous = anneaux.filter((ring) => Math.sign(aire(ring)) !== sens);
+  const polygones = exterieurs.map((ring) => [ring]);
+  for (const trou of trous) {
+    const hote = polygones.find((polygone) => dedans(trou[0], polygone[0]));
+    // Un « trou » qui n'est dans rien n'en est pas un : on le dessine plein.
+    if (hote === undefined) polygones.push([trou]);
+    else hote.push(trou);
+  }
+  return polygones;
 }
 
 // --- Simplification -------------------------------------------------------
@@ -145,9 +299,7 @@ function arrondir(ring) {
   return sortie;
 }
 
-function simplifier(geometry) {
-  const polygones =
-    geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates];
+function simplifier(polygones) {
   const sortie = [];
   for (const polygone of polygones) {
     const anneaux = [];
@@ -161,13 +313,15 @@ function simplifier(geometry) {
   return sortie;
 }
 
-const features = retenus
-  .map(({ district, entry }) => ({
+const features = couverts
+  .map(([slug, parts]) => ({
     type: 'Feature',
-    properties: { slug: district.slug },
-    geometry: { type: 'MultiPolygon', coordinates: simplifier(entry.geometry) },
+    properties: { slug },
+    geometry: { type: 'MultiPolygon', coordinates: simplifier(reunir(parts)) },
   }))
   .sort((a, b) => a.properties.slug.localeCompare(b.properties.slug));
+
+const reunis = couverts.reduce((total, [, parts]) => total + parts.length, 0);
 
 const sommets = features.reduce(
   (total, feature) =>
@@ -183,21 +337,29 @@ const source = `/**
  * ENGENDRÉ — ne pas modifier à la main.
  * Reconstruire avec \`pnpm --filter @maioun/frontend run districts\`.
  *
- * Contours…IRIS®, © INSEE et IGN, édition 2026-01-01, extraits par le WFS de
- * la Géoplateforme (couche STATISTICALUNITS.IRIS:contours_iris) pour la commune
- * de Nice (INSEE 06088), sous Licence Ouverte / Open Licence 2.0 (Etalab).
- * https://geoservices.ign.fr/contoursiris
+ * GÉOMÉTRIE : Contours…IRIS®, © INSEE et IGN, édition 2026-01-01, extraits par
+ * le WFS de la Géoplateforme (couche STATISTICALUNITS.IRIS:contours_iris) pour
+ * la commune de Nice (INSEE 06088), sous Licence Ouverte / Open Licence 2.0
+ * (Etalab). https://geoservices.ign.fr/contoursiris
  *
  * L'ATTRIBUTION EST OBLIGATOIRE : la carte l'affiche à côté de celles
  * d'OpenStreetMap et d'Esri.
  *
- * ${features.length} quartiers sur ${String(NICE_DISTRICTS.length)} ont un contour. Les autres n'ont pas d'IRIS
- * portant EXACTEMENT leur nom, ou en ont plusieurs qui le portent en composant
- * — réunir ceux-là serait reconstituer une limite, pas la lire.
+ * NOMMAGE : https://fr.wikipedia.org/wiki/Liste_des_quartiers_de_Nice
+ * (Wikipédia, CC BY-SA). Cette liste n'apporte AUCUNE géométrie ; elle sert
+ * d'arbitre de nommage — elle établit que la mairie a découpé Nice en
+ * 41 quartiers EN REGROUPANT les 146 IRIS, ce qui autorise la réunion faite
+ * ici, et confirme que « Nice Nord », « Ouest » et « Est » n'en sont pas.
  *
- * Géométrie simplifiée (Douglas-Peucker ${String(TOLERANCE_M)} m, ${String(DECIMALES)} décimales) : ${String(sommets)} sommets.
- * Ce fichier n'est importé que DYNAMIQUEMENT, par la carte : il ne pèse pas sur
- * le premier affichage, que GitHub Pages sert sans brotli et cache dix minutes.
+ * ${String(features.length)} quartiers sur ${String(NICE_DISTRICTS.length)} ont un contour, réunion exacte de ${String(reunis)} IRIS.
+ * Un IRIS revendiqué par deux de nos quartiers n'est donné à aucun (${String(disputes.length)} cas) :
+ * on ne tranche pas à leur place. Les autres quartiers n'ont aucun IRIS dont
+ * le nom commence par le leur.
+ *
+ * Géométrie simplifiée APRÈS réunion (Douglas-Peucker ${String(TOLERANCE_M)} m, ${String(DECIMALES)} décimales) :
+ * ${String(sommets)} sommets. Ce fichier n'est importé que DYNAMIQUEMENT, par la carte : il
+ * ne pèse pas sur le premier affichage, que GitHub Pages sert sans brotli et
+ * ne garde en cache que dix minutes.
  */
 
 /**
@@ -230,6 +392,15 @@ export const DISTRICT_BOUNDARIES: DistrictBoundaries = ${JSON.stringify({
 const options = await prettier.resolveConfig(OUT);
 writeFileSync(OUT, await prettier.format(source, { ...options, parser: 'typescript' }), 'utf8');
 
-console.log(`${String(features.length)} quartiers, ${String(sommets)} sommets → ${OUT}`);
-console.log(`écartés (nom éclaté ou ambigu) : ${String(ecartes.length)}`);
-for (const [slug, noms] of ecartes) console.log(`  ${slug} ← ${noms.join(', ')}`);
+console.log(
+  `${String(features.length)} quartiers, ${String(reunis)} IRIS réunis, ${String(sommets)} sommets → ${OUT}`,
+);
+console.log(
+  `garde-fou : préfixe seul ${String(large.couverts.length)} quartiers / ${String(large.disputes.length)} IRIS disputés ;` +
+    ` tout composant (appliqué) ${String(strict.couverts.length)} / ${String(strict.disputes.length)}`,
+);
+console.log('IRIS écartés, revendiqués par plusieurs quartiers :');
+for (const [nom, slugs] of disputes) console.log(`  ${nom} ← ${slugs.join(', ')}`);
+console.log('Quartiers couverts :');
+for (const [slug, parts] of [...couverts].sort())
+  console.log(`  ${slug} ← ${parts.map((part) => part.nom).join(' + ')}`);

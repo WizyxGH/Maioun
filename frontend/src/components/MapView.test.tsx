@@ -287,9 +287,9 @@ describe('MapView — contours de quartiers', () => {
     await waitFor(() =>
       expect(container.querySelectorAll('.maioun-quartier-actif')).toHaveLength(1),
     );
-    // Les quartiers sans limite publiée ne sont PAS proposés : la liste ne
-    // promet que ce qu'elle peut montrer.
+    // La liste ne propose que les quartiers dont le générateur a produit un
+    // contour, y compris ceux réunis depuis plusieurs IRIS.
     expect(menu.querySelectorAll('option')).toHaveLength(DISTRICT_BOUNDARIES.features.length + 1);
-    expect(menu.querySelector('option[value="cimiez"]')).toBeNull();
+    expect(menu.querySelector('option[value="cimiez"]')).not.toBeNull();
   });
 });
