@@ -59,6 +59,32 @@
      signale une annonce à contacter d'urgence : deux idées sans rapport dans la
      même couleur, sur la même carte, à trois centimètres l'une de l'autre. */
   --color-favorite: light-dark(#dc2626, #f87171);
+
+  /* LA PASTILLE DE NOTIFICATION EST ROUGE, et elle empruntait elle aussi
+     `--color-hot` — l'orange des annonces à contacter. Une pastille sur une
+     cloche ne dit pas « urgent à traiter », elle dit « non lu » : c'est le
+     rouge que tout le monde reconnaît, et une couleur qui lui appartient se
+     change sans toucher aux priorités. */
+  --color-notify: light-dark(#dc2626, #ef4444);
+  --color-notify-foreground: #ffffff;
+
+  /* LA CARTE NE PEUT PAS PORTER DE CLASSES. Leaflet reçoit ses pastilles en
+     HTML, donc en styles en ligne : ces couleurs-là étaient écrites en dur
+     dans `MapView.tsx`, dix fois, et changer la teinte du site les laissait
+     derrière. Elles vivent ici comme les autres ; le composant n'écrit plus
+     que `var(--color-map-…)`.
+
+     ELLES NE SUIVENT PAS LE THÈME SOMBRE, et c'est voulu : les tuiles de la
+     carte restent claires dans les deux thèmes, une pastille sombre y serait
+     illisible. */
+  --color-map-pin: #ffffff;
+  --color-map-ink: #1a1a1a;
+  --color-map-hot: #e00034;
+  --color-map-hot-ink: #ffffff;
+  --color-map-favorite: #f59e0b;
+  --color-map-border: #d4d4d8;
+  --color-map-viewed: #71717a;
+  --color-map-note: #52525b;
 }
 
 @layer base {

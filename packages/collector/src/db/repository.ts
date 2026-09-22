@@ -385,7 +385,19 @@ export interface Repository {
   readonly expireByAge: (
     sourceId: string,
     thresholds: { possiblyInactiveAfterDays: number; inactiveAfterDays: number },
-  ) => Promise<void>;
+  ) => Promise<number>;
+
+  /**
+   * QUAND LE CORPUS A ÉTÉ REGROUPÉ POUR LA DERNIÈRE FOIS — et rien d'autre.
+   *
+   * Le regroupement relit tout le corpus vivant à chaque passage, quatre-vingt-
+   * seize fois par jour, alors que quatre passages sur cinq n'ont rien vu
+   * naître. Il se saute donc quand rien n'a bougé, et cette date borne le
+   * calme : les scores vieillissent avec l'horloge, pas seulement avec les
+   * annonces.
+   */
+  readonly regroupedAt: () => Promise<string | null>;
+  readonly markRegrouped: (nowIso: string) => Promise<void>;
 
   /**
    * ÉTEINT LES ANNONCES RELAYÉES DONT LA SOURCE D'ORIGINE A RETIRÉ LA SIENNE.
@@ -573,12 +585,19 @@ export interface Repository {
    */
   pruneLogs(nowMs: number): Promise<number>;
 
-  /** Incrémente le compteur d'absence et fait évoluer le cycle de vie (§32). */
+  /**
+   * Incrémente le compteur d'absence et fait évoluer le cycle de vie (§32).
+   *
+   * @returns le nombre d'occurrences qui ont CHANGÉ DE STATUT — et non celles
+   *   dont le compteur a monté. Le compteur monte à chaque passage pour toute
+   *   annonce non revue ; le statut, lui, ne bouge qu'aux seuils. C'est cette
+   *   différence qui dit au passage s'il a de quoi regrouper.
+   */
   markMissing(
     sourceId: SourceId,
     seenRefs: ReadonlySet<string>,
     thresholds: LifecycleThresholds,
-  ): Promise<void>;
+  ): Promise<number>;
   /**
    * Ce que chaque source perd entre deux passages — la matière du second signal
    * de cadence (voir `scheduler/scheduler.ts`).
@@ -1709,10 +1728,24 @@ export function createRepository(db: Database): Repository {
       return scorableUserIds(db);
     },
 
+    async regroupedAt() {
+      const result = await db.execute('SELECT last_at FROM regroup_state WHERE id = 1');
+      const raw = result.rows[0]?.['last_at'];
+      return typeof raw === 'string' ? raw : null;
+    },
+
+    async markRegrouped(nowIso) {
+      await db.execute({
+        sql: `INSERT INTO regroup_state (id, last_at) VALUES (1, ?)
+              ON CONFLICT(id) DO UPDATE SET last_at = excluded.last_at`,
+        args: [nowIso],
+      });
+    },
+
     async expireByAge(sourceId, thresholds) {
       // `last_seen_at` est la dernière fois que la source l'a MENTIONNÉE : pour
       // une annonce annoncée une seule fois, c'est sa date de parution.
-      await db.batch(
+      const moved = await db.batch(
         [
           {
             sql: `UPDATE occurrences SET lifecycle = 'possiblyInactive'
@@ -1729,6 +1762,7 @@ export function createRepository(db: Database): Repository {
         ],
         'write',
       );
+      return moved.reduce((total, result) => total + result.rowsAffected, 0);
     },
 
     async retireRelayedByOrigin(sourceId, originIds) {
@@ -2125,21 +2159,27 @@ export function createRepository(db: Database): Repository {
         args: [sourceId, ...refs],
       });
 
-      await db.batch(
+      // LE STATUT NE SE RÉÉCRIT QUE S'IL CHANGE : sans la clause sur le
+      // `lifecycle` courant, ces deux requêtes réaffirmaient à chaque passage
+      // un statut déjà acquis, et leur `rowsAffected` ne distinguait plus une
+      // transition d'une répétition.
+      const moved = await db.batch(
         [
           {
             sql: `UPDATE occurrences SET lifecycle = 'possiblyInactive'
-                  WHERE source_id = ? AND missing_runs >= ? AND missing_runs < ?`,
+                  WHERE source_id = ? AND missing_runs >= ? AND missing_runs < ?
+                    AND lifecycle = 'active'`,
             args: [sourceId, thresholds.possiblyInactiveAfter, thresholds.inactiveAfter],
           },
           {
             sql: `UPDATE occurrences SET lifecycle = 'inactive'
-                  WHERE source_id = ? AND missing_runs >= ?`,
+                  WHERE source_id = ? AND missing_runs >= ? AND lifecycle != 'inactive'`,
             args: [sourceId, thresholds.inactiveAfter],
           },
         ],
         'write',
       );
+      return moved.reduce((total, result) => total + result.rowsAffected, 0);
     },
 
     async vanishRates(windowDays, confirmedAfter) {

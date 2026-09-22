@@ -53,6 +53,16 @@ export interface MultiSelectProps {
    * propose d'agir sur tous les résultats affichés.
    */
   readonly onSelectMany?: (values: readonly string[], select: boolean) => void;
+  /**
+   * Ce que « tout décocher » veut dire, quand ce n'est pas « aucune
+   * restriction ».
+   *
+   * Sans lui, décocher la ligne « tout » recochait tout : pour une liste
+   * d'INCLUSION, « rien de coché » et « tout coché » désignent le même
+   * ensemble, et le geste n'avait donc rien à faire. Les sources ont un mode,
+   * où l'ensemble vide existe pour de bon — l'appelant dit lequel c'est.
+   */
+  readonly onSelectNone?: () => void;
   /** Ajoute un champ de recherche. À réserver aux longues listes. */
   readonly searchable?: boolean;
   /** Ce qu'affiche le déclencheur quand rien n'est sélectionné. */
@@ -86,6 +96,7 @@ export function MultiSelect({
   onToggle,
   onClear,
   onSelectMany,
+  onSelectNone,
   searchable = false,
   emptyLabel,
   summarize,
@@ -189,10 +200,10 @@ export function MultiSelect({
           {/* « TOUT », EN TÊTE ET NON EN BAS : une sélection vide vaut tout, et
             rien ne le disait — on cochait un quartier en croyant en retirer un.
             À moitié cochée dès qu'une sélection restreint la liste.
-            LE DÉCOCHER COCHE TOUT LE RESTE plutôt que de ne rien laisser : c'est
-            ainsi qu'on RETIRE une source, geste qu'une liste d'inclusion seule
-            rendait impossible — cocher LocService donnait « seulement
-            LocService », l'inverse de ce qu'on voulait. */}
+            LE DÉCOCHER COCHE TOUT LE RESTE pour une liste d'inclusion, où
+            « rien » et « tout » nomment le même ensemble : sans cela le geste
+            ne faisait rien du tout. Une liste qui sait dire l'ensemble vide
+            passe `onSelectNone` et décoche pour de bon. */}
           {onClear !== undefined && needle === '' && (
             <label className="border-border mb-1 flex cursor-pointer items-center gap-2 rounded-md border-b px-2 py-1.5 text-sm font-medium hover:bg-muted">
               <input
@@ -202,12 +213,14 @@ export function MultiSelect({
                 type="checkbox"
                 checked={allChecked}
                 onChange={() => {
-                  if (!allChecked || onSelectMany === undefined) onClear();
-                  else
+                  if (!allChecked) onClear();
+                  else if (onSelectNone !== undefined) onSelectNone();
+                  else if (onSelectMany !== undefined)
                     onSelectMany(
                       options.map((option) => option.value),
                       true,
                     );
+                  else onClear();
                 }}
                 className="size-4 shrink-0"
               />

@@ -52,6 +52,7 @@ import {
   ALL_SOURCES,
   describeSourceSelection,
   includeSources,
+  NO_SOURCES,
   restrictsSources,
   sourceAllowed,
   withSourceMode,
@@ -447,6 +448,9 @@ export function SortFilterModal({
                     Seulement…
                   </PillButton>
                 </div>
+                {/* Décocher « Toutes » ne faisait rien : en mode « sauf », tout
+                  recocher redonnait la même liste. Le geste repart donc de zéro
+                  — mode « seulement », rien de nommé — pour choisir ensuite. */}
                 <MultiSelect
                   label="Sources"
                   options={sourceOptions}
@@ -457,6 +461,7 @@ export function SortFilterModal({
                     )
                   }
                   onClear={() => onSourceFilterChange(ALL_SOURCES)}
+                  onSelectNone={() => onSourceFilterChange(NO_SOURCES)}
                   onSelectMany={(ids, select) =>
                     onSourceFilterChange(includeSources(sourceFilter, ids, select))
                   }

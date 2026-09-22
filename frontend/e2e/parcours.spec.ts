@@ -129,12 +129,12 @@ test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', asy
   // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
   // et on scope les assertions au bloc déplié (le même libellé peut exister
   // ailleurs, replié).
-  const risk = page.locator('details').filter({ hasText: 'Signaux d’alerte' });
+  const risk = page.getByTestId('score-detail').filter({ hasText: 'Signaux d’alerte' });
   await risk.locator('summary').click();
   await expect(risk.getByText('Loyer cohérent avec le marché')).toBeVisible();
   await expect(risk.getByText('Agence identifiable')).toBeVisible();
 
-  const visit = page.locator('details').filter({ hasText: 'Facilité de contact' });
+  const visit = page.getByTestId('score-detail').filter({ hasText: 'Facilité de contact' });
   await visit.locator('summary').click();
 
   // §17 : ce qui manque est dit, pas comblé.
@@ -146,6 +146,23 @@ test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', asy
   ).toBeVisible();
 });
 
+/**
+ * UN SEUL SCORE SE LIT SUR LA FICHE. Quatre s'y affichaient à égalité, sans
+ * dire lequel regarder ni ce qu'il fallait en conclure — et la liste triait sur
+ * un cinquième chiffre qui ne s'affichait nulle part.
+ */
+test('la fiche porte un score unique, avec son échelle et sa recette', async ({ page }) => {
+  await page.getByTestId('listing-card').first().click();
+
+  await expect(page.getByRole('heading', { name: 'Score Maïoun' })).toBeVisible();
+  // Le rang plutôt que la note : « 53/100 » se lit « médiocre » alors qu'il
+  // veut dire « au milieu de ce qui existe à Nice aujourd'hui ».
+  await expect(page.getByText(/annonces\.$|tiers le mieux placé/)).toBeVisible();
+
+  await page.getByText('Comment il est calculé').click();
+  await expect(page.getByText(/30 %.*correspondance/i)).toBeVisible();
+});
+
 test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ page }) => {
   const risky = page.getByTestId('listing-card').filter({ hasText: '420 €' });
   await expect(risky).toBeVisible();
@@ -153,7 +170,7 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
   await risky.click();
 
   // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
-  const risk = page.locator('details').filter({ hasText: 'Signaux d’alerte' });
+  const risk = page.getByTestId('score-detail').filter({ hasText: 'Signaux d’alerte' });
   await risk.locator('summary').click();
   await expect(risk.getByText('Loyer très inférieur au marché (5,8 €/m²)')).toBeVisible();
   await expect(risk.getByText('Le bailleur déclare être à l’étranger')).toBeVisible();

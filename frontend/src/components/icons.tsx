@@ -556,5 +556,8 @@ export const X: IconComponent = (props) => <Icon {...props} paths={X_PATHS} />;
 const MARKUP_PATHS = { heart: Heart_PATHS, mail: Mail_PATHS, eye: Eye_PATHS } as const;
 
 export function iconMarkup(name: keyof typeof MARKUP_PATHS, color: string, size = 12): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="${size}" height="${size}" fill="${color}" aria-hidden="true" style="display:block;flex:none">${MARKUP_PATHS[name].fill}</svg>`;
+  // LA COULEUR PASSE PAR `style`, ET NON PAR L'ATTRIBUT `fill` : les
+  // navigateurs ne résolvent pas `var(--…)` dans un attribut de présentation,
+  // et les couleurs de la carte sont désormais des variables du thème.
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="${size}" height="${size}" aria-hidden="true" style="display:block;flex:none;fill:${color}">${MARKUP_PATHS[name].fill}</svg>`;
 }

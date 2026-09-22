@@ -280,6 +280,21 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
 
   // ── Conformes, mais rien dans le périmètre ──────────────────────────────
   {
+    id: 'meta-immobilier',
+    name: 'Meta Immobilier',
+    origin: 'https://meta-immobilier.com',
+    reason: 'noVolume',
+    checkedOn: '2026-09-22',
+    refusal: 'agence de vente : 31 biens au sitemap, aucune location',
+    wakesIf: 'une catégorie « location » apparaît à son sitemap de transactions',
+    probe: {
+      kind: 'sitemap',
+      url: 'https://meta-immobilier.com/property_action_category-sitemap.xml',
+      pattern: /\/action\/location\//i,
+      minMatches: 1,
+    },
+  },
+  {
     id: 'qasa',
     name: 'Qasa',
     origin: 'https://qasa.com',

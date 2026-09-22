@@ -1,8 +1,8 @@
 /**
- * Affichage détaillé des quatre scores, sur la FICHE (§37).
+ * LE SCORE DE LA FICHE, ET LE DÉTAIL DE CE QUI LE COMPOSE (§37).
  *
- * La carte de liste n'en montre plus aucun : sa barre de priorité les résume.
- * Ici on vient au contraire pour comprendre, d'où le détail complet.
+ * Un seul score se lit ; les trois mesures qui le composent se déplient.
+ * La carte de liste, elle, n'en montre que le chiffre et sa barre.
  *
  * Deux exigences du cahier des charges se rejoignent ici :
  *   - §19 : afficher les RAISONS, pas seulement le chiffre ;
@@ -11,8 +11,63 @@
  */
 
 import type { ExplainedScore } from '@maioun/shared';
+import { SCORE_EXPLANATION, scoreBand } from '@maioun/shared';
 import { Card } from '@/components/ui/card.js';
 import { Check, Dot, TriangleAlert } from './icons.js';
+
+/**
+ * LE SCORE, UNE FOIS — et les mesures qui le composent en dessous.
+ *
+ * La fiche montrait QUATRE scores côte à côte, à égalité de taille et de
+ * traitement : « Correspondance 71 », « Urgence 48 », « Facilité de contact
+ * 60 », « Signaux d'alerte 12 ». Rien ne disait lequel regarder d'abord, ni ce
+ * qu'il fallait en conclure — et la liste, elle, triait déjà sur un cinquième
+ * chiffre qui ne s'affichait nulle part.
+ *
+ * C'est ce cinquième chiffre qui est ici, avec sa recette et son échelle
+ * écrites à côté. Les trois mesures qui le composent restent consultables
+ * dessous : le score dit quoi faire, elles disent pourquoi.
+ */
+export function OverallScore({
+  value,
+  children,
+}: {
+  readonly value: number;
+  readonly children: React.ReactNode;
+}): React.JSX.Element {
+  const { label, rank } = scoreBand(value);
+  const tone = toneFor(value, false);
+
+  return (
+    <section className="mb-3">
+      <Card className="mb-3 p-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-base font-semibold">Score Maïoun</h2>
+          <span className={`text-2xl font-bold ${TONE_TEXT[tone]}`}>{value}/100</span>
+        </div>
+        {/* LE RANG PLUTÔT QUE LA NOTE : la meilleure annonce du moment est à 74
+          et la moyenne à 53. « 53 sur 100 » se lit « médiocre » alors qu'il
+          veut dire « au milieu de ce qui existe à Nice aujourd'hui ». */}
+        <p className="mt-0.5 text-sm font-medium">
+          {label} — {rank}.
+        </p>
+        <details className="group mt-2">
+          <summary className="cursor-pointer list-none text-[0.82rem] text-muted-foreground">
+            Comment il est calculé
+            <span
+              aria-hidden="true"
+              className="ml-1 inline-block transition-transform group-open:rotate-90"
+            >
+              ▸
+            </span>
+          </summary>
+          <p className="mt-1 text-[0.82rem] text-muted-foreground">{SCORE_EXPLANATION}</p>
+        </details>
+      </Card>
+      {children}
+    </section>
+  );
+}
 
 /** Palette par plage : vert au-dessus de 75, orange au-dessus de 50, rouge sinon. */
 function toneFor(value: number, invert: boolean): 'good' | 'medium' | 'bad' {
@@ -58,7 +113,11 @@ export function ScoreDetail({
 
   return (
     <Card className="mb-3 p-0">
-      <details className="group">
+      {/* Repère de test : depuis que le score global porte lui aussi un
+        `<details>` — « Comment il est calculé », dont le texte cite les
+        signaux d'alerte —, « le details qui parle de X » ne désigne plus une
+        seule chose. */}
+      <details data-testid="score-detail" className="group">
         <summary className="flex cursor-pointer list-none items-baseline justify-between p-3">
           <h3 className="text-base font-semibold">
             {title}

@@ -57,13 +57,7 @@ import { archiveReasonOf, isUncertain } from './availability.js';
 import { formatSourceName } from './format.js';
 import { SOURCES } from './sources.generated.js';
 import { useDocumentMeta } from './document-title.js';
-import {
-  alertBadgeLabel,
-  markAlertRead,
-  readOptIn,
-  readReadAlerts,
-  unreadAlertCount,
-} from './notifications.js';
+import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
@@ -87,9 +81,10 @@ import {
   restrictsSources,
   type SourceSelection,
 } from './source-selection.js';
-import { ArrowLeft, Bell, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
+import { ArrowLeft, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { SearchBox } from './components/SearchBox.js';
+import { AlertBell } from './components/AlertBell.js';
 import { BottomNav, bottomTabForRoute, type BottomTab } from './components/BottomNav.js';
 import {
   ListingDetailSkeleton,
@@ -322,35 +317,7 @@ function Shell({
         <div className="flex items-baseline justify-between gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Maïoun</h1>
           <div className="flex items-center gap-2">
-            {/* Seule entrée vers les notifications : ce n'est pas un onglet.
-              Régler ses alertes n'est pas un endroit où l'on navigue, c'est un
-              aparté dont on revient — la page s'ouvre donc par-dessus, sans la
-              barre d'onglets, et se referme par « Retour ». */}
-            <button
-              type="button"
-              onClick={() => onNavigate('alerts')}
-              aria-label={
-                unreadAlerts > 0
-                  ? `Notifications, ${unreadAlerts} non lue${unreadAlerts > 1 ? 's' : ''}`
-                  : 'Notifications'
-              }
-              className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Bell aria-hidden="true" className="size-4" />
-              {/* Pastille des alertes non lues : sans elle, rien ne distinguait
-                une cloche qui a quelque chose à dire d'une cloche muette — il
-                fallait ouvrir la page pour le savoir. */}
-              {unreadAlerts > 0 && (
-                <span
-                  aria-hidden="true"
-                  className="absolute -top-1.5 -right-1.5 flex min-w-4.5 items-center justify-center rounded-full bg-hot px-1 text-[0.65rem] leading-4.5 font-bold text-white"
-                >
-                  {/* « 99+ » et non « 9+ » — le plafond et sa mesure vivent
-                    dans `notifications.ts`, avec le reste du décompte. */}
-                  {alertBadgeLabel(unreadAlerts)}
-                </span>
-              )}
-            </button>
+            <AlertBell unread={unreadAlerts} onOpen={() => onNavigate('alerts')} />
           </div>
         </div>
         <nav

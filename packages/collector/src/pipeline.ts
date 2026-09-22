@@ -31,6 +31,7 @@ import type { Logger } from './core/logger.js';
 import { BlockedError, createHttpClient, RateLimitedError } from './core/http-client.js';
 import type { SourceRegistry } from './core/registry.js';
 import { planRun, vanishingSources } from './scheduler/scheduler.js';
+import { createAgencySourceResolver } from './sources/agency-names.js';
 import { awaitedSources } from './sources/email-alerts/agency-refresh.js';
 import { EMAIL_ALERTS_DESCRIPTOR } from './sources/email-alerts/index.js';
 import { normalizeAll } from './normalization/normalize.js';
@@ -602,15 +603,24 @@ interface LifecycleDeps {
  * Les refs confirmées par la source sans re-téléchargement (sitemap) comptent
  * comme vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
  */
-async function applyLifecycle(deps: LifecycleDeps): Promise<LifecycleSkip[]> {
+/** Ce qu'un passage de cycle de vie a changé, et ce qu'il n'a pas osé conclure. */
+interface LifecycleOutcome {
+  readonly skipped: readonly LifecycleSkip[];
+  /** Occurrences ayant CHANGÉ de statut — la matière d'un regroupement. */
+  readonly transitions: number;
+}
+
+async function applyLifecycle(deps: LifecycleDeps): Promise<LifecycleOutcome> {
   const { rawBySource, confirmedBySource, outcomes, registry, repository, config, logger, nowIso } =
     deps;
   const skipped: LifecycleSkip[] = [];
+  // Les CHANGEMENTS DE STATUT, seuls à modifier ce que le regroupement verra.
+  let transitions = 0;
 
   for (const [sourceId, raws] of rawBySource) {
     // Source qui n'annonce qu'une fois : le temps remplace le décompte.
     if (registry.get(sourceId)?.descriptor.oneShotListings === true) {
-      await repository.expireByAge(sourceId, ONE_SHOT_EXPIRY);
+      transitions += await repository.expireByAge(sourceId, ONE_SHOT_EXPIRY);
       // MIEUX QUE L'ANCIENNETÉ QUAND ON L'A : le portail d'origine est parfois
       // une source à part entière, et sait, lui, que l'annonce est partie.
       const retired = await repository.retireRelayedByOrigin(
@@ -618,6 +628,7 @@ async function applyLifecycle(deps: LifecycleDeps): Promise<LifecycleSkip[]> {
         registry.descriptors().map((descriptor) => descriptor.id),
       );
       if (retired > 0) logger.info('lifecycle.relayed_retired', { sourceId, retired });
+      transitions += retired;
       continue;
     }
 
@@ -649,12 +660,12 @@ async function applyLifecycle(deps: LifecycleDeps): Promise<LifecycleSkip[]> {
       continue;
     }
 
-    await repository.markMissing(sourceId, seen, {
+    transitions += await repository.markMissing(sourceId, seen, {
       possiblyInactiveAfter: config.missingRunsBeforePossiblyInactive,
       inactiveAfter: config.missingRunsBeforeInactive,
     });
   }
-  return skipped;
+  return { skipped, transitions };
 }
 
 /**
@@ -806,6 +817,33 @@ async function scoreForEachUser(deps: {
   }
 }
 
+/**
+ * Faut-il regrouper ce passage-ci ?
+ *
+ * Oui dès que le corpus a bougé. Oui aussi après une demi-heure de calme, quoi
+ * qu'il arrive : LES SCORES VIEILLISSENT AVEC L'HORLOGE — l'urgence d'une
+ * annonce, la fenêtre de quatorze jours des baisses de loyer —, et la fiche
+ * porte la date à laquelle on l'a vue pour la dernière fois. Une demi-heure est
+ * le plus long décalage qu'on accepte sur cette date ; c'était déjà le sujet du
+ * correctif « vue pour la dernière fois disait une date périmée ».
+ *
+ * Sans date enregistrée — première mise en service, table neuve — on regroupe :
+ * l'inconnu ne vaut pas un saut.
+ */
+const REGROUP_MAX_QUIET_MS = 30 * 60 * 1000;
+
+async function shouldRegroup(
+  repository: PipelineOptions['repository'],
+  corpusChanged: boolean,
+  nowMs: number,
+): Promise<boolean> {
+  if (corpusChanged) return true;
+  const last = await repository.regroupedAt();
+  if (last === null) return true;
+  const at = Date.parse(last);
+  return !Number.isFinite(at) || nowMs - at >= REGROUP_MAX_QUIET_MS;
+}
+
 export async function regroupAndScore(
   options: PipelineOptions,
   nowMs: number,
@@ -813,6 +851,12 @@ export async function regroupAndScore(
   const { repository, logger, config } = options;
 
   const corpus = withAgencyContacts(await repository.allActiveOccurrences(), options.registry);
+  // CONSTRUIT UNE FOIS, PAS PAR PAIRE : le dédoublonnage compare des dizaines
+  // de milliers de paires, et ce résolveur indexe les 216 sources à chaque
+  // création.
+  const agencySource = createAgencySourceResolver(
+    options.registry.descriptors().map(({ id, name, domain }) => ({ id, name, domain })),
+  );
   // Le registre sait quelles sources RELAIENT des annonces publiées ailleurs :
   // chez elles, une photo partagée désigne le même bien (§14).
   const { groups, comparisonCount } = dedupe(corpus, {
@@ -822,6 +866,9 @@ export async function regroupAndScore(
     // fait sur son site public et dans son bulletin abonnés, avec des
     // références et des photos qui ne se ressemblent en rien.
     operatorOf: (sourceId) => options.registry.get(sourceId)?.descriptor.operator ?? null,
+    // Un relais NOMME l'agence dont il republie l'annonce, et cette agence est
+    // souvent une source à nous : le nom désigne alors la fiche d'origine.
+    sourceOfAgency: (name) => agencySource.resolve(name),
   });
   logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
 
@@ -1207,7 +1254,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // Cycle de vie des annonces non revues, source par source (§32). Les refs
   // confirmées par la source sans re-téléchargement (sitemap) comptent comme
   // vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
-  const lifecycleSkips = await applyLifecycle({
+  const lifecycle = await applyLifecycle({
     rawBySource,
     confirmedBySource,
     outcomes,
@@ -1227,7 +1274,31 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   if (withdrawn > 0) logger.info('pipeline.withdrawn_marked', { count: withdrawn });
 
   // --- 5 & 6. Dédoublonnage, fusion, scoring, persistance ------------------
-  const { groups, comparisonCount, listingReport } = await regroupAndScore(options, nowMs);
+  //
+  // PAS À CHAQUE PASSAGE. Le regroupement relit TOUT le corpus vivant puis
+  // toutes les fiches : environ dix mille lignes lues, quatre-vingt-seize fois
+  // par jour. Or 276 des 338 fenêtres de quinze minutes du 19 au 22 septembre
+  // n'ont vu naître aucune occurrence — quatre passages sur cinq refaisaient le
+  // même calcul sur le même corpus, et c'est le premier poste de lecture chez
+  // Turso.
+  //
+  // CE QUI COMPTE COMME UN CHANGEMENT est ce qui peut déplacer un groupe ou une
+  // fiche : une occurrence écrite, un statut qui bascule, un retrait annoncé.
+  // Le compteur d'absences qui monte, lui, ne change rien tant qu'il n'atteint
+  // pas un seuil — et c'est justement ce que `markMissing` distingue.
+  const corpusChanged =
+    occurrenceReport.inserted > 0 ||
+    occurrenceReport.updated > 0 ||
+    lifecycle.transitions > 0 ||
+    withdrawn > 0;
+  const regrouped = await shouldRegroup(repository, corpusChanged, nowMs);
+  if (!regrouped) {
+    logger.info('pipeline.regroup_skipped', { reason: 'corpus inchangé' });
+  }
+  const { groups, comparisonCount, listingReport } = regrouped
+    ? await regroupAndScore(options, nowMs)
+    : { groups: [], comparisonCount: 0, listingReport: { inserted: 0, updated: 0, unchanged: 0 } };
+  if (regrouped) await repository.markRegrouped(new Date(nowMs).toISOString());
 
   // Instantané du jour : ces chiffres ne sont pas reconstituables après coup,
   // il faut les mesurer au moment où ils sont vrais (§33).
@@ -1252,7 +1323,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     })),
     outcomes,
     healthTransitions,
-    lifecycleSkips,
+    lifecycleSkips: lifecycle.skipped,
     listingsCollected: normalized.length,
     groupsFormed: groups.length,
     comparisons: comparisonCount,

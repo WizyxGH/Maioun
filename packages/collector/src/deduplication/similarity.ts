@@ -839,7 +839,48 @@ function collectMediumSignals(
  *   si elle est le lien générique que sa source pose sur tout son stock
  *   (`false`), ou si l'on n'en sait rien (`null`) — même partage des rôles que
  *   `photoIdentifies`.
+ * @param sourceOfAgency rend la source que DÉSIGNE un nom d'agence, ou `null`
+ *   si aucune ne lui correspond. Par défaut « aucune » : sans registre sous la
+ *   main, on retient l'hypothèse prudente, celle qui fusionne le moins (§14).
  */
+/**
+ * Les MÊMES chiffres, et non des chiffres voisins.
+ *
+ * Les tolérances absorbent les écarts ENTRE deux maisons ; il n'y en a pas
+ * quand l'annonce vient d'un seul système et se recopie.
+ */
+function sameExactFigures(a: NormalizedListing, b: NormalizedListing): boolean {
+  return (
+    a.price !== null &&
+    a.price === b.price &&
+    a.area !== null &&
+    b.area !== null &&
+    sameToTheCentimetre(a.area, b.area)
+  );
+}
+
+/** `true` si l'une des deux annonces nomme l'agence dont l'autre est la source. */
+function relayedByTheSameAgency(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  sameFigures: boolean,
+  sourceOfAgency: (name: string) => string | null,
+): boolean {
+  if (a.sourceId === b.sourceId || !sameFigures) return false;
+  return namesTheSource(a, b, sourceOfAgency) || namesTheSource(b, a, sourceOfAgency);
+}
+
+/** `true` si le nom d'agence que porte `relay` désigne la source de `agency`. */
+function namesTheSource(
+  relay: NormalizedListing,
+  agency: NormalizedListing,
+  sourceOfAgency: (name: string) => string | null,
+): boolean {
+  const name = relay.contact.agencyName;
+  if (name === null || name === '') return false;
+  return sourceOfAgency(name) === agency.sourceId;
+}
+
 export function similarity(
   a: NormalizedListing,
   b: NormalizedListing,
@@ -847,6 +888,7 @@ export function similarity(
   operatorOf: (sourceId: string) => string | null = () => null,
   photoIdentifies: (key: string) => boolean | null = () => null,
   addressIdentifies: (address: string) => boolean | null = () => null,
+  sourceOfAgency: (name: string) => string | null = () => null,
 ): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
@@ -899,12 +941,7 @@ export function similarity(
    * fusion demande donc que tout concorde, pas seulement l'opérateur.
    */
   const operator = operatorOf(a.sourceId);
-  const sameFigures =
-    a.price !== null &&
-    a.price === b.price &&
-    a.area !== null &&
-    b.area !== null &&
-    sameToTheCentimetre(a.area, b.area);
+  const sameFigures = sameExactFigures(a, b);
   if (
     a.sourceId !== b.sourceId &&
     operator !== null &&
@@ -912,6 +949,36 @@ export function similarity(
     sameFigures
   ) {
     push({ code: 'operator', label: `même opérateur (${operator})`, points: 30 });
+  }
+
+  /**
+   * LE RELAIS NOMME L'AGENCE DONT L'AUTRE ANNONCE EST LA SOURCE.
+   *
+   * ParuVendu, Bien'ici et la FNAIM republient le stock d'agences que l'on
+   * collecte par ailleurs, et impriment leur nom : 207 des 221 occurrences
+   * ParuVendu du corpus, 563 sur 563 chez Bien'ici. La fiche de l'agence, elle,
+   * ne se nomme pas — elle EST l'agence. Le signal « même agence » ne pouvait
+   * donc pas jouer : il exige un nom des deux côtés.
+   *
+   * ON COMPARE DONC UN NOM À UNE SOURCE, et non deux noms. « A ALLIANCE
+   * CONSEIL IMMOBILIER » chez ParuVendu désigne la source `alliance-conseil` ;
+   * « NOUS GERONS » chez Bien'ici désigne `nousgerons`. Le rapprochement des
+   * noms est celui de l'écran des agences, pas une égalité de chaînes : les
+   * enseignes s'écrivent comme l'agence les a saisies.
+   *
+   * TRENTE POINTS, comme l'opérateur et pour la même raison : avec prix,
+   * surface et pièces on atteint soixante-douze, donc tout doit concorder. Et
+   * les MÊMES chiffres exacts sont exigés — une tolérance absorbe les écarts
+   * entre deux biens voisins, or il n'y en a pas quand c'est la même fiche
+   * recopiée.
+   *
+   * MESURÉ SUR L'INVENTAIRE (3 302 annonces actives, sans rien écrire) :
+   * 26 paires rapprochées sans ambiguïté, 7 où plusieurs candidats se
+   * disputaient le même relais — celles-là sont écartées par `dedupe`, qui
+   * seul voit le lot.
+   */
+  if (relayedByTheSameAgency(a, b, sameFigures, sourceOfAgency)) {
+    push({ code: 'relayedAgency', label: 'relayée par la même agence', points: 30 });
   }
 
   const strength = signals.reduce((total, signal) => total + signal.points, 0);

@@ -76,4 +76,21 @@ describe('le menu des sources', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Seulement…' }));
     expect(onChange).toHaveBeenCalledWith({ mode: 'only', ids: new Set() });
   });
+
+  /**
+   * LA CASE « TOUTES » NE FAISAIT RIEN quand tout était coché : en mode
+   * « sauf », elle recochait ce qui l'était déjà. On ne pouvait donc pas vider
+   * la liste pour n'en reprendre que deux ou trois.
+   */
+  it('décocher « Toutes » vide la liste au lieu de la recocher', () => {
+    const onChange = ouvrir();
+    fireEvent.click(screen.getByLabelText('Toutes'));
+    expect(onChange).toHaveBeenCalledWith({ mode: 'only', ids: new Set() });
+  });
+
+  it('et la recocher rend bien toutes les sources, celles à venir comprises', () => {
+    const onChange = ouvrir({ mode: 'only', ids: new Set() });
+    fireEvent.click(screen.getByLabelText('Toutes'));
+    expect(onChange).toHaveBeenCalledWith({ mode: 'except', ids: new Set() });
+  });
 });

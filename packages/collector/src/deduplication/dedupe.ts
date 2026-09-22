@@ -11,6 +11,7 @@
 
 import { ONE_SHOT_SOURCES, type NormalizedListing } from '@maioun/shared';
 import {
+  DUPLICATE_THRESHOLD,
   identifiers,
   listingAddress,
   photoKeys,
@@ -245,6 +246,12 @@ export interface DedupeOptions {
    * chaque source est indépendante, et l'on fusionne moins.
    */
   readonly operatorOf?: (sourceId: string) => string | null;
+  /**
+   * La source que DÉSIGNE un nom d'agence — « A ALLIANCE CONSEIL IMMOBILIER »
+   * pour `alliance-conseil`. Le pipeline la branche sur le registre des
+   * sources ; sans elle, l'hypothèse prudente : aucun nom ne désigne rien.
+   */
+  readonly sourceOfAgency?: (name: string) => string | null;
 }
 
 export interface DedupeResult {
@@ -259,6 +266,11 @@ interface MergeLink {
   readonly rightId: string;
   /** Le total non plafonné : c'est lui qui classe deux paires également sûres. */
   readonly strength: number;
+  /**
+   * `true` quand la paire ne tient QUE grâce au nom d'agence porté par un
+   * relais. Ces liens-là s'annulent entre eux : voir `dropContestedRelays`.
+   */
+  readonly relayedAgency: boolean;
 }
 
 /** État mutable partagé par les comparaisons de paires d'un run de dédoublonnage. */
@@ -272,6 +284,7 @@ interface CompareContext {
   readonly operatorOf: (sourceId: string) => string | null;
   readonly photoIdentifies: (key: string) => boolean | null;
   readonly addressIdentifies: (address: string) => boolean | null;
+  readonly sourceOfAgency: (name: string) => string | null;
 }
 
 /**
@@ -295,9 +308,19 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
     ctx.operatorOf,
     ctx.photoIdentifies,
     ctx.addressIdentifies,
+    ctx.sourceOfAgency,
   );
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
-    ctx.links.push({ leftId, rightId, strength: result.strength });
+    const agencySignal = result.signals.find((signal) => signal.code === 'relayedAgency');
+    ctx.links.push({
+      leftId,
+      rightId,
+      strength: result.strength,
+      // « Ne tient QUE par le nom » : sans ces points, la paire retombait sous
+      // le seuil. Une paire qui se suffit par ailleurs n'est pas contestable.
+      relayedAgency:
+        agencySignal !== undefined && result.score - agencySignal.points < DUPLICATE_THRESHOLD,
+    });
   } else if (result.verdict === 'ambiguous') {
     ctx.ambiguous.push({ leftId, rightId, result });
   }
@@ -334,11 +357,44 @@ function comparePairsInBucket(bucket: readonly string[], ctx: CompareContext): n
  * et l'autre non : c'est ainsi que deux deux-pièces du Vieux Nice se sont
  * échangé leur fiche Bien'ici.
  */
+/**
+ * Écarte les liens « nom d'agence » que PLUSIEURS candidats se disputent.
+ *
+ * Le relais dit de qui vient l'annonce, jamais laquelle. Quand LocService
+ * publie deux studios à 1 000 € et 30 m² et que ParuVendu en relaie un seul,
+ * le nom vaut autant pour l'un que pour l'autre : on ne sait pas lequel, et
+ * l'union-find les réunirait tous les trois — deux logements réels affichés
+ * comme un. Aucun ne se fusionne donc, ce qui coûte un doublon là où l'autre
+ * choix coûtait un logement (§14).
+ *
+ * SEULS LES LIENS QUI NE TIENNENT QUE PAR CE NOM sont concernés : une paire
+ * qui atteint le seuil par ailleurs n'a rien à devoir au relais.
+ *
+ * Mesuré sur l'inventaire du 2026-09-22 : 26 paires gardées, 7 écartées ici.
+ */
+function dropContestedRelays(links: readonly MergeLink[]): readonly MergeLink[] {
+  const rivals = new Map<string, number>();
+  const count = (id: string): void => {
+    rivals.set(id, (rivals.get(id) ?? 0) + 1);
+  };
+  for (const link of links) {
+    if (!link.relayedAgency) continue;
+    count(link.leftId);
+    count(link.rightId);
+  }
+  return links.filter(
+    (link) =>
+      !link.relayedAgency ||
+      ((rivals.get(link.leftId) ?? 0) === 1 && (rivals.get(link.rightId) ?? 0) === 1),
+  );
+}
+
 function joinGroups(ctx: CompareContext, unionFind: UnionFind): void {
   const members = new Map<string, NormalizedListing[]>();
   for (const [id, listing] of ctx.byId) members.set(id, [listing]);
 
-  for (const link of [...ctx.links].sort((x, y) => y.strength - x.strength)) {
+  const links = dropContestedRelays(ctx.links);
+  for (const link of [...links].sort((x, y) => y.strength - x.strength)) {
     const rootA = unionFind.find(link.leftId);
     const rootB = unionFind.find(link.rightId);
     if (rootA === rootB) continue;
@@ -385,6 +441,7 @@ export function dedupe(
     operatorOf: options.operatorOf ?? ((): string | null => null),
     photoIdentifies: (key) => !catalog.has(key),
     addressIdentifies: (address) => !generic.has(address),
+    sourceOfAgency: options.sourceOfAgency ?? ((): string | null => null),
   };
   let comparisonCount = 0;
   for (const [key, bucket] of buckets) {

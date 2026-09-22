@@ -37,6 +37,25 @@ import {
 } from '../format.js';
 import { photoVariant } from '../photo-variant.js';
 import { iconMarkup } from './icons.js';
+
+/**
+ * Les couleurs des pastilles, empruntées au thème.
+ *
+ * LEAFLET NE PREND PAS DE CLASSES : ses marqueurs sont du HTML injecté, donc
+ * des styles en ligne. Ces teintes étaient écrites en dur ici, une dizaine de
+ * fois ; changer l'accent du site les laissait derrière. Les valeurs vivent
+ * maintenant dans `styles.css` avec le reste du thème.
+ */
+const MAP = {
+  pin: 'var(--color-map-pin)',
+  ink: 'var(--color-map-ink)',
+  hot: 'var(--color-map-hot)',
+  hotInk: 'var(--color-map-hot-ink)',
+  favorite: 'var(--color-map-favorite)',
+  border: 'var(--color-map-border)',
+  viewed: 'var(--color-map-viewed)',
+  note: 'var(--color-map-note)',
+} as const;
 import { Select } from './ui/select.js';
 import { clusterByPixelGrid, type MapCluster } from './map-clusters.js';
 import {
@@ -140,17 +159,17 @@ function priceIcon(listing: ListingView): L.DivIcon {
   const favorite = listing.favorite === true;
   const contacted = CONTACTED_STATUSES.has(listing.tracking);
   const viewed = listing.viewed === true;
-  const ink = hot ? '#ffffff' : '#1a1a1a';
+  const ink = hot ? MAP.hotInk : MAP.ink;
   const badge = favorite
-    ? iconMarkup('heart', hot ? '#ffffff' : '#e00034')
+    ? iconMarkup('heart', hot ? MAP.hotInk : MAP.hot)
     : contacted
       ? iconMarkup('mail', ink)
       : viewed
-        ? iconMarkup('eye', hot ? '#ffffff' : '#71717a')
+        ? iconMarkup('eye', hot ? MAP.hotInk : MAP.viewed)
         : '';
   // Un favori garde une bordure dorée même quand il n'est pas « chaud », pour
   // rester repérable au milieu des autres pastilles.
-  const border = favorite ? '#f59e0b' : hot ? '#e00034' : '#d4d4d8';
+  const border = favorite ? MAP.favorite : hot ? MAP.hot : MAP.border;
 
   return L.divIcon({
     className: '', // pas de styles Leaflet par défaut
@@ -158,7 +177,7 @@ function priceIcon(listing: ListingView): L.DivIcon {
         transform: translate(-50%, -100%);
         display: inline-flex; align-items: center; gap: 4px; line-height: 1;
         padding: 4px 8px; border-radius: 999px;
-        background: ${hot ? '#e00034' : '#ffffff'}; color: ${hot ? '#ffffff' : '#1a1a1a'};
+        background: ${hot ? MAP.hot : MAP.pin}; color: ${hot ? MAP.hotInk : MAP.ink};
         border: ${favorite ? '2px' : '1px'} solid ${border};
         font: 600 12px system-ui, sans-serif; white-space: nowrap;
         box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
@@ -185,14 +204,14 @@ function clusterIcon(cluster: MapCluster<ListingView>): L.DivIcon {
   const favorite = cluster.items.some((listing) => listing.favorite === true);
   const hot = cluster.items.some((listing) => listing.actionPriority >= PRIORITY_HOT);
   const size = count < 10 ? 32 : count < 100 ? 38 : 46;
-  const border = favorite ? '#f59e0b' : hot ? '#e00034' : '#d4d4d8';
+  const border = favorite ? MAP.favorite : hot ? MAP.hot : MAP.border;
   return L.divIcon({
     className: '',
     html: `<div title="${count} annonces ici" style="
         transform: translate(-50%, -50%);
         display: flex; align-items: center; justify-content: center;
         width: ${size}px; height: ${size}px; border-radius: 999px;
-        background: #ffffff; color: #1a1a1a;
+        background: ${MAP.pin}; color: ${MAP.ink};
         border: ${favorite || hot ? '2px' : '1px'} solid ${border};
         font: 700 ${count < 100 ? 13 : 12}px system-ui, sans-serif;
         box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
@@ -255,7 +274,7 @@ function listingPopup(listing: ListingView, open: (id: string) => void): HTMLEle
   const street = listing.address.value !== null ? formatAddress(listing.address.value) : null;
   const addr = document.createElement('div');
   addr.textContent = street !== null ? `${street}, ${place}` : place;
-  addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
+  addr.style.cssText = `margin-top:2px;color:${MAP.note};font-size:12px`;
   popup.append(addr);
 
   const button = document.createElement('button');
@@ -263,7 +282,7 @@ function listingPopup(listing: ListingView, open: (id: string) => void): HTMLEle
   button.textContent = 'Voir l’annonce';
   button.style.cssText =
     'display:block;margin-top:6px;padding:4px 10px;border-radius:8px;' +
-    'border:1px solid #d4d4d8;background:#fff;cursor:pointer;font:600 12px system-ui';
+    `border:1px solid ${MAP.border};background:${MAP.pin};cursor:pointer;font:600 12px system-ui`;
   button.addEventListener('click', () => open(listing.id));
   popup.append(button);
 
@@ -293,7 +312,7 @@ function clusterPopup(items: readonly ListingView[], open: (id: string) => void)
     ].join(' · ');
     row.style.cssText =
       'display:block;width:100%;margin-top:6px;padding:4px 8px;text-align:left;' +
-      'border-radius:8px;border:1px solid #d4d4d8;background:#fff;cursor:pointer;' +
+      `border-radius:8px;border:1px solid ${MAP.border};background:${MAP.pin};cursor:pointer;` +
       'font:600 12px system-ui';
     row.addEventListener('click', () => open(listing.id));
     box.append(row);

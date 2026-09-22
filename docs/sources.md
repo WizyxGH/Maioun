@@ -219,11 +219,11 @@ Méthode pour la suite :
 Étudiées à la demande de l'utilisateur ; aucune ne viole le §10 (on ne
 contourne rien), mais aucune n'offre d'accès conforme aux annonces de Nice.
 
-| Source            | Vérifié    | Verdict                  | Détail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ----------------- | ---------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **manda.fr**      | 2026-08-15 | 🔴 Écartée               | Gestion locative / estimation. Le sitemap ne contient que des annonces de **vente** et des pages SaaS ; les locations passent par `/location-immobiliere?…` (paramètres interdits par robots.txt) et sont chargées en AJAX. Pas de liste de locations Nice exploitable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **123loger.com**  | 2026-08-15 | 🔴 Écartée               | Location entre particuliers (WordPress). Sitemap **cassé** : 1127 entrées identiques `/location/` (aucune fiche individuelle) ; la recherche `/search/` est interdite. Inventaire non explorable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **studapart.com** | 2026-08-18 | ✅ **Implémentée** (API) | Logement étudiant. Le HTML est en AJAX (page ville « 000 logements », zéro lien de fiche), MAIS les annonces viennent d'une **API de recherche publique** : `POST https://search-api.studapart.com/property` (proxy Elasticsearch, msearch). Cette API n'a pas de robots ; l'hôte principal autorise le crawler générique en `search/reference`, usage exact de Maïoun. Une seule requête rend jusqu'à **201 biens dédoublonnés** pour une ville (48 pour Nice), avec adresse EXACTE (`full_address`), surface, loyer CC (`rentWithExpensesAmount`), meublé (`isFurnished`), colocation (`rentedByRoom`), CP, géoloc et `canonicalUrls.fr`. Reste à câbler le **POST** dans le client HTTP (aujourd'hui GET+cache) puis à écrire le parseur. Recette dans la note ci-dessous. |
+| Source            | Vérifié    | Verdict                          | Détail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------- | ---------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **manda.fr**      | 2026-08-15 | 🔴 Écartée                       | Gestion locative / estimation. Le sitemap ne contient que des annonces de **vente** et des pages SaaS ; les locations passent par `/location-immobiliere?…` (paramètres interdits par robots.txt) et sont chargées en AJAX. Pas de liste de locations Nice exploitable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **123loger.com**  | 2026-08-15 | ✅ **Implémentée le 2026-09-22** | Verdict d'époque : sitemap **cassé** (1127 entrées identiques `/location/`, aucune fiche) et `/search/` interdite, donc inventaire non explorable. **Périmé deux fois** — voir le 2026-09-16 plus bas, puis l'implémentation du 2026-09-22 : l'inventaire niçois ne passe ni par le sitemap ni par `/search/`, mais par le chemin public `/location/nice-06000/appartement/`.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **studapart.com** | 2026-08-18 | ✅ **Implémentée** (API)         | Logement étudiant. Le HTML est en AJAX (page ville « 000 logements », zéro lien de fiche), MAIS les annonces viennent d'une **API de recherche publique** : `POST https://search-api.studapart.com/property` (proxy Elasticsearch, msearch). Cette API n'a pas de robots ; l'hôte principal autorise le crawler générique en `search/reference`, usage exact de Maïoun. Une seule requête rend jusqu'à **201 biens dédoublonnés** pour une ville (48 pour Nice), avec adresse EXACTE (`full_address`), surface, loyer CC (`rentWithExpensesAmount`), meublé (`isFurnished`), colocation (`rentedByRoom`), CP, géoloc et `canonicalUrls.fr`. Reste à câbler le **POST** dans le client HTTP (aujourd'hui GET+cache) puis à écrire le parseur. Recette dans la note ci-dessous. |
 
 Note studapart : accès conforme trouvé le 2026-08-18. `robots.txt` du site principal autorise le crawler générique (`Content-Signal: search=yes, use=reference`) et n'exclut que les bots d'entraînement d'IA ; l'API `search-api.studapart.com` n'a pas de robots. **Recette** : `POST /property`, `content-type: application/json`, corps
 `{"data":[{"index":["search_properties_prod","residence_properties_prod"]},{"size":0,"body":{"query":{"bool":{"filter":[{"term":{"online":true}},{"terms":{"tags":["search-<ville>"]}},{"term":{"announcementType":"rental"}}]}},"aggs":{"distinctProperties":{"terms":{"field":"distinctId","size":201},"aggs":{"hit":{"top_hits":{"size":1}}}}}}}]}`.
@@ -1111,13 +1111,13 @@ Ces plateformes renversent le sens habituel : le candidat dépose son dossier et
 ce sont les propriétaires qui le contactent. Il n'y a donc **rien à collecter**,
 par construction. Et de fait, quatre des cinq ont fermé.
 
-| Source                      | Vérifié    | Verdict                           | Preuve                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| --------------------------- | ---------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Locat'me** (locatme.fr)   | 2026-09-16 | 🔴 Site fermé                     | Le domaine résout vers `213.186.33.5`, l'IP de parking d'OVH ; HTTPS répond `Connection reset`, HTTP rend la page `<title>Site en construction</title>` d'OVHcloud, en `noindex,nofollow`. Il n'y a plus de service.                                                                                                                                                                                                                           |
-| **Somhome** (somhome.com)   | 2026-09-16 | 🔴 Domaine éteint                 | Plus aucun enregistrement DNS A, ni sur `somhome.com` ni sur `www.somhome.com` (`Could not resolve host`). `somhome.fr` n'existe pas non plus.                                                                                                                                                                                                                                                                                                 |
-| **Wizi** (wizi.io)          | 2026-09-16 | 🔴 Aucune annonce sur le web      | Attention à l'homonyme : `wizi.fr` redirige vers `vosdomaines.com` (domaine à vendre, 403). Le vrai service est `wizi.io`, dont le `robots.txt` est ouvert (`Disallow:` vide) — mais son `sitemap.xml` ne contient que **432 URL, toutes éditoriales** (blog, pages produit, mentions légales) : zéro page d'annonce. Les annonces ne vivent que dans l'application mobile.                                                                    |
-| **Qasa** (qasa.com)         | 2026-09-16 | 🔴 Hors périmètre géographique    | `robots.txt` ouvert (`Allow: /`) et sitemap déclaré. Mais `sitemaps/home-search/sitemap.xml` ne contient que **3 318 URL réparties sur `/se/`, `/no/` et `/fi/`** — Suède, Norvège, Finlande, 1 106 chacune. Zéro URL française ; aucune occurrence de « nice » ni de « france ». Qasa a quitté la France.                                                                                                                                     |
-| **123Loger** (123loger.com) | 2026-09-16 | 🔴 Zéro annonce dans le périmètre | `robots.txt` permissif (seuls `/search/`, `/feed/`, `/go/`, `/wp-admin/` fermés), sitemap servi en gzip, 1 525 URL distinctes. Il couvre **215 communes, aucune dans le 06** : de `woippy-57140` à `vitry-sur-seine-94400`, mais aucune page `location/<ville>-06xxx`. Nice n'apparaît que dans cinq billets de blog. Corrige l'étude du 2026-08-15 (« sitemap cassé ») : le sitemap est réparé, c'est l'inventaire qui ignore la Côte d'Azur. |
+| Source                      | Vérifié    | Verdict                                    | Preuve                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------- | ---------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Locat'me** (locatme.fr)   | 2026-09-16 | 🔴 Site fermé                              | Le domaine résout vers `213.186.33.5`, l'IP de parking d'OVH ; HTTPS répond `Connection reset`, HTTP rend la page `<title>Site en construction</title>` d'OVHcloud, en `noindex,nofollow`. Il n'y a plus de service.                                                                                                                                                                                                                                                                                                                            |
+| **Somhome** (somhome.com)   | 2026-09-16 | 🔴 Domaine éteint                          | Plus aucun enregistrement DNS A, ni sur `somhome.com` ni sur `www.somhome.com` (`Could not resolve host`). `somhome.fr` n'existe pas non plus.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Wizi** (wizi.io)          | 2026-09-16 | 🔴 Aucune annonce sur le web               | Attention à l'homonyme : `wizi.fr` redirige vers `vosdomaines.com` (domaine à vendre, 403). Le vrai service est `wizi.io`, dont le `robots.txt` est ouvert (`Disallow:` vide) — mais son `sitemap.xml` ne contient que **432 URL, toutes éditoriales** (blog, pages produit, mentions légales) : zéro page d'annonce. Les annonces ne vivent que dans l'application mobile.                                                                                                                                                                     |
+| **Qasa** (qasa.com)         | 2026-09-16 | 🔴 Hors périmètre géographique             | `robots.txt` ouvert (`Allow: /`) et sitemap déclaré. Mais `sitemaps/home-search/sitemap.xml` ne contient que **3 318 URL réparties sur `/se/`, `/no/` et `/fi/`** — Suède, Norvège, Finlande, 1 106 chacune. Zéro URL française ; aucune occurrence de « nice » ni de « france ». Qasa a quitté la France.                                                                                                                                                                                                                                      |
+| **123Loger** (123loger.com) | 2026-09-16 | ✅ **Corrigé le 2026-09-22 — implémentée** | Verdict d'époque : `robots.txt` permissif (seuls `/search/`, `/feed/`, `/go/`, `/wp-admin/` fermés), sitemap gzip de 1 525 URL couvrant **215 communes, aucune dans le 06**. **LE SITEMAP MENTAIT PAR OMISSION** : une annonce niçoise reçue par e-mail (`/location/nice-06000/appartement/6791fe67020c/`) a montré que les pages existent sans y être listées. Le verdict reposait sur une seule preuve, et l'absence au sitemap n'est pas l'absence au site. La source lit désormais `/location/nice-06000/appartement/`, 13 pages publiques. |
 
 **Ce que l'utilisateur gagnerait à faire lui-même** : de ces cinq, seul **Wizi**
 (wizi.io) est encore vivant et gratuit pour les particuliers. Comme il n'expose
@@ -1929,3 +1929,84 @@ autres. Le mécanisme n'a rien à devancer.
 - **Rien n'a été collecté** pour cette étude. On n'a pas vérifié qu'un réveil
   trouverait effectivement la fiche : on a seulement montré que les passages
   ordinaires, eux, ne la trouvent pas.
+
+## 123Loger et Maisonette (implémentées le 2026-09-22)
+
+Deux sources demandées par leur nom, et une leçon commune : **l'absence au
+sitemap n'est pas l'absence au site.**
+
+### 123Loger (123loger.com) — implémentée
+
+Écartée deux fois, à tort les deux fois. Le 2026-08-15 pour un sitemap cassé,
+le 2026-09-16 pour un sitemap réparé mais sans le 06. C'est une annonce niçoise
+reçue par e-mail qui a tranché : `www.123loger.com/location/nice-06000/appartement/6791fe67020c/`
+répondait, alors qu'aucun sitemap ne la nommait.
+
+- `robots.txt` (relu le 2026-09-22) : ferme `/search/`, `/feed/`, `/go/` et
+  `/wp-admin/`. Le chemin `/location/<ville>-<cp>/<type>/` reste ouvert — c'est
+  celui qu'on lit, et le seul.
+- Inventaire : **13 pages publiques** pour « appartement à Nice », références
+  portées par l'URL de chaque fiche.
+- Budget : 13 pages de liste + 24 fiches par passage, 3 s entre deux requêtes.
+- Les fiches ne sont enrichies que pour les annonces NOUVELLES ; rien de
+  Premium, aucune candidature déposée.
+
+**Ce qu'il faut en retenir pour la prochaine source** : un sitemap est une
+déclaration, pas un inventaire. Quand une source est écartée pour « rien dans
+le périmètre » et que le `robots.txt` est permissif, la page de recherche de la
+ville doit être essayée AVANT de conclure.
+
+### Maisonette (lamaisonette.fr) — implémentée
+
+- `robots.txt` (vérifié le 2026-09-22) : `/recherche` et `/logements/*` sont
+  autorisés ; l'API et les espaces personnels sont exclus, on ne les touche pas.
+- Budget : 1 page de recherche + 20 fiches par passage, 3 s entre deux requêtes.
+- **Ce sont surtout des baux mobilité meublés de 1 à 10 mois.** Le type de bail
+  et le texte sont conservés tels quels plutôt que filtrés à la collecte : les
+  critères existants (durée, meublé) écartent eux-mêmes ce qui ne convient pas,
+  et un trait inconnu n'écarte jamais.
+
+## Petrova et Meta Immobilier (étude du 2026-09-22)
+
+Deux agences demandées par leur nom. Les deux `robots.txt` sont permissifs :
+aucune question de conformité ici, seulement de volume — et les deux réponses
+sont opposées.
+
+### Petrova Investissement Immobilier (petrovainvestissement.com) — implémentée
+
+**ELLE TOURNE SUR APIMO**, et c'est tout ce qu'il y avait à trouver. « Design by
+Apimo™ » en pied de page, fiches à la forme canonique
+`/fr/propriete/location+appartement+nice+<slug>+<réf>` : la fabrique
+`sources/apimo/` la sert sans une ligne de parseur. Le fichier de la source fait
+quinze lignes, et c'est la bonne mesure d'une source de plus sur une plateforme
+déjà servie.
+
+- `robots.txt` (2026-09-22) : n'interdit que `/app_dev.php`, déclare
+  `sitemap.xml`. Sitemap index → un seul enfant, `sitemap-1.xml`, 256 URL.
+- Volume : **12 locations au sitemap, toutes à Nice** ; 10 sur la page de
+  recherche publique.
+- **SON SITEMAP TRAÎNE DU VIEUX** : les entrées vont de décembre 2024 à
+  septembre 2026, et les références qu'il porte (7 chiffres) ne sont pas celles
+  qu'affiche la recherche (8 chiffres). D'où `maxEntryAgeDays: 180`, faute de
+  quoi le budget de pages part en 404.
+- L'enseigne était déjà dans nos relevés comme un nom que le résolveur
+  d'agences ne rattachait à aucune source : les portails la nommaient, nous ne
+  la lisions pas.
+
+### Meta Immobilier (meta-immobilier.com) — dormante, aucune location
+
+WordPress, `robots.txt` permissif (seul `/wp-admin/` fermé), deux sitemaps
+déclarés. Rien à redire sur l'accès. **Le problème est qu'il n'y a pas de
+location.**
+
+Trois mesures concordantes du 2026-09-22 :
+
+1. `property_action_category-sitemap.xml` ne contient qu'une seule URL,
+   `/index.php/action/vente/` ;
+2. `/index.php/action/location/` répond **404** ;
+3. `property-sitemap.xml` liste 31 biens, et la page `/proprietes/` n'offre
+   qu'un filtre « Vente », avec des prix de 140 000 à 4 690 000 €.
+
+L'agence se présente comme faisant vente ET location ; son site ne publie que
+de la vente. Consignée dans `sources/dormant.ts` avec la sonde qui la réveille :
+l'apparition d'une catégorie `/action/location/` à son sitemap de transactions.

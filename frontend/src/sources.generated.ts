@@ -1502,6 +1502,14 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  petrova: {
+    name: 'Petrova Investissement Immobilier',
+    domain: 'petrovainvestissement.com',
+    kind: 'localAgency',
+    logo: null,
+    paidContact: false,
+    address: { street: '5 bis quai Rauba Capeu', postalCode: '06300', city: 'Nice' },
+  },
   'phoenix-glv': {
     name: 'Phoenix GLV',
     domain: 'phoenix-glv.com',

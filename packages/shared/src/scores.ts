@@ -108,10 +108,55 @@ export const RISK_ALERT = 40;
  */
 export function actionPriority(scores: ListingScores): number {
   const { match, opportunity, visitProbability, risk } = scores;
-  return clampScore(
+  const base = clampScore(
     match.value * 0.3 +
       opportunity.value * 0.35 +
       visitProbability.value * 0.25 +
       (100 - risk.value) * 0.1,
   );
+  /**
+   * UN AVERTISSEMENT PLAFONNE LE SCORE, il ne se dilue pas dedans.
+   *
+   * Le risque pesait pour un dixième : une annonce très bien notée par
+   * ailleurs pouvait déclencher un avertissement ET rester en tête de liste,
+   * présentée comme « à contacter ». Les dix points retirés ne suffisaient pas
+   * à dire ce que l'avertissement dit.
+   *
+   * Il ne DESCEND jamais le score en dessous de ce plafond : ce n'est pas une
+   * pénalité de plus, c'est une interdiction de figurer parmi les urgentes.
+   *
+   * MESURÉ SUR L'INVENTAIRE DU 2026-09-22 : neuf annonces actives atteignent
+   * le seuil d'alerte, AUCUNE n'était mise en avant. Ce plafond ne change donc
+   * rien aujourd'hui — il tient une garantie pour le jour où ce sera le cas.
+   */
+  return risk.value >= RISK_ALERT ? Math.min(base, PRIORITY_WORTH_SEEING - 1) : base;
+}
+
+/**
+ * LE SCORE, DIT EN TOUTES LETTRES — le même texte partout où on l'explique.
+ *
+ * Quatre scores répondaient à quatre questions différentes, sans rien dire de
+ * ce qu'on devait en conclure : lequel regarder d'abord, et à partir de quand
+ * une annonce vaut un appel. Il n'y en a plus qu'un à lire, et les trois
+ * mesures qui le composent restent consultables dessous.
+ *
+ * LES PALIERS SONT DES RANGS, PAS DES NOTES. Mesuré le 2026-09-22 sur les 350
+ * annonces actives dans les critères : la meilleure est à 74, la moyenne à 53,
+ * et 99,7 % dépassent 40. « 53 sur 100 » ne veut donc pas dire « moyen » — il
+ * veut dire « au milieu de ce qui est disponible à Nice en ce moment ». C'est
+ * ce que ces libellés disent à la place du chiffre nu.
+ */
+export const SCORE_EXPLANATION =
+  'Un seul score, de 0 à 100 : 30 % la correspondance à vos critères, ' +
+  '35 % l’urgence (annonce récente, loyer en baisse), 25 % la facilité de ' +
+  'contact, 10 % l’absence de signaux d’alerte. Un avertissement plafonne le ' +
+  'score au lieu de s’y diluer.';
+
+/** Ce que vaut un score, dit en mots — et ce qu'il vaut par rapport aux autres. */
+export function scoreBand(value: number): { label: string; rank: string } {
+  if (value >= PRIORITY_HOT) return { label: 'À contacter', rank: 'dans le tiers le mieux placé' };
+  if (value >= PRIORITY_WORTH_SEEING) {
+    return { label: 'À voir', rank: 'au-dessus de la moitié des annonces' };
+  }
+  return { label: 'Dans la liste', rank: 'en dessous de la moitié des annonces' };
 }

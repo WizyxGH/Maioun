@@ -7,7 +7,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MVP_CRITERIA } from '@maioun/shared';
+import {
+  actionPriority,
+  MVP_CRITERIA,
+  PRIORITY_HOT,
+  PRIORITY_WORTH_SEEING,
+  RISK_ALERT,
+  type ExplainedScore,
+} from '@maioun/shared';
 import {
   makeAggregated,
   makeContact,
@@ -675,5 +682,53 @@ describe('scoreListing — assemblage', () => {
     expect(scored.scores.risk).toBeDefined();
     expect(scored.matchesCriteria).toBe(true);
     expect(scored.distances).toEqual([]);
+  });
+});
+
+/**
+ * UN AVERTISSEMENT PLAFONNE LE SCORE, IL NE SE DILUE PAS DEDANS.
+ *
+ * Le risque pesait pour un dixième : une annonce très bien notée par ailleurs
+ * pouvait déclencher un avertissement ET rester présentée comme « à
+ * contacter ». Dix points retirés ne disent pas ce qu'un avertissement dit.
+ */
+describe('le plafond de risque sur le score global', () => {
+  const explained = (value: number): ExplainedScore => ({
+    value,
+    confidence: 1,
+    reasons: [],
+    unknownSignals: [],
+  });
+
+  it('empêche une annonce signalée de figurer parmi les urgentes', () => {
+    const scores = {
+      match: explained(100),
+      opportunity: explained(100),
+      visitProbability: explained(100),
+      risk: explained(RISK_ALERT),
+    };
+    expect(actionPriority(scores)).toBeLessThan(PRIORITY_WORTH_SEEING);
+  });
+
+  it('ne touche à rien en dessous du seuil d’alerte', () => {
+    const scores = {
+      match: explained(100),
+      opportunity: explained(100),
+      visitProbability: explained(100),
+      risk: explained(RISK_ALERT - 1),
+    };
+    expect(actionPriority(scores)).toBeGreaterThanOrEqual(PRIORITY_HOT);
+  });
+
+  /** Ce n'est pas une pénalité de plus : un score déjà bas ne descend pas. */
+  it('ne descend pas un score qui était déjà sous le plafond', () => {
+    const scores = {
+      match: explained(10),
+      opportunity: explained(10),
+      visitProbability: explained(10),
+      risk: explained(RISK_ALERT),
+    };
+    const sansPlafond = 10 * 0.3 + 10 * 0.35 + 10 * 0.25 + (100 - RISK_ALERT) * 0.1;
+    expect(actionPriority(scores)).toBe(Math.round(sansPlafond));
   });
 });

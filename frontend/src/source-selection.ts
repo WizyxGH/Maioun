@@ -32,6 +32,15 @@ export interface SourceSelection {
 /** Aucune restriction : toutes les sources, y compris celles à venir. */
 export const ALL_SOURCES: SourceSelection = { mode: 'except', ids: new Set() };
 
+/**
+ * Aucune source — et le geste qui sert à repartir d'une liste vide.
+ *
+ * Il s'écrit forcément en mode « seulement » : « toutes sauf les 216 » se
+ * périmerait à la source suivante, alors que « seulement, et rien de nommé »
+ * reste vrai quoi qu'on ajoute.
+ */
+export const NO_SOURCES: SourceSelection = { mode: 'only', ids: new Set() };
+
 /** `true` si la sélection écarte quoi que ce soit de la liste. */
 export function restrictsSources(selection: SourceSelection): boolean {
   return selection.mode === 'only' || selection.ids.size > 0;

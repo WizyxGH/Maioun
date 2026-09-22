@@ -28,8 +28,8 @@ import { splitPhotos } from '../photos.js';
 import {
   awaitsContact,
   PRIORITY_HOT,
-  PRIORITY_WORTH_SEEING,
   rentAllIn,
+  scoreBand,
   SHORT_TERM_LEASE_FEATURE,
   STUDENT_HOUSING_FEATURE,
 } from '@maioun/shared';
@@ -73,9 +73,10 @@ function priorityLabel(priority: number, awaits: boolean): string {
   // à trois centimètres d'écart — relevé du 2026-09-17. La section « À
   // contacter maintenant » applique déjà `awaitsContact` ; la carte, non, et
   // c'est elle qu'on lit dans les autres tris, où la section n'existe pas.
-  if (priority >= PRIORITY_HOT) return awaits ? 'à contacter' : 'priorité haute';
-  if (priority >= PRIORITY_WORTH_SEEING) return 'à voir';
-  return 'à étudier';
+  // UN SEUL VOCABULAIRE : la carte disait « à étudier » là où la fiche dit
+  // « Dans la liste ». Les paliers et leurs noms vivent avec le score.
+  if (priority >= PRIORITY_HOT && !awaits) return 'priorité haute';
+  return scoreBand(priority).label.toLowerCase();
 }
 
 /**

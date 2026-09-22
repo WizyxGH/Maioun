@@ -1128,3 +1128,93 @@ describe('permalien cité par plusieurs occurrences d’un même bien', () => {
     expect(dedupe(voisins).groups).toHaveLength(3);
   });
 });
+
+/**
+ * LE RELAIS NOMME L'AGENCE, ET L'AGENCE NE SE NOMME PAS.
+ *
+ * ParuVendu republie le stock d'agences qu'on collecte par ailleurs et imprime
+ * leur enseigne ; la fiche de l'agence, elle, n'a pas de champ « agence » —
+ * elle EST l'agence. Le signal « même agence » exige un nom des deux côtés et
+ * ne pouvait donc jamais jouer entre ces deux-là.
+ */
+describe('similarité — le relais qui nomme sa source', () => {
+  const base = { price: 850, area: 31, rooms: 2, city: 'nice' } as const;
+
+  const relais = (id: string, agence: string): NormalizedListing =>
+    listing({
+      id,
+      sourceId: 'paruvendu',
+      ...base,
+      contact: { ...EMPTY_CONTACT, agencyName: agence },
+    });
+  const agence = (id: string): NormalizedListing =>
+    listing({ id, sourceId: 'alliance-conseil', ...base });
+
+  /** Le registre réel répond ceci ; le test n'en dépend pas pour autant. */
+  const resolveur = (name: string): string | null =>
+    /alliance/i.test(name) ? 'alliance-conseil' : null;
+
+  it('rapproche la fiche de l’agence et son relais', () => {
+    const sans = similarity(relais('p:1', 'A ALLIANCE CONSEIL IMMOBILIER'), agence('a:1'));
+    const avec = similarity(
+      relais('p:1', 'A ALLIANCE CONSEIL IMMOBILIER'),
+      agence('a:1'),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      resolveur,
+    );
+    expect(sans.verdict).not.toBe('duplicate');
+    expect(avec.signals.map((s) => s.code)).toContain('relayedAgency');
+    expect(avec.verdict).toBe('duplicate');
+  });
+
+  it('exige les MÊMES chiffres, et non des chiffres voisins', () => {
+    const voisin = listing({ id: 'a:2', sourceId: 'alliance-conseil', ...base, area: 32 });
+    const result = similarity(
+      relais('p:2', 'A ALLIANCE CONSEIL IMMOBILIER'),
+      voisin,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      resolveur,
+    );
+    expect(result.signals.map((s) => s.code)).not.toContain('relayedAgency');
+  });
+
+  it('ne dit rien d’un nom qui ne désigne aucune source', () => {
+    const result = similarity(
+      relais('p:3', 'AGENCE INCONNUE'),
+      agence('a:3'),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      resolveur,
+    );
+    expect(result.signals.map((s) => s.code)).not.toContain('relayedAgency');
+  });
+
+  /**
+   * LE NOM DIT DE QUI VIENT L'ANNONCE, JAMAIS LAQUELLE. Deux studios de la même
+   * agence, mêmes chiffres, et un seul relais : le nom vaut autant pour l'un
+   * que pour l'autre. Les fusionner tous les trois ferait disparaître un
+   * logement réel — on préfère le doublon (§14).
+   */
+  it('ne fusionne rien quand plusieurs annonces se disputent le même relais', () => {
+    const { groups } = dedupe(
+      [relais('p:4', 'A ALLIANCE CONSEIL IMMOBILIER'), agence('a:4'), agence('a:5')],
+      { sourceOfAgency: resolveur },
+    );
+    expect(groups).toHaveLength(3);
+  });
+
+  it('mais fusionne quand le relais n’a qu’un seul candidat', () => {
+    const { groups } = dedupe([relais('p:6', 'A ALLIANCE CONSEIL IMMOBILIER'), agence('a:6')], {
+      sourceOfAgency: resolveur,
+    });
+    expect(groups).toHaveLength(1);
+  });
+});
