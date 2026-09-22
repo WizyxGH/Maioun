@@ -820,24 +820,31 @@ async function scoreForEachUser(deps: {
 /**
  * Faut-il regrouper ce passage-ci ?
  *
- * Oui dès que le corpus a bougé. Oui aussi après une demi-heure de calme, quoi
- * qu'il arrive : LES SCORES VIEILLISSENT AVEC L'HORLOGE — l'urgence d'une
- * annonce, la fenêtre de quatorze jours des baisses de loyer —, et la fiche
- * porte la date à laquelle on l'a vue pour la dernière fois. Une demi-heure est
- * le plus long décalage qu'on accepte sur cette date ; c'était déjà le sujet du
- * correctif « vue pour la dernière fois disait une date périmée ».
+ * Oui dès qu'une annonce NOUVELLE est apparue : elle déclenche une alerte, et
+ * une alerte en retard ne vaut rien. Oui aussi après une demi-heure, quoi qu'il
+ * arrive — c'est ce délai qui borne tout le reste :
+ *
+ *   - les retraits et corrections de contenu, qui attendent leur tour ;
+ *   - LES SCORES, qui vieillissent avec l'horloge (l'urgence d'une annonce, la
+ *     fenêtre de quatorze jours des baisses de loyer) ;
+ *   - la date à laquelle la fiche dit avoir été vue, déjà le sujet du correctif
+ *     « vue pour la dernière fois disait une date périmée ».
+ *
+ * C'EST LE LEVIER À TOURNER si la facture de lectures doit encore baisser :
+ * une heure diviserait encore par deux le nombre de regroupements, au prix
+ * d'une demi-heure de plus sur ces trois retards.
  *
  * Sans date enregistrée — première mise en service, table neuve — on regroupe :
  * l'inconnu ne vaut pas un saut.
  */
 const REGROUP_MAX_QUIET_MS = 30 * 60 * 1000;
 
-async function shouldRegroup(
+export async function shouldRegroup(
   repository: PipelineOptions['repository'],
-  corpusChanged: boolean,
+  newListings: boolean,
   nowMs: number,
 ): Promise<boolean> {
-  if (corpusChanged) return true;
+  if (newListings) return true;
   const last = await repository.regroupedAt();
   if (last === null) return true;
   const at = Date.parse(last);
@@ -1282,18 +1289,31 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // même calcul sur le même corpus, et c'est le premier poste de lecture chez
   // Turso.
   //
-  // CE QUI COMPTE COMME UN CHANGEMENT est ce qui peut déplacer un groupe ou une
-  // fiche : une occurrence écrite, un statut qui bascule, un retrait annoncé.
-  // Le compteur d'absences qui monte, lui, ne change rien tant qu'il n'atteint
-  // pas un seuil — et c'est justement ce que `markMissing` distingue.
-  const corpusChanged =
-    occurrenceReport.inserted > 0 ||
-    occurrenceReport.updated > 0 ||
-    lifecycle.transitions > 0 ||
-    withdrawn > 0;
-  const regrouped = await shouldRegroup(repository, corpusChanged, nowMs);
+  // SEULE UNE ANNONCE NOUVELLE MÉRITE UN REGROUPEMENT IMMÉDIAT.
+  //
+  // La première version sautait le regroupement quand RIEN n'avait bougé — et
+  // elle ne sautait presque jamais. Mesuré sur les journaux : un retrait par
+  // passage (`withdrawn_marked · count=1`) suffisait à tout relancer, et il y
+  // en a pratiquement toujours un parmi deux cent seize sources.
+  //
+  // Or ces changements-là n'ont pas la même urgence. Une annonce NOUVELLE se
+  // regroupe tout de suite : c'est elle qui déclenche une alerte, et une alerte
+  // en retard ne vaut rien sur ce marché. Un retrait, une correction de contenu
+  // ou un statut qui bascule peuvent attendre le regroupement suivant — au pire
+  // une demi-heure, l'ordre de grandeur de la cadence d'avant.
+  //
+  // Mesuré du 19 au 22 septembre : 62 fenêtres de quinze minutes sur 338 ont vu
+  // naître une occurrence. Les 276 autres passent désormais par la fenêtre de
+  // calme au lieu de relire tout le corpus.
+  const newListings = occurrenceReport.inserted > 0;
+  const regrouped = await shouldRegroup(repository, newListings, nowMs);
   if (!regrouped) {
-    logger.info('pipeline.regroup_skipped', { reason: 'corpus inchangé' });
+    logger.info('pipeline.regroup_skipped', {
+      reason: 'aucune annonce nouvelle, regroupement récent',
+      updated: occurrenceReport.updated,
+      transitions: lifecycle.transitions,
+      withdrawn,
+    });
   }
   const { groups, comparisonCount, listingReport } = regrouped
     ? await regroupAndScore(options, nowMs)

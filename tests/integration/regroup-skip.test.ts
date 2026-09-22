@@ -24,6 +24,7 @@ import {
   migrate,
   openDatabase,
   runPipeline,
+  shouldRegroup,
   silentLogger,
   laforetScraper,
   type Database,
@@ -68,7 +69,7 @@ async function dernierRegroupement(db: Database): Promise<string | null> {
   return typeof raw === 'string' ? raw : null;
 }
 
-describe('le regroupement, quand rien n’a bougé', () => {
+describe('le regroupement, quand aucune annonce nouvelle n’est apparue', () => {
   let db: Database;
   let repository: Repository;
 
@@ -114,5 +115,47 @@ describe('le regroupement, quand rien n’a bougé', () => {
     await runPipeline(options(repository, NOW + QUART_HEURE));
     const apres = await db.execute('SELECT COUNT(*) AS n FROM listings');
     expect(apres.rows[0]?.['n']).toBe(avant.rows[0]?.['n']);
+  });
+});
+
+/**
+ * UN RETRAIT N'EST PAS UNE URGENCE — une annonce nouvelle, si.
+ *
+ * La première version du garde-fou sautait le regroupement quand RIEN n'avait
+ * bougé, et elle ne sautait presque jamais : les journaux montraient un retrait
+ * par passage (`withdrawn_marked · count=1`), et parmi deux cent seize sources
+ * il y en a pratiquement toujours un.
+ *
+ * LA RÈGLE SE TESTE SEULE, et non à travers un passage complet : Laforêt ne
+ * repasse qu'au bout de quarante-cinq minutes, soit après la fenêtre de calme
+ * — un passage de bout en bout ne pourrait donc jamais distinguer « regroupé
+ * parce qu'il y a du neuf » de « regroupé parce que la fenêtre a expiré ».
+ */
+describe('ce qui mérite un regroupement immédiat', () => {
+  const DEMI_HEURE = 30 * 60 * 1000;
+  /** Un dépôt réduit à ce que la décision consulte. */
+  const depuis = (last: string | null) =>
+    ({ regroupedAt: () => Promise.resolve(last) }) as unknown as Parameters<
+      typeof shouldRegroup
+    >[0];
+
+  it('regroupe sans attendre quand une annonce est nouvelle', async () => {
+    const juste = new Date(NOW - 60_000).toISOString();
+    expect(await shouldRegroup(depuis(juste), true, NOW)).toBe(true);
+  });
+
+  it('attend la fenêtre quand rien de nouveau n’est apparu', async () => {
+    const juste = new Date(NOW - 60_000).toISOString();
+    expect(await shouldRegroup(depuis(juste), false, NOW)).toBe(false);
+  });
+
+  /** Les scores vieillissent avec l'horloge, et la fiche porte sa date de vue. */
+  it('repasse une fois la demi-heure écoulée, même sans rien de neuf', async () => {
+    const vieux = new Date(NOW - DEMI_HEURE - 1000).toISOString();
+    expect(await shouldRegroup(depuis(vieux), false, NOW)).toBe(true);
+  });
+
+  it('regroupe quand aucune date n’est enregistrée : l’inconnu ne vaut pas un saut', async () => {
+    expect(await shouldRegroup(depuis(null), false, NOW)).toBe(true);
   });
 });
