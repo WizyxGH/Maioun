@@ -50,6 +50,7 @@ const token = encodeSearch({
     minPrice: null,
     maxPrice: null,
     minArea: null,
+    maxArea: null,
     minRooms: 2,
     minOccupants: null,
     types: [],

@@ -16,6 +16,7 @@ const RECHERCHE: Pick<SavedSearch, 'name' | 'criteria' | 'view'> = {
     minPrice: null,
     maxPrice: 700,
     minArea: 20,
+    maxArea: null,
     minRooms: 1,
     minOccupants: null,
     types: ['apartment'],

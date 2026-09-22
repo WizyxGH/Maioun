@@ -395,6 +395,7 @@ describe('countActiveSettings', () => {
         quickFilters: {
           minPrice: 250,
           maxPrice: 700,
+          maxArea: null,
           minArea: 20,
           minRooms: 2,
           minOccupants: null,

@@ -290,7 +290,10 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
         (listing) =>
           (listing.price.value === null || listing.price.value <= criteria.maxPrice) &&
           (listing.price.value === null || listing.price.value >= (criteria.minPrice ?? 0)) &&
-          (listing.area.value === null || listing.area.value >= criteria.minArea),
+          (listing.area.value === null || listing.area.value >= criteria.minArea) &&
+          (criteria.maxArea === undefined ||
+            listing.area.value === null ||
+            listing.area.value <= criteria.maxArea),
       );
     }
     const listings = sortMock(filtered, sort);

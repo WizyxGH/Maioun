@@ -15,6 +15,7 @@ const VIEW: SavedSearch['view'] = {
   minPrice: null,
   maxPrice: null,
   minArea: null,
+  maxArea: null,
   minRooms: null,
   minOccupants: null,
   types: [],

@@ -18,6 +18,7 @@ const AUCUN: QuickFilterValues = {
   minPrice: null,
   maxPrice: null,
   minArea: null,
+  maxArea: null,
   minRooms: null,
   minOccupants: null,
   types: new Set(),

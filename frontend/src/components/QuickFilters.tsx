@@ -28,6 +28,8 @@ export interface QuickFilterValues {
   readonly minPrice: number | null;
   readonly maxPrice: number | null;
   readonly minArea: number | null;
+  /** Surface plafond. Absente, la surface n'avait qu'un plancher. */
+  readonly maxArea: number | null;
   readonly minRooms: number | null;
   /**
    * Nombre de personnes à loger. Ne filtre QUE les annonces qui annoncent un
@@ -43,6 +45,7 @@ export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   minPrice: null,
   maxPrice: null,
   minArea: null,
+  maxArea: null,
   minRooms: null,
   minOccupants: null,
   types: new Set(),
@@ -59,6 +62,9 @@ export const DEFAULT_QUICK_FILTERS: QuickFilterValues = {
   minPrice: MVP_CRITERIA.minPrice ?? null,
   maxPrice: MVP_CRITERIA.maxPrice,
   minArea: MVP_CRITERIA.minArea,
+  // Aucun plafond par défaut : le projet n'en pose pas, et en inventer un
+  // écarterait des annonces que personne n'a demandé d'écarter.
+  maxArea: MVP_CRITERIA.maxArea ?? null,
   minRooms: null,
   minOccupants: null,
   types: new Set(),
@@ -77,6 +83,7 @@ export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
     v.minPrice !== d.minPrice ||
     v.maxPrice !== d.maxPrice ||
     v.minArea !== d.minArea ||
+    v.maxArea !== d.maxArea ||
     v.minRooms !== d.minRooms ||
     v.minOccupants !== d.minOccupants ||
     v.types.size !== d.types.size
@@ -118,11 +125,18 @@ export function hasAppliedQuickFilters(v: QuickFilterValues): boolean {
 export function appliedQuickFilterCount(v: QuickFilterValues): number {
   return (
     (v.minPrice !== null || v.maxPrice !== null ? 1 : 0) +
-    (v.minArea !== null ? 1 : 0) +
+    (v.minArea !== null || v.maxArea !== null ? 1 : 0) +
     (v.minOccupants !== null ? 1 : 0) +
     (v.minRooms !== null ? 1 : 0) +
     v.types.size
   );
+}
+
+/** L'intitulé de la puce « surface », selon les bornes réellement posées. */
+export function areaLabel(min: number | null, max: number | null): string {
+  if (min !== null && max !== null) return `${min} – ${max} m²`;
+  if (max !== null) return `≤ ${max} m²`;
+  return `≥ ${min ?? 0} m²`;
 }
 
 /** L'intitulé de la puce « budget », selon les bornes réellement posées. */
@@ -165,6 +179,12 @@ export function matchesQuickFilters(listing: QuickFilterable, v: QuickFilterValu
     return false;
   }
   if (v.minArea !== null && (listing.area.value === null || listing.area.value < v.minArea)) {
+    return false;
+  }
+  // LE PLAFOND N'ÉCARTE PAS UNE SURFACE INCONNUE, contrairement au plancher :
+  // celui-ci sert à reconnaître un box, celui-là à refuser un grand logement —
+  // et une annonce muette n'est pas un grand logement (§17).
+  if (v.maxArea !== null && listing.area.value !== null && listing.area.value > v.maxArea) {
     return false;
   }
   if (v.minRooms !== null && (listing.rooms.value === null || listing.rooms.value < v.minRooms)) {
@@ -282,10 +302,13 @@ export function QuickFilters({
                 onRemove={() => patch({ minPrice: null, maxPrice: null })}
               />
             )}
-            {values.minArea !== null && (
+            {/* Une seule puce pour la fourchette, comme le budget : « ≥ 20 m² »
+              et « ≤ 60 m² » côte à côte diraient la même chose en deux fois
+              plus de place. */}
+            {(values.minArea !== null || values.maxArea !== null) && (
               <FilterChip
-                label={`≥ ${values.minArea} m²`}
-                onRemove={() => patch({ minArea: null })}
+                label={areaLabel(values.minArea, values.maxArea)}
+                onRemove={() => patch({ minArea: null, maxArea: null })}
               />
             )}
             {values.minOccupants !== null && (

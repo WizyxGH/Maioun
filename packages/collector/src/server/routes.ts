@@ -69,6 +69,8 @@ export interface LiveFilters {
   readonly maxPrice: number;
   readonly minPrice?: number;
   readonly minArea: number;
+  /** Surface plafond, en m². Absente = aucun plafond. */
+  readonly maxArea?: number;
   readonly excludeFlatShare?: boolean;
   readonly excludeStudent?: boolean;
   readonly landlordFilter?: 'all' | 'private' | 'agency';
@@ -710,6 +712,12 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
     }
     conditions.push('(area IS NULL OR area >= ?)');
     filterArgs.push(live.minArea);
+    if (live.maxArea !== undefined) {
+      // Une annonce SANS surface publiée reste dans la liste : un plafond ne
+      // peut pas écarter ce qu'aucune source n'a dit (§17).
+      conditions.push('(area IS NULL OR area <= ?)');
+      filterArgs.push(live.maxArea);
+    }
     // Les préférences vivent dans `core/trait-filters` : la LISTE et les
     // NOTIFICATIONS s'en servent toutes deux, et deux copies auraient fini
     // par diverger — on aurait alors signalé ce qu'on n'affiche pas.
@@ -1717,6 +1725,16 @@ function plancherDuProjet(defauts: boolean, maxPrice: number): number | undefine
  *   plutôt qu'une préférence absente. Mieux vaut le dire que filtrer sur des
  *   valeurs que personne n'a choisies.
  */
+/**
+ * Un plafond de trajet, ou rien.
+ *
+ * ZÉRO N'EST PAS UN PLAFOND : aucune annonce localisée ne le franchit, et le
+ * garder viderait la liste au lieu de la filtrer.
+ */
+function strictementPositif(value: unknown): number | undefined {
+  return finite(value) && value > 0 ? value : undefined;
+}
+
 export function parseLiveFilters(value: unknown, defauts = false): LiveFilters | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const parsed = value as Partial<Record<keyof LiveFilters, unknown>>;
@@ -1724,7 +1742,10 @@ export function parseLiveFilters(value: unknown, defauts = false): LiveFilters |
   /** La valeur lue, ou celle du projet quand on comble. */
   const nombre = (lu: unknown, defaut: number | undefined): number | undefined =>
     finite(lu) ? lu : defauts ? defaut : undefined;
+  /** Un plafond que l'appelant n'a pas posé N'EXISTE PAS : il ne se comble pas. */
+  const plafond = (lu: unknown): number | undefined => (finite(lu) ? lu : undefined);
   const maxPrice = nombre(parsed.maxPrice, MVP_CRITERIA.maxPrice) ?? MVP_CRITERIA.maxPrice;
+  const maxArea = plafond(parsed.maxArea);
   const minPrice = finite(parsed.minPrice) ? parsed.minPrice : plancherDuProjet(defauts, maxPrice);
   // LE PLAFOND DE TRAJET NE SE COMBLE PAS, contrairement au loyer et à la
   // surface. Son absence est un CHOIX que l'interface sait poser — vider le
@@ -1732,13 +1753,11 @@ export function parseLiveFilters(value: unknown, defauts = false): LiveFilters |
   // choix sans effet : la liste continuait d'écarter au-delà de 60 minutes.
   // Zéro n'en est pas un non plus : aucune annonce localisée ne le franchit.
   // Même règle que pour les alertes, dans `config.ts`.
-  const maxCommuteMinutes =
-    finite(parsed.maxCommuteMinutes) && parsed.maxCommuteMinutes > 0
-      ? parsed.maxCommuteMinutes
-      : undefined;
+  const maxCommuteMinutes = strictementPositif(parsed.maxCommuteMinutes);
   return {
     maxPrice,
     minArea: nombre(parsed.minArea, MVP_CRITERIA.minArea) ?? MVP_CRITERIA.minArea,
+    ...(maxArea !== undefined ? { maxArea } : {}),
     ...(minPrice !== undefined ? { minPrice } : {}),
     ...(maxCommuteMinutes !== undefined ? { maxCommuteMinutes } : {}),
     ...(parsed.excludeFlatShare === true ? { excludeFlatShare: true } : {}),

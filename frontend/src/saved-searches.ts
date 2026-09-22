@@ -41,6 +41,7 @@ export interface SavedView {
   readonly minPrice: number | null;
   readonly maxPrice: number | null;
   readonly minArea: number | null;
+  readonly maxArea: number | null;
   readonly minRooms: number | null;
   readonly minOccupants: number | null;
   /** Types de bien retenus. Un tableau, `Set` ne survivant pas à JSON. */
@@ -92,6 +93,7 @@ export function toSavedView(
     minPrice: quick.minPrice,
     maxPrice: quick.maxPrice,
     minArea: quick.minArea,
+    maxArea: quick.maxArea,
     minRooms: quick.minRooms,
     minOccupants: quick.minOccupants,
     types: [...quick.types],
@@ -115,6 +117,7 @@ export function toQuickFilters(view: Partial<SavedView> | undefined): QuickFilte
     minPrice: view.minPrice ?? DEFAULT_QUICK_FILTERS.minPrice,
     maxPrice: view.maxPrice ?? DEFAULT_QUICK_FILTERS.maxPrice,
     minArea: view.minArea ?? DEFAULT_QUICK_FILTERS.minArea,
+    maxArea: view.maxArea ?? DEFAULT_QUICK_FILTERS.maxArea,
     minRooms: view.minRooms ?? null,
     minOccupants: view.minOccupants ?? null,
     types: new Set(view.types ?? []),
@@ -165,6 +168,13 @@ export function formatDistricts(slugs: readonly string[]): string {
 }
 
 /** Les critères d'une recherche, un par un, dans l'ordre où on les lit. */
+/** L'intitulé de la surface dans le résumé, selon les bornes réellement posées. */
+function areaPart(min: number, max: number | null): string | null {
+  if (min > 0 && max !== null) return `${min}–${max} m²`;
+  if (max !== null) return `≤ ${max} m²`;
+  return min > 0 ? `≥ ${min} m²` : null;
+}
+
 export function searchParts(search: SavedSearch): readonly SearchPart[] {
   const parts: SearchPart[] = [];
   const add = (kind: SearchPartKind, label: string): void => {
@@ -185,8 +195,8 @@ export function searchParts(search: SavedSearch): readonly SearchPart[] {
   if (low !== null && high !== undefined) add('budget', `${low}–${high} €`);
   else if (high !== undefined) add('budget', `≤ ${high} €`);
 
-  const area = view.minArea ?? criteria.minArea;
-  if (area > 0) add('area', `≥ ${area} m²`);
+  const area = areaPart(view.minArea ?? criteria.minArea, view.maxArea ?? criteria.maxArea ?? null);
+  if (area !== null) add('area', area);
 
   if (view.minRooms !== null)
     add('rooms', `≥ ${view.minRooms} pièce${view.minRooms > 1 ? 's' : ''}`);

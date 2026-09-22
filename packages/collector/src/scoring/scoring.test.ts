@@ -732,3 +732,31 @@ describe('le plafond de risque sur le score global', () => {
     expect(actionPriority(scores)).toBe(Math.round(sansPlafond));
   });
 });
+
+/**
+ * LE PLAFOND DE SURFACE EST ÉLIMINATOIRE, comme le plancher.
+ *
+ * La surface n'avait qu'un minimum : un 120 m² restait « dans les critères »
+ * de quelqu'un qui cherche un deux-pièces, et les alertes le lui envoyaient.
+ */
+describe('le plafond de surface dans les critères', () => {
+  const criteres = { ...MVP_CRITERIA, minArea: 20, maxArea: 60 };
+
+  // La surface se pose sur la fiche AGRÉGÉE : c'est elle que le score lit.
+  const fiche = (area: number) => makeAggregated({ price: 700, area, rooms: 2 });
+
+  it('écarte une annonce plus grande que le maximum', () => {
+    const verdict = scoreMatch(fiche(75), criteres);
+    expect(verdict.matchesCriteria).toBe(false);
+    expect(verdict.score.reasons.map((r) => r.code)).toContain('area.over');
+  });
+
+  it('garde celle qui tient dans la fourchette', () => {
+    expect(scoreMatch(fiche(45), criteres).matchesCriteria).toBe(true);
+  });
+
+  it('ne change rien quand aucun plafond n’est posé', () => {
+    const sansPlafond = { ...MVP_CRITERIA, minArea: 20 };
+    expect(scoreMatch(fiche(120), sansPlafond).matchesCriteria).toBe(true);
+  });
+});

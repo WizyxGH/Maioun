@@ -251,6 +251,8 @@ export interface FilterConfig {
   maxPrice: number;
   minPrice?: number;
   minArea: number;
+  /** Surface maximale en m². Absente = aucun plafond. */
+  maxArea?: number;
   /**
    * Durée maximale du trajet domicile→travail, en minutes (§20).
    *

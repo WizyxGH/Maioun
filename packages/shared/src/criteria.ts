@@ -33,6 +33,14 @@ export interface SearchCriteria {
    * description et l'URL. Décision utilisateur.
    */
   readonly excludeStudent?: boolean;
+  /**
+   * Surface MAXIMUM en m². Absent = aucun plafond.
+   *
+   * Il manquait, et la surface n'avait donc qu'un plancher : rien n'écartait
+   * les grands logements qu'on ne cherche pas — et qu'on paie. Un bien dont la
+   * source ne publie pas la surface n'est jamais exclu par ce plafond (§17).
+   */
+  readonly maxArea?: number;
   readonly propertyTypes?: readonly PropertyType[];
   readonly minRooms?: number;
   readonly maxRooms?: number;
@@ -162,6 +170,7 @@ export const MVP_CRITERIA: SearchCriteria = {
 export type RelaxableCriterion =
   | 'maxPrice'
   | 'minArea'
+  | 'maxArea'
   | 'minRooms'
   | 'maxRooms'
   | 'maxCommuteMinutes'
@@ -190,6 +199,8 @@ export const NEAR_MATCH_MARGINS = {
    * arrondis d'affichage. À 20 m², 5 % font justement 1 m², donc 19 m².
    */
   minArea: { percent: 0.05, atLeastSqm: 1 },
+  /** +5 %, par symétrie : c'est la même mesure, lue depuis l'autre bord. */
+  maxArea: { percent: 0.05, atLeastSqm: 1 },
   /**
    * −1 pièce, et jamais moins d'une : il n'existe pas de demi-pièce, donc pas
    * de marge plus petite que celle-là. Un T1 quand on demande un T2 reste un
@@ -282,6 +293,8 @@ export interface NearMatchBounds {
   readonly maxPrice: number;
   /** Surface plancher abaissée. */
   readonly minArea: number;
+  /** Surface plafond relevée — absente quand aucun plafond n'est posé. */
+  readonly maxArea?: number;
   readonly minRooms?: number;
   readonly maxRooms?: number;
   readonly maxCommuteMinutes?: number;
@@ -291,7 +304,9 @@ export interface NearMatchBounds {
 
 /** Ce qu'il faut des critères pour calculer les bornes élargies. */
 export type RelaxableCriteria = Pick<SearchCriteria, 'maxPrice' | 'minArea'> &
-  Partial<Pick<SearchCriteria, 'minRooms' | 'maxRooms' | 'maxCommuteMinutes' | 'availableBy'>>;
+  Partial<
+    Pick<SearchCriteria, 'maxArea' | 'minRooms' | 'maxRooms' | 'maxCommuteMinutes' | 'availableBy'>
+  >;
 
 /**
  * Les critères, élargis d'une marge chacun.
@@ -301,6 +316,7 @@ export type RelaxableCriteria = Pick<SearchCriteria, 'maxPrice' | 'minArea'> &
  */
 export function nearMatchBounds(criteria: RelaxableCriteria): NearMatchBounds {
   const area = NEAR_MATCH_MARGINS.minArea;
+  const ceiling = NEAR_MATCH_MARGINS.maxArea;
   const commute = NEAR_MATCH_MARGINS.maxCommuteMinutes;
   return {
     maxPrice: criteria.maxPrice * (1 + NEAR_MATCH_MARGINS.maxPrice.percent),
@@ -308,6 +324,14 @@ export function nearMatchBounds(criteria: RelaxableCriteria): NearMatchBounds {
       0,
       criteria.minArea - Math.max(criteria.minArea * area.percent, area.atLeastSqm),
     ),
+    // LA MÊME MARGE, DANS L'AUTRE SENS. Un critère absent le reste : on
+    // n'invente pas un plafond pour quelqu'un qui n'en a pas posé.
+    ...(criteria.maxArea === undefined
+      ? {}
+      : {
+          maxArea:
+            criteria.maxArea + Math.max(criteria.maxArea * ceiling.percent, ceiling.atLeastSqm),
+        }),
     // Jamais en dessous d'une pièce : un logement de zéro pièce n'existe pas.
     ...(criteria.minRooms === undefined
       ? {}
@@ -366,6 +390,9 @@ export function describeOvershoot(listing: OvershootInput, criteria: RelaxableCr
   }
   if (listing.area !== null && listing.area < criteria.minArea) {
     parts.push(`${money(listing.area)} m² pour ${money(criteria.minArea)} m² demandés`);
+  }
+  if (criteria.maxArea !== undefined && listing.area !== null && listing.area > criteria.maxArea) {
+    parts.push(`${money(listing.area)} m² pour ${money(criteria.maxArea)} m² au plus`);
   }
   if (
     criteria.minRooms !== undefined &&

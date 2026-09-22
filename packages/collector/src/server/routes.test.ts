@@ -14,6 +14,7 @@ import {
   capListPhotos,
   etagMatches,
   listItemJson,
+  parseLiveFilters,
   RENT_FOR_BUDGET_SQL,
   route,
   rowToListing,
@@ -898,5 +899,38 @@ describe('le loyer comparé au budget', () => {
       });
       expect(mesure.rows[0]?.['total']).toBe(rentForBudget({ price, charges, chargesIncluded }));
     }
+  });
+});
+
+/**
+ * LE PLAFOND DE SURFACE, CÔTÉ SQL.
+ *
+ * La surface n'avait qu'un plancher : rien n'écartait les grands logements
+ * qu'on ne cherche pas. Le plafond s'applique en direct comme le reste, sans
+ * recollecter — et il n'écarte jamais une annonce dont la surface est inconnue.
+ */
+describe('buildListQuery — le plafond de surface', () => {
+  const url = new URL('https://exemple.invalid/api/listings');
+
+  it('pose la condition quand un plafond est demandé', () => {
+    const query = buildListQuery(url, { maxPrice: 700, minArea: 20, maxArea: 60 });
+    expect(query.filter).toContain('area <= ?');
+    expect(query.filterArgs).toContain(60);
+  });
+
+  it('ne pose rien quand aucun plafond n’est demandé', () => {
+    const query = buildListQuery(url, { maxPrice: 700, minArea: 20 });
+    expect(query.filter).not.toContain('area <= ?');
+  });
+
+  /** Un champ NULL n'exclut jamais : la source s'est tue, pas l'annonce (§17). */
+  it('laisse passer une surface inconnue', () => {
+    const query = buildListQuery(url, { maxPrice: 700, minArea: 20, maxArea: 60 });
+    expect(query.filter).toContain('(area IS NULL OR area <= ?)');
+  });
+
+  it('se relit depuis les critères enregistrés', () => {
+    expect(parseLiveFilters({ maxPrice: 700, minArea: 20, maxArea: 60 })?.maxArea).toBe(60);
+    expect(parseLiveFilters({ maxPrice: 700, minArea: 20 })?.maxArea).toBeUndefined();
   });
 });

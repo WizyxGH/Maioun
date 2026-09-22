@@ -315,13 +315,23 @@ export function SortFilterModal({
 
             <fieldset className="mb-4">
               <FieldLabel>Surface</FieldLabel>
-              {/* Un seul champ : une surface MINIMALE suffit à cet usage. */}
-              <NumberField
-                label="au moins"
-                suffix="m²"
-                value={quickFilters.minArea}
-                onChange={(v) => patch({ minArea: v })}
-              />
+              {/* DEUX BORNES, comme le budget. Il n'y avait qu'un plancher, et
+                rien n'écartait les grands logements qu'on ne cherche pas — et
+                qu'on chauffe. */}
+              <div className="flex gap-2">
+                <NumberField
+                  label="au moins"
+                  suffix="m²"
+                  value={quickFilters.minArea}
+                  onChange={(v) => patch({ minArea: v })}
+                />
+                <NumberField
+                  label="au plus"
+                  suffix="m²"
+                  value={quickFilters.maxArea}
+                  onChange={(v) => patch({ maxArea: v })}
+                />
+              </div>
             </fieldset>
 
             <fieldset className="mb-4">

@@ -279,6 +279,15 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     unknownSignals.push('surface');
     unknownWeight += 30;
     reasons.push({ code: 'area.unknown', label: 'Surface non publiée', delta: 0 });
+  } else if (criteria.maxArea !== undefined && area > criteria.maxArea) {
+    // LE PLAFOND EST ÉLIMINATOIRE COMME LE PLANCHER : on ne cherche pas un
+    // logement qu'on ne veut pas chauffer, et qu'on paierait.
+    matchesCriteria = false;
+    reasons.push({
+      code: 'area.over',
+      label: `${area} m² au-dessus du maximum de ${criteria.maxArea} m²`,
+      delta: 0,
+    });
   } else if (area >= criteria.minArea) {
     // Au-delà du minimum, chaque m² compte de moins en moins.
     const bonus = Math.min(10, (area - criteria.minArea) / 2);
