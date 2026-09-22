@@ -23,6 +23,24 @@
  * « Nice Nord », « Nice Ouest » et « Nice Est » n'en sont pas : nos trois
  * secteurs restent donc sans contour.
  *
+ * VINGT QUARTIERS N'AURONT PAS DE CONTOUR, ET CE N'EST PAS FAUTE D'AVOIR
+ * CHERCHÉ. Centre-ville, Promenade des Anglais, Libération, Gambetta, Masséna,
+ * Lépante… : aucun IRIS ne porte leur nom, l'INSEE découpant le centre
+ * autrement (« Jean Médecin », « Thiers-Durante », « Carabacel »). Relevé du
+ * 2026-09-22, les trois autres sources examinées :
+ *
+ *   - OPENSTREETMAP n'a que CINQ polygones de quartiers à Nice — Riquier,
+ *     Saint-Roch, Le Port, Vieux Nice, Pasteur-Saint Pons —, que nous avons
+ *     déjà tous les cinq par les IRIS. Les quarante-deux autres quartiers n'y
+ *     sont que des POINTS, et un point n'est pas une limite ;
+ *   - l'OPEN DATA DE LA MÉTROPOLE publie les six « territoires » de la ville,
+ *     pas ses quartiers : six zones pour quarante et un ;
+ *   - DATA.GOUV.FR n'a aucun jeu de quartiers niçois.
+ *
+ * Il n'existe donc pas de géométrie ouverte pour ces vingt-là. On ne leur en
+ * dessine pas à la main : ce serait inventer des frontières, et une limite
+ * inventée se lit comme une limite vraie.
+ *
  * LA RÈGLE, EN DEUX TEMPS.
  *
  * 1. REVENDICATION. Un de nos quartiers revendique un IRIS dès que son nom
