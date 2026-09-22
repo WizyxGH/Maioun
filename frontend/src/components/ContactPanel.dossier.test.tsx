@@ -83,3 +83,30 @@ describe('pièces pour candidater', () => {
     expect(within(section).queryByRole('link')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * LA PROPOSITION APPARAÎT LÀ OÙ L'ON DÉCIDE — et disparaît quand elle n'a plus
+ * d'objet : proposer un dossier vérifié à qui en a déjà un serait du bruit.
+ */
+describe('la proposition DossierFacile sur l’écran de candidature', () => {
+  it('se propose quand aucun dossier vérifié n’est enregistré', async () => {
+    renderPanel();
+    expect(await screen.findByText(/Pas encore de dossier vérifié/)).toBeInTheDocument();
+  });
+
+  it('ne se propose plus quand le dossier est là', async () => {
+    render(
+      <ContactPanel
+        listing={FORM_ONLY}
+        profile={{
+          ...PROFILE,
+          dossierFacileUrl: 'https://www.dossierfacile.logement.gouv.fr/file/abc',
+        }}
+        onRecorded={vi.fn()}
+        onConfigureProfile={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText(/Dossier vérifié, joint au message/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pas encore de dossier vérifié/)).not.toBeInTheDocument();
+  });
+});

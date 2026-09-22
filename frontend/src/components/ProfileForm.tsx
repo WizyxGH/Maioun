@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { Input } from '@/components/ui/input.js';
 import { Textarea } from '@/components/ui/textarea.js';
+import { DossierFacileOffer } from './DossierFacileOffer.js';
 import { PhoneField } from './PhoneField.js';
 
 interface ProfileFormProps {
@@ -322,6 +323,10 @@ export function ProfileForm({
               Il sera joint à vos messages de candidature. Vos pièces restent chez DossierFacile.
             </span>
           )}
+          {/* L'ADRESSE DU SERVICE NE VIVAIT QUE DANS LE MESSAGE D'ERREUR : il
+            fallait coller un lien de travers pour qu'on vous dise où aller.
+            Qui n'a pas de dossier voit maintenant comment en avoir un. */}
+          {(profile.dossierFacileUrl ?? '') === '' && <DossierFacileOffer className="mt-1.5" />}
         </label>
 
         {/* PLUSIEURS GARANTIES, et non plus une seule. Deux parents se portent

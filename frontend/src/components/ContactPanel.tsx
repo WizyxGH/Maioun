@@ -37,6 +37,7 @@ import { hrefOf } from '../router.js';
 import { nextHistoryState } from '../use-route.js';
 import { cn } from '@/lib/utils.js';
 import { AgencyFormSend } from './AgencyFormSend.js';
+import { DossierFacileOffer } from './DossierFacileOffer.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -408,51 +409,57 @@ function useDossierChecklist(profile: TenantProfile | null): {
     .map((doc) => doc.name);
 
   const checklist = (
-    <section
-      className="mt-3 rounded-lg border border-border px-3 py-2"
-      aria-labelledby="dossier-checklist"
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 id="dossier-checklist" className="text-[0.85rem] font-medium">
-          Pièces pour candidater
-        </h3>
-        <span
-          className={cn(
-            'text-[0.8rem]',
-            ready === slots.length ? 'text-good' : 'text-muted-foreground',
-          )}
-        >
-          {ready}/{slots.length} prête{ready > 1 ? 's' : ''}
-        </span>
-      </div>
-      <ul className="mt-1.5 flex flex-col gap-1">
-        {slots.map((slot) => {
-          const ok = filled.has(slot.id);
-          return (
-            <li key={slot.id} className="flex min-w-0 items-center gap-2 text-[0.9rem]">
-              {ok ? (
-                <Check aria-hidden="true" className="size-4 shrink-0 text-good" />
-              ) : (
-                <X aria-hidden="true" className="size-4 shrink-0 text-medium" />
-              )}
-              <span className="min-w-0 flex-1 truncate">{slot.label}</span>
-              <span className={cn('shrink-0 text-[0.78rem]', ok ? 'sr-only' : 'text-medium')}>
-                {ok ? 'fournie' : 'à déposer'}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      {ready < slots.length && (
-        <a
-          href={hrefOf({ view: 'documents' })}
-          onClick={openInApp}
-          className="mt-2 inline-block text-[0.85rem] text-primary underline"
-        >
-          Compléter le dossier
-        </a>
-      )}
-    </section>
+    <>
+      {/* AVANT LA LISTE, ET NON APRÈS : celle-ci décrit la voie longue — des
+        pièces à déposer ici, que le bailleur devra vérifier lui-même. Qui ne
+        connaît pas le service de l'État ne voyait que celle-là. */}
+      <DossierFacileOffer className="mt-3" />
+      <section
+        className="mt-3 rounded-lg border border-border px-3 py-2"
+        aria-labelledby="dossier-checklist"
+      >
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 id="dossier-checklist" className="text-[0.85rem] font-medium">
+            Pièces pour candidater
+          </h3>
+          <span
+            className={cn(
+              'text-[0.8rem]',
+              ready === slots.length ? 'text-good' : 'text-muted-foreground',
+            )}
+          >
+            {ready}/{slots.length} prête{ready > 1 ? 's' : ''}
+          </span>
+        </div>
+        <ul className="mt-1.5 flex flex-col gap-1">
+          {slots.map((slot) => {
+            const ok = filled.has(slot.id);
+            return (
+              <li key={slot.id} className="flex min-w-0 items-center gap-2 text-[0.9rem]">
+                {ok ? (
+                  <Check aria-hidden="true" className="size-4 shrink-0 text-good" />
+                ) : (
+                  <X aria-hidden="true" className="size-4 shrink-0 text-medium" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{slot.label}</span>
+                <span className={cn('shrink-0 text-[0.78rem]', ok ? 'sr-only' : 'text-medium')}>
+                  {ok ? 'fournie' : 'à déposer'}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {ready < slots.length && (
+          <a
+            href={hrefOf({ view: 'documents' })}
+            onClick={openInApp}
+            className="mt-2 inline-block text-[0.85rem] text-primary underline"
+          >
+            Compléter le dossier
+          </a>
+        )}
+      </section>
+    </>
   );
 
   return { attached, checklist };

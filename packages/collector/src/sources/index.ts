@@ -51,6 +51,7 @@ import { immoJbfScraper } from './immo-jbf/index.js';
 import { immo3000Scraper } from './immo3000/index.js';
 import { acropolisImmoScraper } from './acropolis-immo/index.js';
 import { petrovaScraper } from './petrova/index.js';
+import { aequalisScraper } from './aequalis/index.js';
 import { oreaScraper } from './orea/index.js';
 import { votreAgenceImmoScraper } from './votre-agence-immo/index.js';
 import { locserviceScraper } from './locservice/index.js';
@@ -282,6 +283,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   immo3000Scraper,
   acropolisImmoScraper,
   petrovaScraper,
+  aequalisScraper,
   oreaScraper,
   votreAgenceImmoScraper,
   locserviceScraper,
