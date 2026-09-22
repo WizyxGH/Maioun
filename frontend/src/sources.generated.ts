@@ -38,6 +38,14 @@ export interface SourceInfo {
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {
+  '123loger': {
+    name: '123Loger',
+    domain: '123loger.com',
+    kind: 'portal',
+    logo: null,
+    paidContact: false,
+    address: null,
+  },
   'aa-gestion': {
     name: 'AA Gestion',
     domain: 'aagestion.net',
@@ -1253,6 +1261,14 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     logo: 'https://maisonquatre.la-boite-immo.com/images/favicon.png',
     paidContact: false,
     address: { street: '4 rue Dalpozzo', postalCode: '06000', city: 'Nice' },
+  },
+  maisonette: {
+    name: 'Maisonette',
+    domain: 'lamaisonette.fr',
+    kind: 'portal',
+    logo: null,
+    paidContact: false,
+    address: null,
   },
   marcele: {
     name: 'Marcele Immobilier',

@@ -224,11 +224,16 @@ export function HomePanel({
   const toCall = active.filter(
     (listing) => listing.actionPriority >= PRIORITY_HOT && awaitsContact(listing.tracking),
   );
+  const awaitingReply = active.filter((listing) => listing.tracking === 'contacted');
   const favorites = active.filter((listing) => listing.favorite === true);
   const favoritesUntouched = favorites.filter((listing) => listing.tracking === 'new');
   const ailing = sources.filter((source) => source.health !== 'healthy');
 
-  const hasChores = toCall.length > 0 || favoritesUntouched.length > 0 || !profileComplete;
+  const hasChores =
+    toCall.length > 0 ||
+    awaitingReply.length > 0 ||
+    favoritesUntouched.length > 0 ||
+    !profileComplete;
 
   return (
     <div className="flex flex-col gap-6">
@@ -280,6 +285,16 @@ export function HomePanel({
                 />
               </li>
             )}
+            {awaitingReply.length > 0 && (
+              <li>
+                <ChoreRow
+                  Icon={Bell}
+                  title={`${awaitingReply.length} réponse${awaitingReply.length > 1 ? 's' : ''} en attente`}
+                  description="Contactées, sans réponse enregistrée."
+                  onClick={onOpenSearch}
+                />
+              </li>
+            )}
             {favoritesUntouched.length > 0 && (
               <li>
                 <ChoreRow
@@ -323,7 +338,7 @@ export function HomePanel({
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, filtres actifs
             compris : 81 ici pour 76 résultats là-bas ne se retrouvait pas. */}
             <StatTile
@@ -338,6 +353,13 @@ export function HomePanel({
               Icon={PhoneCall}
               onClick={onOpenSearch}
               accent={toCall.length > 0}
+            />
+            <StatTile
+              label="réponses en attente"
+              value={awaitingReply.length}
+              Icon={Bell}
+              onClick={onOpenSearch}
+              accent={awaitingReply.length > 0}
             />
             <StatTile
               label="favoris"

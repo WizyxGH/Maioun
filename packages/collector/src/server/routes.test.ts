@@ -49,8 +49,19 @@ describe('la liste d’un visiteur sans compte', () => {
     expect(anonyme('?sort=price').orderBy).toBe('price IS NULL, price ASC');
   });
 
-  it('ne change rien pour un compte', () => {
+  it('garde le repli par score quand aucun critère live n’est fourni', () => {
     expect(query('').filter).toContain('matches_criteria');
+  });
+
+  it('applique les critères live avant les scores persistés', () => {
+    const { filter } = buildListQuery(
+      new URL('https://exemple.invalid/api/listings'),
+      { cities: ['nice'], maxPrice: 750, minArea: 20 },
+      false,
+    );
+    expect(filter).toContain('LOWER(listings.city) IN (?)');
+    expect(filter).toContain(RENT_FOR_BUDGET_SQL);
+    expect(filter).not.toContain('COALESCE(sc.matches_criteria, 0) = 1');
   });
 });
 

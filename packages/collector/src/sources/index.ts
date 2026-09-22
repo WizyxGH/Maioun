@@ -40,6 +40,7 @@ import { rentumoScraper } from './rentumo/index.js';
 import { studapartScraper } from './studapart/index.js';
 import { personalimmoScraper } from './personalimmo/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
+import { maisonetteScraper } from './maisonette/index.js';
 import { orpiScraper } from './orpi/index.js';
 import { papScraper } from './pap/index.js';
 import { emailAlertsScraper } from './email-alerts/index.js';
@@ -218,6 +219,7 @@ import { figaroImmoScraper } from './figaro-immo/index.js';
 import { bbiiScraper } from './bbii/index.js';
 import { agenceDumasScraper } from './agence-dumas/index.js';
 import { capSudImmobilierScraper } from './cap-sud-immobilier/index.js';
+import { oneTwoThreeLogerScraper } from './123loger/index.js';
 import { solissimmoScraper } from './solissimmo/index.js';
 import { johnTaylorScraper } from './john-taylor/index.js';
 import { barnesScraper } from './barnes/index.js';
@@ -248,6 +250,8 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   fonciaScraper,
   century21Scraper,
   nousgeronsScraper,
+  maisonetteScraper,
+  oneTwoThreeLogerScraper,
   dazurScraper,
   gestionCassiniScraper,
   bepAbonnesScraper,

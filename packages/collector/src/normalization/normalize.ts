@@ -418,14 +418,16 @@ function parkingByTitle(
   title: string | null | undefined,
   area: number | null,
   rooms: number | null,
+  sourceUrl: string | null | undefined,
 ): boolean {
-  const text = comparable(title ?? '');
+  if (/\/a-louer-(?:garage|parking)\b/i.test(sourceUrl ?? '')) return true;
+  const text = comparable(`${title ?? ''} ${sourceUrl ?? ''}`);
   if (!PARKING_TITLE.test(text) || parsePropertyType(text) !== 'parking') return false;
   return (area === null || area <= 25) && (rooms === null || rooms <= 1);
 }
 
 const PARKING_TITLE =
-  /^(?:location\s+)?(?:box|garage|parking|stationnement|caves?|cellier|place de (?:parking|stationnement))\b|\b(?:box|garage|parking) a louer\b/;
+  /^(?:location\s+|a louer\s+)?(?:box|garage|parking|stationnement|caves?|cellier|place de (?:parking|stationnement))\b|\b(?:box|garage|parking) a louer\b/;
 
 /**
  * Un titre qui NOMME un bien commercial : « Location local commercial Nice
@@ -552,7 +554,7 @@ export function normalizeListing(
     bedrooms: parseBedrooms(text.bedrooms),
     propertyType: commercialByTitle(raw.title)
       ? 'commercial'
-      : parkingByTitle(raw.title, area, parseRooms(text.rooms))
+      : parkingByTitle(raw.title, area, parseRooms(text.rooms), raw.sourceUrl)
         ? 'parking'
         : parsePropertyType(text.type),
     // Le titre d'abord : « 3 PIÈCES MEUBLÉ » l'emporte sur une case « non »
@@ -913,7 +915,7 @@ function rescuedPropertyType(occurrence: NormalizedListing): NormalizedListing['
   const toParking =
     current !== 'parking' &&
     current !== 'commercial' &&
-    parkingByTitle(occurrence.title, occurrence.area, occurrence.rooms);
+    parkingByTitle(occurrence.title, occurrence.area, occurrence.rooms, occurrence.sourceUrl);
   return toParking ? 'parking' : current;
 }
 

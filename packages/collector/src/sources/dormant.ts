@@ -280,16 +280,6 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
 
   // ── Conformes, mais rien dans le périmètre ──────────────────────────────
   {
-    id: '123loger',
-    name: '123Loger',
-    origin: 'https://123loger.com',
-    reason: 'noVolume',
-    checkedOn: '2026-09-16',
-    refusal: '215 communes au sitemap, aucune dans le 06',
-    wakesIf: 'une page location/<ville>-06xxx apparaît au sitemap',
-    probe: { kind: 'sitemap', pattern: /\/location\/[a-z0-9-]+-06\d{3}\b/i, minMatches: 1 },
-  },
-  {
     id: 'qasa',
     name: 'Qasa',
     origin: 'https://qasa.com',

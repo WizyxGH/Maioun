@@ -620,6 +620,26 @@ describe('faux positifs relevés le 2026-09-14', () => {
         ?.propertyType,
     ).toBe('apartment');
     expect(normalize({ title: 'Cave 5 m²', areaText: '5 m²' })?.propertyType).toBe('parking');
+    expect(
+      normalize({
+        title: 'Garage / parking Nice',
+        description:
+          'Winter immobilier vous présente en exclusivité, un Garage à louer au 36 rue Paul Déroulède.',
+        propertyTypeText: 'Appartement',
+        priceText: '250 € / mois',
+        roomsText: '0 pièces',
+      })?.propertyType,
+    ).toBe('parking');
+    expect(
+      normalize({
+        title: 'PLACE MOZART - ALPHONSE KARR',
+        sourceUrl:
+          'https://www.agence-winter.com/biens/a-louer-garage-parking-nice-0-pieces-250-mois-2894',
+        propertyTypeText: 'Appartement',
+        priceText: '250 € / mois',
+        roomsText: '0 pièces',
+      })?.propertyType,
+    ).toBe('parking');
   });
 
   it('le rejeu range en parking un titre qui en nomme un', () => {

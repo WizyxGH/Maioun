@@ -25,14 +25,19 @@ const HTML = `
   <a href="/biens/a-louer-studio-nice-1690">Voir l'annonce</a>
   <div><p class="uppercase"><small>Nice</small></p><h3>Studio Route de Bellet</h3>
   <p class="text-lg">1 690 € / mois</p></div>
+</div></div>
+<div class="anim-fade-up"><div class="thumb">
+  <a href="/biens/a-louer-garage-parking-nice-0-pieces-250-mois-2894">Voir l'annonce</a>
+  <div><p class="uppercase"><small>Nice</small></p><h3>Garage / parking Nice</h3>
+  <p class="text-lg">250 € / mois</p></div>
 </div></div>`;
 
 describe('parseListPage (Winter)', () => {
   const { listings } = parseListPage(HTML, PAGE, 'Winter Immobilier');
 
   it('extrait une annonce par carte, avec la référence de l’URL', () => {
-    expect(listings).toHaveLength(2);
-    expect(listings.map((l) => l.sourceRef).sort()).toEqual(['1690', '2558']);
+    expect(listings).toHaveLength(3);
+    expect(listings.map((l) => l.sourceRef).sort()).toEqual(['1690', '2558', '2894']);
   });
 
   it('lit prix, ville, pièces/surface/meublé et l’URL absolue', () => {
@@ -53,6 +58,15 @@ describe('parseListPage (Winter)', () => {
     const l = listings.find((x) => x.sourceRef === '1690');
     expect(l?.roomsText).toBe('studio');
     expect(l?.areaText).toBeUndefined();
+  });
+
+  it('conserve la fiche Winter garage fournie', () => {
+    const l = listings.find((x) => x.sourceRef === '2894');
+    expect(l?.title).toBe('Garage / parking Nice');
+    expect(l?.priceText).toContain('250');
+    expect(l?.sourceUrl).toBe(
+      'https://www.agence-winter.com/biens/a-louer-garage-parking-nice-0-pieces-250-mois-2894',
+    );
   });
 });
 

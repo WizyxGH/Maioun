@@ -733,9 +733,24 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
     );
     filterArgs.push(...cities);
     applyFilters(filters);
+  } else if (!includeAll && filters !== undefined) {
+    // LES SCORES SONT CEUX DU DERNIER PASSAGE DE COLLECTE. Les utiliser ici
+    // figeait le plafond : passer de 700 à 750 € ne pouvait jamais faire
+    // entrer les annonces entre les deux, puisque `matches_criteria` avait
+    // déjà écarté ces lignes. Les critères enregistrés sont donc appliqués
+    // comme pour une recherche partagée ; le score reste affiché séparément.
+    const cities =
+      filters.cities !== undefined && filters.cities.length > 0
+        ? filters.cities
+        : MVP_CRITERIA.cities;
+    conditions.push(
+      `(${CATALOGUE_BASE_SQL})`,
+      `LOWER(listings.city) IN (${cities.map(() => '?').join(',')})`,
+    );
+    filterArgs.push(...cities);
+    applyFilters(filters);
   } else if (!includeAll) {
     conditions.push('COALESCE(sc.matches_criteria, 0) = 1');
-    if (filters !== undefined) applyFilters(filters);
   }
 
   // Archivées à la main ou d'office — louées, retirées, fermées aux
