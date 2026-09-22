@@ -30,7 +30,7 @@ import { archiveReasonOf } from '../availability.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { SearchSummary } from './SearchSummary.js';
 import { ListingThumbnail } from './ListingThumbnail.js';
-import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
+import { formatAge, formatArea, formatCity, formatPrice, listingSourceLabels } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Button } from '@/components/ui/button.js';
@@ -115,7 +115,7 @@ function MiniRow({
   readonly listing: ListingView;
   readonly onOpen: (id: string) => void;
 }): React.JSX.Element {
-  const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
+  const sources = listingSourceLabels(listing.occurrences);
   const photo = listing.imageUrls.find((url) => url.startsWith('https://'));
   return (
     <ItemButton size="sm" onClick={() => onOpen(listing.id)}>
@@ -133,7 +133,7 @@ function MiniRow({
           <span className="text-muted-foreground text-sm">{formatArea(listing.area.value)}</span>
         </span>
         <ItemDescription className="truncate">
-          {formatCity(listing.city.value)} · {sources.map(formatSourceName).join(', ')}
+          {formatCity(listing.city.value)} · {sources.join(', ')}
         </ItemDescription>
       </ItemContent>
       <ArrowRight aria-hidden="true" className="text-muted-foreground size-4 shrink-0" />

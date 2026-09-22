@@ -2115,3 +2115,59 @@ budget d'un passage. Ce qui dépasse est lu au passage suivant.
 
 **Le périmètre se juge sur le NOM de la commune**, comme pour Square Habitat :
 Nice a quatre codes postaux, et la pagination mélange parfois les voisines.
+
+## Immobilière ABC — déjà lue, sous un autre nom
+
+Demandée par son nom. `immobiliere-abc.com` est **déjà collecté** depuis le
+2026-09-15, sous le nom du cabinet qui l'exploite : **Abyla Bosse**. Même
+adresse (4 avenue Georges Clemenceau), même sitemap, même plateforme Apimo.
+
+C'est le test `registry.test.ts` qui l'a dit, en refusant deux sources pour un
+même domaine — et c'est exactement à cela qu'il sert.
+
+**Le nom commercial et la raison sociale ne se ressemblent pas toujours**, et
+c'est le piège de ce catalogue : une agence peut être lue sous une enseigne que
+personne ne prononce. Avant d'ajouter une source, chercher son DOMAINE, pas son
+nom.
+
+## ERA Immobilier : Nice ne suffisait pas (`era`)
+
+Le réseau ERA est lu depuis le 2026-09-04, mais sur **la seule page de Nice**.
+Or une page de commune ne montre que les biens SITUÉS dans cette commune : les
+franchises du réseau qui publient ailleurs dans le périmètre restaient
+invisibles, bien que la source existe.
+
+**ERA Maresol, à Cagnes-sur-Mer, était ainsi en tête du relevé des agences
+« vues par les portails, sans source directe »** — quinze annonces, dont
+quatorze vivantes — alors que nous lisions déjà son réseau. Un trou de
+couverture géographique, pas un trou de source.
+
+Relevé du 2026-09-22 sur les treize communes du périmètre :
+
+| Commune              | Annonces |
+| -------------------- | -------- |
+| Nice                 | 7 à 12   |
+| Cagnes-sur-Mer       | 8        |
+| Saint-Laurent-du-Var | 5        |
+| Villeneuve-Loubet    | 2        |
+| Les neuf autres      | 0        |
+
+Trois pages de plus, quinze annonces de plus. Les neuf communes vides ne sont
+pas demandées : une page inutile coûte autant qu'une page pleine.
+
+**La leçon vaut pour toutes les sources de réseau** : lire une commune n'est
+pas lire une enseigne. Tant qu'une franchise publie dans une commune qu'on ne
+demande pas, elle ressortira comme « non suivie ».
+
+## MeilleursAgents — consignée en veille
+
+`robots.txt` accueillant : il n'interdit que la recherche (`/immobilier/recherche/`),
+la carte et l'API. `/annonces/` est explicitement ouvert.
+
+**Mais le site entier répond 403**, racine comprise, avec un renvoi vers
+`geo.captcha-delivery.com` — DataDome. Rien à contourner : la source est
+consignée dans `sources/dormant.ts`.
+
+**Sa sonde vise l'inventaire, pas l'obstacle** : elle demande la page de
+locations de Nice, celle que le `robots.txt` autorise. Le jour où elle répond,
+il n'y a plus rien à lever — c'est la leçon que Square Habitat a coûtée.

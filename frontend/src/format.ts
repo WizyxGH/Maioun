@@ -360,6 +360,53 @@ export function formatSourceName(sourceId: string): string {
 }
 
 /**
+ * Le portail qui a ENVOYÉ l'alerte, quand la source est la boîte mail.
+ *
+ * « Alertes e-mail » ne dit pas d'où vient l'annonce, et c'est la seule source
+ * dont le nom ne désigne pas un site : elle relaie SeLoger, leboncoin ou
+ * Bien'ici selon l'alerte reçue. L'information était déjà là, dans
+ * l'identifiant de l'occurrence — « email-alerts:seloger:26AUM6KIFC9M » — mais
+ * l'écran n'en montrait que la première part.
+ *
+ * Ces portails ne sont pas des sources à nous : on ne les lit pas directement,
+ * leurs conditions l'interdisent. D'où cette petite table, à côté de celle qui
+ * est engendrée.
+ */
+const PORTAILS: Readonly<Record<string, string>> = {
+  seloger: 'SeLoger',
+  leboncoin: 'leboncoin',
+  bienici: 'Bien’ici',
+  logicimmo: 'Logic-Immo',
+  pap: 'PAP',
+};
+
+/** Une occurrence, réduite à ce qui la nomme. */
+interface SourceDite {
+  readonly id: string;
+  readonly sourceId: string;
+}
+
+/**
+ * Le nom à afficher pour UNE occurrence — le portail expéditeur compris.
+ *
+ * L'identifiant d'une occurrence vaut `{source}:{référence}`, et la référence
+ * d'une alerte est elle-même préfixée du portail. On ne lit donc que le
+ * deuxième segment, et seulement pour la boîte mail : ailleurs, la référence
+ * appartient à la source et ne veut rien dire d'autre.
+ */
+export function formatOccurrenceSource(occurrence: SourceDite): string {
+  const nom = formatSourceName(occurrence.sourceId);
+  if (occurrence.sourceId !== 'email-alerts') return nom;
+  const portail = PORTAILS[occurrence.id.split(':')[1] ?? ''];
+  return portail === undefined ? nom : `${nom} · ${portail}`;
+}
+
+/** Les sources d'une fiche, nommées et dédoublonnées, dans l'ordre d'arrivée. */
+export function listingSourceLabels(occurrences: readonly SourceDite[]): readonly string[] {
+  return [...new Set(occurrences.map(formatOccurrenceSource))];
+}
+
+/**
  * Numéro de téléphone français, lisible et cliquable.
  *
  * Les sources publient toutes les variantes : international, séparé par des

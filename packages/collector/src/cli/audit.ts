@@ -749,8 +749,9 @@ async function reportParserGaps(db: Database): Promise<void> {
 
   console.log(LIGNE_TROUS);
   console.log(
-    `   ${manquees} annonce(s) sur ${gaps.size} source(s) : en ligne chez l'agence, ` +
-      `arrivées seulement par un portail.`,
+    `   ${manquees} annonce(s) sur ${gaps.size} source(s). Un PLAFOND, pas une dette : ` +
+      `ouvrir l'exemple sur le site de l'agence tranche entre « parseur à reprendre » ` +
+      `et « l'agence ne l'y publie pas ».`,
   );
   for (const [sourceId, gap] of classement.slice(0, 25)) {
     console.log(`   ${sourceId.padEnd(30)} ${String(gap.listings.size).padStart(4)}`);

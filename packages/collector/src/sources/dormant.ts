@@ -184,6 +184,21 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     probe: { kind: 'page', url: 'https://www.pap.fr/annonce/locations-nice-06-g8979' },
   },
   {
+    id: 'meilleursagents',
+    name: 'MeilleursAgents',
+    origin: 'https://www.meilleursagents.com',
+    reason: 'antiBot',
+    checkedOn: '2026-09-22',
+    refusal:
+      'DataDome : 403 sur la page de locations de Nice comme sur la racine, ' +
+      'avec renvoi vers geo.captcha-delivery.com',
+    // LA SONDE VISE L'INVENTAIRE, PAS L'OBSTACLE : son robots.txt autorise
+    // « /annonces/ » et n'interdit que la recherche et la carte. Le jour où
+    // cette page répond, il n'y a plus rien à lever.
+    wakesIf: 'la page de locations de Nice, autorisée par son robots.txt, répond enfin',
+    probe: { kind: 'page', url: 'https://www.meilleursagents.com/annonces/location/nice-06000/' },
+  },
+  {
     id: 'entreparticuliers',
     name: 'Entreparticuliers',
     origin: 'https://www.entreparticuliers.com',

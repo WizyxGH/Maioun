@@ -2795,7 +2795,8 @@ export function createRepository(db: Database): Repository {
       return {
         async get(query) {
           const result = await db.execute({
-            sql: 'SELECT lat, lon, geocoded_at FROM geocode_cache WHERE query = ?',
+            sql: `SELECT lat, lon, geocoded_at, label, postcode
+                  FROM geocode_cache WHERE query = ?`,
             args: [query],
           });
           const row = result.rows[0];
@@ -2804,15 +2805,26 @@ export function createRepository(db: Database): Repository {
             lat: row['lat'] === null ? null : Number(row['lat']),
             lon: row['lon'] === null ? null : Number(row['lon']),
             geocodedAt: String(row['geocoded_at']),
+            label: row['label'] === null ? null : String(row['label']),
+            postcode: row['postcode'] === null ? null : String(row['postcode']),
           };
         },
         async set(query, entry) {
           await db.execute({
-            sql: `INSERT INTO geocode_cache (query, lat, lon, geocoded_at)
-                  VALUES (?,?,?,?)
+            sql: `INSERT INTO geocode_cache (query, lat, lon, geocoded_at, label, postcode)
+                  VALUES (?,?,?,?,?,?)
                   ON CONFLICT(query) DO UPDATE SET
-                    lat = excluded.lat, lon = excluded.lon, geocoded_at = excluded.geocoded_at`,
-            args: [query, entry.lat, entry.lon, entry.geocodedAt],
+                    lat = excluded.lat, lon = excluded.lon,
+                    geocoded_at = excluded.geocoded_at,
+                    label = excluded.label, postcode = excluded.postcode`,
+            args: [
+              query,
+              entry.lat,
+              entry.lon,
+              entry.geocodedAt,
+              entry.label ?? null,
+              entry.postcode ?? null,
+            ],
           });
         },
       };

@@ -314,6 +314,19 @@ describe('extractFeatures', () => {
     expect(features).toContain('Cave');
   });
 
+  /**
+   * LA MEZZANINE AJOUTE DE LA PLACE QUE LA SURFACE NE COMPTE PAS : la surface
+   * habitable exclut ce qui est sous 1,80 m. Sur un studio, c'est la
+   * différence entre dormir dans sa pièce à vivre et ne pas y dormir.
+   */
+  it('relève la mezzanine, que les chiffres ne disent pas', () => {
+    expect(extractFeatures('Studio 20 m² avec mezzanine, refait à neuf')).toContain('Mezzanine');
+  });
+
+  it('ne relève pas une mezzanine niée', () => {
+    expect(extractFeatures('Studio 20 m², sans mezzanine')).not.toContain('Mezzanine');
+  });
+
   it('utilise les attributs structurés (Orpi) et dédoublonne', () => {
     const features = extractFeatures('appartement avec ascenseur', {
       etage: '2',

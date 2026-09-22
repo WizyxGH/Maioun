@@ -914,6 +914,15 @@ const PATTERNS = {
   Piscine: /\bpiscine/,
   Climatisation: /\bclimatisation|\bclim\b|climatise/,
   Meublé: /\bmeuble/,
+  /**
+   * UNE MEZZANINE AJOUTE DE LA PLACE QUE LA SURFACE NE COMPTE PAS.
+   *
+   * La surface habitable exclut ce qui est sous 1,80 m : un studio de 20 m²
+   * avec mezzanine s'habite comme un deux-pièces, et aucun chiffre de la fiche
+   * ne le dit. Relevé du 2026-09-22 : 117 annonces actives en parlent, dont 70
+   * de 30 m² ou moins — c'est bien là qu'elle compte.
+   */
+  Mezzanine: /\bmezzanine/,
 } as const;
 
 /**
@@ -1034,6 +1043,7 @@ export function extractFeatures(
     [mentioned(PATTERNS['Piscine']), 'Piscine'],
     [mentioned(PATTERNS['Climatisation']), 'Climatisation'],
     [mentioned(PATTERNS['Meublé']), 'Meublé'],
+    [mentioned(PATTERNS['Mezzanine']), 'Mezzanine'],
     [/\bneuf\b|\brenove|refait a neuf/.test(lower), 'Rénové / neuf'],
     // Contrainte de DURÉE plutôt qu'agrément — mais c'est le fait le plus
     // décisif à voir quand il s'applique : le bien n'est pas louable l'été.

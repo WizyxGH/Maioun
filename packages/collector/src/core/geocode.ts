@@ -29,6 +29,25 @@ export interface GeocodeEntry {
   readonly lat: number | null;
   readonly lon: number | null;
   readonly geocodedAt: string;
+  /** L'adresse telle que la BAN l'écrit, quand elle a placé un NUMÉRO. */
+  readonly label?: string | null;
+  readonly postcode?: string | null;
+}
+
+/**
+ * CE QUE LA BAN A PLACÉ : le point, et l'adresse écrite comme il faut.
+ *
+ * Un sur-ensemble de `Coordinates`, pour que les appelants qui n'attendaient
+ * qu'un point continuent de marcher sans une ligne de changement.
+ *
+ * `label` N'EST RENDU QUE POUR UN NUMÉRO DONT LE NUMÉRO CORRESPOND à celui que
+ * la source annonçait. Une voie sans numéro placerait le bien au milieu d'elle
+ * et réécrirait l'adresse en perdant le numéro : ce serait une régression
+ * déguisée en correction.
+ */
+export interface PlacedAddress extends Coordinates {
+  readonly label: string | null;
+  readonly postcode: string | null;
 }
 
 export interface GeocodeCacheStore {
@@ -50,7 +69,7 @@ export interface Geocoder {
    * Géocode une adresse, ou `null` si introuvable/vide. Cache d'abord.
    * `city` est la commune attendue : elle écarte une rue homonyme ailleurs.
    */
-  geocode(address: string, city?: string | null): Promise<Coordinates | null>;
+  geocode(address: string, city?: string | null): Promise<PlacedAddress | null>;
 }
 
 /** Cache en mémoire, pour les tests. */
@@ -92,6 +111,10 @@ interface BanProperties {
   readonly type?: string;
   readonly city?: string;
   readonly citycode?: string;
+  /** L'adresse entière, telle que la BAN l'écrit : « 52 Rue Smollett 06300 Nice ». */
+  readonly label?: string;
+  readonly postcode?: string;
+  readonly housenumber?: string;
   /** Nom de la voie (`street` sur un numéro, `name` sur une voie). */
   readonly street?: string;
   readonly name?: string;
@@ -149,9 +172,43 @@ const TITLES = new Map(
 );
 const expand = (word: string): string => TITLES.get(word) ?? word;
 
-/** Deux mots se correspondent, tronqué ou collé compris (« Manteg »/« Mantéga »). */
+/**
+ * Deux mots à une faute près : une lettre ajoutée, retirée ou changée.
+ *
+ * SIX LETTRES AU MOINS, sinon « pont » et « port » seraient le même mot. Au
+ * delà, une lettre d'écart est presque toujours une coquille de saisie : les
+ * sources écrivent l'adresse à la main, et « Smolett » pour « Smollett » ou
+ * « Gambeta » pour « Gambetta » faisait rejeter le bon résultat de la BAN —
+ * donc pas de point sur la carte, et pas de correction d'adresse non plus.
+ */
+function uneFauteApres(a: string, b: string): boolean {
+  if (a.length < 6 || b.length < 6) return false;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  const [court, long] = a.length <= b.length ? [a, b] : [b, a];
+  let i = 0;
+  let j = 0;
+  let fautes = 0;
+  while (i < court.length && j < long.length) {
+    if (court[i] === long[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    fautes += 1;
+    if (fautes > 1) return false;
+    // Longueurs égales : une lettre CHANGÉE, on avance des deux côtés.
+    // Longueurs différentes : une lettre EN TROP dans le long.
+    if (court.length === long.length) i += 1;
+    j += 1;
+  }
+  return fautes + (long.length - j) + (court.length - i) <= 1;
+}
+
+/** Deux mots se correspondent, tronqué, collé ou à une faute près. */
 const near = (a: string, b: string): boolean =>
-  a === b || (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a)));
+  a === b ||
+  (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) ||
+  uneFauteApres(a, b);
 
 /** Mots du NOM d'une voie : sans le type, les articles ni les numéros. */
 const nameWords = (street: string): string[] =>
@@ -201,6 +258,18 @@ export function cleanAddress(address: string, city?: string | null): string {
   return joined.length >= 4 ? joined : address.replace(/[\s/,;-]+$/, '');
 }
 
+/**
+ * Le numéro en tête d'une adresse (« 52 bis Rue X » → « 52 »), ou `null`.
+ *
+ * SERT DE GARDE-FOU, pas d'information : la BAN ne réécrit l'adresse que si
+ * elle a placé CE numéro-là. Sans cette comparaison, « 52 Smolett » corrigé en
+ * « 5 Rue Smollett » passerait pour une amélioration.
+ */
+export function leadingNumber(address: string): string | null {
+  const match = /^\s*(\d{1,4})(?!\d)/.exec(address);
+  return match === null ? null : (match[1] as string);
+}
+
 /** Un numéro l'emporte sur une voie ; à type égal, le meilleur score. */
 const rank = (feature: BanFeature | null): number =>
   feature === null
@@ -239,6 +308,30 @@ function placedFeature(
   });
 
   return kept.sort((a, b) => rank(b) - rank(a))[0] ?? null;
+}
+
+/**
+ * L'ADRESSE ÉCRITE PAR LA BAN, et seulement quand elle a placé LE NUMÉRO
+ * ANNONCÉ.
+ *
+ * Deux garde-fous plutôt qu'un seuil de score : le score tombe vers 0,4 sur une
+ * adresse alourdie d'un nom d'immeuble tout en désignant le bon numéro, tandis
+ * qu'un numéro qui ne correspond pas est faux quel que soit le score.
+ */
+function adresseNormalisee(
+  best: BanFeature | null,
+  address: string,
+): { label: string | null; postcode: string | null } {
+  const props = best?.properties;
+  const annonce = leadingNumber(address);
+  const placee =
+    props?.type === 'housenumber' &&
+    props.label !== undefined &&
+    annonce !== null &&
+    props.housenumber === annonce;
+  return placee
+    ? { label: props.label ?? null, postcode: props.postcode ?? null }
+    : { label: null, postcode: null };
 }
 
 export function createGeocoder(options: GeocoderOptions): Geocoder {
@@ -285,7 +378,7 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
   };
 
   return {
-    async geocode(rawAddress: string, city: string | null = null): Promise<Coordinates | null> {
+    async geocode(rawAddress: string, city: string | null = null): Promise<PlacedAddress | null> {
       const trimmed = rawAddress.trim();
       if (trimmed.length < 4) return null;
 
@@ -294,11 +387,20 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
       if (cached !== null) {
         // Résultat connu (succès ou échec mémorisé) : aucun appel réseau.
         return cached.lat !== null && cached.lon !== null
-          ? { latitude: cached.lat, longitude: cached.lon }
+          ? {
+              latitude: cached.lat,
+              longitude: cached.lon,
+              label: cached.label ?? null,
+              postcode: cached.postcode ?? null,
+            }
           : null;
       }
 
       let coords: Coordinates | null = null;
+      let placed: { label: string | null; postcode: string | null } = {
+        label: null,
+        postcode: null,
+      };
       try {
         const address = cleanAddress(trimmed, city);
         const anchor = anchorWord(address);
@@ -326,6 +428,8 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
           // BAN renvoie [longitude, latitude] (ordre GeoJSON).
           const position = best?.geometry?.coordinates;
           if (position !== undefined) coords = { latitude: position[1], longitude: position[0] };
+
+          placed = adresseNormalisee(best, address);
         }
       } catch {
         // Panne réseau : on ne met PAS en cache un échec transitoire, pour
@@ -337,8 +441,10 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
         lat: coords?.latitude ?? null,
         lon: coords?.longitude ?? null,
         geocodedAt: new Date(options.nowMs).toISOString(),
+        label: placed.label,
+        postcode: placed.postcode,
       });
-      return coords;
+      return coords === null ? null : { ...coords, ...placed };
     },
   };
 }

@@ -8,11 +8,13 @@ import {
   formatArea,
   formatDay,
   formatDistrict,
+  formatOccurrenceSource,
   formatPhone,
   formatPostalAddress,
   formatPrice,
   formatTime,
   formatTracking,
+  listingSourceLabels,
   telHref,
 } from './format.js';
 
@@ -296,5 +298,41 @@ describe('formatArea', () => {
     expect(formatArea(23.6)).toBe('23,6 m²');
     expect(formatArea(13.25)).toBe('13,25 m²');
     expect(formatArea(45)).toBe('45 m²');
+  });
+});
+
+describe('le portail qui a envoyé l’alerte', () => {
+  /**
+   * « Alertes e-mail » est la seule source dont le nom ne désigne pas un site.
+   * L'information était déjà dans l'identifiant de l'occurrence ; elle ne
+   * s'affichait nulle part.
+   */
+  it('nomme le portail expéditeur d’une alerte', () => {
+    expect(
+      formatOccurrenceSource({ id: 'email-alerts:seloger:26AUM6KIFC9M', sourceId: 'email-alerts' }),
+    ).toBe('Alertes e-mail · SeLoger');
+  });
+
+  it('laisse les autres sources telles quelles', () => {
+    expect(formatOccurrenceSource({ id: 'bienici:ag067238-546871712', sourceId: 'bienici' })).toBe(
+      'Bien’ici',
+    );
+  });
+
+  /** Un portail inconnu ne se devine pas : on n'affiche que ce qu'on sait. */
+  it('n’invente pas un nom pour un portail qu’il ne connaît pas', () => {
+    expect(
+      formatOccurrenceSource({ id: 'email-alerts:inconnu:12345', sourceId: 'email-alerts' }),
+    ).toBe('Alertes e-mail');
+  });
+
+  it('dédoublonne les sources d’une fiche', () => {
+    expect(
+      listingSourceLabels([
+        { id: 'email-alerts:seloger:A', sourceId: 'email-alerts' },
+        { id: 'email-alerts:seloger:B', sourceId: 'email-alerts' },
+        { id: 'bienici:C', sourceId: 'bienici' },
+      ]),
+    ).toEqual(['Alertes e-mail · SeLoger', 'Bien’ici']);
   });
 });

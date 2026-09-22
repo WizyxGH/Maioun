@@ -38,7 +38,7 @@ import { normalizeAll } from './normalization/normalize.js';
 import { dedupe } from './deduplication/dedupe.js';
 import { mergeGroup } from './deduplication/merge.js';
 import { scoreListing, scoreMatch } from './scoring/index.js';
-import { createGeocoder, geocodeCacheKey } from './core/geocode.js';
+import { createGeocoder, geocodeCacheKey, type PlacedAddress } from './core/geocode.js';
 import { createDpeLookup, dpeCacheKey, type DpeRecord } from './core/dpe.js';
 import { createTransitRouter } from './core/transit.js';
 import type { Coordinates } from './core/geo.js';
@@ -345,10 +345,10 @@ async function geocodeMissingAddresses(
   merged: readonly AggregatedListing[],
   options: PipelineOptions,
   nowMs: number,
-): Promise<Map<string, Coordinates | null>> {
+): Promise<Map<string, PlacedAddress | null>> {
   // Sans condition sur les points de référence DU COMPTE PRINCIPAL : la carte et
   // les trajets des autres comptes ont besoin des mêmes coordonnées.
-  const geocoded = new Map<string, Coordinates | null>();
+  const geocoded = new Map<string, PlacedAddress | null>();
 
   const cache = memoizeStore(options.repository.geocodeCache());
   const geocoder = createGeocoder({
@@ -358,13 +358,25 @@ async function geocodeMissingAddresses(
     ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
   });
 
-  // Seulement les annonces sans GPS mais avec une adresse de rue : géocoder
-  // une simple ville donnerait un centre-ville trompeur (§17).
-  const candidates = merged.flatMap((listing) => {
-    if (listing.latitude.value !== null && listing.longitude.value !== null) return [];
-    const query = geocodeQuery(listing);
-    return query === null ? [] : [{ listing, query }];
-  });
+  /**
+   * TOUTE ADRESSE DE RUE, ET PLUS SEULEMENT CELLES SANS GPS — géocoder une
+   * simple ville donnerait toujours un centre-ville trompeur (§17), mais une
+   * annonce déjà située a, elle aussi, une adresse à faire écrire correctement.
+   * « 52 SMOLETT, 06000 Nice » portait des coordonnées : elle n'était donc
+   * jamais soumise à la BAN, qui l'écrit « 52 Rue Smollett 06300 Nice ».
+   *
+   * CELLES QUI N'ONT PAS DE POINT PASSENT D'ABORD : le budget réseau est le
+   * même, et un bien absent de la carte coûte plus cher qu'une adresse mal
+   * orthographiée. Le cache rend la suite gratuite.
+   */
+  const candidates = merged
+    .flatMap((listing) => {
+      const query = geocodeQuery(listing);
+      if (query === null) return [];
+      const situee = listing.latitude.value !== null && listing.longitude.value !== null;
+      return [{ listing, query, situee }];
+    })
+    .sort((a, b) => Number(a.situee) - Number(b.situee));
 
   // Le cache se lit en parallèle ; le réseau reste un appel à la fois.
   const cached = await mapLimited(candidates, CACHE_READS_AT_ONCE, ({ listing, query }) =>
@@ -379,6 +391,42 @@ async function geocodeMissingAddresses(
     geocoded.set(listing.id, await geocoder.geocode(query, listing.city.value));
   }
   return geocoded;
+}
+
+/**
+ * L'ADRESSE ÉCRITE PAR LA BAN, quand elle vaut mieux que celle de la source.
+ *
+ * LES SOURCES ÉCRIVENT L'ADRESSE À LA MAIN, et cela se voit : « 52 SMOLETT,
+ * 06000 Nice » pour « 52 Rue Smollett 06300 Nice » — le type de voie manquait,
+ * le nom perdait un L, et le code postal était celui que l'agence met sur
+ * toutes ses annonces alors que Nice en a quatre. Cent cinquante-trois annonces
+ * actives n'ont même pas de type de voie dans leur adresse.
+ *
+ * CE N'EST PAS UNE VALEUR DEVINÉE : la BAN a placé LE NUMÉRO ANNONCÉ dans la
+ * commune attendue, et c'est le registre officiel des adresses. On ne réécrit
+ * rien sans cela — pas de numéro placé, pas de correction.
+ *
+ * LA PROVENANCE LE DIT (« ban ») : la fiche ne doit pas laisser croire que
+ * c'est la source qui l'a écrit ainsi.
+ */
+function tidyAddress(
+  listing: AggregatedListing,
+  placed: PlacedAddress | null,
+  nowMs: number,
+): AggregatedListing {
+  if (placed?.label == null) return listing;
+  const stamp = { sourceId: 'ban', observedAt: new Date(nowMs).toISOString(), conflicts: [] };
+
+  // Le code postal ne se corrige QUE s'il accompagne une adresse réécrite : le
+  // prendre seul reviendrait à déplacer une annonce sur la foi d'une voie.
+  const postal =
+    placed.postcode !== null && placed.postcode !== listing.postalCode.value
+      ? { postalCode: { value: placed.postcode, ...stamp } }
+      : {};
+
+  return listing.address.value === placed.label
+    ? { ...listing, ...postal }
+    : { ...listing, address: { value: placed.label, ...stamp }, ...postal };
 }
 
 /**
@@ -939,6 +987,8 @@ export async function regroupAndScore(
           }
         : listing;
 
+    const situe = tidyAddress(enriched, coords, nowMs);
+
     /**
      * LE DPE VENU DE L'ADEME, quand la source n'en publie aucun. La provenance
      * dit d'ou il vient — c'est un diagnostic officiel trouve a l'adresse, pas
@@ -953,11 +1003,11 @@ export async function regroupAndScore(
     const stamp = { sourceId: 'ademe', observedAt: new Date(nowMs).toISOString(), conflicts: [] };
     const complete =
       diagnostic === undefined
-        ? enriched
+        ? situe
         : {
-            ...enriched,
+            ...situe,
             dpe: { value: diagnostic.label, ...stamp },
-            ...(diagnostic.gesLabel !== null && enriched.ges.value === null
+            ...(diagnostic.gesLabel !== null && situe.ges.value === null
               ? { ges: { value: diagnostic.gesLabel, ...stamp } }
               : {}),
           };

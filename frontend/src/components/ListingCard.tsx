@@ -19,7 +19,7 @@ import {
   formatPrice,
   formatPropertyType,
   formatRooms,
-  formatSourceName,
+  listingSourceLabels,
   formatTracking,
 } from '../format.js';
 import { checkEligibility, type TenantProfile } from '@maioun/shared';
@@ -334,7 +334,9 @@ export function ListingCard({
   onFavorite,
   profile,
 }: ListingCardProps): React.JSX.Element {
-  const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
+  // Le nom de la source, et pour la boîte mail le PORTAIL qui a envoyé
+  // l'alerte : « Alertes e-mail » seul ne disait pas d'où venait l'annonce.
+  const sources = listingSourceLabels(listing.occurrences);
   const archived = isArchived(listing);
   const rented = listing.rented === true;
   const uncertain = isUncertain(listing);
@@ -478,8 +480,7 @@ export function ListingCard({
 
       {/* §13, §38 : d'où vient l'annonce et combien de fois elle circule. */}
       <p className="mt-1 text-[0.85rem] text-muted-foreground">
-        {sources.length === 1 ? '1 source' : `${sources.length} sources`} ·{' '}
-        {sources.map(formatSourceName).join(', ')}
+        {sources.length === 1 ? '1 source' : `${sources.length} sources`} · {sources.join(', ')}
       </p>
     </Card>
   );

@@ -15,7 +15,13 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { formatArea, formatPhone, formatPrice, formatSourceName, telHref } from '../format.js';
+import {
+  formatArea,
+  formatPhone,
+  formatPrice,
+  formatOccurrenceSource,
+  telHref,
+} from '../format.js';
 import { safeHref } from '../safe-url.js';
 import {
   awaitsContact,
@@ -88,7 +94,7 @@ function paidContactSources(occurrences: readonly OccurrenceView[]): readonly st
   const names = new Set<string>();
   for (const occurrence of occurrences) {
     if (SOURCES[occurrence.sourceId]?.paidContact === true) {
-      names.add(formatSourceName(occurrence.sourceId));
+      names.add(formatOccurrenceSource(occurrence));
     }
   }
   return [...names];
@@ -133,7 +139,7 @@ function SourceRow({
         rel="noreferrer noopener"
         className="inline-flex min-h-6 items-center text-primary underline"
       >
-        {formatSourceName(occurrence.sourceId)}
+        {formatOccurrenceSource(occurrence)}
       </a>
       {differs && (
         <span className="text-muted-foreground">

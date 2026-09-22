@@ -20,6 +20,9 @@ interface FakeFeature {
   readonly citycode?: string;
   readonly lon?: number;
   readonly lat?: number;
+  readonly label?: string;
+  readonly postcode?: string;
+  readonly housenumber?: string;
 }
 
 /** Réponse BAN simulée : coordonnées en [lon, lat] (ordre GeoJSON). */
@@ -34,6 +37,9 @@ function banBody(features: readonly FakeFeature[]): string {
         ...(f.name !== undefined ? { name: f.name } : {}),
         ...(f.city !== undefined ? { city: f.city } : {}),
         ...(f.citycode !== undefined ? { citycode: f.citycode } : {}),
+        ...(f.label !== undefined ? { label: f.label } : {}),
+        ...(f.postcode !== undefined ? { postcode: f.postcode } : {}),
+        ...(f.housenumber !== undefined ? { housenumber: f.housenumber } : {}),
       },
     })),
   });
@@ -74,7 +80,88 @@ describe('createGeocoder', () => {
   it('géocode une adresse et convertit [lon, lat] → {latitude, longitude}', async () => {
     const { impl } = fakeBan(() => [{ street: 'Boulevard Fictif', lon: 7.2662, lat: 43.7024 }]);
     const coords = await geocoderWith(impl).geocode('42 Bd Fictif 06000 Nice');
-    expect(coords).toEqual({ latitude: 43.7024, longitude: 7.2662 });
+    expect(coords).toMatchObject({
+      latitude: 43.7024,
+      longitude: 7.2662,
+      label: null,
+      postcode: null,
+    });
+  });
+
+  /**
+   * L'ADRESSE ÉCRITE PAR LE REGISTRE OFFICIEL.
+   *
+   * Le cas relevé le 2026-09-22 : la source publie « 52 SMOLETT, 06000 Nice ».
+   * Il manque le type de voie, le nom perd un L, et le code postal est celui
+   * que l'agence met sur toutes ses annonces — Nice en a quatre.
+   */
+  it('rend l’adresse telle que la BAN l’écrit', async () => {
+    const { impl } = fakeBan(() => [
+      {
+        street: 'Rue Smollett',
+        housenumber: '52',
+        label: '52 Rue Smollett 06300 Nice',
+        postcode: '06300',
+      },
+    ]);
+    const placed = await geocoderWith(impl).geocode('52 SMOLETT', 'Nice');
+    expect(placed?.label).toBe('52 Rue Smollett 06300 Nice');
+    expect(placed?.postcode).toBe('06300');
+  });
+
+  /**
+   * LE NUMÉRO DOIT CORRESPONDRE, sans quoi la correction serait une
+   * substitution : réécrire « 52 Smolett » en « 5 Rue Smollett » aurait l'air
+   * d'une amélioration et changerait l'immeuble.
+   */
+  it('n’écrit rien quand la BAN a placé un autre numéro', async () => {
+    const { impl } = fakeBan(() => [
+      {
+        street: 'Rue Smollett',
+        housenumber: '5',
+        label: '5 Rue Smollett 06300 Nice',
+        postcode: '06300',
+      },
+    ]);
+    const placed = await geocoderWith(impl).geocode('52 SMOLETT', 'Nice');
+    expect(placed?.label).toBeNull();
+    expect(placed?.postcode).toBeNull();
+  });
+
+  /** Une VOIE n'écrit pas l'adresse : elle perdrait le numéro annoncé. */
+  it('n’écrit rien quand la BAN n’a placé qu’une voie', async () => {
+    const { impl } = fakeBan(() => [
+      { type: 'street', name: 'Rue Smollett', label: 'Rue Smollett 06300 Nice' },
+    ]);
+    const placed = await geocoderWith(impl).geocode('52 SMOLETT', 'Nice');
+    expect(placed?.label).toBeNull();
+  });
+
+  /**
+   * LA TOLÉRANCE S'ARRÊTE AUX MOTS COURTS. « Pont » et « Port » ne diffèrent
+   * que d'une lettre et désignent deux endroits sans rapport : en dessous de
+   * six lettres, une lettre d'écart n'est plus une coquille.
+   */
+  it('ne confond pas deux mots courts à une lettre près', async () => {
+    const { impl } = fakeBan(() => [{ street: 'Rue du Port', ...NICE }]);
+    expect(await geocoderWith(impl).geocode('12 rue du Pont')).toBeNull();
+  });
+
+  it('garde l’adresse normalisée en cache, sans rappeler le réseau', async () => {
+    const { impl, calls } = fakeBan(() => [
+      {
+        street: 'Rue Smollett',
+        housenumber: '52',
+        label: '52 Rue Smollett 06300 Nice',
+        postcode: '06300',
+      },
+    ]);
+    const geocoder = geocoderWith(impl);
+    await geocoder.geocode('52 SMOLETT', 'Nice');
+    const premierTour = calls.length;
+    const again = await geocoder.geocode('52 SMOLETT', 'Nice');
+    expect(calls).toHaveLength(premierTour);
+    expect(again?.label).toBe('52 Rue Smollett 06300 Nice');
   });
 
   it('ne rappelle pas le réseau pour une adresse déjà en cache (§30)', async () => {
@@ -170,7 +257,7 @@ describe('adresses telles que les annonces les écrivent', () => {
           ],
     );
     const coords = await geocoderWith(impl).geocode('38 Rue Smollett le Vasco de Gamma', 'nice');
-    expect(coords).toEqual({ latitude: 43.702834, longitude: 7.28638 });
+    expect(coords).toMatchObject({ latitude: 43.702834, longitude: 7.28638 });
   });
 
   it('place une adresse précédée du nom de la résidence', async () => {
