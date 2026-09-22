@@ -31,11 +31,18 @@
  * 2. ATTRIBUTION. Il ne le REÇOIT que si le nom de l'IRIS COMMENCE par le
  *    sien, le reste étant séparé par un tiret ou une espace.
  *
- * LE GARDE-FOU PRIME SUR LA RÈGLE : un IRIS revendiqué par plus d'un quartier
- * n'est donné à aucun. « Bellet-Magnan » nomme Bellet et Magnan, « Cimiez-
- * Valrose » nomme Cimiez et Valrose : on ne tranche pas à leur place. C'est
- * bien la revendication sur TOUT composant qui compte, et non le seul premier
- * — sinon Cimiez emporterait une zone que Valrose réclame aussi.
+ * L'IRIS QUI NOMME DEUX QUARTIERS VA AU PREMIER, PUIS EST PARTAGÉ.
+ * « Bellet-Magnan » nomme Bellet et Magnan, « Cimiez-Valrose » nomme Cimiez et
+ * Valrose. La zone va d'abord au premier nommé — c'est le dominant, et c'est
+ * la convention de l'INSEE. Le second la reçoit AUSSI, mais seulement s'il n'a
+ * aucune zone à lui : un quartier qui possède déjà ses propres IRIS ne
+ * grossit pas de la moitié de son voisin ; un quartier qui n'existait pas sur
+ * la carte y entre.
+ *
+ * ON NE LAISSAIT RIEN À PERSONNE, et cela coûtait cher : Valrose, Arson,
+ * Saint-Lambert, Borriglione et cinq autres n'avaient aucun contour, alors
+ * que Valrose porte à lui seul cinquante-deux annonces. Une zone un peu large,
+ * partagée et dite comme telle, vaut mieux qu'un trou muet.
  *
  * LA RÉUNION EST EXACTE, PAS APPROCHÉE. Les IRIS d'une commune forment une
  * couverture topologiquement propre : chaque frontière intérieure apparaît une
@@ -137,13 +144,48 @@ function attribuer(revendiquer) {
     }
   }
   const couverts = [...parQuartier].filter(([, parts]) => parts.length > 0);
-  return { couverts, disputes };
+  return { couverts, disputes, parQuartier };
 }
 
-// Deux lectures du garde-fou, pour savoir ce que la stricte coûte.
+/**
+ * LE PARTAGE, ET SEULEMENT POUR CEUX QUI N'ONT RIEN.
+ *
+ * L'INSEE fusionne parfois deux quartiers en un seul IRIS, qu'il nomme des
+ * deux : « Cimiez-Valrose », « Riquier-Arson », « Borriglione-Saint Lambert ».
+ * L'attribution par préfixe donne cette zone au PREMIER nommé — c'est le
+ * dominant, et c'est la convention de l'INSEE —, et le second se retrouvait
+ * sans le moindre contour. Valrois, Arson, Saint-Lambert : des quartiers
+ * entiers absents de la carte, dont Valrose avec cinquante-deux annonces.
+ *
+ * On donne donc AUSSI cette zone au second, mais UNIQUEMENT s'il n'a rien
+ * d'autre. Un quartier qui possède déjà ses propres IRIS ne grossit pas de la
+ * moitié de son voisin ; un quartier qui n'existait pas sur la carte y entre,
+ * avec une zone un peu large plutôt qu'aucune.
+ *
+ * CE N'EST PAS UNE FRONTIÈRE INVENTÉE : la zone est celle que l'INSEE publie,
+ * et son nom porte celui du quartier. Elle est seulement PARTAGÉE, ce que deux
+ * contours superposés disent honnêtement.
+ */
+function complèterLesOrphelins(parQuartier) {
+  let ajoutés = 0;
+  for (const district of quartiers) {
+    const parts = parQuartier.get(district.slug);
+    if (parts === undefined || parts.length > 0) continue;
+    const formes = formesDe(district);
+    const partagés = iris.filter((entry) => revendique(formes, entry.forme));
+    if (partagés.length === 0) continue;
+    parts.push(...partagés);
+    ajoutés += 1;
+  }
+  return ajoutés;
+}
+
+// Deux lectures du garde-fou, pour savoir ce que chacune coûte.
 const large = attribuer(commencePar);
 const strict = attribuer(revendique);
-const { couverts, disputes } = strict;
+const orphelins = complèterLesOrphelins(large.parQuartier);
+const couverts = [...large.parQuartier].filter(([, parts]) => parts.length > 0);
+const disputes = large.disputes;
 
 // --- Réunion exacte des IRIS d'un quartier --------------------------------
 
@@ -352,9 +394,10 @@ const source = `/**
  * ici, et confirme que « Nice Nord », « Ouest » et « Est » n'en sont pas.
  *
  * ${String(features.length)} quartiers sur ${String(NICE_DISTRICTS.length)} ont un contour, réunion exacte de ${String(reunis)} IRIS.
- * Un IRIS revendiqué par deux de nos quartiers n'est donné à aucun (${String(disputes.length)} cas) :
- * on ne tranche pas à leur place. Les autres quartiers n'ont aucun IRIS dont
- * le nom commence par le leur.
+ * Dont ${String(orphelins)} quartiers sans zone propre, qui PARTAGENT celle d'un IRIS
+ * portant aussi leur nom (« Cimiez-Valrose » pour Valrose). Les quartiers
+ * restants n'ont aucun IRIS qui les nomme : la géométrie de l'INSEE ne les
+ * connaît pas, et on ne leur invente pas de frontière.
  *
  * Géométrie simplifiée APRÈS réunion (Douglas-Peucker ${String(TOLERANCE_M)} m, ${String(DECIMALES)} décimales) :
  * ${String(sommets)} sommets. Ce fichier n'est importé que DYNAMIQUEMENT, par la carte : il
@@ -398,6 +441,10 @@ console.log(
 console.log(
   `garde-fou : préfixe seul ${String(large.couverts.length)} quartiers / ${String(large.disputes.length)} IRIS disputés ;` +
     ` tout composant (appliqué) ${String(strict.couverts.length)} / ${String(strict.disputes.length)}`,
+);
+console.log(
+  `partage : ${String(orphelins)} quartiers sans zone propre en reçoivent une, ` +
+    `partagée avec le quartier dont l'IRIS porte aussi le nom.`,
 );
 console.log('IRIS écartés, revendiqués par plusieurs quartiers :');
 for (const [nom, slugs] of disputes) console.log(`  ${nom} ← ${slugs.join(', ')}`);
