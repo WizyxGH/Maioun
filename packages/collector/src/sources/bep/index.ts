@@ -36,4 +36,9 @@ export const bepScraper = makeApimoScraper({
    * touche Nice.
    */
   citySlugs: [...portalCommuneSlugs(), 'falicon'],
+  // SA PAGE D'ACCUEIL EST SA VITRINE DE LOCATIONS : cent fiches y figurent,
+  // dont soixante-trois absentes de notre inventaire au 2026-09-23. Le
+  // filtrage par commune écarte ensuite ce qui est hors périmètre — BEP
+  // publie aussi pour Antibes.
+  listUrls: ['https://bep-logement.com/fr/'],
 });

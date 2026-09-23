@@ -22,6 +22,10 @@ export const palaisImmobilierScraper = makeApimoScraper({
   domain: 'palaisimmobilier.com',
   sitemapUrl: 'https://palaisimmobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  // SA PAGE PORTE TROIS ANNONCES QUE SON SITEMAP IGNORE (86776606, 86819657,
+  // 87404415 au 2026-09-23). Le chemin n'est ni /fr/locations — qui ne rend
+  // rien — ni la racine : c'est /fr/location-nice.
+  listUrls: ['https://palaisimmobilier.com/fr/location-nice'],
   // Le volume justifie un budget de découverte plus large que le défaut : à
   // 20 fiches par passage, un stock de 105 mettrait cinq passages à entrer.
   maxDetailsBackfill: 40,
