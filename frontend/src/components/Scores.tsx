@@ -29,8 +29,9 @@ import { Check, Dot, TriangleAlert } from './icons.js';
  * chiffre qui ne s'affichait nulle part.
  *
  * C'est ce cinquième chiffre qui est ici, avec sa recette et son échelle
- * écrites à côté. Ce qui l'a fait monter ou descendre se déplie dessous : le
- * score dit quoi faire, le détail dit pourquoi.
+ * écrites à côté, et CE QUI L'A FAIT dans la même carte : le score dit quoi
+ * faire, le détail dit pourquoi, et les séparer en deux cartes donnait deux
+ * objets là où il n'y a qu'un sujet.
  */
 export function OverallScore({
   value,
@@ -44,7 +45,7 @@ export function OverallScore({
 
   return (
     <section className="mb-3">
-      <Card className="mb-3 p-3">
+      <Card className="p-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-base font-semibold">Score Maïoun</h2>
           <span className={`text-2xl font-bold ${TONE_TEXT[tone]}`}>{value}/100</span>
@@ -67,8 +68,8 @@ export function OverallScore({
           </summary>
           <p className="mt-1 text-[0.82rem] text-muted-foreground">{SCORE_EXPLANATION}</p>
         </details>
+        {children}
       </Card>
-      {children}
     </section>
   );
 }
@@ -117,9 +118,9 @@ export function ScoreBreakdown({
   readonly groups: readonly ScoreGroup[];
 }): React.JSX.Element {
   return (
-    <Card className="mb-3 p-0">
+    <div className="border-border mt-2 border-t pt-1">
       <details data-testid="score-detail" className="group">
-        <summary className="flex cursor-pointer list-none items-baseline justify-between p-3">
+        <summary className="flex cursor-pointer list-none items-baseline justify-between py-2">
           <h3 className="text-base font-semibold">
             Ce qui a fait ce score
             <span
@@ -131,7 +132,7 @@ export function ScoreBreakdown({
           </h3>
         </summary>
 
-        <div className="px-3 pb-3">
+        <div className="pb-2">
           {groups.map((groupe) => (
             <section key={groupe.title} className="mt-2 first:mt-0">
               <h4 className="text-[0.82rem] font-semibold text-muted-foreground uppercase">
@@ -166,7 +167,7 @@ export function ScoreBreakdown({
           ))}
         </div>
       </details>
-    </Card>
+    </div>
   );
 }
 

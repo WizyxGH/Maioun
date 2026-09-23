@@ -116,13 +116,31 @@ function amount(text: string | undefined): number | undefined {
 
 /**
  * Honoraires du locataire, état des lieux compris : c'est la somme versée à
- * l'entrée. Apimo les publie sur deux lignes distinctes.
+ * l'entrée.
+ *
+ * ON L'ADDITIONNAIT DEUX FOIS. Apimo publie « Honoraires locataire » et
+ * « État des lieux charge locataire » sur deux lignes, et le code en concluait
+ * qu'il fallait les ajouter. La première contient déjà la seconde.
+ *
+ * L'ARITHMÉTIQUE NE LAISSE PAS DE DOUTE, relevée le 2026-09-23 sur deux
+ * agences :
+ *
+ *   - Acropolis, studio de 21,09 m² : la description détaille « constitution
+ *     de dossier 210,09 € + 63,27 (edl) », soit 9,96 €/m² et 3,00 €/m², et le
+ *     champ « Honoraires locataire » affiche 274 € — leur somme. Nous
+ *     stockions 337,27 € ;
+ *   - Immobilière Victor Hugo, studio de 19 m² : honoraires 247 €, état des
+ *     lieux 57 €. Or 57 = 19 × 3,00 exactement, et 247 − 57 = 190 = 19 × 10,00.
+ *     Le champ est bien le total.
+ *
+ * CE N'ÉTAIT PAS SANS CONSÉQUENCE : 698 occurrences vivantes portaient des
+ * honoraires gonflés de l'état des lieux, soit trois euros du mètre carré de
+ * trop. La fiche affiche le plafond ALUR à côté du montant annoncé — elle
+ * faisait donc passer pour hors-la-loi des agences qui facturent exactement au
+ * plafond.
  */
 export function apimoFeesText(criteria: ApimoCriteria): string | undefined {
-  const fees = amount(criterion(criteria, [/^honoraires locataire/]));
-  if (fees === undefined) return undefined;
-  const inventory = amount(criterion(criteria, [/etat des lieux/])) ?? 0;
-  return `${Math.round((fees + inventory) * 100) / 100} €`;
+  return criterion(criteria, [/^honoraires locataire/]);
 }
 
 /** Charges, dépôt de garantie et honoraires, lus dans les mentions légales. */

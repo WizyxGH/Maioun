@@ -32,8 +32,14 @@ describe('fiche 3 pièces (étiquette DPE récente)', () => {
     expect(normalized?.price).toBe(820);
     expect(normalized?.charges).toBe(60);
     expect(normalized?.deposit).toBe(820);
-    // Honoraires 620 € + état des lieux 143,04 €.
-    expect(normalized?.tenantFees).toBe(763.04);
+    /**
+     * 620 €, ET NON 763,04. La fiche affiche « Honoraires locataire 620 € » et
+     * « État des lieux 143,04 € », et l'on additionnait les deux. Le premier
+     * contient déjà le second : 620 − 143,04 = 476,96, soit très exactement
+     * 10,00 €/m² sur 47,68 m², tandis que 143,04 vaut 3,00 €/m². Les deux
+     * plafonds légaux, au centime.
+     */
+    expect(normalized?.tenantFees).toBe(620);
   });
 
   it('compte deux chambres, pas une par ligne du bloc Surfaces', () => {
@@ -66,7 +72,9 @@ describe('fiche studio (ancienne étiquette DPE)', () => {
 
   it('lit dépôt, honoraires et ascenseur', () => {
     expect(normalized?.deposit).toBe(1100);
-    expect(normalized?.tenantFees).toBe(337.27);
+    // 274 €, ET NON 337,27 : la description détaille « constitution de
+    // dossier 210,09 € + 63,27 (edl) », dont le champ est la somme.
+    expect(normalized?.tenantFees).toBe(274);
     expect(normalized?.bedrooms).toBeNull();
     expect(normalized?.features).toContain('Ascenseur');
   });

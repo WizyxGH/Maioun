@@ -44,7 +44,6 @@ import {
   parseNotificationPreferences,
   canNotifyNow,
   NOTIFICATIONS_SENT_AT_SETTING,
-  CURRENT_USER,
 } from '@maioun/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
@@ -694,26 +693,27 @@ async function main(): Promise<void> {
     }
 
     /**
-     * LES SOURCES QUI CASSENT, SIGNALÉES À L'EXPLOITANT.
+     * LES SOURCES QUI CASSENT, CONSIGNÉES — ET PLUS NOTIFIÉES.
      *
-     * Les changements d'état de santé finissaient dans le journal, que personne
-     * ne lit : trois pannes de suite ont été repérées par l'utilisateur, pas par
-     * le système. La surveillance ajoute aux transitions ce que le cycle de vie
-     * savait déjà (inventaire effondré, page sans la moindre annonce), le
-     * silence anormal d'une source et la disparition d'un champ clé.
+     * La surveillance reste entière : elle ajoute aux transitions ce que le
+     * cycle de vie savait déjà (inventaire effondré, page sans la moindre
+     * annonce), le silence anormal d'une source, la disparition d'un champ clé,
+     * et le réveil d'un candidat endormi. Tout cela va au journal, à la mémoire
+     * des alertes déjà vues, et à l'écran Sources.
      *
-     * APRÈS les alertes d'annonces, et pas avant : si le quota du service de
-     * push devait manquer, il manquerait à l'avis d'exploitation, pas au
-     * logement qu'on peut encore visiter.
+     * CE QUI PART, C'EST LA NOTIFICATION. Une panne de source est une affaire
+     * d'exploitation : elle n'a pas à faire vibrer le téléphone de quelqu'un
+     * qui cherche un logement, sur le même canal que « nouvelle annonce à
+     * 700 € ». Le canal des alertes ne sert plus qu'aux logements.
+     *
+     * LE SONDAGE DES CANDIDATS ENDORMIS RESTE ICI, et ce n'est pas un détail :
+     * c'est lui qui rouvre une source refusée dont le site a changé.
      */
     await reportSourceHealth({
       repository,
       transitions: report.healthTransitions,
       lifecycleSkips: report.lifecycleSkips,
       logger,
-      siteUrl: publicSiteUrl() ?? '',
-      vapid,
-      userId: CURRENT_USER,
       nowMs: systemClock.now(),
       extraAlerts: await watchDormantCandidates(repository, config.criteria, logger),
     });

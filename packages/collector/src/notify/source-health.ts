@@ -25,8 +25,6 @@
 import type { Logger } from '../core/logger.js';
 import type { Repository, SourceObservation, WatchedField } from '../db/repository.js';
 import type { LifecycleSkip, SourceHealthTransition } from '../pipeline.js';
-import { sourcesUrl } from '@maioun/shared';
-import { sendOperatorPush, type PushPayload, type VapidConfig } from './web-push.js';
 
 /**
  * Où la surveillance note ce qu'elle a DÉJÀ signalé.
@@ -384,76 +382,11 @@ export function deduplicate(
   return { fresh, memory };
 }
 
-/** L'ordre dans lequel les ennuis se racontent : le plus grave d'abord. */
-const SEVERITY: readonly SourceAlertKind[] = [
-  'health',
-  'interrupted',
-  'collapse',
-  'template',
-  'silent',
-  'field',
-  'awake',
-  'recovered',
-];
-
-/** Combien de sources sont nommées dans la notification ; le reste est compté. */
-const PUSH_MAX_NAMED = 4;
-
-/**
- * UNE SEULE NOTIFICATION, ET ELLE REMPLACE LA PRÉCÉDENTE.
- *
- * L'étiquette est fixe (`maioun-sources`) : le navigateur remplace la
- * notification portant la même étiquette au lieu de l'empiler. Il ne peut donc
- * jamais y avoir plus d'un avis d'exploitation en attente, quoi qu'il arrive —
- * c'est ce qui permet d'utiliser le même canal que les annonces sans le polluer.
- * Le titre dit d'emblée qu'il ne s'agit pas d'un logement.
- */
-export function sourceHealthPush(
-  alerts: readonly SourceAlert[],
-  siteUrl: string,
-): PushPayload | null {
-  if (alerts.length === 0) return null;
-  const ordered = [...alerts].sort(
-    (a, b) =>
-      SEVERITY.indexOf(a.kind) - SEVERITY.indexOf(b.kind) || a.sourceId.localeCompare(b.sourceId),
-  );
-  const named = ordered.slice(0, PUSH_MAX_NAMED);
-  const rest = ordered.length - named.length;
-  const broken = ordered.filter(
-    (alert) => alert.kind !== 'recovered' && alert.kind !== 'awake',
-  ).length;
-  const awake = ordered.filter((alert) => alert.kind === 'awake').length;
-
-  return {
-    // Un candidat réveillé n'est pas une panne : le titre ne doit pas alarmer
-    // pour ce qui est une bonne nouvelle.
-    title:
-      broken > 0
-        ? `🩺 ${broken} source${broken > 1 ? 's' : ''} à vérifier`
-        : awake > 0
-          ? `🌱 ${awake} candidat${awake > 1 ? 's' : ''} à resonder`
-          : '🩺 Sources rétablies',
-    body: [
-      ...named.map((alert) => `• ${alert.sourceId} — ${alert.detail}`),
-      rest > 0 ? `… et ${rest} autre${rest > 1 ? 's' : ''}` : null,
-    ]
-      .filter((line): line is string => line !== null)
-      .join('\n'),
-    url: sourcesUrl(siteUrl),
-    tag: 'maioun-sources',
-  };
-}
-
 export interface SourceHealthDeps {
   readonly repository: Repository;
   readonly transitions: readonly SourceHealthTransition[];
   readonly lifecycleSkips: readonly LifecycleSkip[];
   readonly logger: Logger;
-  readonly siteUrl: string;
-  /** Absent : la surveillance se contente du journal et de l'écran Sources. */
-  readonly vapid: VapidConfig | null;
-  /** Le compte de l'exploitant — c'est lui qui répare, pas les autres. */
-  readonly userId: string;
   readonly nowMs: number;
   /**
    * Alertes calculées ailleurs et signalées par le même canal — la veille des
@@ -501,20 +434,6 @@ export async function reportSourceHealth(deps: SourceHealthDeps): Promise<readon
 
     await repository.writeSetting(SOURCE_HEALTH_SETTING, JSON.stringify(memory));
 
-    const payload = deps.vapid === null ? null : sourceHealthPush(fresh, deps.siteUrl);
-    if (payload !== null && deps.vapid !== null) {
-      const sent = await sendOperatorPush(
-        {
-          repository,
-          config: deps.vapid,
-          siteUrl: deps.siteUrl,
-          logger,
-          userId: deps.userId,
-        },
-        [payload],
-      );
-      if (sent > 0) logger.info('source.alert_pushed', { alerts: fresh.length });
-    }
     return fresh;
   } catch (error) {
     logger.warn('source.alert_failed', {

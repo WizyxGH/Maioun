@@ -67,7 +67,6 @@ export {
   deduplicate,
   parseReported,
   reportSourceHealth,
-  sourceHealthPush,
   SOURCE_HEALTH_SETTING,
   type SourceAlert,
   type SourceAlertKind,

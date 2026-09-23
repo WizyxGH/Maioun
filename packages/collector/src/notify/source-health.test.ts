@@ -11,7 +11,6 @@ import {
   deduplicate,
   detectSourceAlerts,
   parseReported,
-  sourceHealthPush,
   type SourceAlert,
 } from './source-health.js';
 import type { SourceObservation, WatchedField } from '../db/repository.js';
@@ -314,64 +313,5 @@ describe('une alerte par source et par incident', () => {
     expect(parseReported('{"a|silent":"2026-09-16T00:00:00.000Z"}')).toEqual({
       'a|silent': '2026-09-16T00:00:00.000Z',
     });
-  });
-});
-
-describe('la notification', () => {
-  it('groupe tout en un seul message, sous une étiquette fixe', () => {
-    const payload = sourceHealthPush(
-      [
-        { sourceId: 'rentumo', kind: 'silent', detail: 'muette' },
-        { sourceId: 'foncia', kind: 'interrupted', detail: 'bloquée' },
-      ],
-      'https://exemple.test/app/',
-    );
-    // L'étiquette fixe fait REMPLACER la notification précédente : il ne peut
-    // jamais y avoir plus d'un avis d'exploitation en attente.
-    expect(payload?.tag).toBe('maioun-sources');
-    expect(payload?.title).toContain('2 sources');
-    expect(payload?.body).toContain('rentumo');
-    expect(payload?.body).toContain('foncia');
-    expect(payload?.url).toBe('https://exemple.test/app/sources');
-    // Aucun identifiant d'annonce : ce n'est pas une alerte de logement.
-    expect(payload?.listingId).toBeUndefined();
-  });
-
-  it('nomme les plus graves et compte le reste', () => {
-    const many: SourceAlert[] = Array.from({ length: 7 }, (_, i) => ({
-      sourceId: `source-${i}`,
-      kind: 'silent',
-      detail: 'muette',
-    }));
-    expect(sourceHealthPush(many, 'https://exemple.test')?.body).toContain('et 3 autres');
-  });
-
-  it('ne compose rien quand il n’y a rien à dire', () => {
-    expect(sourceHealthPush([], 'https://exemple.test')).toBeNull();
-  });
-
-  it('n’annonce pas une panne quand un candidat endormi se réveille', () => {
-    const payload = sourceHealthPush(
-      [{ sourceId: 'confiance-immobiliere', kind: 'awake', detail: 'son sitemap rend 4 annonces' }],
-      'https://exemple.test',
-    );
-    expect(payload?.title).toContain('candidat');
-    expect(payload?.title).not.toContain('à vérifier');
-    // Même étiquette : un seul avis d'exploitation en attente, quel qu'il soit.
-    expect(payload?.tag).toBe('maioun-sources');
-  });
-
-  it('parle d’abord des pannes quand les deux arrivent ensemble', () => {
-    const payload = sourceHealthPush(
-      [
-        { sourceId: 'confiance-immobiliere', kind: 'awake', detail: 'réveillée' },
-        { sourceId: 'foncia', kind: 'interrupted', detail: 'bloquée' },
-      ],
-      'https://exemple.test',
-    );
-    expect(payload?.title).toContain('1 source');
-    expect(payload?.body.indexOf('foncia')).toBeLessThan(
-      payload?.body.indexOf('confiance-immobiliere') ?? 0,
-    );
   });
 });
