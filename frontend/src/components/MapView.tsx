@@ -516,9 +516,17 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   useEffect(() => {
     for (const [slug, shape] of shapesRef.current) {
       const actif = slug === district;
-      shape.getElement()?.classList.toggle(BOUNDARY_ACTIVE_CLASS, actif);
+      const element = shape.getElement();
+      element?.classList.toggle(BOUNDARY_ACTIVE_CLASS, actif);
       // Devant ses voisins, sinon un contour mitoyen recouvre son trait.
-      if (actif) shape.bringToFront();
+      //
+      // SEULEMENT SI LE CONTOUR EST DESSINÉ. `bringToFront` remonte jusqu'au
+      // rendu de Leaflet, qui lit la position de l'élément : appelé sur une
+      // forme pas encore posée — ou déjà retirée —, il jette
+      // « Cannot read properties of undefined (reading '_leaflet_pos') », et
+      // c'est toute la page qui tombe. Le test de la barre de recherche l'a
+      // attrapé une fois sous charge, sans qu'on sache le reproduire isolément.
+      if (actif && element != null) shape.bringToFront();
     }
   }, [district, boundaries]);
 
@@ -598,9 +606,27 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       located.every((listing, index) => fittedIdsRef.current[index] === listing.id);
     if (!sameSet && positions.length > 0) {
       fittedIdsRef.current = located.map((listing) => listing.id);
-      // Le cadrage finit par `moveend`, qui redessine : inutile de dessiner
-      // deux fois pour la même arrivée.
-      map.fitBounds(L.latLngBounds(positions).pad(0.15), { maxZoom: 15 });
+      /**
+       * SANS ANIMATION, ET CE N'EST PAS UN DÉTAIL.
+       *
+       * Un zoom animé se termine par une transition CSS dont Leaflet écoute la
+       * fin. Or ce cadrage-ci se déclenche à CHAQUE changement de la liste —
+       * donc à chaque lettre tapée dans la recherche —, et la carte disparaît
+       * dès que le filtre ne rend plus rien. La transition se termine alors sur
+       * une carte détruite, et son gestionnaire va chercher la position d'un
+       * panneau qui n'existe plus : « Cannot read properties of undefined
+       * (reading '_leaflet_pos') », relevé par le scénario de la barre de
+       * recherche. `map.stop()` à la destruction ne suffit pas — il annule
+       * l'animation de Leaflet, pas la transition du navigateur.
+       *
+       * Rien à regretter : recadrer en glissant à chaque lettre tapée était
+       * de toute façon plus étourdissant qu'agréable. Le zoom d'un clic sur un
+       * quartier, lui, reste animé — la carte, elle, ne s'en va pas.
+       *
+       * Le cadrage finit par `moveend`, qui redessine : inutile de dessiner
+       * deux fois pour la même arrivée.
+       */
+      map.fitBounds(L.latLngBounds(positions).pad(0.15), { maxZoom: 15, animate: false });
     } else {
       draw();
     }

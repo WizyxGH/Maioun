@@ -310,7 +310,7 @@ describe('le portail qui a envoyé l’alerte', () => {
   it('nomme le portail expéditeur d’une alerte', () => {
     expect(
       formatOccurrenceSource({ id: 'email-alerts:seloger:26AUM6KIFC9M', sourceId: 'email-alerts' }),
-    ).toBe('Alertes e-mail · SeLoger');
+    ).toBe('Alertes e-mail (SeLoger)');
   });
 
   it('laisse les autres sources telles quelles', () => {
@@ -333,6 +333,6 @@ describe('le portail qui a envoyé l’alerte', () => {
         { id: 'email-alerts:seloger:B', sourceId: 'email-alerts' },
         { id: 'bienici:C', sourceId: 'bienici' },
       ]),
-    ).toEqual(['Alertes e-mail · SeLoger', 'Bien’ici']);
+    ).toEqual(['Alertes e-mail (SeLoger)', 'Bien’ici']);
   });
 });

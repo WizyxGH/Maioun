@@ -128,12 +128,58 @@ describe('createGeocoder', () => {
     expect(placed?.postcode).toBeNull();
   });
 
-  /** Une VOIE n'écrit pas l'adresse : elle perdrait le numéro annoncé. */
-  it('n’écrit rien quand la BAN n’a placé qu’une voie', async () => {
+  /** Une VOIE n'écrit pas l'adresse D'UN NUMÉRO : elle le perdrait. */
+  it('n’écrit rien quand la BAN n’a placé qu’une voie sous un numéro', async () => {
     const { impl } = fakeBan(() => [
       { type: 'street', name: 'Rue Smollett', label: 'Rue Smollett 06300 Nice' },
     ]);
     const placed = await geocoderWith(impl).geocode('52 SMOLETT', 'Nice');
+    expect(placed?.label).toBeNull();
+  });
+
+  /**
+   * SANS NUMÉRO, IL N'Y EN A AUCUN À PERDRE — et c'est justement là que le code
+   * postal manque. « Boulevard Louis Delfino, Nice » n'en portait pas.
+   */
+  it('écrit la voie officielle et son code postal quand l’adresse n’a pas de numéro', async () => {
+    const { impl } = fakeBan(() => [
+      {
+        type: 'street',
+        name: 'Boulevard Général Louis Delfino',
+        label: 'Boulevard Général Louis Delfino 06300 Nice',
+        postcode: '06300',
+        ...NICE,
+      },
+    ]);
+    const placed = await geocoderWith(impl).geocode('Boulevard Louis Delfino', 'Nice');
+    expect(placed?.label).toBe('Boulevard Général Louis Delfino 06300 Nice');
+    expect(placed?.postcode).toBe('06300');
+  });
+
+  /**
+   * UNE ARTÈRE QUI TRAVERSE DEUX CODES POSTAUX n'en désigne aucun. En choisir
+   * un placerait l'annonce dans le mauvais quartier avec l'aplomb d'une donnée
+   * officielle.
+   */
+  it('n’écrit aucun code postal quand la voie en porte deux', async () => {
+    const { impl } = fakeBan(() => [
+      {
+        type: 'street',
+        name: 'Avenue de la Californie',
+        label: 'Avenue de la Californie 06200 Nice',
+        postcode: '06200',
+        ...NICE,
+      },
+      {
+        type: 'street',
+        name: 'Avenue de la Californie',
+        label: 'Avenue de la Californie 06000 Nice',
+        postcode: '06000',
+        ...NICE,
+      },
+    ]);
+    const placed = await geocoderWith(impl).geocode('Avenue de la Californie', 'Nice');
+    expect(placed?.postcode).toBeNull();
     expect(placed?.label).toBeNull();
   });
 

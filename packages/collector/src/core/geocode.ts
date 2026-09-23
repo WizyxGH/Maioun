@@ -285,7 +285,7 @@ function placedFeature(
     readonly cityCode: string | null;
     readonly city: string | null;
   },
-): BanFeature | null {
+): { best: BanFeature | null; kept: readonly BanFeature[] } {
   const kept = features.filter((feature) => {
     const props = feature.properties ?? {};
     if (!PLACED_TYPES.has(props.type ?? '') || feature.geometry?.coordinates === undefined) {
@@ -307,30 +307,53 @@ function placedFeature(
     return resultWords.length > 0 && resultWords.some((w) => near(w, criteria.anchor));
   });
 
-  return kept.sort((a, b) => rank(b) - rank(a))[0] ?? null;
+  return { best: kept.sort((a, b) => rank(b) - rank(a))[0] ?? null, kept };
 }
 
 /**
- * L'ADRESSE ÉCRITE PAR LA BAN, et seulement quand elle a placé LE NUMÉRO
- * ANNONCÉ.
+ * L'ADRESSE ÉCRITE PAR LA BAN, et à quelles conditions on y touche.
  *
- * Deux garde-fous plutôt qu'un seuil de score : le score tombe vers 0,4 sur une
- * adresse alourdie d'un nom d'immeuble tout en désignant le bon numéro, tandis
- * qu'un numéro qui ne correspond pas est faux quel que soit le score.
+ * UN NUMÉRO : on réécrit l'adresse entière, à condition que la BAN ait placé
+ * LE NUMÉRO ANNONCÉ. Deux garde-fous plutôt qu'un seuil de score : le score
+ * tombe vers 0,4 sur une adresse alourdie d'un nom d'immeuble tout en
+ * désignant le bon numéro, tandis qu'un numéro qui ne correspond pas est faux
+ * quel que soit le score.
+ *
+ * PAS DE NUMÉRO : il n'y en a aucun à perdre, et le code postal manque
+ * justement là. « Boulevard Louis Delfino, Nice » devient « Boulevard Général
+ * Louis Delfino 06300 Nice » — la voie officielle et son code, que la source
+ * n'écrivait pas.
+ *
+ * MAIS SEULEMENT SI LA VOIE EST SANS AMBIGUÏTÉ. Une longue artère peut
+ * traverser deux codes postaux, et la BAN rend alors plusieurs voies du même
+ * nom. En donner un au hasard placerait l'annonce dans le mauvais quartier
+ * avec l'aplomb d'une donnée officielle : dès que les candidats ne s'accordent
+ * pas sur un seul code, on n'écrit rien.
  */
 function adresseNormalisee(
   best: BanFeature | null,
+  candidats: readonly BanFeature[],
   address: string,
 ): { label: string | null; postcode: string | null } {
   const props = best?.properties;
+  if (props?.label === undefined) return { label: null, postcode: null };
   const annonce = leadingNumber(address);
-  const placee =
-    props?.type === 'housenumber' &&
-    props.label !== undefined &&
-    annonce !== null &&
-    props.housenumber === annonce;
-  return placee
-    ? { label: props.label ?? null, postcode: props.postcode ?? null }
+
+  if (annonce !== null) {
+    return props.type === 'housenumber' && props.housenumber === annonce
+      ? { label: props.label, postcode: props.postcode ?? null }
+      : { label: null, postcode: null };
+  }
+
+  if (props.type !== 'street') return { label: null, postcode: null };
+  const codes = new Set(
+    candidats
+      .filter((one) => one.properties?.type === 'street')
+      .map((one) => one.properties?.postcode)
+      .filter((code): code is string => code !== undefined),
+  );
+  return codes.size === 1
+    ? { label: props.label, postcode: props.postcode ?? null }
     : { label: null, postcode: null };
 }
 
@@ -418,9 +441,13 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
           if (cityCode !== null) attempts.push({ q: address, citycode: cityCode });
 
           let best: BanFeature | null = null;
+          let candidats: readonly BanFeature[] = [];
           for (const params of attempts) {
             const found = placedFeature(await search(params), { anchor, minScore, cityCode, city });
-            if (rank(found) > rank(best)) best = found;
+            if (rank(found.best) > rank(best)) {
+              best = found.best;
+              candidats = found.kept;
+            }
             // Un numéro sûr : inutile de redemander autrement.
             if (rank(best) >= 1.8) break;
           }
@@ -429,7 +456,7 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
           const position = best?.geometry?.coordinates;
           if (position !== undefined) coords = { latitude: position[1], longitude: position[0] };
 
-          placed = adresseNormalisee(best, address);
+          placed = adresseNormalisee(best, candidats, address);
         }
       } catch {
         // Panne réseau : on ne met PAS en cache un échec transitoire, pour

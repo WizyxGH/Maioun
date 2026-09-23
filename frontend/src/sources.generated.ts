@@ -1750,6 +1750,14 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
   },
+  tichadou: {
+    name: 'Immobilière Tichadou',
+    domain: 'tichadou.fr',
+    kind: 'localAgency',
+    logo: null,
+    paidContact: false,
+    address: { street: '2 rue du Congrès', postalCode: '06000', city: 'Nice' },
+  },
   'tosca-nice-le-port': {
     name: 'Agence Tosca Nice le Port',
     domain: 'agencetosca.com',

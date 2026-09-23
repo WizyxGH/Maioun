@@ -15,6 +15,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (path: string): string => readFileSync(resolve(ROOT, path), 'utf8');
 
 describe('le scanner de secrets', () => {
+  /**
+   * TRENTE SECONDES, ET NON LES CINQ PAR DÉFAUT. Ce test lance un second
+   * processus Node qui relit les 1 233 fichiers du dépôt : seul, il tient en
+   * deux secondes ; au milieu de la suite complète, la machine est saturée et
+   * il a déjà dépassé le budget — un échec qui ne disait rien du code, dans le
+   * test dont le rôle est précisément d'être cru.
+   */
   it('ne détecte rien dans le dépôt en l’état', () => {
     // Échoue avec un code de sortie non nul si un secret est présent.
     const output = execFileSync('node', ['scripts/check-secrets.mjs'], {
@@ -22,7 +29,7 @@ describe('le scanner de secrets', () => {
       encoding: 'utf8',
     });
     expect(output).toMatch(/aucun secret détecté/);
-  });
+  }, 30_000);
 
   it('détecte effectivement un secret introduit', () => {
     // Vérification du vérificateur : un scanner qui ne trouve jamais rien

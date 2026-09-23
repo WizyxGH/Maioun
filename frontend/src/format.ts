@@ -398,7 +398,10 @@ export function formatOccurrenceSource(occurrence: SourceDite): string {
   const nom = formatSourceName(occurrence.sourceId);
   if (occurrence.sourceId !== 'email-alerts') return nom;
   const portail = PORTAILS[occurrence.id.split(':')[1] ?? ''];
-  return portail === undefined ? nom : `${nom} · ${portail}`;
+  // ENTRE PARENTHÈSES, et non après un point médian : le point médian sépare
+  // déjà les sources entre elles dans la même ligne, et « Alertes e-mail ·
+  // SeLoger » se lisait comme deux sources plutôt qu'une précision.
+  return portail === undefined ? nom : `${nom} (${portail})`;
 }
 
 /** Les sources d'une fiche, nommées et dédoublonnées, dans l'ordre d'arrivée. */

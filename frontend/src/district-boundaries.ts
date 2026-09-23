@@ -58,3 +58,59 @@ export function boundaryOptions(boundaries: DistrictBoundaries): readonly Distri
     }))
     .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 }
+
+/**
+ * Le point est-il dans cet anneau ? Lancer de rayon, la méthode usuelle.
+ *
+ * On compte les fois où une demi-droite partant du point traverse le contour :
+ * un nombre impair veut dire « dedans ». Les coordonnées sont en GeoJSON,
+ * donc `[longitude, latitude]`.
+ */
+function dansAnneau(lon: number, lat: number, anneau: readonly (readonly number[])[]): boolean {
+  let dedans = false;
+  for (let i = 0, j = anneau.length - 1; i < anneau.length; j = i++) {
+    const xi = anneau[i]?.[0] ?? 0;
+    const yi = anneau[i]?.[1] ?? 0;
+    const xj = anneau[j]?.[0] ?? 0;
+    const yj = anneau[j]?.[1] ?? 0;
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      dedans = !dedans;
+    }
+  }
+  return dedans;
+}
+
+/** Dans le polygone, c'est-à-dire dans son contour et dans aucun de ses trous. */
+function dansPolygone(
+  lon: number,
+  lat: number,
+  polygone: readonly (readonly (readonly number[])[])[],
+): boolean {
+  const [exterieur, ...trous] = polygone;
+  if (exterieur === undefined || !dansAnneau(lon, lat, exterieur)) return false;
+  return !trous.some((trou) => dansAnneau(lon, lat, trou));
+}
+
+/**
+ * LE QUARTIER D'UN POINT, quand les contours le disent sans ambiguïté.
+ *
+ * Mille annonces actives n'ont aucun quartier, et cinq cent soixante et une
+ * d'entre elles portent pourtant des coordonnées : la source n'écrit pas le
+ * quartier, mais elle dit où est le bien. Le rattacher n'invente rien — c'est
+ * le découpage de l'INSEE appliqué à un point connu.
+ *
+ * `null` DÈS QUE DEUX CONTOURS SE DISPUTENT LE POINT. Huit quartiers partagent
+ * la zone d'un voisin, faute d'en avoir une à eux : là où ils se superposent,
+ * choisir reviendrait à tirer au sort. Mieux vaut pas de quartier qu'un
+ * mauvais — c'est la même règle que partout ailleurs ici.
+ */
+export function districtAt(
+  boundaries: DistrictBoundaries,
+  latitude: number,
+  longitude: number,
+): string | null {
+  const trouves = boundaries.features.filter((feature) =>
+    feature.geometry.coordinates.some((polygone) => dansPolygone(longitude, latitude, polygone)),
+  );
+  return trouves.length === 1 ? (trouves[0]?.properties.slug ?? null) : null;
+}

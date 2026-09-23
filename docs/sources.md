@@ -2171,3 +2171,28 @@ consignée dans `sources/dormant.ts`.
 **Sa sonde vise l'inventaire, pas l'obstacle** : elle demande la page de
 locations de Nice, celle que le `robots.txt` autorise. Le jour où elle répond,
 il n'y a plus rien à lever — c'est la leçon que Square Habitat a coûtée.
+
+## Immobilière Tichadou (`tichadou`)
+
+Agence niçoise demandée par son nom, **2 rue du Congrès**. `robots.txt`
+(vérifié le 2026-09-23) : « Allow: / », sitemap déclaré.
+
+Site **ICS**, comme Forimmo, Drago et l'Agence du Port — mais pas au même
+gabarit. Celui-ci ne rend pas `resultat.php` : il embarque ses annonces dans un
+**tableau JavaScript**, `var properties = [ … ]`, qui porte tout — titre,
+loyer, lien, photo et la **description entière**.
+
+Une seule requête par passage, donc, et aucune fiche à visiter. La description
+est la vraie prise : elle détaille le loyer charges comprises, la provision
+pour charges, et les **honoraires du locataire avec leur ratio au mètre carré
+et la part d'état des lieux** — les deux montants exacts que plafonne la loi
+ALUR. Relevé du 2026-09-23 : l'une des quatre annonces facture 13,12 €/m²
+d'honoraires là où le plafond de Nice est de 10,09 €/m².
+
+**Ce n'est pas du JSON**, malgré les apparences : les valeurs mêlent guillemets
+doubles, apostrophes échappées à la mode JavaScript et champs entre apostrophes
+simples. `JSON.parse` s'y casse les dents et `eval` n'entre pas dans ce dépôt —
+chaque champ utile est donc lu au coup par coup, ce qui a l'avantage de ne rien
+exiger des champs qu'on ignore.
+
+Quatre locations au relevé, toutes à Nice.

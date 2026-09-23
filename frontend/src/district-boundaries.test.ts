@@ -12,7 +12,13 @@
 import { describe, expect, it } from 'vitest';
 import { districtBySlug, NICE_DISTRICTS } from '@maioun/shared';
 import { DISTRICT_BOUNDARIES } from './district-boundaries.generated.js';
-import { boundaryOptions, loadDistrictBoundaries } from './district-boundaries.js';
+import {
+  boundaryOptions,
+  districtAt,
+  loadDistrictBoundaries,
+  type DistrictBoundaries,
+  type DistrictBoundary,
+} from './district-boundaries.js';
 
 describe('contours de quartiers', () => {
   it('ne désigne que des quartiers de la table partagée', () => {
@@ -77,5 +83,54 @@ describe('contours de quartiers', () => {
 
   it('charge les contours à la demande', async () => {
     await expect(loadDistrictBoundaries()).resolves.toBe(DISTRICT_BOUNDARIES);
+  });
+});
+
+describe('districtAt', () => {
+  /** Un carré simple, et un second qui le recouvre à moitié. */
+  const carre = (slug: string, x0: number, x1: number): DistrictBoundary => ({
+    type: 'Feature',
+    properties: { slug },
+    geometry: {
+      type: 'MultiPolygon',
+      coordinates: [
+        [
+          [
+            [x0, 0],
+            [x1, 0],
+            [x1, 10],
+            [x0, 10],
+            [x0, 0],
+          ],
+        ],
+      ],
+    },
+  });
+
+  const collection = (features: readonly DistrictBoundary[]): DistrictBoundaries => ({
+    type: 'FeatureCollection',
+    features: [...features],
+  });
+
+  it('rattache un point au seul quartier qui le contient', () => {
+    const boundaries = collection([carre('gambetta', 0, 5), carre('riquier', 10, 15)]);
+    expect(districtAt(boundaries, 5, 2)).toBe('gambetta');
+    expect(districtAt(boundaries, 5, 12)).toBe('riquier');
+  });
+
+  it('ne rattache rien hors de tout contour', () => {
+    expect(districtAt(collection([carre('gambetta', 0, 5)]), 5, 40)).toBeNull();
+  });
+
+  /**
+   * HUIT QUARTIERS PARTAGENT LA ZONE D'UN VOISIN, faute d'en avoir une à eux.
+   * Là où deux contours se superposent, choisir reviendrait à tirer au sort.
+   */
+  it('ne tranche pas entre deux contours qui se superposent', () => {
+    const boundaries = collection([carre('cimiez', 0, 10), carre('valrose', 5, 15)]);
+    expect(districtAt(boundaries, 5, 7)).toBeNull();
+    // Hors du recouvrement, chacun reste chez soi.
+    expect(districtAt(boundaries, 5, 2)).toBe('cimiez');
+    expect(districtAt(boundaries, 5, 12)).toBe('valrose');
   });
 });

@@ -13,7 +13,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TenantProfile } from '@maioun/shared';
-import { awaitsContact, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
+import { awaitsContact, merged, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
 import type {
   FilterConfig,
   ListingView,
@@ -52,6 +52,7 @@ import {
   clearTenantProfile,
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
+import { districtAt, loadDistrictBoundaries } from './district-boundaries.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { archiveReasonOf, isUncertain } from './availability.js';
 import { formatSourceName } from './format.js';
@@ -1119,6 +1120,98 @@ function AppView(): React.JSX.Element {
   // Affinité : apprend de vos consultations/suivis/archivages pour remonter les
   // annonces qui vous ressemblent (§33). Hook placé AVANT tout return
   // conditionnel (règle des hooks). Recalculée quand la liste change.
+
+  /**
+   * LE QUARTIER D'UNE ANNONCE QUI N'EN DÉCLARE PAS, lu dans les contours.
+   *
+   * Mille annonces actives n'ont aucun quartier — leur source n'en écrit pas —
+   * et cinq cent soixante et une d'entre elles portent pourtant des
+   * coordonnées. Elles s'affichaient « Nice », tout court, alors que le
+   * découpage de l'INSEE sait exactement où elles tombent. Cent trente-neuf y
+   * gagnent un quartier ; les autres tombent dans les vingt quartiers du centre
+   * qu'aucun contour ne couvre.
+   *
+   * CE N'EST PAS UNE DEVINETTE : c'est une géométrie officielle appliquée à un
+   * point connu, et `districtAt` se tait dès que deux contours se disputent le
+   * point. La provenance le dit — « contours », et non le nom de la source.
+   *
+   * CHAQUE ANNONCE N'EST EXAMINÉE QU'UNE FOIS : sans cette mémoire, poser le
+   * quartier des unes relancerait le calcul sur les autres, indéfiniment.
+   */
+  const quartiersCherches = useRef(new Set<string>());
+  useEffect(() => {
+    const situees = listings.flatMap((listing) => {
+      const latitude = listing.latitude?.value ?? null;
+      const longitude = listing.longitude?.value ?? null;
+      if (listing.district.value !== null || latitude === null || longitude === null) return [];
+      return quartiersCherches.current.has(listing.id)
+        ? []
+        : [{ id: listing.id, latitude, longitude }];
+    });
+    if (situees.length === 0) return;
+    for (const situee of situees) quartiersCherches.current.add(situee.id);
+
+    /**
+     * APRÈS LE PREMIER RENDU, JAMAIS PENDANT. Les contours pèsent 110 ko à
+     * relire et le calcul parcourt soixante-cinq polygones par annonce : c'est
+     * peu, mais c'est du travail qui n'a aucune raison de disputer sa place à
+     * l'affichage de la liste. Le quartier est un CONFORT — il situe, il ne
+     * décide de rien —, donc il attend que le fil principal soit libre.
+     *
+     * `requestIdleCallback` n'existe pas partout (ni sous jsdom) : le repli
+     * sur un délai court fait le même travail, un peu plus tôt.
+     */
+    let vivant = true;
+    let annuler = () => undefined as void;
+    const auRepos = (travail: () => void): void => {
+      const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number })
+        .requestIdleCallback;
+      if (typeof idle === 'function') {
+        const jeton = idle(travail);
+        annuler = () => {
+          (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(
+            jeton,
+          );
+        };
+        return;
+      }
+      const jeton = window.setTimeout(travail, 200);
+      annuler = () => {
+        window.clearTimeout(jeton);
+      };
+    };
+
+    auRepos(() => {
+      void loadDistrictBoundaries()
+        .then((boundaries) => {
+          if (!vivant) return;
+          // `Map` désigne ici l'icône de la carte, importée plus haut : un
+          // objet simple évite de jouer avec l'ombre d'un nom.
+          const trouves: Record<string, string> = {};
+          for (const situee of situees) {
+            const slug = districtAt(boundaries, situee.latitude, situee.longitude);
+            if (slug !== null) trouves[situee.id] = slug;
+          }
+          if (Object.keys(trouves).length === 0) return;
+          const observedAt = new Date().toISOString();
+          setListings((actuelles) =>
+            actuelles.map((listing) => {
+              const slug = trouves[listing.id];
+              return slug === undefined || listing.district.value !== null
+                ? listing
+                : { ...listing, district: merged(slug, 'contours', observedAt) };
+            }),
+          );
+        })
+        .catch(() => undefined);
+    });
+
+    return () => {
+      vivant = false;
+      annuler();
+    };
+  }, [listings]);
+
   const affinity = useMemo(() => computeAffinity(listings), [listings]);
 
   // Mémorise les réglages d'affichage à chaque changement. Un effet plutôt
