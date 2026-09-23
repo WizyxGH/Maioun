@@ -683,6 +683,7 @@ const LIGNE_REGISTRE = '\n── Les agences lues, au registre des entreprises �
 const CESSES = '\n   ÉTABLISSEMENT CESSÉ au registre — à vérifier en premier :';
 const SANS_REPONSE = '\n   Sans réponse (ne prouve rien : enseigne ≠ raison sociale) :\n     ';
 /** Le département interrogé au registre : celui de tout le périmètre. */
+const LIGNE_SITEMAP = '\n── Sources Apimo qui ne lisent que leur sitemap ──────────────';
 const DEPARTEMENT = '06';
 
 /**
@@ -817,6 +818,40 @@ async function reportRegistry(): Promise<void> {
  * retrait doit être acquis (`missing_runs`), et un lot d'annonces apparues au
  * même instant ne compte pas — c'est une page de catalogue qui tourne.
  */
+/**
+ * LES SOURCES APIMO QUI NE LISENT QUE LEUR SITEMAP.
+ *
+ * Un sitemap ment des deux côtés : il garde ce qui est parti et oublie ce qui
+ * arrive. Relevé du 2026-09-23, par identité d'annonce : BEP en cachait 63,
+ * Gestion Cassini 8, Palais Immobilier 3, Étude Lotte 1 — toutes présentes sur
+ * la page de l'agence et absentes de son sitemap.
+ *
+ * Celles qui n'ont pas encore de page de liste ne sont pas fautives : leur
+ * chemin n'a simplement pas été trouvé. Il ne se devine pas — quatre graphies
+ * relevées en une journée (/fr/locations, /fr/location, /fr/louer,
+ * /fr/biens-a-louer) — et il se lit sur la page d'accueil du site.
+ *
+ * CE RELEVÉ EXISTE POUR QU'ELLES NE SOIENT PAS OUBLIÉES : sans lui, le travail
+ * s'arrête là où la dernière session s'est arrêtée.
+ */
+async function reportSitemapOnly(): Promise<void> {
+  const sansListe = ALL_SCRAPERS.map((one) => one.descriptor).filter(
+    // Le descripteur DIT ce qu'il lit : une source qui déclare une page de
+    // liste la porte dans ses chemins autorisés. On ne devine pas, on lit.
+    (one) =>
+      one.method === 'sitemap' &&
+      !one.allowedPaths.some(
+        (chemin) => /locat|louer/i.test(chemin) && !chemin.includes('propriete'),
+      ),
+  );
+
+  console.log(LIGNE_SITEMAP);
+  console.log(
+    `   ${sansListe.length} source(s) sur sitemap seul. Leur page de locations reste à trouver :`,
+  );
+  console.log(`   ${sansListe.map((one) => one.id).join(', ')}`);
+}
+
 async function reportVanishing(db: Database): Promise<void> {
   const repository = createRepository(db);
   const rates = await repository.vanishRates(
@@ -899,6 +934,7 @@ async function main(): Promise<void> {
     await reportCatalogCoverage(db);
     await reportAgencyCoverage(db);
     await reportParserGaps(db);
+    await reportSitemapOnly();
     if (process.argv.includes('--registre')) await reportRegistry();
     await reportWantedAds(db);
     await reportSettings(db);

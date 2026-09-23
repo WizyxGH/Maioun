@@ -90,7 +90,17 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     enabled: true,
     ...(config.operator !== undefined ? { operator: config.operator } : {}),
     ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
-    allowedPaths: ['/sitemap*.xml', '/fr/propriete/location*'],
+    /**
+     * Les pages de liste EN FONT PARTIE, et il fallait le dire : ce champ
+     * existe « pour que la conformité soit auditable sans relire le code ».
+     * Une page interrogée à chaque passage et absente de cette liste rendait
+     * l'audit faux — pas la collecte, mais le moyen de la vérifier.
+     */
+    allowedPaths: [
+      '/sitemap*.xml',
+      '/fr/propriete/location*',
+      ...(config.listUrls ?? []).map((url) => new URL(url).pathname),
+    ],
     notes:
       `Plateforme Apimo/Cello (adaptateur générique, §47). robots.txt permissif ` +
       `(seul /app_dev.php interdit), sitemap déclaré. Méthode sitemap : la liste ` +
@@ -139,8 +149,11 @@ async function ajouterLesPagesDeListe(
       if (page.notModified) continue;
       compter({ requests: 0, pages: 1 });
       const connues = new Set(entries.map((one) => one.url.reference));
-      for (const link of parseLocationLinks(page.body, listUrl)) {
+      const surLaPage = parseLocationLinks(page.body, listUrl);
+      const rattrapees: string[] = [];
+      for (const link of surLaPage) {
         if (connues.has(link.reference)) continue;
+        rattrapees.push(link.reference);
         entries.push({
           url: {
             transaction: 'location',
@@ -151,6 +164,35 @@ async function ajouterLesPagesDeListe(
           },
           lastmod: null,
         });
+      }
+
+      /**
+       * CE QUE LE SITEMAP AURAIT MANQUÉ, DIT À CHAQUE PASSAGE.
+       *
+       * C'est la seule mesure qui justifie cette requête de plus, et elle doit
+       * rester sous les yeux : le jour où elle tombe durablement à zéro, la
+       * page ne sert plus à rien ; le jour où elle explose, c'est le sitemap
+       * qui s'est cassé. Sans ce chiffre, on ne saurait ni l'un ni l'autre —
+       * le trou qui a motivé tout ceci n'a été découvert que parce qu'un
+       * utilisateur a reçu l'annonce par un autre canal.
+       */
+      if (rattrapees.length > 0) {
+        context.log('list.rescued', {
+          url: listUrl,
+          references: rattrapees.length,
+          examples: rattrapees.slice(0, 3),
+        });
+      }
+
+      /**
+       * UN SITEMAP QUI NE REND PLUS RIEN pendant que la page, elle, publie :
+       * ce n'est pas une agence sans stock, c'est un inventaire cassé. Le
+       * passage continue — la page sauve la collecte — mais il le DIT.
+       */
+      if (entries.length === surLaPage.length && surLaPage.length > 0) {
+        warnings.push(
+          `Sitemap sans aucune location alors que ${listUrl} en publie ${surLaPage.length}`,
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

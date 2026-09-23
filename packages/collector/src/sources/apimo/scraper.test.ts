@@ -227,6 +227,31 @@ describe('makeApimoScraper — la page de liste complète le sitemap', () => {
     expect(result.listings).toHaveLength(3);
   });
 
+  /**
+   * LE TROU QUI A MOTIVÉ TOUT CECI N'A ÉTÉ DÉCOUVERT QUE PARCE QU'UN
+   * UTILISATEUR A REÇU L'ANNONCE PAR UN AUTRE CANAL. Le chiffre doit rester
+   * sous les yeux : à zéro durable, la requête de plus ne sert à rien ; s'il
+   * explose, c'est le sitemap qui s'est cassé.
+   */
+  it('journalise ce que le sitemap aurait manqué', async () => {
+    const journal: { event: string; data?: Record<string, unknown> }[] = [];
+    const { context } = contexteAvecListe(['111111'], ['222222']);
+    await scraperAvecListe.run({
+      ...context,
+      log: (event, data) => journal.push({ event, ...(data === undefined ? {} : { data }) }),
+    });
+    const ligne = journal.find((one) => one.event === 'list.rescued');
+    expect(ligne?.data?.['references']).toBe(1);
+    expect(ligne?.data?.['examples']).toEqual(['222222']);
+  });
+
+  /** Un sitemap muet pendant que la page publie : inventaire cassé, pas agence vide. */
+  it('signale un sitemap sans la moindre location', async () => {
+    const { context } = contexteAvecListe([], ['222222']);
+    const result = await scraperAvecListe.run(context);
+    expect(result.warnings.some((one) => one.includes('Sitemap sans aucune location'))).toBe(true);
+  });
+
   it('ne compte pas deux fois une fiche vue des deux côtés', async () => {
     const { context } = contexteAvecListe(['111111'], ['111111']);
     const result = await scraperAvecListe.run(context);
