@@ -43,6 +43,7 @@ export type View =
   | 'agencies'
   | 'agency'
   | 'alerts'
+  | 'exchanges'
   | 'login'
   | 'forgot'
   | 'reset'
@@ -83,6 +84,7 @@ const VIEW_PRESENCE: Record<View, true> = {
   agencies: true,
   agency: true,
   alerts: true,
+  exchanges: true,
   login: true,
   forgot: true,
   reset: true,
@@ -126,6 +128,7 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   search: 'list',
   stats: 'stats',
   alerts: 'alerts',
+  echanges: 'exchanges',
   sources: 'sources',
   agencies: 'agencies',
   welcome: 'onboarding',

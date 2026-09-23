@@ -45,6 +45,7 @@ const LABELS: Readonly<Record<View, string>> = {
   agencies: 'Agences',
   agency: 'Agence',
   alerts: 'Alertes des portails',
+  exchanges: 'Vos démarches',
   login: 'Connexion',
   forgot: 'Mot de passe oublié',
   reset: 'Nouveau mot de passe',

@@ -21,6 +21,7 @@
  *   GET   /api/stats                 statistiques de suivi (§33)
  *   GET/PUT /api/config              critères de recherche (§66)
  *   GET     /api/alerts             historique des annonces signalées (§29)
+ *   GET     /api/exchanges          vos démarches, la plus ancienne en attente d'abord
  *   GET/PUT /api/settings/<clé>      réglages du compte (recherches, repères)
  *   GET     /api/agencies            annuaire des agences rencontrées
  *   GET     /api/agencies/<nom>      une agence et ses annonces
@@ -1088,6 +1089,52 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
   };
 }
 
+/**
+ * VOS DÉMARCHES, DANS L'ORDRE DE CE QUI ATTEND LE PLUS.
+ *
+ * Le suivi vivait en trois endroits qui ne se parlaient pas : le statut de
+ * l'annonce, le registre des démarches, et les réponses lues dans la boîte.
+ * On savait qu'une annonce était « contactée » ; on ne savait pas depuis
+ * QUAND, ni combien de fois, ni laquelle attend depuis trois semaines.
+ *
+ * L'ORDRE EST LE PROPOS DE CET ÉCRAN : la plus ancienne sans réponse d'abord,
+ * parce que c'est elle qu'il faut relancer aujourd'hui. Trier par date
+ * d'envoi décroissante aurait montré ce qu'on vient de faire — ce qu'on sait
+ * déjà.
+ */
+async function listExchanges(db: Client, userId: string): Promise<unknown> {
+  const result = await db.execute({
+    sql: `SELECT ${listingColumns(userId, LIST_PAYLOAD)},
+                 c.n AS attempts,
+                 c.last_at AS last_contact_at,
+                 (SELECT outcome FROM contact_attempts
+                   WHERE listing_id = listings.id AND user_id = c.user_id
+                   ORDER BY sent_at DESC LIMIT 1) AS last_outcome,
+                 (SELECT channel FROM contact_attempts
+                   WHERE listing_id = listings.id AND user_id = c.user_id
+                   ORDER BY sent_at DESC LIMIT 1) AS last_channel
+            FROM listings ${USER_STATE_JOIN}
+            JOIN (SELECT listing_id, user_id, COUNT(*) AS n, MAX(sent_at) AS last_at
+                    FROM contact_attempts WHERE user_id = ?
+                   GROUP BY listing_id, user_id) AS c
+              ON c.listing_id = listings.id
+           ORDER BY c.last_at ASC`,
+    args: [userId, userId, userId],
+  });
+  return {
+    exchanges: result.rows.map((row) => {
+      const record = row as Record<string, unknown>;
+      return {
+        listing: rowToListing(record),
+        attempts: Number(record['attempts'] ?? 0),
+        lastContactAt: String(record['last_contact_at'] ?? ''),
+        lastChannel: String(record['last_channel'] ?? 'manual'),
+        lastOutcome: String(record['last_outcome'] ?? 'pending'),
+      };
+    }),
+  };
+}
+
 async function listSources(db: Client): Promise<unknown> {
   const states = await db.execute('SELECT * FROM source_state ORDER BY source_id');
   const runs = await db.execute(`
@@ -1388,7 +1435,44 @@ async function updateListing(
     }
   }
   if (written === 0) return jsonError(404, 'Annonce introuvable');
+  if (body.tracking === 'contacted') await noteContactManuel(db, listingId, userId);
   return { id: listingId, ...body };
+}
+
+/**
+ * COCHER « CONTACTÉE » EST UNE DÉMARCHE, et le registre doit le savoir.
+ *
+ * Deux écritures racontaient la même chose sans se parler : les boutons de la
+ * fiche — appeler, ouvrir l'e-mail, envoyer le formulaire — inscrivaient une
+ * ligne dans `contact_attempts`, tandis que le simple changement de statut n'en
+ * inscrivait aucune. Relevé du 2026-09-23 : SEIZE annonces marquées
+ * « contactée » pour QUATRE tentatives enregistrées. L'écart est sans gravité
+ * tant qu'on lit le statut ; il devient un mensonge dès qu'un écran prétend
+ * lister vos démarches, et un danger le jour où des messages partent tout
+ * seuls.
+ *
+ * `manual` POUR LE CANAL, parce qu'on ne sait pas lequel : cocher une case ne
+ * dit pas si l'on a téléphoné ou écrit. Mieux vaut l'avouer que d'inventer.
+ *
+ * UNE SEULE FOIS : si une démarche est déjà consignée pour cette annonce, le
+ * statut ne fait que la refléter — l'inscrire à nouveau compterait une relance
+ * qui n'a pas eu lieu.
+ */
+async function noteContactManuel(db: Client, listingId: string, userId: string): Promise<void> {
+  const deja = await db.execute({
+    sql: 'SELECT COUNT(*) AS n FROM contact_attempts WHERE listing_id = ? AND user_id = ?',
+    args: [listingId, userId],
+  });
+  if (Number(deja.rows[0]?.['n'] ?? 0) > 0) return;
+
+  const now = new Date().toISOString();
+  await db.execute({
+    sql: `INSERT INTO contact_attempts
+            (id, listing_id, user_id, source_id, channel, trigger, sent_at, message,
+             follow_up_index, outcome, documents, updated_at)
+          VALUES (?,?,?,'unknown','manual','status',?,'',0,'pending','[]',?)`,
+    args: [crypto.randomUUID(), listingId, userId, now, now],
+  });
 }
 
 /** Les champs du corps qui sont des décisions personnelles, en colonnes SQL. */
@@ -2117,6 +2201,9 @@ export async function route(
   }
   if (resource === 'alerts' && method === 'GET') {
     return json(await listAlerts(db, identity), cors);
+  }
+  if (resource === 'exchanges' && method === 'GET') {
+    return json(await listExchanges(db, identity), cors);
   }
   const marketRead = method === 'GET' ? MARKET_READS.get(resource ?? '') : undefined;
   if (marketRead !== undefined) return json(await marketRead(db), cors);

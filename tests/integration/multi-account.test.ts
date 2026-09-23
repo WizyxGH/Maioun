@@ -156,6 +156,84 @@ describe('cloisonnement entre comptes (§26)', () => {
     expect(JSON.stringify(chezBob)).not.toContain('intéressée');
   });
 
+  /**
+   * COCHER « CONTACTÉE » EST UNE DÉMARCHE. Les boutons de la fiche
+   * l'inscrivaient au registre, le simple changement de statut non : seize
+   * annonces marquées contactées pour quatre tentatives enregistrées.
+   */
+  it('inscrit au registre un statut « contactée » posé à la main', async () => {
+    await call(db, 'alice', 'PATCH', '/api/listings/orpi:1', { tracking: 'contacted' });
+
+    const fiche = (await call(db, 'alice', 'GET', '/api/listings/orpi:1')) as {
+      contactAttempts?: { channel?: string; trigger?: string }[];
+    };
+    expect(fiche.contactAttempts).toHaveLength(1);
+    // On ne sait pas par quel canal : cocher une case ne le dit pas.
+    expect(fiche.contactAttempts?.[0]?.channel).toBe('manual');
+    expect(fiche.contactAttempts?.[0]?.trigger).toBe('status');
+  });
+
+  /** Le statut ne fait que refléter la démarche déjà consignée : pas de relance imaginaire. */
+  it('ne double pas la démarche quand le message est déjà parti', async () => {
+    await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
+      channel: 'email',
+      message: 'bonjour',
+      sourceId: 'orpi',
+    });
+    await call(db, 'alice', 'PATCH', '/api/listings/orpi:1', { tracking: 'contacted' });
+
+    const fiche = (await call(db, 'alice', 'GET', '/api/listings/orpi:1')) as {
+      contactAttempts?: unknown[];
+    };
+    expect(fiche.contactAttempts).toHaveLength(1);
+  });
+
+  it('n’inscrit rien pour un autre statut', async () => {
+    await call(db, 'alice', 'PATCH', '/api/listings/orpi:1', { tracking: 'toContact' });
+
+    const fiche = (await call(db, 'alice', 'GET', '/api/listings/orpi:1')) as {
+      contactAttempts?: unknown[];
+    };
+    expect(fiche.contactAttempts ?? []).toHaveLength(0);
+  });
+
+  /**
+   * L'ORDRE EST LE PROPOS DE CET ÉCRAN : la plus ancienne sans réponse
+   * d'abord, parce que c'est elle qu'il faut relancer aujourd'hui.
+   */
+  it('liste les démarches avec leur nombre et leur dernier canal', async () => {
+    await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
+      channel: 'email',
+      message: 'la première',
+      sourceId: 'orpi',
+    });
+    await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
+      channel: 'phone',
+      message: '',
+      sourceId: 'orpi',
+    });
+
+    const vu = (await call(db, 'alice', 'GET', '/api/exchanges')) as {
+      exchanges?: { listing: { id: string }; attempts: number; lastChannel: string }[];
+    };
+    expect(vu.exchanges).toHaveLength(1);
+    expect(vu.exchanges?.[0]?.listing.id).toBe('orpi:1');
+    // DEUX DÉMARCHES, UNE LIGNE : c'est l'échange qu'on suit, pas le message.
+    expect(vu.exchanges?.[0]?.attempts).toBe(2);
+    expect(vu.exchanges?.[0]?.lastChannel).toBe('phone');
+  });
+
+  it('ne montre pas les démarches du compte d’à côté', async () => {
+    await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
+      channel: 'email',
+      message: 'privé',
+      sourceId: 'orpi',
+    });
+
+    const chezBob = (await call(db, 'bob', 'GET', '/api/exchanges')) as { exchanges?: unknown[] };
+    expect(chezBob.exchanges ?? []).toHaveLength(0);
+  });
+
   it('compte les relances sur SES propres messages', async () => {
     // Le compte d'à côté ayant écrit deux fois, on annonçait une troisième
     // relance à qui n'avait rien envoyé.

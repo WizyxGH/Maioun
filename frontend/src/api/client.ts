@@ -386,6 +386,35 @@ export async function recordContact(
  * annonces hors critères, et une détection qui s'améliore effaçait alors des
  * alertes bel et bien parties. Un historique ne se réécrit pas.
  */
+/** Une démarche : l'annonce, et ce que le registre en dit. */
+export interface ExchangeView {
+  readonly listing: ListingView;
+  /** Nombre de messages partis pour cette annonce, relances comprises. */
+  readonly attempts: number;
+  readonly lastContactAt: string;
+  readonly lastChannel: string;
+  readonly lastOutcome: string;
+}
+
+/**
+ * Vos démarches, la plus ancienne en attente d'abord — c'est celle à relancer.
+ */
+export async function fetchExchanges(): Promise<readonly ExchangeView[]> {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
+    return MOCK_LISTINGS.filter((listing) => listing.tracking === 'contacted').map((listing) => ({
+      listing,
+      attempts: 1,
+      lastContactAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+      lastChannel: 'email',
+      lastOutcome: 'pending',
+    }));
+  }
+  if (API_URL === '') return [];
+  const response = await request<{ exchanges: readonly ExchangeView[] }>('/api/exchanges');
+  return response.exchanges;
+}
+
 export async function fetchAlerts(): Promise<readonly ListingView[]> {
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();

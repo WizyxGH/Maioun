@@ -14,6 +14,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TenantProfile } from '@maioun/shared';
 import { awaitsContact, merged, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
+import type { ExchangeView } from './api/client.js';
 import type {
   FilterConfig,
   ListingView,
@@ -33,6 +34,7 @@ import {
   fetchOnboardingDone,
   fetchSavedSearches,
   fetchAlerts,
+  fetchExchanges,
   fetchSources,
   isDemoMode,
   isUnconfigured,
@@ -204,6 +206,9 @@ const StatsPanel = lazy(() =>
 );
 const NotificationsPanel = lazy(() =>
   import('./components/NotificationsPanel.js').then((m) => ({ default: m.NotificationsPanel })),
+);
+const ExchangesPanel = lazy(() =>
+  import('./components/ExchangesPanel.js').then((m) => ({ default: m.ExchangesPanel })),
 );
 const AgenciesPanel = lazy(() =>
   import('./components/AgenciesPanel.js').then((m) => ({ default: m.AgenciesPanel })),
@@ -1000,6 +1005,7 @@ function AppView(): React.JSX.Element {
    * et bien parties. Sur cent seize signalées, trente-deux restaient visibles.
    */
   const [alerts, setAlerts] = useState<readonly ListingView[]>([]);
+  const [exchanges, setExchanges] = useState<readonly ExchangeView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1482,6 +1488,14 @@ function AppView(): React.JSX.Element {
     if (view !== 'alerts' || currentUser === undefined || currentUser === null) return;
     void fetchAlerts()
       .then(setAlerts)
+      .catch(() => undefined);
+  }, [view, currentUser]);
+
+  // Même règle pour les démarches : on les lit en ouvrant l'écran, pas avant.
+  useEffect(() => {
+    if (view !== 'exchanges' || currentUser === undefined || currentUser === null) return;
+    void fetchExchanges()
+      .then(setExchanges)
       .catch(() => undefined);
   }, [view, currentUser]);
 
@@ -2376,6 +2390,7 @@ function AppView(): React.JSX.Element {
               setFavoritesOnly(false);
               setView('list');
             }}
+            onOpenExchanges={() => go({ view: 'exchanges' })}
             onOpenFavorites={() => {
               setFavoritesOnly(true);
               setView('list');
@@ -2408,6 +2423,19 @@ function AppView(): React.JSX.Element {
         </main>
       );
     }
+    if (view === 'exchanges') {
+      return (
+        <Shell {...shell}>
+          <ExchangesPanel
+            exchanges={exchanges}
+            nowMs={nowMs}
+            onBack={() => back({ view: 'home' })}
+            onOpen={openListing}
+          />
+        </Shell>
+      );
+    }
+
     const settings = settingsView();
     if (settings !== null) return settings;
 

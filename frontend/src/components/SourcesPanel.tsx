@@ -7,10 +7,14 @@
  * Elle n'affiche que des métadonnées d'exécution — aucune donnée personnelle.
  */
 
+import { useState } from 'react';
+import { comparable } from '@maioun/shared';
+import { SOURCES } from '../sources.generated.js';
 import type { SourceStateView } from '../types.js';
 import { formatAge, formatSourceHealth, formatSourceName, sourceHealthBorder } from '../format.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { Input } from '@/components/ui/input.js';
 import { ArrowLeft } from './icons.js';
 
 /**
@@ -62,12 +66,35 @@ interface SourcesPanelProps {
   readonly onOpenSource?: (sourceId: string) => void;
 }
 
+/**
+ * « LISONS-NOUS DÉJÀ CE SITE ? » — la question qu'on ne pouvait pas poser.
+ *
+ * Deux cent vingt-trois sources s'affichaient d'affilée, sans le moindre champ
+ * de recherche : vérifier qu'une agence était déjà collectée demandait de
+ * parcourir la liste à l'œil. En une semaine, cinq agences ont été demandées
+ * alors qu'elles étaient lues depuis des jours — Immobilière ABC sous le nom de
+ * son cabinet, Étude Lotte, Agence Passy, ERA, ImmoJeune.
+ *
+ * LA RECHERCHE PORTE AUSSI SUR LE DOMAINE, et c'est tout l'intérêt : le nom
+ * commercial n'est pas l'identifiant. « immobiliere-abc.com » ne ressemble en
+ * rien à « Abyla Bosse », et c'est pourtant le même site.
+ */
+function matchesQuery(source: SourceStateView, query: string): boolean {
+  if (query === '') return true;
+  const info = SOURCES[source.sourceId];
+  const haystack = comparable([source.sourceId, info?.name ?? '', info?.domain ?? ''].join(' '));
+  return haystack.includes(query);
+}
+
 export function SourcesPanel({
   sources,
   nowMs,
   onBack,
   onOpenSource,
 }: SourcesPanelProps): React.JSX.Element {
+  const [query, setQuery] = useState('');
+  const cherche = comparable(query);
+  const shown = sources.filter((source) => matchesQuery(source, cherche));
   return (
     <div>
       <header className="mb-2 flex items-center justify-between">
@@ -83,11 +110,26 @@ export function SourcesPanel({
         </p>
       )}
 
+      {sources.length > 0 && (
+        <Input
+          type="search"
+          className="mb-3"
+          value={query}
+          aria-label="Rechercher une source"
+          placeholder="Nom de l’agence ou adresse du site…"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      )}
+
       {sources.length === 0 ? (
         <p>Aucune source n’a encore été exécutée.</p>
+      ) : shown.length === 0 ? (
+        <Card className="text-muted-foreground py-8 text-center text-[0.92rem]">
+          Aucune source ne porte ce nom ni ce domaine — celle-ci n’est donc pas encore lue.
+        </Card>
       ) : (
         <ul className="flex flex-col gap-3">
-          {sources.map((source) => (
+          {shown.map((source) => (
             <Card
               key={source.sourceId}
               // Rendue comme <li> sémantique via le wrapper : Card est un div,

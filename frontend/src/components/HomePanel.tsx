@@ -61,6 +61,8 @@ interface HomePanelProps {
   readonly profileComplete: boolean;
   readonly onOpenListing: (id: string) => void;
   readonly onOpenSearch: () => void;
+  /** Le registre des démarches : ce qui est parti, et depuis quand. */
+  readonly onOpenExchanges: () => void;
   readonly onOpenFavorites: () => void;
   readonly onOpenAlerts: () => void;
   readonly onOpenSavedSearches: () => void;
@@ -183,6 +185,7 @@ export function HomePanel({
   profileComplete,
   onOpenListing,
   onOpenSearch,
+  onOpenExchanges,
   onOpenFavorites,
   onOpenAlerts,
   onOpenSavedSearches,
@@ -291,7 +294,10 @@ export function HomePanel({
                   Icon={Bell}
                   title={`${awaitingReply.length} réponse${awaitingReply.length > 1 ? 's' : ''} en attente`}
                   description="Contactées, sans réponse enregistrée."
-                  onClick={onOpenSearch}
+                  // VERS LE REGISTRE, et non vers la recherche : la question
+                  // qu'on se pose ici est « laquelle attend depuis le plus
+                  // longtemps ? », et la liste des annonces n'y répond pas.
+                  onClick={onOpenExchanges}
                 />
               </li>
             )}

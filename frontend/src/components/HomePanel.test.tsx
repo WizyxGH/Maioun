@@ -20,6 +20,7 @@ function Accueil(
       profileComplete
       onOpenListing={noop}
       onOpenSearch={noop}
+      onOpenExchanges={noop}
       onOpenFavorites={noop}
       onOpenAlerts={noop}
       onOpenSavedSearches={noop}

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { SourceHealth, SourceStateView } from '../types.js';
 import { formatSourceHealth } from '../format.js';
@@ -31,6 +32,48 @@ describe('SourcesPanel', () => {
       />,
     );
     expect(screen.getByTestId('sources-count')).toHaveTextContent('4 sources · 2 OK · 2 dégradées');
+  });
+});
+
+/**
+ * « LISONS-NOUS DÉJÀ CE SITE ? » Deux cent vingt-trois sources s'affichaient
+ * d'affilée sans champ de recherche, et cinq agences ont été redemandées alors
+ * qu'elles étaient lues depuis des jours.
+ */
+describe('SourcesPanel — la recherche', () => {
+  const rendre = (): void => {
+    render(
+      <SourcesPanel
+        sources={[source('orpi', 'healthy'), source('abyla-bosse', 'healthy')]}
+        nowMs={0}
+        onBack={() => {}}
+      />,
+    );
+  };
+
+  it('filtre sur le nom de la source', async () => {
+    const user = userEvent.setup();
+    rendre();
+    await user.type(screen.getByLabelText('Rechercher une source'), 'orpi');
+    expect(screen.queryByText('Abyla Bosse')).not.toBeInTheDocument();
+  });
+
+  /**
+   * LE NOM COMMERCIAL N'EST PAS L'IDENTIFIANT : « immobiliere-abc.com » ne
+   * ressemble en rien à « Abyla Bosse », et c'est pourtant le même site.
+   */
+  it('trouve une source par son DOMAINE', async () => {
+    const user = userEvent.setup();
+    rendre();
+    await user.type(screen.getByLabelText('Rechercher une source'), 'immobiliere-abc');
+    expect(screen.getByText('Abyla Bosse')).toBeInTheDocument();
+  });
+
+  it('dit clairement qu’un site inconnu n’est pas lu', async () => {
+    const user = userEvent.setup();
+    rendre();
+    await user.type(screen.getByLabelText('Rechercher une source'), 'zzzinconnu');
+    expect(screen.getByText(/n’est donc pas encore lue/)).toBeInTheDocument();
   });
 });
 
