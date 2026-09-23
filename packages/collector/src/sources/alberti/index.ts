@@ -17,4 +17,5 @@ export const albertiScraper = makeApimoScraper({
   domain: 'agencealbertinice.com',
   sitemapUrl: 'https://agencealbertinice.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://www.agencealbertinice.com/fr/locations'],
 });

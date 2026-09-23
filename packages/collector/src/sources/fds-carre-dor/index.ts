@@ -17,4 +17,5 @@ export const fdsCarreDorScraper = makeApimoScraper({
   agencyContact: { address: { street: '53 rue de France', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://fdscarredor.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://fdscarredor.com/fr/locations'],
 });

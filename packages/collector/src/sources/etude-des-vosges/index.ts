@@ -16,6 +16,7 @@ export const etudeDesVosgesScraper = makeApimoScraper({
   domain: 'etudedesvosges.fr',
   sitemapUrl: 'https://www.etudedesvosges.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://www.etudedesvosges.fr/fr/locations'],
   agencyContact: {
     phone: '04 93 84 30 10', // secret-scan-ignore
     address: { street: '3 avenue de Saint-Sylvestre', postalCode: '06100', city: 'Nice' },

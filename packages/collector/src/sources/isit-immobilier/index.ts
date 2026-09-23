@@ -20,4 +20,5 @@ export const isitImmobilierScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://isitimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://isitimmo.com/fr/locations'],
 });

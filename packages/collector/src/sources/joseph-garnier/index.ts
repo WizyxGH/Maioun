@@ -19,4 +19,5 @@ export const josephGarnierScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://www.josephgarnier.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://www.josephgarnier.fr/fr/locations'],
 });

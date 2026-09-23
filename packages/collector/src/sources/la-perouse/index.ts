@@ -20,4 +20,5 @@ export const laPerouseScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://laperouse-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://laperouse-immobilier.com/fr/locations'],
 });

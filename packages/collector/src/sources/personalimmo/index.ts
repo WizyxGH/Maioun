@@ -16,4 +16,5 @@ export const personalimmoScraper = makeApimoScraper({
   domain: 'personalimmo.fr',
   sitemapUrl: 'https://personalimmo.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://personalimmo.fr/fr/locations'],
 });

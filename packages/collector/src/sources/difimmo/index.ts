@@ -16,4 +16,5 @@ export const difimmoScraper = makeApimoScraper({
   domain: 'difimmo.com',
   sitemapUrl: 'https://difimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://difimmo.com/fr/locations'],
 });

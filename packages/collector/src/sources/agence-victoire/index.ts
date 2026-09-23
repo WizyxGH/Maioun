@@ -24,4 +24,5 @@ export const agenceVictoireScraper = makeApimoScraper({
   domain: 'agence-victoire-nice.com',
   sitemapUrl: 'https://agence-victoire-nice.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://agence-victoire-nice.com/fr/locations'],
 });

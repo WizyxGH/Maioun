@@ -22,4 +22,5 @@ export const abylaBosseScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://immobiliere-abc.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://immobiliere-abc.com/fr/locations'],
 });

@@ -19,4 +19,5 @@ export const fitImmobilierScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://fit-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://fit-immobilier.com/fr/locations'],
 });

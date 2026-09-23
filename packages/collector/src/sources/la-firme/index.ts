@@ -18,4 +18,5 @@ export const laFirmeScraper = makeApimoScraper({
   agencyContact: { address: { street: '12 rue Gioffredo', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://proazurdagasso.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://proazurdagasso.com/fr/louer'],
 });

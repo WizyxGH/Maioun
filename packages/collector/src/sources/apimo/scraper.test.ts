@@ -170,3 +170,66 @@ describe('makeApimoScraper — fiches connues relues', () => {
     expect(espion).toHaveBeenLastCalledWith(ficheUrl('820001'), { conditional: false });
   });
 });
+
+/**
+ * LA PAGE DE LISTE EN PLUS DU SITEMAP.
+ *
+ * Un sitemap oublie parfois ce qui vient d'arriver — relevé chez Étude Lotte,
+ * dont une annonce ne figurait que sur sa page de locations. Mais sa page
+ * n'affichait que deux fiches quand vingt-deux répondaient 200 : lire la page
+ * SEULE en aurait fait perdre vingt. C'est l'UNION des deux vues qu'on veut.
+ */
+describe('makeApimoScraper — la page de liste complète le sitemap', () => {
+  const LISTE = `${ORIGIN}/fr/locations`;
+
+  const scraperAvecListe = makeApimoScraper({
+    id: 'apimo-fictive',
+    name: 'Agence Fictive',
+    domain: 'agence-fictive.fr',
+    sitemapUrl: SITEMAP,
+    citySlugs: ['nice'],
+    listUrls: [LISTE],
+  });
+
+  /** La page de liste, avec les fiches qu'on lui donne. */
+  const pageDeListe = (references: readonly string[]): string =>
+    `<!DOCTYPE html><html><body>${references
+      .map((ref) => `<a href="${ORIGIN}/fr/propriete/location+appartement+nice+${ref}">voir</a>`)
+      .join('')}</body></html>`;
+
+  function contexteAvecListe(sitemapRefs: readonly string[], pageRefs: readonly string[]) {
+    const fetched: string[] = [];
+    const context: ScrapeContext = {
+      ...contexte({ references: sitemapRefs, connues: [] }).context,
+      fetch: (url): Promise<FetchResult> => {
+        fetched.push(url);
+        const body =
+          url === SITEMAP
+            ? sitemap(sitemapRefs)
+            : url === LISTE
+              ? pageDeListe(pageRefs)
+              : fiche(url.split('+').at(-1) ?? '');
+        return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
+      },
+    };
+    return { context, fetched };
+  }
+
+  it('sert une annonce que le sitemap ignore', async () => {
+    const { context } = contexteAvecListe(['111111'], ['222222']);
+    const result = await scraperAvecListe.run(context);
+    expect(result.listings.map((one) => one.sourceRef).sort()).toEqual(['111111', '222222']);
+  });
+
+  it('ne perd pas celles que la page n’affiche pas', async () => {
+    const { context } = contexteAvecListe(['111111', '333333'], ['222222']);
+    const result = await scraperAvecListe.run(context);
+    expect(result.listings).toHaveLength(3);
+  });
+
+  it('ne compte pas deux fois une fiche vue des deux côtés', async () => {
+    const { context } = contexteAvecListe(['111111'], ['111111']);
+    const result = await scraperAvecListe.run(context);
+    expect(result.listings).toHaveLength(1);
+  });
+});

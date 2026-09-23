@@ -17,4 +17,5 @@ export const vizcayaScraper = makeApimoScraper({
   agencyContact: { address: { street: '4 quai Papacino', postalCode: '06300', city: 'Nice' } },
   sitemapUrl: 'https://vizcaya.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://vizcaya.fr/fr/louer'],
 });

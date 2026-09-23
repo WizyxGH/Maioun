@@ -21,4 +21,5 @@ export const blueResidencesScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://blue-residences.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://blue-residences.fr/fr/locations'],
 });

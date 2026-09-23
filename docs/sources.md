@@ -2229,3 +2229,48 @@ Le relevé qui sépare les deux familles est simple et se refait d'une requête 
 compter, par source, les occurrences vivantes **sans téléphone ni courriel**.
 Il donne la liste des sources à examiner ; lesquelles font payer, seule leur
 page le dit.
+
+## Sitemap ET page de liste : chacun ment, dans l'autre sens
+
+Relevé du 2026-09-23, parti d'une annonce reçue par Jinka et absente de chez
+nous alors que nous lisions le site tous les jours.
+
+**Le sitemap oublie ce qui vient d'arriver.** Chez Étude Lotte, la référence
+`7229516` figure sur la page de locations et pas au sitemap. Elle nous est
+parvenue par Bien'ici et par une alerte e-mail — plus tard, et amputée de ce
+que le portail coupe.
+
+**La page de liste, elle, n'affiche qu'une partie du stock.** Celle d'Étude
+Lotte montre 2 fiches ; ses 22 annonces connues répondent **toutes 200**. Celle
+d'Acropolis montre 5 fiches, dont 4 garages, alors qu'un studio bien vivant
+n'y figure pas.
+
+### L'erreur que ce relevé a d'abord produite
+
+J'ai conclu « 21 fantômes chez Étude Lotte » d'une simple **comparaison de
+compteurs** — 22 chez nous contre 2 sur leur page — et basculé la source sur la
+lecture de page. **C'était faux, et ça aurait coûté 20 annonces vivantes.** Le
+test qui tranche coûtait deux minutes : interroger les fiches elles-mêmes.
+
+| Test direct             | Résultat          |
+| ----------------------- | ----------------- |
+| 20 annonces Orea        | 19 × 200, 1 × 404 |
+| 22 annonces Étude Lotte | 22 × 200          |
+
+**Une page de liste n'est pas un inventaire.** Un compteur qui diffère du nôtre
+ne prouve rien ; seule la fiche dit si elle est en ligne.
+
+### La règle retenue
+
+`makeApimoScraper` accepte désormais `listUrls`, **lues EN PLUS du sitemap**.
+On ajoute, on ne remplace jamais : les deux vues sont incomplètes, chacune dans
+l'autre sens, et leur union est la seule lecture honnête. Les entrées venues de
+la page n'ont pas de `lastmod` — elles ne sont donc jamais écartées par l'âge,
+ce qui est juste : une fiche vue sur la page est en ligne aujourd'hui.
+
+**34 sources Apimo** ont reçu leur page de liste, chacune vérifiée par une
+requête réelle avant d'être inscrite. Le chemin varie d'un site à l'autre
+(`/fr/locations`, `/fr/location`, `/fr/louer`, `/fr/location-2`) : il se lit
+sur la page d'accueil, il ne se devine pas — une première tentative qui
+supposait `/fr/locations` partout a produit 33 faux zéros, Acropolis y
+répondant 404.

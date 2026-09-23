@@ -20,4 +20,5 @@ export const massenaImmoScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://massena-immo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://massena-immo.com/fr/locations'],
 });

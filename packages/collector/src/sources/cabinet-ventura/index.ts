@@ -20,4 +20,5 @@ export const cabinetVenturaScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://cabinetventura.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://cabinetventura.com/fr/locations'],
 });

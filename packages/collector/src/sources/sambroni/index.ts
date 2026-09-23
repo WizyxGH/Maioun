@@ -19,4 +19,5 @@ export const sambroniScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://agencesambroni.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://agencesambroni.com/fr/louer'],
 });

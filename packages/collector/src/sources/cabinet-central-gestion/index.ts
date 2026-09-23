@@ -16,6 +16,7 @@ export const cabinetCentralGestionScraper = makeApimoScraper({
   domain: 'immobilier-cabinetcentral.fr',
   sitemapUrl: 'https://immobilier-cabinetcentral.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://immobilier-cabinetcentral.fr/fr/locations'],
   agencyContact: {
     phone: '04 93 04 08 70', // secret-scan-ignore
     address: { street: '24 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },

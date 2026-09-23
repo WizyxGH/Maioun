@@ -21,5 +21,6 @@ export const oreaScraper = makeApimoScraper({
   domain: 'orea-immobilier.fr',
   sitemapUrl: 'https://www.orea-immobilier.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://www.orea-immobilier.fr/fr/locations'],
   maxDetailsBackfill: 40,
 });

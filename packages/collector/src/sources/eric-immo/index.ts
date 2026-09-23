@@ -17,6 +17,7 @@ export const ericImmoScraper = makeApimoScraper({
   domain: 'eric-immo.com',
   sitemapUrl: 'https://www.eric-immo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://www.eric-immo.com/fr/locations'],
   maxEntryAgeDays: 120,
   agencyContact: {
     phone: '04 92 15 07 14', // secret-scan-ignore

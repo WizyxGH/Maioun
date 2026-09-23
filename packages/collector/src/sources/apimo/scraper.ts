@@ -24,6 +24,7 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { isFreshMemory } from '../shared/enrich.js';
 import { sitemapUrls } from '../shared/sitemap.js';
+import { parseLocationLinks } from './location-links.js';
 import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import {
   isCommercialSlug,
@@ -41,6 +42,14 @@ export interface ApimoConfig {
   readonly sitemapUrl: string;
   /** Communes cibles, en slug d'URL (minuscules, tirets). */
   readonly citySlugs: readonly string[];
+  /**
+   * Pages de liste des locations, LUES EN PLUS du sitemap.
+   *
+   * À renseigner quand le sitemap s'est montré incomplet : il oublie parfois
+   * ce qui vient d'arriver. L'union des deux vues est alors la seule lecture
+   * honnête — voir le commentaire au point 1.
+   */
+  readonly listUrls?: readonly string[];
   readonly priority?: number;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
@@ -73,7 +82,9 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     priority: config.priority ?? 2,
     schedule: scheduleFor('localAgency'),
     budget: budgetFor('localAgency', {
-      maxPagesPerRun: 2 + maxBackfill,
+      // Une page de plus par page de liste déclarée : sans cela, le plafond
+      // couperait le passage avant les fiches.
+      maxPagesPerRun: 2 + (config.listUrls?.length ?? 0) + maxBackfill,
       maxListingsPerRun: maxBackfill,
     }),
     enabled: true,
@@ -107,6 +118,48 @@ const RELECTURES_PAR_PASSAGE = 1;
 
 /** En rattrapage, le plafond des relectures suit celui des nouveautés. */
 const RELECTURES_PAR_PASSAGE_BACKFILL = 5;
+
+/**
+ * Les fiches vues sur les pages de liste, ajoutées à celles du sitemap.
+ *
+ * Extrait de `run`, qui dépassait la complexité tolérée : la boucle a sa
+ * propre raison d'être, et elle se relit mieux seule.
+ */
+async function ajouterLesPagesDeListe(
+  context: ScrapeContext,
+  config: ApimoConfig,
+  entries: SitemapEntry[],
+  warnings: string[],
+  compter: (n: { requests: number; pages: number }) => void,
+): Promise<SitemapEntry[]> {
+  for (const listUrl of config.listUrls ?? []) {
+    try {
+      const page = await context.fetch(listUrl);
+      compter({ requests: 1, pages: 0 });
+      if (page.notModified) continue;
+      compter({ requests: 0, pages: 1 });
+      const connues = new Set(entries.map((one) => one.url.reference));
+      for (const link of parseLocationLinks(page.body, listUrl)) {
+        if (connues.has(link.reference)) continue;
+        entries.push({
+          url: {
+            transaction: 'location',
+            typeSlug: link.typeSlug,
+            citySlug: link.citySlug,
+            reference: link.reference,
+            canonicalUrl: link.canonicalUrl,
+          },
+          lastmod: null,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Échec de la page de liste ${listUrl} : ${message}`);
+      context.log('list.failed', { url: listUrl, error: message });
+    }
+  }
+  return entries;
+}
 
 export function makeApimoScraper(config: ApimoConfig): Scraper {
   const descriptor = makeApimoDescriptor(config);
@@ -173,6 +226,29 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
           warnings,
         };
       }
+
+      /**
+       * LA PAGE DE LISTE EN PLUS DU SITEMAP, quand la source en déclare une.
+       *
+       * UN SITEMAP OUBLIE CE QUI VIENT D'ARRIVER. Relevé du 2026-09-23 chez
+       * Étude Lotte : la référence 7229516 figure sur sa page de locations et
+       * pas à son sitemap. Elle ne nous est parvenue que par Bien'ici et par
+       * une alerte e-mail — plus tard, et amputée de ce que le portail coupe —
+       * alors que nous lisons ce site tous les jours.
+       *
+       * ON AJOUTE, ON NE REMPLACE PAS, et c'est la leçon de la même journée :
+       * la page d'Étude Lotte n'affiche que deux annonces quand ses vingt-deux
+       * fiches répondent toutes 200. Lire la page SEULE aurait fait perdre
+       * vingt annonces bien vivantes. Chacune des deux vues est incomplète,
+       * dans l'autre sens : leur union est la seule lecture honnête.
+       *
+       * SANS `lastmod`, donc jamais écartée par l'âge : une entrée vue sur la
+       * page est en ligne aujourd'hui, par construction.
+       */
+      entries = await ajouterLesPagesDeListe(context, config, entries, warnings, (n) => {
+        requestCount += n.requests;
+        pagesFetched += n.pages;
+      });
 
       // --- 2. Filtrer et prioriser ----------------------------------------
       // Les entrées trop anciennes sont écartées AVANT tout : un sitemap non

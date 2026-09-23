@@ -18,4 +18,5 @@ export const agenceLongchampScraper = makeApimoScraper({
   domain: 'agencelongchamp.com',
   sitemapUrl: 'https://agencelongchamp.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://agencelongchamp.com/fr/location-2'],
 });

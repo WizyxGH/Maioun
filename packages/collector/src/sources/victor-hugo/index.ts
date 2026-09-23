@@ -24,4 +24,5 @@ export const victorHugoScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://immobilierevictorhugo.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://immobilierevictorhugo.fr/fr/locations'],
 });

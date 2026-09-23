@@ -20,4 +20,5 @@ export const bomarcheScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://bomarche.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://bomarche.fr/fr/location'],
 });

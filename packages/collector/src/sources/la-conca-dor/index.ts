@@ -19,4 +19,5 @@ export const laConcaDorScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://laconcador.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://laconcador.com/fr/location'],
 });

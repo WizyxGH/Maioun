@@ -19,5 +19,6 @@ export const acropolisImmoScraper = makeApimoScraper({
   agencyContact: { address: { street: '47 rue Arson', postalCode: '06300', city: 'Nice' } },
   sitemapUrl: 'https://acropolisimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://acropolisimmo.com/fr/location'],
   maxDetailsBackfill: 25,
 });

@@ -21,4 +21,5 @@ export const marceleScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://ballestri-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://ballestri-immobilier.com/fr/locations'],
 });

@@ -16,4 +16,5 @@ export const groupeFochScraper = makeApimoScraper({
   domain: 'groupe-foch.com',
   sitemapUrl: 'https://groupe-foch.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://groupe-foch.com/fr/louer'],
 });

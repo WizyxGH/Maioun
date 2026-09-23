@@ -20,5 +20,6 @@ export const immoJbfScraper = makeApimoScraper({
   domain: 'immo-jbf.com',
   sitemapUrl: 'https://immo-jbf.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://immo-jbf.com/fr/locations'],
   maxDetailsBackfill: 40,
 });

@@ -29,5 +29,6 @@ export const petrovaScraper = makeApimoScraper({
   },
   sitemapUrl: 'https://petrovainvestissement.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://petrovainvestissement.com/fr/louer'],
   maxEntryAgeDays: 180,
 });

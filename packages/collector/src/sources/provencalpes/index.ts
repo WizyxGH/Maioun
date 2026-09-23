@@ -17,4 +17,5 @@ export const provencalpesScraper = makeApimoScraper({
   domain: 'provencalpes.fr',
   sitemapUrl: 'https://provencalpes.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
+  listUrls: ['https://provencalpes.fr/fr/locations'],
 });
