@@ -187,6 +187,37 @@ export function goneContentFor(listing: NotifiableListing, siteUrl: string): Pus
  * première candidature reçue passe souvent la première. Le téléphone suit,
  * comme pour une nouvelle annonce.
  */
+/**
+ * UNE ANNONCE QUI REVIENT EN LIGNE.
+ *
+ * Elle ne sonnait pas : sa première observation est préservée — à raison,
+ * c'est elle qui mesure la durée de publication — donc elle ne comptait pas
+ * comme neuve. Or c'est souvent le logement qu'on croyait perdu qui revient.
+ *
+ * LE TITRE DIT LE RETOUR, JAMAIS LA NOUVEAUTÉ : l'annonce n'est pas neuve, et
+ * la présenter ainsi ferait douter du reste des alertes.
+ */
+export function reappearedContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: alertHeading('reappeared', 1),
+    body: [
+      listing.title ?? 'Une annonce que vous aviez vue',
+      summarize(listing),
+      location !== '' ? `📍 ${location}` : null,
+      listing.phone !== null ? `📞 ${listing.phone}` : null,
+    ]
+      .filter((line): line is string => line !== null && line !== '')
+      .join('\n'),
+
+    url: listingUrl(siteUrl, listing.id),
+    tag: `maioun-retour-${listing.id}`,
+    ...imagePayload(listing.photoUrls[0]),
+    listingId: listing.id,
+    ...(listing.phone !== null ? { phone: listing.phone } : {}),
+  };
+}
+
 export function reopenedContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
   const location = locationLabel(listing);
   return {

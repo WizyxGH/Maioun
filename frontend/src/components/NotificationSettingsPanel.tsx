@@ -25,7 +25,7 @@
 import { NEAR_MATCH_MARGIN } from '@maioun/shared';
 import type { NotificationFrequency } from '@maioun/shared';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
+import { ArchiveRestore, ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -81,6 +81,15 @@ const KINDS: readonly KindInfo[] = [
     // réécrire ici en toutes lettres aurait fini par mentir.
     hint: `${Math.round(NEAR_MATCH_MARGIN * 100)} % de budget en plus, ou autant de surface en moins. La notification dit lequel.`,
     Icon: TriangleAlert,
+  },
+  {
+    key: 'reappeared',
+    label: 'De retour en ligne',
+    // POURQUOI ELLE EST ÉTEINTE PAR DÉFAUT, dit sans détour : le jour de la
+    // mise en service, 88 fiches actives portaient déjà la marque. L'allumer
+    // d'office aurait fait sonner le téléphone quatre-vingt-huit fois.
+    hint: 'Une annonce retirée puis republiée — souvent une visite annulée ou un dossier qui tombe.',
+    Icon: ArchiveRestore,
   },
   {
     key: 'applicationReminders',

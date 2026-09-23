@@ -29,7 +29,20 @@ describe('parseNotificationPreferences', () => {
       email: true,
       frequency: 'each-run',
     };
-    expect(parseNotificationPreferences(stocke)).toEqual(stocke);
+    // UNE CASE AJOUTÉE APRÈS COUP prend sa valeur par défaut, sans effacer les
+    // autres : un réglage enregistré avant elle reste lisible tel quel.
+    expect(parseNotificationPreferences(stocke)).toEqual({ ...stocke, reappeared: false });
+  });
+
+  /**
+   * ÉTEINTE PAR DÉFAUT, et c'est mesuré : le jour de la mise en service de la
+   * détection, 88 fiches actives portaient déjà la marque « de retour ».
+   * L'allumer d'office aurait fait sonner le téléphone quatre-vingt-huit fois.
+   */
+  it('garde les retours en ligne éteints par défaut', () => {
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.reappeared).toBe(false);
+    expect(parseNotificationPreferences({}).reappeared).toBe(false);
+    expect(parseNotificationPreferences({ reappeared: true }).reappeared).toBe(true);
   });
 
   it('garde l’e-mail éteint par défaut', () => {

@@ -1,0 +1,11 @@
+-- QUAND ON A PRÉVENU D'UN RETOUR EN LIGNE.
+--
+-- Une annonce retirée puis republiée ne sonnait pas : sa première observation
+-- est préservée — à raison, c'est elle qui mesure la durée de publication —,
+-- donc elle ne comptait pas comme neuve. Or c'est souvent le logement qu'on
+-- croyait perdu qui revient : une visite annulée, un dossier qui tombe.
+--
+-- UNE COLONNE À PART, et non le drapeau `notified` : celui-ci dit qu'on a
+-- signalé l'annonce la première fois. Les confondre ferait taire le retour,
+-- ou resonnerait l'arrivée.
+ALTER TABLE listing_user_state ADD COLUMN reappear_notified_at TEXT;

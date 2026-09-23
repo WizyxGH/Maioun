@@ -57,6 +57,7 @@ import {
   loadVapidConfig,
   nearMatchContentFor,
   reminderContentFor,
+  reappearedContentFor,
   reopenedContentFor,
   sendListingAlerts,
   sendWebPush,
@@ -352,6 +353,32 @@ async function notifyOne(deps: {
     await repository.markReopenNotified(userId, [...reopenReport.notifiedIds, ...reopenMailed]);
     if (reopenReport.sent > 0) sentAnything = true;
     await repository.noteClosedApplications(userId);
+
+    /**
+     * LES LOGEMENTS QUI REVIENNENT. Une annonce retirée puis republiée ne
+     * sonnait pas : sa première observation est préservée — à raison, c'est
+     * elle qui mesure la durée de publication — donc elle ne comptait pas
+     * comme neuve. Or c'est souvent le logement qu'on croyait perdu qui
+     * revient : une visite annulée, un dossier qui tombe.
+     *
+     * Relevé du 2026-09-23, le jour de la mise en service de la détection :
+     * 183 retours en quelques heures, 88 fiches actives concernées. Ce n'est
+     * pas un phénomène marginal.
+     */
+    const revenues = preferences.reappeared
+      ? await repository.reappearedListings(userId, criteria)
+      : [];
+    const retourReport = await sendListingAlerts(
+      { ...common, listings: revenues },
+      reappearedContentFor,
+    );
+    const retourMailed = await alsoByEmail(revenues, alertHeading('reappeared', revenues.length));
+    await repository.markReappearNotified(
+      userId,
+      [...retourReport.notifiedIds, ...retourMailed],
+      new Date(systemClock.now()).toISOString(),
+    );
+    if (retourReport.sent > 0) sentAnything = true;
   }
 
   // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :

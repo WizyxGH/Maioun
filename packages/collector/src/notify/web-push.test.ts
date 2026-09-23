@@ -278,3 +278,39 @@ describe('reopenedContentFor', () => {
     expect(content.tag).toBe('maioun-rouverte-foncia:1');
   });
 });
+
+/**
+ * LE LOGEMENT QU'ON CROYAIT PERDU. Il ne sonnait pas : sa première
+ * observation est préservée — à raison, c'est elle qui mesure la durée de
+ * publication — donc il ne comptait pas comme neuf.
+ */
+describe('reappearedContentFor', () => {
+  const revenue = {
+    id: 'orpi:7',
+    title: 'Studio Libération',
+    price: 640,
+    area: 24,
+    rooms: 1,
+    city: 'nice',
+    postalCode: '06000',
+    actionPriority: 62,
+    phone: '06 00 00 00 02',
+    photoUrls: [],
+  } as never;
+
+  it('annonce le RETOUR, et jamais une nouveauté', async () => {
+    const { reappearedContentFor } = await import('./web-push.js');
+    const content = reappearedContentFor(revenue, 'https://exemple.invalid/app/');
+    // L'annonce n'est pas neuve : la présenter ainsi ferait douter du reste.
+    expect(content.title).toBe('De retour en ligne');
+    expect(content.title).not.toContain('Nouvelle');
+  });
+
+  it('porte le téléphone et son propre repère', async () => {
+    const { reappearedContentFor } = await import('./web-push.js');
+    const content = reappearedContentFor(revenue, 'https://exemple.invalid/app/');
+    expect(content.body).toContain('06 00 00 00 02');
+    // Un repère à lui : une réouverture de candidature ne doit pas l'écraser.
+    expect(content.tag).toBe('maioun-retour-orpi:7');
+  });
+});

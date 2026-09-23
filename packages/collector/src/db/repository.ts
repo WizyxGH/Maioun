@@ -719,6 +719,9 @@ export interface Repository {
   noteClosedApplications(userId: string): Promise<void>;
   reopenedApplications(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
   markReopenNotified(userId: string, ids: readonly string[]): Promise<void>;
+  /** Annonces revenues en ligne et pas encore signalées à ce compte. */
+  reappearedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  markReappearNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
   /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
    * lesquelles aucun brouillon n'a encore été créé (§22). Triées par priorité.
@@ -2582,6 +2585,47 @@ export function createRepository(db: Database): Repository {
     async markReopenNotified(userId, ids) {
       if (ids.length === 0) return;
       await recordUserState(db, userId, ids, { applications_closed_at: null });
+    },
+
+    /**
+     * LES ANNONCES REVENUES EN LIGNE, pas encore signalées.
+     *
+     * Le drapeau vient de la fiche elle-même : la collecte l'y pose quand une
+     * occurrence retirée reparaît, sur une fenêtre de quatorze jours. Au-delà,
+     * une republication n'a plus rien d'une occasion à saisir.
+     *
+     * `reappear_notified_at` PLUTÔT QUE `notified` : ce dernier dit qu'on a
+     * signalé l'annonce la première fois. Les confondre ferait taire le
+     * retour, ou resonnerait l'arrivée.
+     */
+    async reappearedListings(userId, traits = {}) {
+      const preferences = traitConditions(traits);
+      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const result = await db.execute({
+        sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
+                     listings.city, listings.postal_code, sc.action_priority, listings.payload
+              FROM listings
+              JOIN listing_user_score AS sc
+                ON sc.listing_id = listings.id AND sc.user_id = ?
+              LEFT JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              WHERE json_extract(listings.payload, '$.reappeared') = 1
+                AND us.reappear_notified_at IS NULL
+                AND COALESCE(us.archived, 0) = 0
+                AND sc.matches_criteria = 1
+                AND ${OPEN_TO_APPLICATIONS_SQL}
+                AND listings.lifecycle = 'active'
+                AND listings.rented = 0
+                ${extra}
+              ORDER BY sc.action_priority DESC`,
+        args: [userId, userId, ...preferences.args],
+      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async markReappearNotified(userId, ids, nowIso) {
+      if (ids.length === 0) return;
+      await recordUserState(db, userId, ids, { reappear_notified_at: nowIso });
     },
 
     async markReminded(userId, ids) {

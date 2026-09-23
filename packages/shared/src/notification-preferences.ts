@@ -20,7 +20,7 @@
 
 /** Les familles d'alertes, dans l'ordre où l'écran les présente. */
 export type NotificationKind =
-  'newListings' | 'nearMatches' | 'applicationReminders' | 'favoriteGone' | 'email';
+  'newListings' | 'nearMatches' | 'reappeared' | 'applicationReminders' | 'favoriteGone' | 'email';
 
 export interface NotificationPreferences {
   /** Une annonce entre dans vos critères. C'est la raison d'être de l'outil. */
@@ -36,6 +36,21 @@ export interface NotificationPreferences {
    * explicitement exclus en réglant son budget.
    */
   readonly nearMatches: boolean;
+  /**
+   * Une annonce retirée puis REMISE EN LIGNE.
+   *
+   * Elle ne sonnait pas : sa première observation est préservée — c'est elle
+   * qui mesure la durée de publication — donc elle ne comptait pas comme
+   * neuve. Or c'est souvent le logement qu'on croyait perdu qui revient : une
+   * visite annulée, un dossier qui tombe.
+   *
+   * ÉTEINTE PAR DÉFAUT, et pour une raison mesurée : le jour de la mise en
+   * service de la détection, 183 retours ont été consignés en quelques heures
+   * et 88 fiches actives en portaient la marque. L'allumer d'office aurait
+   * fait sonner le téléphone quatre-vingt-huit fois d'affilée. Qui la veut
+   * l'allume en un clic — et ne recevra alors que les retours à venir.
+   */
+  readonly reappeared: boolean;
   /** Un favori mis de côté et jamais contacté : le marché ne patiente pas. */
   readonly applicationReminders: boolean;
   /** Un favori a disparu de sa source — il est probablement loué. */
@@ -145,6 +160,7 @@ export const NOTIFICATIONS_SENT_AT_SETTING = 'notificationsSentAt';
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   newListings: true,
   nearMatches: false,
+  reappeared: false,
   applicationReminders: true,
   favoriteGone: true,
   email: false,
@@ -178,6 +194,7 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
     newListings: read('newListings'),
     nearMatches: read('nearMatches'),
     applicationReminders: read('applicationReminders'),
+    reappeared: read('reappeared'),
     favoriteGone: read('favoriteGone'),
     /**
      * L'E-MAIL SE LIT COMME LE RESTE. Il était forcé à `false` ici, du temps
