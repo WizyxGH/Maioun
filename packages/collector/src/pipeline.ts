@@ -38,7 +38,12 @@ import { normalizeAll } from './normalization/normalize.js';
 import { dedupe } from './deduplication/dedupe.js';
 import { mergeGroup } from './deduplication/merge.js';
 import { scoreListing, scoreMatch } from './scoring/index.js';
-import { createGeocoder, geocodeCacheKey, type PlacedAddress } from './core/geocode.js';
+import {
+  createGeocoder,
+  geocodeCacheKey,
+  reverseCacheKey,
+  type PlacedAddress,
+} from './core/geocode.js';
 import { createDpeLookup, dpeCacheKey, type DpeRecord } from './core/dpe.js';
 import { createTransitRouter } from './core/transit.js';
 import type { Coordinates } from './core/geo.js';
@@ -390,6 +395,40 @@ async function geocodeMissingAddresses(
     }
     geocoded.set(listing.id, await geocoder.geocode(query, listing.city.value));
   }
+  /**
+   * LES ANNONCES QUI PUBLIENT UN POINT SANS ÉCRIRE D'ADRESSE.
+   *
+   * Elles ne nomment que le quartier — « Armée des Alpes, bas Saint-Roch » —
+   * et portent le code postal que l'agence met partout : à Nice, 06000 pour
+   * les quatre. Le point GPS, lui, sait dans lequel on est.
+   *
+   * APRÈS LE GÉOCODAGE DIRECT, et avec le budget qu'il a laissé : placer sur
+   * la carte une annonce qui n'y figure pas vaut mieux que corriger le code
+   * postal d'une annonce déjà placée.
+   */
+  const sansAdresse = merged.filter(
+    (listing) =>
+      geocodeQuery(listing) === null &&
+      listing.latitude.value !== null &&
+      listing.longitude.value !== null,
+  );
+  const dejaVus = await mapLimited(sansAdresse, CACHE_READS_AT_ONCE, (listing) =>
+    cache.get(reverseCacheKey(listing.latitude.value as number, listing.longitude.value as number)),
+  );
+  for (const [index, listing] of sansAdresse.entries()) {
+    if (dejaVus[index] === null) {
+      if (networkBudget <= 0) continue;
+      networkBudget -= 1;
+    }
+    const latitude = listing.latitude.value as number;
+    const longitude = listing.longitude.value as number;
+    const trouve = await geocoder.reverse(latitude, longitude, listing.city.value);
+    if (trouve === null) continue;
+    // L'adresse la plus proche n'est PAS celle du logement : seul le code
+    // postal est retenu, et `tidyAddress` s'en tient là.
+    geocoded.set(listing.id, { latitude, longitude, label: null, postcode: trouve.postcode });
+  }
+
   return geocoded;
 }
 
@@ -414,15 +453,25 @@ function tidyAddress(
   placed: PlacedAddress | null,
   nowMs: number,
 ): AggregatedListing {
-  if (placed?.label == null) return listing;
+  if (placed === null) return listing;
   const stamp = { sourceId: 'ban', observedAt: new Date(nowMs).toISOString(), conflicts: [] };
 
-  // Le code postal ne se corrige QUE s'il accompagne une adresse réécrite : le
-  // prendre seul reviendrait à déplacer une annonce sur la foi d'une voie.
   const postal =
     placed.postcode !== null && placed.postcode !== listing.postalCode.value
       ? { postalCode: { value: placed.postcode, ...stamp } }
       : {};
+
+  /**
+   * SANS ADRESSE ÉCRITE, LE CODE POSTAL SEUL — et c'est le cas le plus
+   * fréquent. Beaucoup d'annonces ne nomment que le quartier tout en publiant
+   * leurs coordonnées, et leur code postal est celui que l'agence met partout :
+   * à Nice, 06000 pour les quatre. Le point GPS, lui, sait dans lequel on est.
+   *
+   * L'ADRESSE LA PLUS PROCHE N'EST PAS CELLE DU LOGEMENT : elle est à trente
+   * mètres, de l'autre côté de la rue peut-être. On ne l'écrit donc jamais —
+   * seulement le code postal, que trente mètres ne changent pas.
+   */
+  if (placed.label === null) return { ...listing, ...postal };
 
   return listing.address.value === placed.label
     ? { ...listing, ...postal }

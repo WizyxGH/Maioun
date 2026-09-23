@@ -61,6 +61,7 @@ import { formatSourceName } from './format.js';
 import { SOURCES } from './sources.generated.js';
 import { useDocumentMeta } from './document-title.js';
 import { markAlertRead, readOptIn, readReadAlerts, unreadAlertCount } from './notifications.js';
+import { showAppBadge } from './app-badge.js';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
@@ -1257,6 +1258,21 @@ function AppView(): React.JSX.Element {
     () => unreadAlertCount(listings, alertsSeenAt, readAlerts),
     [listings, alertsSeenAt, readAlerts],
   );
+
+  /**
+   * LE MÊME CHIFFRE SUR L'ICÔNE DE L'APPLICATION.
+   *
+   * Il fallait ouvrir Maïoun pour savoir s'il y avait du neuf. Installé sur un
+   * téléphone, il le dit maintenant comme les autres applications — et le
+   * chiffre est exactement celui de la cloche, jamais un autre : deux comptes
+   * qui divergent valent moins qu'un seul.
+   *
+   * Le service worker pose un POINT à l'arrivée d'une notification, faute de
+   * connaître le total ; ouvrir l'application le remplace par le compte exact.
+   */
+  useEffect(() => {
+    showAppBadge(unreadAlerts);
+  }, [unreadAlerts]);
 
   // Dérivations d'affichage MÉMOÏSÉES : elles filtrent et trient des centaines
   // d'annonces. Sans mémoïsation, tout serait recalculé à chaque rendu — donc à

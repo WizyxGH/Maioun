@@ -193,6 +193,63 @@ describe('createGeocoder', () => {
     expect(await geocoderWith(impl).geocode('12 rue du Pont')).toBeNull();
   });
 
+  /**
+   * LE POINT SANS ADRESSE. Beaucoup d'annonces ne nomment que le quartier tout
+   * en publiant leurs coordonnées, et leur code postal est celui que l'agence
+   * met partout — à Nice, 06000 pour les quatre.
+   */
+  it('lit le code postal d’un point, à la commune et à la distance près', async () => {
+    const impl = (async () =>
+      new Response(
+        JSON.stringify({
+          features: [
+            {
+              properties: {
+                label: '17 Rue Acchiardi de Saint-Léger 06300 Nice',
+                postcode: '06300',
+                distance: 35,
+                city: 'Nice',
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    const trouve = await geocoderWith(impl).reverse(43.71377, 7.28957, 'Nice');
+    expect(trouve?.postcode).toBe('06300');
+  });
+
+  /** Au-delà de cent mètres, on n'est plus devant l'immeuble. */
+  it('se tait quand l’adresse la plus proche est loin', async () => {
+    const impl = (async () =>
+      new Response(
+        JSON.stringify({
+          features: [
+            { properties: { label: 'X', postcode: '06300', distance: 400, city: 'Nice' } },
+          ],
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    expect(await geocoderWith(impl).reverse(43.7, 7.28, 'Nice')).toBeNull();
+  });
+
+  /**
+   * UN POINT DANS UNE AUTRE COMMUNE N'EST PAS LE LOGEMENT : c'est souvent
+   * l'agence, dont certaines plateformes recopient les coordonnées.
+   */
+  it('se tait quand le point tombe dans une autre commune', async () => {
+    const impl = (async () =>
+      new Response(
+        JSON.stringify({
+          features: [
+            { properties: { label: 'Y', postcode: '06800', distance: 20, city: 'Cagnes-sur-Mer' } },
+          ],
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    expect(await geocoderWith(impl).reverse(43.66, 7.15, 'Nice')).toBeNull();
+  });
+
   it('garde l’adresse normalisée en cache, sans rappeler le réseau', async () => {
     const { impl, calls } = fakeBan(() => [
       {

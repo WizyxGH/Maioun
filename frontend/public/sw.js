@@ -63,7 +63,33 @@ self.addEventListener('push', (event) => {
         ];
   }
 
-  event.waitUntil(self.registration.showNotification(payload.title || 'Nouvelle annonce', options));
+  /*
+   * UN POINT SUR L'ICÔNE, ET PAS UN CHIFFRE.
+   *
+   * Le worker ne sait pas combien d'annonces restent non lues : il ne voit que
+   * celle qui arrive. Poser « 1 » alors qu'il y en a sept serait faux, et un
+   * compteur faux sur une icône est pire que pas de compteur. Sans argument,
+   * la pastille est un point : « il y a du neuf », ce qui est exactement ce
+   * que le worker sait. L'application, elle, y met le compte exact dès qu'on
+   * l'ouvre.
+   *
+   * Tout est facultatif : l'API n'existe pas partout et lève là où elle
+   * n'est pas permise.
+   */
+  const marquer = async () => {
+    try {
+      await self.navigator?.setAppBadge?.();
+    } catch {
+      // Pastille indisponible : la notification, elle, s'affiche quand même.
+    }
+  };
+
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(payload.title || 'Nouvelle annonce', options),
+      marquer(),
+    ]),
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

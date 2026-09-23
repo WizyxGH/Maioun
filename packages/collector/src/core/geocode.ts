@@ -70,6 +70,60 @@ export interface Geocoder {
    * `city` est la commune attendue : elle écarte une rue homonyme ailleurs.
    */
   geocode(address: string, city?: string | null): Promise<PlacedAddress | null>;
+  /**
+   * L'adresse officielle d'un POINT, quand elle est assez proche et dans la
+   * commune attendue. Sert aux annonces qui publient leurs coordonnées sans
+   * écrire d'adresse — c'est-à-dire la moitié d'entre elles.
+   */
+  reverse(
+    latitude: number,
+    longitude: number,
+    city?: string | null,
+  ): Promise<ReverseAddress | null>;
+}
+
+/**
+ * LE CODE POSTAL D'UNE ANNONCE QUI N'A PAS D'ADRESSE, lu à son point GPS.
+ *
+ * Beaucoup d'annonces ne nomment que le quartier — « Armée des Alpes, bas
+ * Saint-Roch » — mais publient leurs coordonnées. Leur code postal, lui, est
+ * celui que l'agence met partout : à Nice, 06000 pour les quatre. Relevé du
+ * 2026-09-23 : un studio donné en 06000 se trouve à trente-cinq mètres du
+ * 17 rue Acchiardi de Saint-Léger, qui est en 06300.
+ *
+ * LE RETOUR DE LA BAN TRANCHE, sous deux conditions, et elles comptent :
+ *
+ *   - LA COMMUNE DOIT CORRESPONDRE. Un point qui tombe dans une autre commune
+ *     n'est pas le logement : c'est souvent l'agence elle-même, dont certaines
+ *     plateformes recopient les coordonnées faute de mieux ;
+ *   - L'ADRESSE TROUVÉE DOIT ÊTRE PROCHE. Au-delà de cent mètres, on n'est plus
+ *     devant l'immeuble mais quelque part dans le quartier, et le code postal
+ *     peut déjà avoir changé de côté.
+ *
+ * Hors de ces deux conditions, on ne rend rien : un code postal faux déplace
+ * l'annonce dans un autre quartier avec l'aplomb d'une donnée officielle.
+ */
+const BAN_REVERSE = 'https://api-adresse.data.gouv.fr/reverse/';
+
+/** Au-delà, le point ne désigne plus un immeuble mais un quartier. */
+const REVERSE_MAX_METERS = 100;
+
+/** Ce qu'un point rend, quand il rend quelque chose. */
+export interface ReverseAddress {
+  readonly postcode: string;
+  readonly label: string;
+}
+
+/**
+ * Clé de cache d'un point, arrondie à cinq décimales — le mètre.
+ *
+ * « rev1 » distingue ces entrées de celles du géocodage direct, qui vivent dans
+ * la même table : la clé d'une adresse est un texte, celle d'un point deux
+ * nombres, et rien ne les ferait se confondre — mais autant que ce soit visible
+ * en lisant la table.
+ */
+export function reverseCacheKey(latitude: number, longitude: number): string {
+  return `rev1 ${latitude.toFixed(5)},${longitude.toFixed(5)}`;
 }
 
 /** Cache en mémoire, pour les tests. */
@@ -115,6 +169,8 @@ interface BanProperties {
   readonly label?: string;
   readonly postcode?: string;
   readonly housenumber?: string;
+  /** Distance au point demandé, en mètres — rendue par `/reverse/` seulement. */
+  readonly distance?: number;
   /** Nom de la voie (`street` sur un numéro, `name` sur une voie). */
   readonly street?: string;
   readonly name?: string;
@@ -472,6 +528,52 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
         postcode: placed.postcode,
       });
       return coords === null ? null : { ...coords, ...placed };
+    },
+    async reverse(
+      latitude: number,
+      longitude: number,
+      city: string | null = null,
+    ): Promise<ReverseAddress | null> {
+      const key = reverseCacheKey(latitude, longitude);
+      const cached = await options.cache.get(key);
+      if (cached !== null) {
+        // Échec mémorisé comme succès : dans les deux cas, rien à redemander.
+        const { postcode, label } = cached;
+        return postcode == null || label == null ? null : { postcode, label };
+      }
+
+      let found: ReverseAddress | null = null;
+      try {
+        const url = `${BAN_REVERSE}?${new URLSearchParams({
+          lat: String(latitude),
+          lon: String(longitude),
+          limit: '1',
+        }).toString()}`;
+        const response = await fetchImpl(url, {
+          headers: { 'User-Agent': options.userAgent, Accept: 'application/json' },
+        });
+        if (!response.ok) return null;
+        const data = (await response.json()) as { features?: readonly BanFeature[] };
+        const props = data.features?.[0]?.properties;
+        const proche = (props?.distance ?? Number.POSITIVE_INFINITY) <= REVERSE_MAX_METERS;
+        const memeCommune =
+          city === null || props?.city === undefined || sameCity(props.city, city);
+        if (props?.postcode !== undefined && props.label !== undefined && proche && memeCommune) {
+          found = { postcode: props.postcode, label: props.label };
+        }
+      } catch {
+        // Panne réseau : on ne mémorise rien, pour pouvoir réessayer.
+        return null;
+      }
+
+      await options.cache.set(key, {
+        lat: latitude,
+        lon: longitude,
+        geocodedAt: new Date(options.nowMs).toISOString(),
+        label: found?.label ?? null,
+        postcode: found?.postcode ?? null,
+      });
+      return found;
     },
   };
 }
