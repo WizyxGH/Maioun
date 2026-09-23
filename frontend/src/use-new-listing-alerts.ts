@@ -13,7 +13,7 @@
  * complexité tolérée.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { fetchListings, isDemoMode } from './api/client.js';
 import {
   diffForNotification,
@@ -27,6 +27,7 @@ import type { ListingView } from './types.js';
 
 export function useNewListingAlerts({
   enabled,
+  visible,
   onFresh,
   onOpen,
 }: {
@@ -40,11 +41,27 @@ export function useNewListingAlerts({
    * la session non.
    */
   readonly enabled: boolean;
+  /**
+   * Ce que la liste MONTRERAIT de cette annonce, filtres de l'écran compris.
+   *
+   * Les critères disent ce qu'on cherche et le serveur les applique ; les
+   * filtres disent ce qu'on veut voir en ce moment. Sans ce garde, une annonce
+   * écartée par une source décochée faisait quand même surgir son bandeau.
+   */
+  readonly visible: (listing: ListingView) => boolean;
   /** Annonces jamais vues jusqu'ici, dans les critères. Jamais appelé à vide. */
   readonly onFresh: (fresh: readonly ListingView[]) => void;
   /** Ouverture d'une fiche depuis une notification cliquée. */
   readonly onOpen: (id: string) => void;
 }): void {
+  /**
+   * PAR RÉFÉRENCE, ET NON EN DÉPENDANCE. Le prédicat se reconstruit à chaque
+   * rendu — il enferme l'état des filtres —, et le mettre dans les dépendances
+   * relancerait la minuterie de sondage à chaque frappe dans la recherche.
+   */
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
   useEffect(() => {
     if (!enabled) return undefined;
     if (isDemoMode()) return undefined; // pas de vraies données à surveiller
@@ -57,7 +74,9 @@ export function useNewListingAlerts({
         if (cancelled) return;
         // Le premier sondage amorce la mémoire sans rien signaler : sinon tout
         // le stock existant sonnerait d'un coup (voir `diffForNotification`).
-        const { fresh, nextSeen } = diffForNotification(response.listings, readSeen());
+        const { fresh, nextSeen } = diffForNotification(response.listings, readSeen(), (listing) =>
+          visibleRef.current(listing),
+        );
         writeSeen(nextSeen);
         if (fresh.length === 0) return;
         onFresh(fresh);

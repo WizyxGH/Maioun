@@ -31,6 +31,17 @@ export const ONE_TWO_THREE_LOGER_DESCRIPTOR: SourceDescriptor = {
   enabled: true,
   hostsWantedAds: false,
   allowedPaths: ['/location/nice-06000/*'],
+  /**
+   * LE CONTACT EST PAYANT, et le site le dit lui-même sur chaque fiche :
+   * « pour contacter tous les propriétaires qui louent le logement de vos
+   * rêves, vous devez créer votre profil locataire et devenir Premium pour
+   * 34 € ». Relevé le 2026-09-23.
+   *
+   * On le DIT à l'écran, avant le clic : découvrir le péage après avoir ouvert
+   * l'annonce est une déception qu'un mot suffit à éviter. L'annonce, elle,
+   * reste consultable librement — et c'est bien pour cela qu'on la collecte.
+   */
+  paidContact: true,
   notes:
     'robots.txt vérifié le 2026-09-22 : les pages publiques de location sont ' +
     'autorisées. La recherche appartement Nice annonce 13 pages publiques et ' +

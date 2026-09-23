@@ -30,21 +30,30 @@ afterEach(() => {
   localStorage.clear();
 });
 
+/** Ces scénarios portent sur la MINUTERIE, pas sur les filtres : on montre tout. */
+const TOUT = (): boolean => true;
+
 describe('le sondage des nouvelles annonces', () => {
   it('NE PART PAS tant qu’aucun compte n’est connu', () => {
     localStorage.setItem('maioun.notificationsOptIn', 'true');
-    renderHook(() => useNewListingAlerts({ enabled: false, onFresh: vi.fn(), onOpen: vi.fn() }));
+    renderHook(() =>
+      useNewListingAlerts({ enabled: false, visible: TOUT, onFresh: vi.fn(), onOpen: vi.fn() }),
+    );
     expect(appels.listings).toBe(0);
   });
 
   it('part une fois le compte connu', () => {
     localStorage.setItem('maioun.notificationsOptIn', 'true');
-    renderHook(() => useNewListingAlerts({ enabled: true, onFresh: vi.fn(), onOpen: vi.fn() }));
+    renderHook(() =>
+      useNewListingAlerts({ enabled: true, visible: TOUT, onFresh: vi.fn(), onOpen: vi.fn() }),
+    );
     expect(appels.listings).toBe(1);
   });
 
   it('se tait aussi quand les alertes n’ont pas été acceptées', () => {
-    renderHook(() => useNewListingAlerts({ enabled: true, onFresh: vi.fn(), onOpen: vi.fn() }));
+    renderHook(() =>
+      useNewListingAlerts({ enabled: true, visible: TOUT, onFresh: vi.fn(), onOpen: vi.fn() }),
+    );
     expect(appels.listings).toBe(0);
   });
 });

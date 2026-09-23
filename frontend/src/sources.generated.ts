@@ -43,7 +43,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     domain: '123loger.com',
     kind: 'portal',
     logo: null,
-    paidContact: false,
+    paidContact: true,
     address: null,
   },
   'aa-gestion': {

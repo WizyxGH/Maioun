@@ -280,11 +280,26 @@ export interface NotificationDiff {
  *   - on ne considère que les annonces DANS les critères (§29) ;
  *   - au premier sondage (mémoire non amorcée), on n'annonce RIEN et on se
  *     contente d'enregistrer l'existant ;
- *   - ensuite, seules les annonces dont l'identifiant est inconnu sont fraîches.
+ *   - ensuite, seules les annonces dont l'identifiant est inconnu sont fraîches ;
+ *   - et seules celles que la liste MONTRERAIT sont signalées.
+ *
+ * LES CRITÈRES NE SONT PAS LES FILTRES, et les confondre sonnait à tort. Les
+ * critères disent ce qu'on cherche — budget, surface, commune — et le serveur
+ * les applique. Les filtres disent ce qu'on veut VOIR en ce moment : une source
+ * écartée, une puce posée, un mot tapé dans la recherche. Une annonce pouvait
+ * donc passer les critères, être cachée de la liste par un filtre, et faire
+ * quand même surgir un bandeau — signaler ce qu'on a demandé à ne pas voir.
+ *
+ * LA MÉMOIRE, ELLE, RETIENT TOUT CE QUI PASSE LES CRITÈRES, filtré ou non :
+ * sans cela, lever un filtre ferait sonner d'un coup tout ce qu'il masquait
+ * depuis des jours. Le filtre tait le bandeau, il n'efface pas le souvenir.
+ *
+ * @param visible ce que la liste montrerait ; tout, par défaut.
  */
 export function diffForNotification(
   listings: readonly ListingView[],
   seen: SeenState,
+  visible: (listing: ListingView) => boolean = () => true,
 ): NotificationDiff {
   const matching = listings.filter((listing) => listing.matchesCriteria);
   const currentIds = matching.map((listing) => listing.id);
@@ -293,7 +308,7 @@ export function diffForNotification(
     return { fresh: [], nextSeen: currentIds };
   }
 
-  const fresh = matching.filter((listing) => !seen.ids.has(listing.id));
+  const fresh = matching.filter((listing) => !seen.ids.has(listing.id) && visible(listing));
   const nextSeen = [...new Set([...seen.ids, ...currentIds])];
   return { fresh, nextSeen };
 }

@@ -20,8 +20,8 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
-import { cleanText } from '../../normalization/text.js';
-import { compactListing, type ParsedList } from '../shared/raw-listing.js';
+import { cleanText, comparable } from '../../normalization/text.js';
+import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 
 export const SITE = 'https://www.tichadou.fr';
 export const LIST_URL = `${SITE}/resultats?transac=location`;
@@ -102,4 +102,113 @@ export function parseListPage(html: string): ParsedList {
     warnings.push('Aucune annonce dans le tableau de la page de résultats');
   }
   return { listings, warnings };
+}
+
+/** Ce que la fiche ajoute à la carte : tout le tableau « Informations détaillées ». */
+const DETAILS = '#collapseDetails li';
+
+/** « Ascenseur : Oui » — l'ICS écrit ses booléens en toutes lettres. */
+const OUI = /^oui$/i;
+
+/**
+ * Les traits que la fiche déclare et qu'aucun champ typé ne recueille.
+ *
+ * Ils partent dans `extra.features`, que `extractFeatures` relit comme une
+ * liste d'équipements DÉCLARÉE — donc sans la chercher dans une phrase, où une
+ * négation voisine pourrait la nier.
+ */
+const TRAITS = [
+  'type de cuisine',
+  'exposition',
+  'chauffage',
+  'mode chauffage',
+  'installation eau chaude',
+  'etat general',
+  'standing',
+  'acces handicape',
+  'mecanisme de chauffage',
+];
+
+/** « Charges : 95 € » → « charges » ⇒ « 95 € ». Accents et casse ramenés. */
+function tableauDetails($: cheerio.CheerioAPI): Map<string, string> {
+  const details = new Map<string, string>();
+  $(DETAILS).each((_, element) => {
+    const ligne = cleanText($(element).text()) ?? '';
+    const coupe = ligne.indexOf(':');
+    if (coupe === -1) return;
+    const cle = comparable(ligne.slice(0, coupe));
+    const valeur = cleanText(ligne.slice(coupe + 1));
+    if (cle !== '' && valeur !== null) details.set(cle, valeur);
+  });
+  return details;
+}
+
+/**
+ * LA FICHE APPORTE CINQ FOIS PLUS DE PHOTOS, ET EN PLEINE TAILLE.
+ *
+ * La liste n'en donne qu'une, et dans sa version « moyennes ». La fiche porte
+ * la galerie entière deux fois — en vignettes et en grand —, et c'est la
+ * grande qu'on garde : les vignettes font 90 px de large.
+ */
+function photos($: cheerio.CheerioAPI): string[] {
+  const vues = new Set<string>();
+  $('img[src*="photobox"]').each((_, element) => {
+    const src = $(element).attr('src') ?? '';
+    if (src === '' || src.includes('/vignettes/') || src.includes('/moyennes/')) return;
+    vues.add(new URL(src.replace(/^[.][/]/, ''), `${SITE}/`).toString());
+  });
+  return [...vues];
+}
+
+/**
+ * Ce que la fiche apprend, ou `null` si elle n'apprend rien.
+ *
+ * LES MONTANTS SONT DANS LE TABLEAU, pas seulement dans la description : les y
+ * prendre évite de relire une phrase pour un chiffre qui a sa propre case, et
+ * donne le dépôt de garantie, que la description tait.
+ *
+ * L'ÉTIQUETTE ÉNERGIE EST UNE IMAGE, et son nom de fichier porte la classe :
+ * `nouveau-dpe-D-182-D-38-titre.jpg` dit DPE D et GES D. C'est le même procédé
+ * que chez les autres sites ICS du dépôt.
+ */
+export function parseDetailPage(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  const details = tableauDetails($);
+  if (details.size === 0) return null;
+
+  const etiquettes = $('img[src*="dpe.ics.fr"]').attr('src') ?? '';
+  const dpe = /nouveau-dpe-([A-G])-/.exec(etiquettes)?.[1];
+  const ges = /nouveau-dpe-[A-G]-[\d.,]+-([A-G])-/.exec(etiquettes)?.[1];
+
+  const extra: Record<string, string> = {};
+  const etage = details.get('numero etage');
+  if (etage !== undefined) extra['etage'] = etage;
+  if (OUI.test(details.get('ascenseur') ?? '')) extra['ascenseur'] = '1';
+  // `comparable` remplace la ponctuation par une espace : « Nombre de
+  // Balcon(s) » devient « nombre de balcon s », et c'est cette clé-là qu'on
+  // demande — la forme d'origine ne répondrait jamais.
+  const balcons = details.get('nombre de balcon s');
+  if (balcons !== undefined) extra['nbBalcons'] = balcons;
+  const terrasses = details.get('nombre de terrasse s');
+  if (terrasses !== undefined) extra['nbTerrasses'] = terrasses;
+  // « Localisation : Centre ville » : le quartier, tel que l'agence le nomme.
+  const quartier = details.get('localisation');
+  if (quartier !== undefined) extra['quartier'] = quartier;
+  if (dpe !== undefined) extra['dpe'] = dpe;
+  if (ges !== undefined) extra['ges'] = ges;
+  const traits = TRAITS.map((nom) => {
+    const valeur = details.get(nom);
+    return valeur === undefined ? null : `${nom} : ${valeur}`;
+  }).filter((trait): trait is string => trait !== null);
+  if (traits.length > 0) extra['features'] = traits.join(' · ');
+
+  const galerie = photos($);
+  return {
+    chargesText: details.get('charges'),
+    feesText: details.get('honoraires de location'),
+    depositText: details.get('depot de garantie'),
+    areaText: details.get('surface habitable'),
+    ...(galerie.length > 0 ? { imageUrls: galerie } : {}),
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
+  };
 }

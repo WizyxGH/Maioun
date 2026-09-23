@@ -2196,3 +2196,36 @@ chaque champ utile est donc lu au coup par coup, ce qui a l'avantage de ne rien
 exiger des champs qu'on ignore.
 
 Quatre locations au relevé, toutes à Nice.
+
+## Le contact payant, et où il se trouve
+
+`paidContact` marque les sources qui **facturent la mise en relation**. Ce n'est
+pas un jugement : l'annonce reste consultable librement, et c'est bien pour cela
+qu'on la collecte. Mais découvrir le péage APRÈS avoir ouvert la fiche est une
+déception qu'un mot suffit à éviter, et la fiche le dit avant le clic.
+
+| Source         | Ce que le site demande                                                                                                                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **LocService** | La mise en relation est son métier : ni adresse ni téléphone sur l'annonce.                                                                                                                                                                              |
+| **Rentumo**    | Idem.                                                                                                                                                                                                                                                    |
+| **Appartager** | Idem, pour la colocation.                                                                                                                                                                                                                                |
+| **123Loger**   | « Pour contacter tous les propriétaires […] vous devez créer votre profil locataire et **devenir Premium pour 34 €** » — relevé sur la fiche le 2026-09-23. **Le drapeau manquait**, et c'est la troisième source par le volume (301 annonces vivantes). |
+
+**À NE PAS CONFONDRE AVEC « SANS TÉLÉPHONE NI COURRIEL ».** Beaucoup de sources
+n'en publient aucun sans rien faire payer — le contact passe par leur
+formulaire ou leur messagerie, gratuitement :
+
+- **ParuVendu** (224 annonces) : formulaire, dans une fenêtre que son
+  `robots.txt` ferme ;
+- **Studapart** (201) : messagerie, compte gratuit obligatoire ; ce qui se paie,
+  ce sont les frais de service **à la réservation**, pas le contact ;
+- **MorningCroissant** (94) : messagerie, compte gratuit ; frais de service
+  offerts en dessous d'un an de bail ;
+- **ImmoJeune** (33) : dépôt et candidature gratuits, c'est même sa raison
+  d'être dans notre liste ;
+- **LeSiteImmo**, **Bien'ici** : formulaire vers l'agence, gratuit.
+
+Le relevé qui sépare les deux familles est simple et se refait d'une requête :
+compter, par source, les occurrences vivantes **sans téléphone ni courriel**.
+Il donne la liste des sources à examiner ; lesquelles font payer, seule leur
+page le dit.

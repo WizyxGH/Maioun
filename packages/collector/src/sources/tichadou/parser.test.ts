@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseListPage } from './parser.js';
+import { parseDetailPage, parseListPage } from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(new URL('../../../../../tests/fixtures/tichadou/locations.html', import.meta.url)),
@@ -56,5 +56,60 @@ describe('parseListPage (Tichadou)', () => {
     const { listings, warnings } = parseListPage('<html><body>rien ici</body></html>');
     expect(listings).toEqual([]);
     expect(warnings).toHaveLength(1);
+  });
+});
+
+const FICHE = readFileSync(
+  fileURLToPath(new URL('../../../../../tests/fixtures/tichadou/fiche.html', import.meta.url)),
+  'utf8',
+);
+
+describe('parseDetailPage (Tichadou)', () => {
+  it('lit les montants du tableau, dépôt de garantie compris', () => {
+    const detail = parseDetailPage(FICHE);
+    expect(detail?.chargesText).toBe('95 €');
+    expect(detail?.feesText).toBe('385.86 €');
+    // LE DÉPÔT, QUE LA DESCRIPTION TAIT : il n'existe que dans le tableau.
+    expect(detail?.depositText).toBe('490 €');
+    // Le site écrit « 29m² », sans espace : on rend ce qu'il écrit.
+    expect(detail?.areaText).toBe('29m²');
+  });
+
+  /**
+   * LA LISTE NE DONNE QU'UNE PHOTO, en version « moyennes ». La fiche porte la
+   * galerie entière, deux fois — vignettes de 90 px et pleine taille — et
+   * c'est la pleine taille qu'on garde.
+   */
+  it('garde la galerie en pleine taille, sans les vignettes', () => {
+    const photos = parseDetailPage(FICHE)?.imageUrls ?? [];
+    expect(photos).toHaveLength(5);
+    expect(photos.every((url) => url.startsWith('https://www.tichadou.fr/'))).toBe(true);
+    expect(photos.some((url) => url.includes('/vignettes/'))).toBe(false);
+    expect(photos.some((url) => url.includes('/moyennes/'))).toBe(false);
+  });
+
+  /** L'étiquette énergie est une IMAGE, et son nom porte les deux classes. */
+  it('lit le DPE et le GES dans le nom de l’image', () => {
+    const extra = parseDetailPage(FICHE)?.extra;
+    expect(extra?.['dpe']).toBe('D');
+    expect(extra?.['ges']).toBe('D');
+  });
+
+  it('relève l’étage, l’ascenseur, le balcon et le quartier', () => {
+    const extra = parseDetailPage(FICHE)?.extra;
+    expect(extra?.['etage']).toBe('2');
+    expect(extra?.['ascenseur']).toBe('1');
+    expect(extra?.['nbBalcons']).toBe('1');
+    expect(extra?.['quartier']).toBe('Centre ville');
+  });
+
+  it('range les traits déclarés là où la détection les lit sans les nier', () => {
+    const features = parseDetailPage(FICHE)?.extra?.['features'] ?? '';
+    expect(features).toContain('cuisine');
+    expect(features).toContain('chauffage');
+  });
+
+  it('ne rend rien sur une page sans tableau', () => {
+    expect(parseDetailPage('<html><body>rien</body></html>')).toBeNull();
   });
 });

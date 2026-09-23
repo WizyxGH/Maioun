@@ -1643,10 +1643,29 @@ function AppView(): React.JSX.Element {
     (fresh: readonly ListingView[]): void => setToasts((current) => mergeToasts(current, fresh)),
     [],
   );
+  /**
+   * CE QUE LA LISTE MONTRERAIT, pour que le bandeau ne signale rien qu'on ait
+   * demandé à ne pas voir. `newOnly` est écarté : une annonce qui vient
+   * d'arriver n'a par définition pas encore été ouverte, et l'inclure ne
+   * changerait rien qu'une lecture de plus.
+   */
+  const visibleDansLaListe = useCallback(
+    (listing: ListingView): boolean =>
+      filterListings([listing], {
+        sources: sourceFilter,
+        quick: quickFilters,
+        search,
+        hideUncertain,
+        newOnly: false,
+      }).length === 1,
+    [sourceFilter, quickFilters, search, hideUncertain],
+  );
+
   useNewListingAlerts({
     // Sans compte connu, le serveur rend le catalogue et non VOS critères :
     // on ne sonde pas.
     enabled: currentUser !== null && currentUser !== undefined,
+    visible: visibleDansLaListe,
     onFresh: handleFresh,
     onOpen: openListing,
   });

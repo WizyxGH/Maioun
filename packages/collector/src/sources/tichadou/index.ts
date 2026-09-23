@@ -2,23 +2,23 @@
  * Source : Immobilière Tichadou (tichadou.fr) — 2 rue du Congrès, 06000 Nice.
  * Étude et pièges dans `parser.ts`.
  *
- * Demandée par son nom. UNE SEULE REQUÊTE PAR PASSAGE : la page de résultats
- * embarque son propre tableau d'annonces, description entière comprise. Aucune
- * fiche à visiter — et donc rien à relire.
+ * DEUX LECTURES, ET LA SECONDE VAUT LE DÉTOUR. La page de résultats embarque
+ * son propre tableau d'annonces, description entière comprise ; la fiche, elle,
+ * apporte le tableau « Informations détaillées » — charges, honoraires, dépôt
+ * de garantie, étage, ascenseur, balcons, quartier —, l'étiquette énergie et
+ * CINQ FOIS PLUS DE PHOTOS, en pleine taille plutôt qu'en « moyennes ».
  *
- * Quatre locations au relevé du 2026-09-23, toutes à Nice.
+ * Quatre locations au relevé du 2026-09-23, toutes à Nice : les quatre fiches
+ * tiennent donc dans un passage, et rien n'oblige à les relire ensuite.
  */
 
-import type {
-  RawListing,
-  Scraper,
-  ScrapeContext,
-  ScrapeResult,
-  SourceDescriptor,
-} from '@maioun/shared';
+import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { stopReasonFromError } from '../shared/stop-reason.js';
-import { LIST_URL, parseListPage } from './parser.js';
+import { runListAndDetails } from '../shared/list-and-details.js';
+import { LIST_URL, parseDetailPage, parseListPage } from './parser.js';
+
+/** Le stock tient en quatre annonces ; la marge couvre une belle saison. */
+const MAX_DETAILS = 12;
 
 export const TICHADOU_DESCRIPTOR: SourceDescriptor = {
   id: 'tichadou',
@@ -28,60 +28,31 @@ export const TICHADOU_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 2,
   schedule: scheduleFor('localAgency'),
-  budget: budgetFor('localAgency', { maxPagesPerRun: 1 }),
+  budget: budgetFor('localAgency', { maxPagesPerRun: 1 + MAX_DETAILS }),
   enabled: true,
-  allowedPaths: ['/resultats*'],
+  allowedPaths: ['/resultats*', '/location-*'],
   agencyContact: {
+    phone: '04 93 16 78 26', // secret-scan-ignore
     address: { street: '2 rue du Congrès', postalCode: '06000', city: 'Nice' },
   },
   notes:
     'robots.txt vérifié le 2026-09-23 : « Allow: / », sitemap déclaré. Site ICS, ' +
     'mais au gabarit à tableau JavaScript embarqué (var properties) et non au ' +
-    'gabarit resultat.php des autres sources ICS : titre, loyer, lien, photo et ' +
-    'description entière y figurent, honoraires au m² et part d’état des lieux ' +
-    'compris. Aucune fiche à visiter.',
+    'gabarit resultat.php des autres sources ICS : la liste porte titre, loyer, ' +
+    'lien, photo et description entière. La fiche ajoute le tableau des ' +
+    'informations détaillées (charges, honoraires, dépôt, étage, ascenseur, ' +
+    'balcons, quartier), l’étiquette énergie encodée dans le nom de l’image ' +
+    'dpe.ics.fr, et la galerie entière en pleine taille.',
 };
 
 export const tichadouScraper: Scraper = {
   descriptor: TICHADOU_DESCRIPTOR,
-
-  async run(context: ScrapeContext): Promise<ScrapeResult> {
-    const listings: RawListing[] = [];
-    const warnings: string[] = [];
-    let requestCount = 0;
-    let pagesFetched = 0;
-
-    try {
-      const response = await context.fetch(LIST_URL);
-      requestCount += 1;
-      if (!response.notModified) {
-        pagesFetched += 1;
-        const parsed = parseListPage(response.body);
-        listings.push(...parsed.listings);
-        warnings.push(...parsed.warnings);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      warnings.push(`Échec sur ${LIST_URL} : ${message}`);
-      context.log('list.failed', { url: LIST_URL, error: message });
-      return {
-        sourceId: TICHADOU_DESCRIPTOR.id,
-        listings,
-        requestCount,
-        pagesFetched,
-        stopReason: stopReasonFromError(message),
-        warnings,
-      };
-    }
-
-    context.log('list.parsed', { listings: listings.length });
-    return {
+  run: (context) =>
+    runListAndDetails(context, {
       sourceId: TICHADOU_DESCRIPTOR.id,
-      listings,
-      requestCount,
-      pagesFetched,
-      stopReason: 'completed',
-      warnings,
-    };
-  },
+      listUrls: [LIST_URL],
+      parseList: (body) => parseListPage(body).listings,
+      parseDetail: (html) => parseDetailPage(html),
+      maxDetails: MAX_DETAILS,
+    }),
 };

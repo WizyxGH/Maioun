@@ -34,6 +34,50 @@ function listing(over: {
 
 const seed = (ids: string[]): SeenState => ({ initialized: true, ids: new Set(ids) });
 
+/**
+ * LES CRITÈRES NE SONT PAS LES FILTRES. Le serveur applique les premiers ; les
+ * seconds disent ce qu'on veut voir MAINTENANT — une source décochée, une puce
+ * posée, un mot tapé. Signaler ce qu'un filtre cache, c'est sonner pour ce
+ * qu'on a demandé à ne pas voir.
+ */
+describe('diffForNotification face aux filtres de l’écran', () => {
+  it('ne signale pas une annonce que la liste ne montrerait pas', () => {
+    const result = diffForNotification(
+      [listing({ id: 'a' }), listing({ id: 'b' })],
+      seed(['a']),
+      (one) => one.id !== 'b',
+    );
+    expect(result.fresh).toHaveLength(0);
+  });
+
+  it('signale celles que la liste montrerait', () => {
+    const result = diffForNotification(
+      [listing({ id: 'a' }), listing({ id: 'b' })],
+      seed(['a']),
+      () => true,
+    );
+    expect(result.fresh.map((one) => one.id)).toEqual(['b']);
+  });
+
+  /**
+   * LE FILTRE TAIT LE BANDEAU, IL N'EFFACE PAS LE SOUVENIR : sans cela, lever
+   * un filtre ferait sonner d'un coup tout ce qu'il masquait depuis des jours.
+   */
+  it('retient quand même ce qu’un filtre a caché', () => {
+    const result = diffForNotification(
+      [listing({ id: 'a' }), listing({ id: 'b' })],
+      seed(['a']),
+      (one) => one.id !== 'b',
+    );
+    expect([...result.nextSeen].sort()).toEqual(['a', 'b']);
+  });
+
+  it('montre tout quand aucun prédicat n’est donné', () => {
+    const result = diffForNotification([listing({ id: 'b' })], seed(['a']));
+    expect(result.fresh.map((one) => one.id)).toEqual(['b']);
+  });
+});
+
 describe('diffForNotification', () => {
   it('au premier sondage, amorce la mémoire sans rien signaler', () => {
     const state: SeenState = { initialized: false, ids: new Set() };
