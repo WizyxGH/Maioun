@@ -26,4 +26,9 @@ export const gestionCassiniScraper = makeApimoScraper({
   citySlugs: portalCommuneSlugs({
     omit: ['villeneuve-loubet', 'saint-andre-de-la-roche', 'colomars'],
   }),
+  // HUIT ANNONCES DE SA PAGE MANQUENT À SON SITEMAP au 2026-09-23 — 4358113,
+  // 7431468, 769219, 83969850, 84335883, 85377096, 86209476, 87316953. Le
+  // chemin ne se devine pas : ni /fr/locations ni /fr/louer, mais
+  // /fr/biens-a-louer.
+  listUrls: ['https://www.gestioncassini.com/fr/biens-a-louer'],
 });
