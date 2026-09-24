@@ -360,6 +360,8 @@ export function DocumentsSection({
   const [openSlot, setOpenSlot] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Deux temps plutôt qu'une modale : le premier clic arme, le second efface.
+  const [purgeArmee, setPurgeArmee] = useState(false);
 
   useEffect(() => {
     void fetchDocuments()
@@ -420,6 +422,39 @@ export function DocumentsSection({
     void deleteDocument(name).catch(() => setError('La suppression a échoué'));
   };
 
+  /**
+   * EFFACER TOUT CE QUI A ÉTÉ DÉPOSÉ ICI, en une fois.
+   *
+   * Le casier de pièces s'efface au profit du seul lien DossierFacile. Retirer
+   * l'écran sans donner ce geste laisserait les fichiers dans le stockage du
+   * Worker, hors d'atteinte : personnels, conservés, et plus affichables.
+   *
+   * Pièce par pièce, avec l'API DÉJÀ DÉPLOYÉE : un point d'entrée « tout
+   * supprimer » d'un seul coup n'existerait qu'après un déploiement du Worker,
+   * et c'est précisément ce qu'on ne veut pas attendre pour se débarrasser de
+   * données personnelles.
+   */
+  const purger = async (): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    const restantes: string[] = [];
+    for (const doc of documents) {
+      try {
+        await deleteDocument(doc.name);
+      } catch {
+        restantes.push(doc.name);
+      }
+    }
+    setDocuments(documents.filter((doc) => restantes.includes(doc.name)));
+    setError(
+      restantes.length === 0
+        ? null
+        : `Ces pièces n’ont pas pu être supprimées : ${restantes.join(', ')}`,
+    );
+    setPurgeArmee(false);
+    setBusy(false);
+  };
+
   const inSlot = (slotId: string): DocumentInfo[] =>
     documents.filter((doc) => slotOf(doc.name) === slotId);
   // Pièces déposées avant que le rangement n'existe, ou hors liste : elles ne
@@ -456,6 +491,46 @@ export function DocumentsSection({
       {error !== null && (
         <Alert variant="destructive" className="mt-3">
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* CE CASIER VA DISPARAÎTRE au profit du seul lien DossierFacile : un
+        dossier contrôlé par l'État, hébergé chez lui, et que le bailleur ouvre
+        sans rien avoir à vérifier. Le dire ICI, et donner le geste qui vide,
+        plutôt que de retirer l'écran en laissant les fichiers derrière. */}
+      {documents.length > 0 && (
+        <Alert className="mt-3">
+          <AlertDescription>
+            <p>
+              Le dépôt de pièces ici s’arrête : les candidatures passent désormais entièrement par
+              votre lien DossierFacile, réglé dans le profil. Récupérez ce que vous voulez garder,
+              puis supprimez tout — sans quoi ces {documents.length} pièces resteraient conservées
+              sans être affichées nulle part.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={busy}
+                onClick={() => (purgeArmee ? void purger() : setPurgeArmee(true))}
+              >
+                {purgeArmee
+                  ? `Confirmer : supprimer ${documents.length} pièce${documents.length > 1 ? 's' : ''}`
+                  : 'Supprimer toutes mes pièces'}
+              </Button>
+              {purgeArmee && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setPurgeArmee(false)}
+                >
+                  Annuler
+                </Button>
+              )}
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
