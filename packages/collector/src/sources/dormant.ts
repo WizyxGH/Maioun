@@ -313,6 +313,50 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     probe: { kind: 'page', url: 'https://www.lanterinicolasimmo.fr/location' },
   },
   {
+    id: 'lafage-transactions',
+    name: 'Lafage Transactions (groupe)',
+    origin: 'https://www.french-riviera-property.com',
+    reason: 'noVolume',
+    checkedOn: '2026-09-24',
+    // PREMIÈRE DU CLASSEMENT DES AGENCES SANS SOURCE — 20 annonces vues par les
+    // portails —, et pourtant sans objet ici. Le sondage annonçait « 69
+    // locations » : un ARTEFACT DE SLUG, les ventes dont le texte contient
+    // « possibilité de location saisonnière » comptant pour des locations. Son
+    // vrai inventaire locatif tient en 36 fiches, toutes « location de
+    // prestige » : Mont Boron, Cap de Nice, villas de 500 m² à la semaine.
+    refusal: 'location saisonnière de prestige uniquement ; aucun bail long terme',
+    wakesIf: 'une rubrique de location à l’année apparaît à son sitemap',
+    probe: {
+      kind: 'sitemap',
+      url: 'https://www.french-riviera-property.com/sitemap.xml',
+      pattern: /\/fr\/detail-location(?!-de-prestige)/i,
+      minMatches: 1,
+    },
+  },
+  {
+    id: 'mce-immobilier',
+    name: 'MCE Immobilier',
+    // Le domaine NU n'a pas de certificat valable : seul le `www.` répond.
+    origin: 'https://www.mce-immo.com',
+    reason: 'noVolume',
+    checkedOn: '2026-09-24',
+    refusal: 'agence de Cagnes-sur-Mer : une seule location, hors du périmètre',
+    wakesIf: 'sa page de locations nomme une commune du périmètre',
+    probe: { kind: 'page', url: 'https://www.mce-immo.com/toutes-locations.html' },
+  },
+  {
+    id: 'capgest',
+    name: 'Capgest',
+    origin: 'https://capgest.com',
+    reason: 'noVolume',
+    checkedOn: '2026-09-24',
+    // Administrateur de biens, pas de vitrine : la gestion se fait pour des
+    // propriétaires, les lots ne sont pas publiés.
+    refusal: 'société de gestion sans vitrine : 9 URL au sitemap, aucune location',
+    wakesIf: 'son sitemap publie des fiches de location',
+    probe: { kind: 'sitemap', url: 'https://capgest.com/sitemap.xml', minMatches: 1 },
+  },
+  {
     id: 'meta-immobilier',
     name: 'Meta Immobilier',
     origin: 'https://meta-immobilier.com',

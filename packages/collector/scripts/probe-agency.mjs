@@ -101,12 +101,34 @@ function locations(xml) {
   return [...xml.matchAll(/<loc>\s*(?:<!\[CDATA\[)?([^\]<]+)/g)].map((match) => match[1].trim());
 }
 
-async function probe(domain) {
+/**
+ * L'adresse qui répond : le domaine tel quel, ou son `www.`.
+ *
+ * BEAUCOUP D'AGENCES N'ONT DE CERTIFICAT QUE POUR `www.`. Le domaine nu rend
+ * alors `ERR_TLS_CERT_ALTNAME_INVALID`, que la sonde lisait « injoignable » —
+ * et MCE Immobilier, bien vivante, a failli être classée morte pour cela. Un
+ * faux négatif ne se voit jamais : le candidat disparaît sans bruit.
+ *
+ * On ne tente le `www.` QUE sur un échec de transport, jamais sur un 404 ou un
+ * 403, qui sont des réponses et veulent dire ce qu'elles disent.
+ */
+async function joindre(domain) {
   const base = domain.startsWith('http') ? domain : `https://${domain}`;
+  const premier = await get(`${base}/robots.txt`);
+  if (premier.status !== 0 || /^https?:\/\/www\./.test(base)) return { base, robots: premier };
+  const avecWww = base.replace(/^(https?:\/\/)/, '$1www.');
+  const second = await get(`${avecWww}/robots.txt`);
+  return second.status === 0 ? { base, robots: premier } : { base: avecWww, robots: second };
+}
+
+async function probe(domain) {
+  const { base, robots } = await joindre(domain);
   const report = { domain, verdict: 'à écarter', notes: [] };
+  if (base !== (domain.startsWith('http') ? domain : `https://${domain}`)) {
+    report.notes.push(`joint sur ${base} (le domaine nu n'a pas de certificat)`);
+  }
 
   // --- 1. robots.txt, TOUJOURS en premier ---------------------------------
-  const robots = await get(`${base}/robots.txt`);
   if (robots.status === 0) {
     report.notes.push(`injoignable (${robots.error ?? 'sans réponse'})`);
     return report;

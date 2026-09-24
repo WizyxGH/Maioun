@@ -2316,3 +2316,57 @@ Realty, Nice Premium, Réussite Immo, Tosca et Votre Agence n'offrent que la
 vente dans leur menu ; Agence Gounod ne fait que du saisonnier et de la gestion
 locative. Leur sitemap reste leur seule vue — et c'est cohérent : on ne lit pas
 une page de locations là où il n'y en a pas.
+
+## Les agences que les portails nomment, et qu'on ne collecte pas (2026-09-24)
+
+Recherche menée dans NOTRE BASE plutôt que sur les moteurs : les portails
+nomment l'agence qui publie, donc celles qui y paraissent sans avoir de source
+directe sont exactement les inconnues. C'est mesuré, pas deviné.
+
+Sur 271 agences nommées : **57 indépendantes sans source directe, pour 153
+annonces**, plus 4 franchises de réseaux déjà collectés et 6 mandataires sans
+agence locale. Deux faux positifs relevés à la main : « BEP NICE » est la source
+`bep`, « Documentation Générale Immobilière » est `dgimmo` — un acronyme ne se
+rapproche pas tout seul.
+
+**Limite de la méthode** : elle ne voit que les agences publiant déjà sur un
+portail qu'on lit. Une agence invisible partout le reste ici aussi.
+
+### Lafage Transactions (french-riviera-property.com) — dormante, saisonnier de prestige
+
+Première du classement avec 20 annonces vues par les portails, et pourtant sans
+objet. **Le sondage annonçait « 69 locations » : c'était un artefact de slug** —
+les ventes dont le texte porte « possibilité de location saisonnière » étaient
+comptées comme des locations.
+
+L'inventaire réel : 3 105 URL au sitemap, dont 333 `detail-appartements-a-vendre`,
+92 `detail-villas-a-vendre` et **36 `detail-location-de-prestige`**. Quatre
+fiches lues au hasard : « CAP DE NICE — 3 PIÈCES MEUBLÉ EN LOCATION
+SAISONNIÈRE », « NICE MONT BORON — VILLA DE 7 PIÈCES DE 500 M² EN LOCATION
+SAISONNIÈRE ». Aucun bail à l'année.
+
+`robots.txt` permissif au demeurant. Réveil : une rubrique de location qui ne
+soit pas `-de-prestige`.
+
+### MCE Immobilier (mce-immo.com) — dormante, hors périmètre
+
+**Le domaine nu n'a pas de certificat valable** : `mce-immo.com` rend
+`ERR_TLS_CERT_ALTNAME_INVALID`, seul `www.mce-immo.com` répond. La sonde lisait
+« injoignable » et classait l'agence morte — un faux négatif qui se voit
+d'autant moins qu'il n'affiche rien. `probe-agency.mjs` retente désormais le
+`www.` sur un échec de TRANSPORT, jamais sur un 404 ou un 403, qui sont des
+réponses et veulent dire ce qu'elles disent.
+
+Jointe correctement, l'agence est de Cagnes-sur-Mer et n'a qu'une location, aux
+collines de Cagnes. Réveil : une commune du périmètre sur sa page de locations.
+
+### Capgest (capgest.com) — dormante, pas de vitrine
+
+Administrateur de biens, 35 rue Pastorelli. Neuf URL au sitemap, aucune
+location : la gestion se fait pour des propriétaires, les lots ne sont pas
+publiés. Réveil : des fiches de location à son sitemap.
+
+### Confiance Immobilière — toujours hors ligne
+
+Déjà consignée le 2026-09-17. Recontrôlée le 2026-09-24 : toujours injoignable,
+`www.` compris. Rien à changer.
