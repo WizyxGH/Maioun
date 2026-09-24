@@ -12,7 +12,20 @@ import { parseDetailPage, parseSearchPage } from './parser.js';
 
 const ORIGIN = 'https://www.123loger.com';
 const SEARCH_URL = `${ORIGIN}/location/nice-06000/appartement/`;
-const MAX_PAGES = 13;
+/**
+ * Plafond de pages, LARGE À DESSEIN.
+ *
+ * Il valait treize, soit exactement la taille du catalogue au relevé du
+ * 2026-09-24 : la treizième page était pleine (24 annonces) et la quatorzième
+ * vide. Nous étions donc à la limite, et la première croissance du stock aurait
+ * été tronquée sans un mot.
+ *
+ * Le relever ne coûte presque rien : la boucle s'arrête d'elle-même dès qu'une
+ * page n'annonce plus de suite — ce que la quatorzième fait —, soit UNE requête
+ * de plus aujourd'hui. Et si le plafond est un jour atteint pour de bon, la
+ * source le dit au lieu de se taire.
+ */
+const MAX_PAGES = 20;
 const MAX_DETAILS = 24;
 
 export const ONE_TWO_THREE_LOGER_DESCRIPTOR: SourceDescriptor = {
@@ -76,6 +89,14 @@ export const oneTwoThreeLogerScraper: Scraper = {
           listings.push(listing);
         }
         if (!parsed.hasNextPage && page > 1) break;
+        // Le plafond atteint alors que la page est encore pleine : le
+        // catalogue nous dépasse, et c'est la seule occasion de le dire.
+        if (page === MAX_PAGES && parsed.listings.length > 0) {
+          warnings.push(
+            `Plafond de ${MAX_PAGES} pages atteint, la dernière en portait encore ` +
+              `${parsed.listings.length} : le catalogue est peut-être tronqué.`,
+          );
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         warnings.push(`Échec sur ${url} : ${message}`);
