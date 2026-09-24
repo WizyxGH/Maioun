@@ -95,6 +95,11 @@ Calculés sur 100 pour chaque logement, avec trois règles transverses :
 `visitProbability` (chances d'obtenir une visite), `risk` (signaux douteux —
 prix anormalement bas, bailleur non identifiable).
 
+**Ils se calculent à quatre et s'affichent à un.** La fiche porte un « Score
+Maïoun » unique, sur 100, et la même carte déplie sous lui les quatre
+contributions et leurs raisons. Quatre cartes côte à côte laissaient au lecteur
+le soin de les pondérer lui-même, ce qu'aucun lecteur ne fait.
+
 `risk` est **le seul** indicateur de suspicion : il n'y a ni second score, ni
 second badge, ni second seuil. Il s'affiche sur la fiche sous le nom « Signaux
 d'alerte » dès `RISK_ALERT`, avec ses raisons, avant le message à écrire. Ce

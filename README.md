@@ -26,9 +26,11 @@ Ouvert sur un téléphone, il répond à une seule question :
 - **Fusion avec provenance** : téléphone du site d'agence + adresse exacte de
   Foncia + DPE de Saint Roch sur la même fiche ; les valeurs divergentes sont
   affichées, jamais écrasées en silence.
-- **Quatre scores expliqués** — Match, Opportunité, Probabilité de visite,
-  Risque — chacun avec ses raisons ligne à ligne et ses angles morts déclarés
-  (« calculé sans le nombre de favoris »). Une donnée absente n'est jamais
+- **Un score, et sa recette** — le « Score Maïoun » sur 100, et sous lui, dans
+  la même carte, ce qui l'a fait : correspondance aux critères, opportunité,
+  probabilité de visite, risque, chacun avec ses raisons ligne à ligne et ses
+  angles morts déclarés (« calculé sans le nombre de favoris »). Quatre cartes
+  séparées obligeaient à additionner de tête ; une donnée absente n'est jamais
   inventée.
 - **Détection d'arnaques** : prix anormal, incohérences, formulations
   classiques (« clés par courrier », « virement avant visite ») — signalées,
@@ -52,10 +54,14 @@ Ouvert sur un téléphone, il répond à une seule question :
 - **Recherches enregistrées** : un jeu complet de critères et d'affinage, nommé,
   qu'on rappelle d'un geste. Ce sont des signets — les alertes, elles, suivent
   toujours les critères actifs.
-- **Notifications** : un seul interrupteur. Allumé, l'alerte arrive par Web Push
-  (téléphone, application fermée) et par bandeau quand le site est ouvert —
-  chaque annonce signalée une seule fois, et jamais deux fois le même logement
-  vu par deux sources.
+- **Notifications** : l'alerte arrive par Web Push (téléphone, application
+  fermée) et par bandeau quand le site est ouvert — chaque annonce signalée une
+  seule fois, et jamais deux fois le même logement vu par deux sources. Cinq
+  motifs, réglables un à un : une annonce qui entre dans les critères ; une qui
+  passe **juste à côté** ; une **remise en ligne** après un retrait ; un favori
+  jamais contacté ; un favori **disparu de sa source**. Les deux premiers
+  élargissements — « juste à côté » et « de retour » — sont éteints par défaut :
+  ils ne restreignent pas la recherche, ils l'étendent.
 - **Dossier de candidature** : vos pièces déposées une fois, rangées selon la
   liste limitative du décret n° 2015-1437, et accessibles depuis vos appareils
   — une candidature s'envoie d'où l'on est. Elles sont dans l'espace de
@@ -127,8 +133,8 @@ Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
 critères, sans lancer la collecte à la main :
 
 1. **S'abonner aux notifications** depuis le site : cloche en haut à droite →
-   « Alertes de nouvelles annonces ». Un seul interrupteur : allumé, vous êtes
-   prévenu partout où c'est possible. Sur iPhone, ajoutez d'abord le site à
+   « Alertes de nouvelles annonces ». Un interrupteur par motif ; le premier
+   suffit, les autres élargissent. Sur iPhone, ajoutez d'abord le site à
    l'écran d'accueil (Partager → Sur l'écran d'accueil), sans quoi Safari
    n'expose pas l'API du push.
 

@@ -129,6 +129,9 @@ base à jeton, jamais dans le dépôt (§26).
 | `pnpm collect -- --verbose`  | collecte avec journalisation détaillée               |
 | `pnpm collect -- --backfill` | descend dans l’historique                            |
 | `pnpm publish:turso`         | pousse l'inventaire local vers la base cloud         |
+| `pnpm query "select …"`      | lit la base ; refuse tout ce qui n'est pas un SELECT |
+| `pnpm db:mirror`             | tire un miroir local de la base, dans `.data/`       |
+| `pnpm query --local "…"`     | lit le miroir : gratuit, hors ligne, et daté         |
 | `pnpm email:test`            | aperçu de l’alerte e-mail ; `--send` pour un essai   |
 | `pnpm dev`                   | interface seule, en mode démonstration               |
 | `pnpm verify`                | format + lint + types + tests + end-to-end + secrets |
@@ -178,6 +181,30 @@ pnpm publish:turso        # --dry-run pour voir sans écrire
 
 Le schéma part en entier ; les données seulement pour les annonces et l'état des
 sources — jamais les caches de géocodage ni l'historique de contacts.
+
+#### Le quota de lectures, et ce qu'il fait quand il tombe
+
+Turso facture les **lignes lues**, avec un plafond mensuel. Le
+**24 septembre 2026** il a été atteint : la base a répondu
+`BLOCKED: SQL read operations are forbidden` à _tout_ — les requêtes, mais
+aussi l'export, donc aucune copie de secours ne pouvait plus être tirée. La
+collecte a échoué en boucle à partir de 03:37, dernier passage réussi à 03:22.
+
+Deux enseignements, et les deux sont dans le dépôt.
+
+**Le miroir se tire AVANT d'en avoir besoin.** `pnpm db:mirror` entretient un
+réplica embarqué dans `.data/` (hors Git) ; `pnpm query --local` le lit sans
+rien coûter et sans réseau. Tiré à temps, il aurait permis d'enquêter pendant
+la panne. Il utilise un client libsql récent, installé sous l'alias
+`@libsql/sync` : la plateforme refuse le protocole de synchronisation de la
+version que la collecte emploie par ailleurs.
+
+**Une requête de passage sans index se paie tous les quarts d'heure.** Les
+retours en ligne et les baisses de prix se lisaient dans `listing_history` par
+balayage complet — une table qui ne perd jamais une ligne —, deux fois par
+passage, quatre-vingt-seize fois par jour. La migration `0047` ajoute l'index
+`(change, recorded_at)`, et `db/lectures-par-passage.test.ts` lit le plan de
+SQLite pour qu'une prochaine requête de passage ne reparte pas en balayage.
 
 ### 2. Le site — GitHub Pages
 
