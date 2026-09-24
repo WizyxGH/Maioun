@@ -215,6 +215,22 @@ Il n'a qu'un utilisateur — c'est votre machine, il n'y a personne d'autre —,
 n'écoute que la boucle locale, et annonce au démarrage quel fichier il sert et
 de quand il date. `MAIOUN_LOCAL_DB` en désigne un autre.
 
+**Et l'on peut travailler ENTIÈREMENT hors de Turso.** `MAIOUN_LOCAL=1`
+l'emporte sur `TURSO_DATABASE_URL`, même présente dans le `.env` — sans quoi il
+fallait commenter une ligne, et penser à la remettre. La collecte écrit alors
+dans `data/local.db`, que le serveur local sert au site :
+
+```bash
+MAIOUN_LOCAL=1 pnpm db:migrate     # le schéma dans le fichier local
+MAIOUN_LOCAL=1 pnpm collect        # une vraie collecte, sans toucher Turso
+pnpm serve:local                   # un terminal
+VITE_API_URL=http://localhost:8787 pnpm dev   # un autre
+```
+
+L'interrupteur ne s'allume que sur « 1 », et chaque commande dit quelle base
+elle vise : une collecte qui écrirait dans un fichier local en croyant nourrir
+la production serait pire que pas de collecte du tout.
+
 **Une requête de passage sans index se paie tous les quarts d'heure.** Les
 retours en ligne et les baisses de prix se lisaient dans `listing_history` par
 balayage complet — une table qui ne perd jamais une ligne —, deux fois par

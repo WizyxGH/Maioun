@@ -82,6 +82,9 @@ pnpm serve:local                                # puis, dans un autre terminal
 VITE_API_URL=http://localhost:8787 pnpm dev
 ```
 
+Et pour travailler ENTIÈREMENT hors de Turso — collecte comprise —,
+`MAIOUN_LOCAL=1` l'emporte sur le `.env` et vise `data/local.db`.
+
 Le miroir est une PHOTO : chaque lecture locale affiche sa date, et un chiffre
 tiré d'une copie de la veille ne vaut pas l'état du jour. Quand la fraîcheur
 compte, retirez le miroir avant de conclure.

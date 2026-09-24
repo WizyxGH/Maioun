@@ -96,6 +96,25 @@ export function databaseTarget(env: NodeJS.ProcessEnv = process.env): DatabaseTa
     return { kind: 'memory', url: env['TEST_DATABASE_URL'] ?? ':memory:' };
   }
 
+  // TRAVAILLER ENTIÈREMENT HORS DE TURSO, et sans toucher au `.env`.
+  //
+  // Le quota mensuel de lectures a été épuisé le 24 septembre 2026 : la base
+  // distante a tout refusé, et rien ne permettait de se rabattre sur un fichier
+  // local — `TURSO_DATABASE_URL` l'emportait toujours, et `.env` la rechargeait
+  // à chaque commande. Il fallait commenter une ligne du `.env` pour collecter
+  // chez soi, ce qu'on oublie ensuite de remettre.
+  //
+  // L'interrupteur est EXPLICITE et se lit dans le journal de chaque commande :
+  // une collecte qui écrit dans un fichier local en croyant nourrir la
+  // production serait pire que pas de collecte du tout.
+  if (env['MAIOUN_LOCAL'] === '1') {
+    const chosen = env['DATABASE_URL'];
+    return {
+      kind: 'local',
+      url: chosen !== undefined && chosen !== '' ? chosen : defaultLocalDatabaseUrl(),
+    };
+  }
+
   const turso = env['TURSO_DATABASE_URL'];
   if (turso !== undefined && turso !== '') return { kind: 'turso', url: turso };
 
