@@ -66,11 +66,7 @@ interface ListingDetailProps {
   /** Met (`true`) ou retire (`false`) l'annonce des favoris. */
   readonly onFavorite?: (favorite: boolean) => void;
   readonly onTrackingChange: (status: TrackingStatus) => void;
-  readonly onContactRecorded: (
-    channel: string,
-    message: string,
-    documents: readonly string[],
-  ) => void;
+  readonly onContactRecorded: (channel: string, message: string) => void;
   /** Ouvre la fiche de la source : ses infos et ses annonces actives. */
   readonly onOpenSource?: (sourceId: string) => void;
   readonly onConfigureProfile: () => void;

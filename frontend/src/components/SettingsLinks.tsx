@@ -27,7 +27,6 @@ import {
   Bell,
   Bookmark,
   ChevronRight,
-  FileText,
   Mail,
   MapPin,
   Palette,
@@ -57,12 +56,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Profil locataire',
         hint: 'Votre situation, pour écrire vos messages sans les retaper.',
         Icon: User,
-      },
-      {
-        key: 'documents',
-        label: 'Dossier de candidature',
-        hint: 'Déposez vos pièces une fois, joignez-les partout.',
-        Icon: FileText,
       },
       {
         // SOUS « VOUS », et non sous « Application ». Ce n'est pas un réglage

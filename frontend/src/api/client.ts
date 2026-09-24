@@ -956,68 +956,6 @@ export async function fetchStats(): Promise<StatsData> {
   return request<StatsData>('/api/stats');
 }
 
-// ---------------------------------------------------------------------------
-// Pièces du dossier de candidature (§25).
-//
-// Elles vivent dans l'espace de fichiers du Worker (R2), rangées par compte.
-// Elles étaient sur le disque de la machine, ce qui les rendait inatteignables
-// depuis le téléphone — or une candidature s'envoie d'où l'on est.
-//
-// RIEN N'EST ENVOYÉ AUTOMATIQUEMENT (§24) : on dépose, on consulte, on
-// supprime. Sans API joignable, la section se tait plutôt que de promettre un
-// dépôt qu'elle perdrait.
-// ---------------------------------------------------------------------------
-
-export interface DocumentInfo {
-  readonly name: string;
-  readonly size: number;
-  readonly uploadedAt: string;
-}
-
-/** Vrai quand un espace de fichiers est joignable (donc : un Worker). */
-export const canStoreDocuments = (): boolean => !DEMO && API_URL !== '';
-
-export async function fetchDocuments(): Promise<readonly DocumentInfo[]> {
-  if (!canStoreDocuments()) return [];
-  const response = await request<{ documents: readonly DocumentInfo[] }>('/api/documents');
-  return response.documents;
-}
-
-/**
- * Dépose une pièce. Elle part vers R2, à côté de l'API — et devient donc
- * atteignable depuis le téléphone, ce qui est tout l'intérêt : une
- * candidature s'envoie d'où l'on est.
- */
-export async function uploadDocument(file: File): Promise<DocumentInfo> {
-  if (!canStoreDocuments()) throw new Error("Aucun espace de fichiers n'est configuré.");
-  const form = new FormData();
-  form.append('file', file);
-  const response = await apiFetch(`${API_URL}/api/documents`, {
-    method: 'POST',
-    body: form,
-  });
-  if (!response.ok) {
-    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(detail?.error ?? 'Le dépôt a échoué.');
-  }
-  return (await response.json()) as DocumentInfo;
-}
-
-export async function deleteDocument(name: string): Promise<void> {
-  if (!canStoreDocuments()) return;
-  await request(`/api/documents/${encodeURIComponent(name)}`, { method: 'DELETE' });
-}
-
-/** URL de consultation d'une pièce (ouvre dans le navigateur). */
-export function documentUrl(name: string): string {
-  return `${API_URL}/api/documents/${encodeURIComponent(name)}`;
-}
-
-/** Télécharge une pièce avec la session : une balise `img` ne la porterait pas. */
-export function fetchDocument(name: string): Promise<Response> {
-  return apiFetch(documentUrl(name));
-}
-
 /** Filtres par défaut, pour le mode démo (pas de fichier de config). */
 function demoFilters(): FilterConfig {
   return {

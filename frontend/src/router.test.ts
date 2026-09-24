@@ -30,7 +30,6 @@ const ROUTES: readonly { path: string; route: Route }[] = [
   { path: '/alerts', route: { view: 'alerts' } },
   { path: '/settings', route: { view: 'profile' } },
   { path: '/settings/profile', route: { view: 'tenant' } },
-  { path: '/settings/documents', route: { view: 'documents' } },
   { path: '/settings/addresses', route: { view: 'reference' } },
   { path: '/settings/searches', route: { view: 'saved' } },
   { path: '/settings/notifications', route: { view: 'notifications' } },

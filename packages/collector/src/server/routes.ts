@@ -27,7 +27,6 @@
  *   GET     /api/agencies/<nom>      une agence et ses annonces
  *   POST    /api/push                abonnement Web Push du compte (§29)
  *   POST    /api/push/unsubscribe    désabonnement
- *   /api/documents…                  501 : elles vivaient sur le disque local
  */
 
 import type { Client } from '@libsql/client';
@@ -2181,13 +2180,6 @@ export async function route(
   // On décode ici une fois pour toutes, sinon la fiche ne correspond plus.
   const id = segments[2] !== undefined ? decodeURIComponent(segments[2]) : undefined;
 
-  // Les pièces du dossier tiennent à un espace de fichiers, que ce module n'a
-  // pas : le Worker les traite AVANT d'arriver ici. Un transport qui monterait
-  // ces routes sans cet espace doit le dire, pas rendre une liste vide qui
-  // laisserait croire qu'il n'y a rien à joindre.
-  if (resource === 'documents') {
-    return jsonError(501, "Ce transport n'héberge pas les pièces du dossier.");
-  }
   if (resource === 'config') {
     return handleConfigRoute(db, method, request, cors, identity);
   }

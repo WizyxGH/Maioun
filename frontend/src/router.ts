@@ -31,7 +31,6 @@ export type View =
   | 'stats'
   | 'profile'
   | 'tenant'
-  | 'documents'
   | 'reference'
   | 'saved'
   | 'notifications'
@@ -72,7 +71,6 @@ const VIEW_PRESENCE: Record<View, true> = {
   stats: true,
   profile: true,
   tenant: true,
-  documents: true,
   reference: true,
   saved: true,
   notifications: true,
@@ -140,7 +138,6 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
 /** Sous-écrans des paramètres : `/settings/<clé>`. */
 const SETTINGS_ROUTES: Readonly<Record<string, View>> = {
   profile: 'tenant',
-  documents: 'documents',
   addresses: 'reference',
   searches: 'saved',
   notifications: 'notifications',

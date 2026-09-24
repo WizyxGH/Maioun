@@ -144,9 +144,6 @@ import { ToggleGroup } from '@/components/ui/toggle.js';
  * `Shell` porte la frontière de chargement, une seule fois pour tous : chaque
  * écran arrive à son ouverture, derrière le squelette habituel.
  */
-const DocumentsSection = lazy(() =>
-  import('./components/DocumentsSection.js').then((m) => ({ default: m.DocumentsSection })),
-);
 const AccessPanel = lazy(() =>
   import('./components/AccessPanel.js').then((m) => ({ default: m.AccessPanel })),
 );
@@ -242,7 +239,6 @@ const PERSONAL_VIEWS: ReadonlySet<View> = new Set<View>([
   'stats',
   'profile',
   'tenant',
-  'documents',
   'reference',
   'saved',
   'notifications',
@@ -1872,11 +1868,7 @@ function AppView(): React.JSX.Element {
     }
   };
 
-  const handleContactRecorded = async (
-    channel: string,
-    message: string,
-    documents: readonly string[],
-  ): Promise<void> => {
+  const handleContactRecorded = async (channel: string, message: string): Promise<void> => {
     if (needsAccount('garder la trace d’un contact')) return;
     if (selected === null) return;
     const sourceId = selected.occurrences[0]?.sourceId ?? 'unknown';
@@ -1886,7 +1878,7 @@ function AppView(): React.JSX.Element {
       ),
     );
     try {
-      await recordContact(selected.id, { channel, message, sourceId, documents });
+      await recordContact(selected.id, { channel, message, sourceId });
     } catch {
       setError('Le contact n’a pas pu être enregistré');
     }
@@ -2346,14 +2338,6 @@ function AppView(): React.JSX.Element {
         </Shell>
       );
     }
-    if (view === 'documents') {
-      return (
-        <Shell {...shell}>
-          <BackToSettings onBack={() => back({ view: 'profile' })} />
-          <DocumentsSection profile={profile} />
-        </Shell>
-      );
-    }
     if (view === 'access') {
       return (
         <Shell {...shell}>
@@ -2623,9 +2607,7 @@ function AppView(): React.JSX.Element {
               onArchive={(archived) => void handleArchive(selected.id, archived)}
               onFavorite={(favorite) => void handleFavorite(selected.id, favorite)}
               onTrackingChange={(status) => void handleTrackingChange(status)}
-              onContactRecorded={(channel, message, documents) =>
-                void handleContactRecorded(channel, message, documents)
-              }
+              onContactRecorded={(channel, message) => void handleContactRecorded(channel, message)}
               onOpenSource={(sourceId) => void openSource(sourceId)}
               onConfigureProfile={() => {
                 // Venir de « Configurer mon profil », c'est vouloir le remplir :

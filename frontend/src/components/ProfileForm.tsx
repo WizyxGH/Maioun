@@ -21,6 +21,8 @@ import { Select } from '@/components/ui/select.js';
 import { Input } from '@/components/ui/input.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { DossierFacileOffer } from './DossierFacileOffer.js';
+import { FORBIDDEN_PIECES } from '../pieces-interdites.js';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible.js';
 import { PhoneField } from './PhoneField.js';
 
 interface ProfileFormProps {
@@ -328,6 +330,18 @@ export function ProfileForm({
             Qui n'a pas de dossier voit maintenant comment en avoir un. */}
           {(profile.dossierFacileUrl ?? '') === '' && <DossierFacileOffer className="mt-1.5" />}
         </label>
+
+        {/* LA LISTE DU DÉCRET EST LIMITATIVE, et le savoir vaut par soi-même :
+            un dossier vérifié par l'État ne dispense pas de connaître ce qu'on
+            a le droit de refuser. Ce rappel vivait sous l'écran de dépôt des
+            pièces, qui a disparu avec lui. */}
+        <Collapsible className="text-muted-foreground -mt-2 text-[0.85rem]">
+          <CollapsibleTrigger>Ce qu’un bailleur ne peut pas exiger</CollapsibleTrigger>
+          <p className="mt-1.5">
+            La liste des pièces d’un dossier de location est fixée par le décret n° 2015-1437 et
+            elle est limitative. Sont notamment interdits : {FORBIDDEN_PIECES.join(', ')}.
+          </p>
+        </Collapsible>
 
         {/* PLUSIEURS GARANTIES, et non plus une seule. Deux parents se portent
             souvent caution ensemble, et l'on cumule volontiers un garant

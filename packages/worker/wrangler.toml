@@ -97,30 +97,6 @@ GITHUB_REPOSITORY_ID = "1353824560"
 # configurée. Vérifier un domaine dans Resend est ce qui lève la limite.
 EMAIL_FROM = "Maïoun <onboarding@resend.dev>"  # secret-scan-ignore : expediteur public de Resend
 
-# --- Pièces du dossier de candidature (§25) — à activer si vous les voulez ---
-#
-# GRATUIT, SANS CARTE BANCAIRE. Le stockage clé-valeur des Workers est compris
-# dans le plan gratuit : 1 Go, cent mille lectures et mille écritures par jour,
-# vingt-cinq méga-octets par valeur. Un dossier en compte une dizaine de dix
-# méga-octets au plus.
-#
-# R2 aurait été le choix naturel pour des fichiers, mais il exige d'enregistrer
-# une carte AVANT de créer le moindre seau, y compris pour son palier gratuit.
-#
-# L'ESPACE EXISTE DEPUIS LE 2026-09-07, et il a manqué longtemps. Le bloc était
-# resté commenté — un binding KV exige l'IDENTIFIANT d'un espace déjà créé, sans
-# quoi le déploiement échoue — si bien que /api/documents répondait 501 : l'écran
-# du dossier acceptait des fichiers que rien ne conservait. On croyait déposer
-# ses pièces ; elles ne quittaient jamais le navigateur.
-#
-# L'identifiant n'est PAS un secret : il ne désigne qu'un espace, et seul le
-# Worker qui le déclare peut y écrire.
-#
-#   npx wrangler kv namespace create DOCUMENTS   (si l'espace doit être recréé)
-
-[[kv_namespaces]]
-binding = "DOCUMENTS"
-id = "de510f7eb71d40c9814b440d0e2b202e"
 
 # --- Réveil de la collecte (§30) ---------------------------------------------
 #

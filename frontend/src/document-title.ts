@@ -33,7 +33,6 @@ const LABELS: Readonly<Record<View, string>> = {
   stats: 'Statistiques',
   profile: 'Paramètres',
   tenant: 'Profil locataire',
-  documents: 'Dossier',
   reference: 'Points de référence',
   saved: 'Recherches enregistrées',
   notifications: 'Notifications',

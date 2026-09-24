@@ -14,7 +14,7 @@
  * l'utilisateur a agi, pour le suivi et les statistiques.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   formatArea,
   formatPhone,
@@ -33,22 +33,17 @@ import {
 } from '@maioun/shared';
 import type { ListingView, OccurrenceView } from '../types.js';
 import { SOURCES } from '../sources.generated.js';
-import { canStoreDocuments, fetchDocuments, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink, buttonVariants } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Check, Mail, PhoneCall, X } from './icons.js';
+import { Mail, PhoneCall } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
-import { dossierSlots, slotOf } from '../dossier.js';
-import { hrefOf } from '../router.js';
-import { nextHistoryState } from '../use-route.js';
-import { cn } from '@/lib/utils.js';
 import { AgencyFormSend } from './AgencyFormSend.js';
 import { DossierFacileOffer } from './DossierFacileOffer.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
   readonly profile: TenantProfile | null;
-  readonly onRecorded: (channel: string, message: string, documents: readonly string[]) => void;
+  readonly onRecorded: (channel: string, message: string) => void;
   readonly onConfigureProfile: () => void;
   /** Ouvre la fiche de la source : ses infos et ses annonces actives. */
   readonly onOpenSource?: (sourceId: string) => void;
@@ -342,133 +337,37 @@ function ContactDetails({
   );
 }
 
-/** Ouvre un écran de l'application sans recharger la page : le routeur suit l'historique. */
-function openInApp(event: React.MouseEvent<HTMLAnchorElement>): void {
-  event.preventDefault();
-  // `nextHistoryState` et non `null` : sans lui, le « Retour » de l'écran
-  // ouvert ici croirait qu'on y est arrivé par un lien direct.
-  window.history.pushState(nextHistoryState(), '', event.currentTarget.href);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
-
 /**
- * Les pièces à joindre pour candidater, et celles qui manquent encore.
+ * LE DOSSIER, ET IL N'Y EN A PLUS QU'UN : celui de l'État.
  *
- * La liste est celle du dossier (décret n° 2015-1437), selon les garanties du
- * profil : on voit avant d'écrire si tout est prêt. Les pièces présentes sont
- * consignées avec le contact.
- *
- * UN LIEN DOSSIERFACILE REND TOUT CELA SANS OBJET. Le dossier est alors
- * hébergé et vérifié par le service public, et le message le porte : réclamer
- * des dépôts ici ferait croire qu'il manque quelque chose, et ferait déposer
- * une seconde fois des pièces qu'on n'a plus besoin de garder.
+ * Deux voies cohabitaient — déposer ses pièces ici, ou coller un lien
+ * DossierFacile —, et la première faisait double emploi en gardant chez nous
+ * des cartes d'identité et des bulletins de salaire. Le service public les
+ * héberge, les contrôle et les tient à jour ; le bailleur ouvre un dossier
+ * déjà vérifié. Il ne reste que le lien.
  */
-function useDossierChecklist(profile: TenantProfile | null): {
-  readonly attached: readonly string[];
-  readonly checklist: React.JSX.Element | null;
-} {
-  // `null` tant que la liste n'est pas arrivée : tout afficher « à déposer »
-  // un instant ferait croire à un dossier vide.
-  const [documents, setDocuments] = useState<readonly DocumentInfo[] | null>(null);
+function DossierJoint({ profile }: { readonly profile: TenantProfile | null }): React.JSX.Element {
   const dossier = dossierFacileLink(profile?.dossierFacileUrl);
 
-  useEffect(() => {
-    // Rien à demander au serveur quand le dossier vit ailleurs.
-    if (dossier !== null || !canStoreDocuments()) return;
-    void fetchDocuments()
-      .then(setDocuments)
-      .catch(() => {
-        /* espace des pièces indisponible : pas de liste */
-      });
-  }, [dossier]);
+  if (dossier === null) return <DossierFacileOffer className="mt-3" />;
 
-  if (dossier !== null) {
-    return {
-      attached: [],
-      checklist: (
-        <section className="border-good/40 bg-good/5 mt-3 rounded-lg border px-3 py-2">
-          <h3 className="text-[0.85rem] font-medium">Dossier vérifié, joint au message</h3>
-          <p className="text-muted-foreground mt-1 text-[0.85rem]">
-            Le message porte votre lien DossierFacile : le bailleur ouvre un dossier déjà contrôlé,
-            et vous choisissez à qui vous le transmettez. Aucune pièce à déposer ici.
-          </p>
-          <a
-            href={dossier}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-primary mt-1.5 inline-block text-[0.85rem] break-all underline"
-          >
-            {dossier}
-          </a>
-        </section>
-      ),
-    };
-  }
-
-  if (profile === null || documents === null) return { attached: [], checklist: null };
-
-  const slots = dossierSlots(profile.guarantors);
-  const filled = new Set(documents.map((doc) => slotOf(doc.name)));
-  const ready = slots.filter((slot) => filled.has(slot.id)).length;
-  const attached = documents
-    .filter((doc) => slots.some((slot) => slot.id === slotOf(doc.name)))
-    .map((doc) => doc.name);
-
-  const checklist = (
-    <>
-      {/* AVANT LA LISTE, ET NON APRÈS : celle-ci décrit la voie longue — des
-        pièces à déposer ici, que le bailleur devra vérifier lui-même. Qui ne
-        connaît pas le service de l'État ne voyait que celle-là. */}
-      <DossierFacileOffer className="mt-3" />
-      <section
-        className="mt-3 rounded-lg border border-border px-3 py-2"
-        aria-labelledby="dossier-checklist"
+  return (
+    <section className="border-good/40 bg-good/5 mt-3 rounded-lg border px-3 py-2">
+      <h3 className="text-[0.85rem] font-medium">Dossier vérifié, joint au message</h3>
+      <p className="text-muted-foreground mt-1 text-[0.85rem]">
+        Le message porte votre lien DossierFacile : le bailleur ouvre un dossier déjà contrôlé, et
+        vous choisissez à qui vous le transmettez.
+      </p>
+      <a
+        href={dossier}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="text-primary mt-1.5 inline-block text-[0.85rem] break-all underline"
       >
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 id="dossier-checklist" className="text-[0.85rem] font-medium">
-            Pièces pour candidater
-          </h3>
-          <span
-            className={cn(
-              'text-[0.8rem]',
-              ready === slots.length ? 'text-good' : 'text-muted-foreground',
-            )}
-          >
-            {ready}/{slots.length} prête{ready > 1 ? 's' : ''}
-          </span>
-        </div>
-        <ul className="mt-1.5 flex flex-col gap-1">
-          {slots.map((slot) => {
-            const ok = filled.has(slot.id);
-            return (
-              <li key={slot.id} className="flex min-w-0 items-center gap-2 text-[0.9rem]">
-                {ok ? (
-                  <Check aria-hidden="true" className="size-4 shrink-0 text-good" />
-                ) : (
-                  <X aria-hidden="true" className="size-4 shrink-0 text-medium" />
-                )}
-                <span className="min-w-0 flex-1 truncate">{slot.label}</span>
-                <span className={cn('shrink-0 text-[0.78rem]', ok ? 'sr-only' : 'text-medium')}>
-                  {ok ? 'fournie' : 'à déposer'}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-        {ready < slots.length && (
-          <a
-            href={hrefOf({ view: 'documents' })}
-            onClick={openInApp}
-            className="mt-2 inline-block text-[0.85rem] text-primary underline"
-          >
-            Compléter le dossier
-          </a>
-        )}
-      </section>
-    </>
+        {dossier}
+      </a>
+    </section>
   );
-
-  return { attached, checklist };
 }
 
 /**
@@ -521,8 +420,6 @@ export function ContactPanel({
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { attached, checklist } = useDossierChecklist(profile);
-
   const { phone, email, formUrl } = listing.contact;
   const hasAnyContact = phone !== null || email !== null || formUrl !== null;
 
@@ -552,10 +449,10 @@ export function ContactPanel({
         listing={listing}
         hasAnyContact={hasAnyContact}
         onCalled={() => {
-          if (awaitsContact(listing.tracking)) onRecorded('phone', '', []);
+          if (awaitsContact(listing.tracking)) onRecorded('phone', '');
         }}
         onWritten={() => {
-          if (awaitsContact(listing.tracking)) onRecorded('email', '', []);
+          if (awaitsContact(listing.tracking)) onRecorded('email', '');
         }}
         onOpenSource={onOpenSource}
       />
@@ -597,7 +494,7 @@ export function ContactPanel({
             onChange={(event) => setDraft(event.target.value)}
           />
 
-          {checklist}
+          <DossierJoint profile={profile} />
 
           <MessageActions
             editing={editing}
@@ -607,7 +504,7 @@ export function ContactPanel({
             channel={channel}
             onToggleEdit={() => setEditing((value) => !value)}
             onCopy={() => void handleCopy()}
-            onSent={() => onRecorded(channel, message, attached)}
+            onSent={() => onRecorded(channel, message)}
           />
 
           {/* Envoi direct, après confirmation, pour les sources qui le permettent. */}
@@ -615,7 +512,7 @@ export function ContactPanel({
             listing={listing}
             profile={profile}
             message={message}
-            onSent={() => onRecorded('form', message, attached)}
+            onSent={() => onRecorded('form', message)}
           />
 
           {channel === 'form' && <FormHint copied={copied} />}

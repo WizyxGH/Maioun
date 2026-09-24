@@ -24,8 +24,6 @@ import { route } from '@maioun/collector/server/routes';
 import { SESSION_HEADER, authenticate, clearedCookie, sessionHeaders } from './auth.js';
 import { KEY_HEADER, PROOF_HEADER, TIME_HEADER, provenKey } from './session-proof.js';
 import { verifyGoogleToken } from './google-auth.js';
-import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
-import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress, ownsReadMailbox } from './alert-address.js';
 import { encryptSecret } from '@maioun/shared';
@@ -80,15 +78,6 @@ export interface Env {
    * bouton qui ne mène nulle part (§17).
    */
   readonly GOOGLE_CLIENT_ID?: string;
-  /**
-   * Espace des pièces du dossier (§25), dans le stockage clé-valeur des
-   * Workers. Absent = la fonctionnalité répond 501 et le dit, plutôt que
-   * d'accepter des fichiers pour les perdre.
-   *
-   * KV et non R2 : R2 réclame une carte bancaire avant de créer le moindre
-   * seau, KV est compris dans le plan gratuit (voir `kv-store.ts`).
-   */
-  readonly DOCUMENTS?: KVNamespace;
   /**
    * Gabarit de l'adresse de transfert des alertes (§6), avec `{token}` à la
    * place du jeton du compte — par exemple `alertes+{token}@exemple.fr`.
@@ -393,58 +382,6 @@ async function loginWithGoogle(
  */
 const DUMMY_HASH =
   'pbkdf2$210000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
-
-/**
- * Les pièces du dossier (§25).
- *
- * Elles vivent dans le stockage clé-valeur des Workers, préfixées par le
- * compte : un dossier de candidature contient une fiche de paie et une pièce
- * d'identité, il n'y a pas de pièces communes. (R2 aurait été le choix naturel
- * pour des fichiers, mais il exige une carte bancaire — voir `wrangler.toml`.)
- *
- * RIEN N'EST ENVOYÉ AUTOMATIQUEMENT (§24) : on stocke, on liste, on rend, on
- * supprime. C'est vous qui joignez.
- */
-async function documents(
-  request: Request,
-  env: Env,
-  cors: Record<string, string>,
-  userId: string,
-  name: string | undefined,
-): Promise<Response> {
-  const namespace = env.DOCUMENTS;
-  if (namespace === undefined) {
-    return json({ error: 'Aucun espace de fichiers configuré.' }, cors, 501);
-  }
-  // L'adaptateur est construit ICI, et c'est le seul endroit où le type réel
-  // de Cloudflare rencontre notre interface : TypeScript y vérifie que les
-  // deux coïncident encore.
-  const store = kvDocumentStore(namespace as unknown as KeyValueNamespace);
-
-  if (request.method === 'GET' && name === undefined) {
-    return json({ documents: await listDocuments(store, userId) }, cors);
-  }
-  if (request.method === 'GET' && name !== undefined) {
-    const found = await readDocument(store, userId, decodeURIComponent(name));
-    if (found === null) return json({ error: 'Pièce introuvable' }, cors, 404);
-    for (const [key, value] of Object.entries(cors)) found.headers.set(key, value);
-    return found;
-  }
-  if (request.method === 'POST') {
-    const form = await request.formData().catch(() => null);
-    const file = form?.get('file');
-    if (!(file instanceof File)) return json({ error: 'Aucun fichier reçu' }, cors, 400);
-    const result = await saveDocument(store, userId, file.name, await file.arrayBuffer());
-    return result.ok ? json(result.document, cors, 201) : json({ error: result.error }, cors, 400);
-  }
-  if (request.method === 'DELETE' && name !== undefined) {
-    const done = await deleteDocument(store, userId, decodeURIComponent(name));
-    return done
-      ? new Response(null, { status: 204, headers: cors })
-      : json({ error: 'Nom refusé' }, cors, 400);
-  }
-  return json({ error: 'Route inconnue' }, cors, 404);
-}
 
 /**
  * Les deux temps d'une réinitialisation : demander un lien, puis s'en servir.
@@ -874,17 +811,6 @@ async function deleteAccountRoute(
     );
   }
 
-  // Les pièces du dossier vivent dans le stockage clé-valeur, hors de la base :
-  // les oublier laisserait des fiches de paie et des pièces d'identité derrière
-  // un compte supprimé — précisément ce que l'article 17 interdit.
-  const namespace = env.DOCUMENTS;
-  if (namespace !== undefined) {
-    const store = kvDocumentStore(namespace as unknown as KeyValueNamespace);
-    for (const document of await listDocuments(store, userId)) {
-      await deleteDocument(store, userId, document.name);
-    }
-  }
-
   await deleteAccount(db, userId);
   return new Response(null, {
     status: 204,
@@ -1241,10 +1167,6 @@ export default {
     if (segments[1] === 'credentials') {
       const answered = await credentialsRoute(db, request, env, cors, userId, segments[2]);
       if (answered !== null) return answered;
-    }
-
-    if (segments[1] === 'documents') {
-      return documents(request, env, cors, userId, segments[2]);
     }
 
     // Le formulaire de l'agence, posté d'ici : le navigateur en est empêché

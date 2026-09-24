@@ -130,7 +130,7 @@ describe('bouton Appeler', () => {
       />,
     );
     fireEvent.click(screen.getByRole('link', { name: /Appeler/ }));
-    expect(onRecorded).toHaveBeenCalledWith('phone', '', []);
+    expect(onRecorded).toHaveBeenCalledWith('phone', '');
   });
 
   it('écrire ouvre le courrier et consigne la démarche', () => {
@@ -149,7 +149,7 @@ describe('bouton Appeler', () => {
     const bouton = screen.getByRole('link', { name: /Écrire à/ });
     expect(bouton).toHaveAttribute('href', 'mailto:agence@example.invalid');
     fireEvent.click(bouton);
-    expect(onRecorded).toHaveBeenCalledWith('email', '', []);
+    expect(onRecorded).toHaveBeenCalledWith('email', '');
   });
 
   it('ne compte pas une relance à chaque clic', () => {
