@@ -410,6 +410,28 @@ export function listingSourceLabels(occurrences: readonly SourceDite[]): readonl
 }
 
 /**
+ * Les mêmes sources, mais SANS PERDRE LEUR IDENTIFIANT.
+ *
+ * La carte veut le logo de l'agence à gauche de son nom, et le logo se trouve
+ * par identifiant. Ne rendre que des libellés obligeait à retrouver la source
+ * à partir de son nom — un rapprochement qui, à raison, se tait dès que deux
+ * agences se disputent une graphie.
+ */
+export function listingSources(
+  occurrences: readonly SourceDite[],
+): readonly { readonly sourceId: string; readonly label: string }[] {
+  const vues = new Set<string>();
+  const sources: { sourceId: string; label: string }[] = [];
+  for (const occurrence of occurrences) {
+    const label = formatOccurrenceSource(occurrence);
+    if (vues.has(label)) continue;
+    vues.add(label);
+    sources.push({ sourceId: occurrence.sourceId, label });
+  }
+  return sources;
+}
+
+/**
  * Numéro de téléphone français, lisible et cliquable.
  *
  * Les sources publient toutes les variantes : international, séparé par des

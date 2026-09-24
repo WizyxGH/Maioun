@@ -19,7 +19,7 @@ import {
   formatPrice,
   formatPropertyType,
   formatRooms,
-  listingSourceLabels,
+  listingSources,
   formatTracking,
 } from '../format.js';
 import { checkEligibility, type TenantProfile } from '@maioun/shared';
@@ -37,6 +37,7 @@ import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Progress } from '@/components/ui/progress.js';
 import { Flame, Heart, TrainFront } from './icons.js';
+import { SourceLogo } from './AgencyLogo.js';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -336,7 +337,7 @@ export function ListingCard({
 }: ListingCardProps): React.JSX.Element {
   // Le nom de la source, et pour la boîte mail le PORTAIL qui a envoyé
   // l'alerte : « Alertes e-mail » seul ne disait pas d'où venait l'annonce.
-  const sources = listingSourceLabels(listing.occurrences);
+  const sources = listingSources(listing.occurrences);
   const archived = isArchived(listing);
   const rented = listing.rented === true;
   const uncertain = isUncertain(listing);
@@ -478,9 +479,19 @@ export function ListingCard({
         ))}
       </div>
 
-      {/* §13, §38 : d'où vient l'annonce et combien de fois elle circule. */}
-      <p className="mt-1 text-[0.85rem] text-muted-foreground">
-        {sources.length === 1 ? '1 source' : `${sources.length} sources`} · {sources.join(', ')}
+      {/* D'où vient l'annonce, et combien de fois elle circule. Le logo de
+        l'agence est le repère le plus rapide — on le reconnaît avant d'avoir
+        lu. Le compte ne s'affiche qu'au pluriel : « 1 source » n'apprenait
+        rien que le nom qui suit ne disait déjà. */}
+      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.85rem] text-muted-foreground">
+        {sources.length > 1 && <span>{sources.length} sources ·</span>}
+        {sources.map((source, rang) => (
+          <span key={source.label} className="inline-flex items-center gap-1">
+            {rang > 0 && <span className="mr-0.5">·</span>}
+            <SourceLogo sourceId={source.sourceId} name={source.label} neutre={false} />
+            {source.label}
+          </span>
+        ))}
       </p>
     </Card>
   );

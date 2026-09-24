@@ -20,7 +20,7 @@
  * site de l'agence, comme les photos d'annonces.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Agency } from './icons.js';
 import { SOURCES } from '../sources.generated.js';
 import { agencySourceId } from '../agency-coverage.js';
@@ -46,21 +46,42 @@ import { agencySourceId } from '../agency-coverage.js';
  */
 function ownSource(name: string): { readonly logo: string | null; readonly domain: string } | null {
   const id = agencySourceId(name);
-  if (id === null) return null;
+  return id === null ? null : parSonIdentifiant(id);
+}
+
+/** La source elle-même, quand elle est le site propre d'une agence. */
+function parSonIdentifiant(
+  id: string,
+): { readonly logo: string | null; readonly domain: string } | null {
   const source = SOURCES[id];
   if (source === undefined || source.kind !== 'localAgency' || source.domain === null) return null;
   return { logo: source.logo, domain: source.domain };
 }
 
-/** Le logo d'une agence, quand la source qui la collecte est nommable. */
-export function agencyLogoUrl(name: string): string | null {
-  const source = ownSource(name);
-  if (source === null) return null;
+/** L'image d'une source, ou `null` si ce n'est pas le site propre d'une agence. */
+function adresseDuLogo(source: { readonly logo: string | null; readonly domain: string }): string {
   // L'ADRESSE DÉCLARÉE D'ABORD. Quarante-neuf agences sur cent quatre-vingt-neuf
   // ne servent rien à /favicon.ico : elles pointaient vers une image
   // inexistante, et l'écran retombait sur l'icône neutre alors que leur logo
   // est public, à l'adresse que leur site déclare lui-même.
   return source.logo ?? `https://${source.domain}/favicon.ico`;
+}
+
+/** Le logo d'une agence, quand la source qui la collecte est nommable. */
+export function agencyLogoUrl(name: string): string | null {
+  const source = ownSource(name);
+  return source === null ? null : adresseDuLogo(source);
+}
+
+/**
+ * Le logo d'une SOURCE désignée par son identifiant.
+ *
+ * La carte d'annonce connaît l'identifiant, elle n'a donc pas à repasser par
+ * le rapprochement de noms — qui se tait, à raison, dès qu'un nom est disputé.
+ */
+export function sourceLogoUrl(sourceId: string): string | null {
+  const source = parSonIdentifiant(sourceId);
+  return source === null ? null : adresseDuLogo(source);
 }
 
 /**
@@ -82,23 +103,92 @@ export function AgencyLogo({
   readonly name: string;
   readonly className?: string;
 }): React.JSX.Element {
-  const logo = agencyLogoUrl(name);
+  return <Image url={agencyLogoUrl(name)} title={name} className={className} />;
+}
+
+/**
+ * Le même repère, pour une source qu'on tient par son identifiant.
+ *
+ * `neutre` permet de ne RIEN afficher faute de logo : sur la ligne de sources
+ * d'une carte, une icône générique par portail ferait une file de pictogrammes
+ * identiques là où le nom suffit.
+ */
+export function SourceLogo({
+  sourceId,
+  name,
+  className = 'size-4',
+  neutre = true,
+}: {
+  readonly sourceId: string;
+  readonly name: string;
+  readonly className?: string;
+  readonly neutre?: boolean;
+}): React.JSX.Element | null {
+  const url = sourceLogoUrl(sourceId);
+  if (url === null && !neutre) return null;
+  return <Image url={url} title={name} className={className} />;
+}
+
+/**
+ * L'image, et le repli sur l'icône neutre.
+ *
+ * ELLE N'EST DEMANDÉE QU'UNE FOIS À L'ÉCRAN, et c'est indispensable : chaque
+ * logo vit sur le domaine de SON agence, donc une liste de cinquante annonces
+ * ouvrait cinquante connexions vers cinquante hôtes distincts — résolution DNS
+ * et poignée TLS comprises. Mesuré sur les scénarios end-to-end : 24 s sans les
+ * logos, 55 s avec, et un test tombé en chemin.
+ *
+ * `loading="lazy"` ne suffisait pas : le navigateur anticipe largement, et
+ * toutes les cartes sont dans le document. Rien n'est réhébergé pour autant —
+ * l'image est pointée, comme les photos d'annonces.
+ */
+function Image({
+  url,
+  title,
+  className,
+}: {
+  readonly url: string | null;
+  readonly title: string;
+  readonly className: string;
+}): React.JSX.Element {
   // Une image qui ne charge pas laisserait un carré vide, plus laid que
   // l'icône qu'elle remplace : on repasse à celle-ci.
   const [broken, setBroken] = useState(false);
+  // Hors navigateur — tests unitaires, rendu serveur — on ne diffère rien :
+  // il n'y a alors ni défilement ni requête à épargner.
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
+  const place = useRef<HTMLSpanElement>(null);
 
-  if (logo === null || broken) {
+  useEffect(() => {
+    if (visible || place.current === null) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setVisible(true);
+      },
+      // Un peu avant l'entrée réelle : le logo est là quand l'œil arrive.
+      { rootMargin: '200px' },
+    );
+    observer.observe(place.current);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  if (url === null || broken) {
     return <Agency aria-hidden="true" className={`text-muted-foreground shrink-0 ${className}`} />;
+  }
+
+  if (!visible) {
+    return <span ref={place} aria-hidden="true" className={`inline-block shrink-0 ${className}`} />;
   }
 
   return (
     <img
-      src={logo}
+      src={url}
       alt=""
       aria-hidden="true"
       loading="lazy"
+      decoding="async"
       onError={() => setBroken(true)}
-      title={name}
+      title={title}
       className={`shrink-0 rounded object-contain ${className}`}
     />
   );

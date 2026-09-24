@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AgencyLogo, agencyAddress, agencyLogoUrl } from './AgencyLogo.js';
+import { AgencyLogo, agencyAddress, agencyLogoUrl, sourceLogoUrl } from './AgencyLogo.js';
 
 describe('agencyLogoUrl', () => {
   it('rend le favicon d’une agence qu’on collecte directement', () => {
@@ -76,5 +76,24 @@ describe('agencyAddress', () => {
   it('ne la prête ni à une autre agence ni à un réseau', () => {
     expect(agencyAddress('Orpi Riviera')).toBeNull();
     expect(agencyAddress('Orpi')).toBeNull();
+  });
+});
+
+/**
+ * La carte d'annonce tient la source par son IDENTIFIANT : elle n'a pas à
+ * repasser par le rapprochement de noms, qui se tait dès qu'un nom est disputé.
+ */
+describe('sourceLogoUrl', () => {
+  it('rend le logo d’une agence désignée par son identifiant de source', () => {
+    expect(sourceLogoUrl('tichadou')).toBe('https://tichadou.fr/favicon.ico');
+  });
+
+  it('ne rend rien pour un portail : le même logo pour des dizaines d’agences', () => {
+    expect(sourceLogoUrl('email-alerts')).toBeNull();
+    expect(sourceLogoUrl('123loger')).toBeNull();
+  });
+
+  it('ne rend rien pour une source inconnue', () => {
+    expect(sourceLogoUrl('source-qui-n-existe-pas')).toBeNull();
   });
 });
