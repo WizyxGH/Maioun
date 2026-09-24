@@ -11,7 +11,16 @@
  * annonces à contacter MAINTENANT (§36 : classement par action, pas par prix).
  */
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { TenantProfile } from '@maioun/shared';
 import { awaitsContact, merged, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
 import type { ExchangeView } from './api/client.js';
@@ -133,6 +142,7 @@ import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { messageDeSecours, secoursActuel, surChangementDeSecours } from './api/secours.js';
 import { ToggleGroup } from '@/components/ui/toggle.js';
 
 /**
@@ -268,6 +278,27 @@ const SORT_OPTIONS: readonly { value: SortMode; label: string }[] = [
  * Coquille commune : en-tête persistant + navigation par onglets.
  * L'onglet actif est souligné — l'utilisateur sait toujours où il est.
  */
+/**
+ * « CE QUE VOUS VOYEZ EST UNE COPIE ».
+ *
+ * DANS LA COQUILLE, donc sur TOUS les écrans : la panne ne concerne pas la
+ * liste mais l'application entière, et c'est souvent depuis une fiche qu'on
+ * décide d'appeler une agence. Le poser au-dessus de la seule liste aurait
+ * laissé passer précisément le moment qui compte.
+ *
+ * Il disparaît de lui-même au retour de la base principale : chaque réponse
+ * met l'état à jour, la dernière l'emporte.
+ */
+function BandeauSecours(): React.JSX.Element | null {
+  const marque = useSyncExternalStore(surChangementDeSecours, secoursActuel, () => null);
+  if (marque === null) return null;
+  return (
+    <Alert variant="default" className="mb-4">
+      <AlertDescription>{messageDeSecours(marque)}</AlertDescription>
+    </Alert>
+  );
+}
+
 function Shell({
   view,
   favoritesOnly,
@@ -351,6 +382,7 @@ function Shell({
           ))}
         </nav>
       </header>
+      <BandeauSecours />
       {/* Fondue au changement de vue, relancée par la `key` : sans elle, passer
         de la liste à une fiche remplaçait l'écran d'un coup, sans qu'on sache
         si c'était la même page qui avait changé ou une autre qui s'était

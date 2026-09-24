@@ -1149,6 +1149,32 @@ export default {
 };
 
 /**
+ * DE QUAND DATE LA COPIE — retenu pour la durée de l'isolat.
+ *
+ * L'écran doit pouvoir dire « annonces du 21 septembre » plutôt que laisser
+ * croire à l'état du jour. La demander à chaque requête coûterait un parcours
+ * de `collection_runs` par appel ; une fois suffit, la copie ne bougeant pas.
+ *
+ * En cas d'échec, `copie` sans date : mieux vaut signaler la copie sans savoir
+ * son âge que faire échouer le secours pour un ornement.
+ */
+let ageDeLaCopie: string | undefined;
+
+async function dateDeLaCopie(copie: Client): Promise<string> {
+  if (ageDeLaCopie !== undefined) return ageDeLaCopie;
+  try {
+    const rendu = await copie.execute(
+      'SELECT finished_at FROM collection_runs ORDER BY finished_at DESC LIMIT 1',
+    );
+    const date = rendu.rows[0]?.['finished_at'];
+    ageDeLaCopie = typeof date === 'string' && date !== '' ? date : 'copie';
+  } catch {
+    ageDeLaCopie = 'copie';
+  }
+  return ageDeLaCopie;
+}
+
+/**
  * LE REPLI SUR LA COPIE, quand Turso a fermé et qu'une copie existe.
  *
  * TROIS CONDITIONS, toutes nécessaires :
@@ -1177,9 +1203,10 @@ async function secours(
   if (env.SECOURS === undefined) return null;
   if (request.method !== 'GET') return null;
   try {
-    const rendue = await servir(request, env, cors, clientDeSecours(env.SECOURS));
+    const copie = clientDeSecours(env.SECOURS);
+    const rendue = await servir(request, env, cors, copie);
     const entetes = new Headers(rendue.headers);
-    entetes.set(SECOURS_HEADER, 'copie');
+    entetes.set(SECOURS_HEADER, await dateDeLaCopie(copie));
     return new Response(rendue.body, { status: rendue.status, headers: entetes });
   } catch (echec) {
     // La copie a échoué elle aussi : c'est le refus d'origine qui compte, et

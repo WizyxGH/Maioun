@@ -32,11 +32,13 @@ import {
   parseNotificationPreferences,
   type NotificationPreferences,
   SAVED_SEARCHES_SETTING,
+  SECOURS_HEADER,
   parseReferencePoints,
   type StoredReferencePoint,
 } from '@maioun/shared';
 import type { SavedSearch } from '../saved-searches.js';
 import { apiFetch, clearSessionToken, dropSessionToken } from './session-token.js';
+import { noterSecours } from './secours.js';
 import { byRecency } from '../recency.js';
 
 /**
@@ -124,6 +126,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       NETWORK_ERROR_STATUS,
     );
   }
+
+  // CE QUE LA RÉPONSE DIT D'ELLE-MÊME : sert-elle la base principale, ou la
+  // copie de secours ? Relevé à CHAQUE réponse, y compris en erreur, pour que
+  // le bandeau disparaisse dès que la base revient.
+  noterSecours(response.headers.get(SECOURS_HEADER));
 
   if (!response.ok) {
     // LE SERVEUR SAIT PARFOIS EXACTEMENT CE QUI SE PASSE, et il vaut mieux le
