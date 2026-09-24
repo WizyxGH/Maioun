@@ -1107,12 +1107,16 @@ async function listExchanges(db: Client, userId: string): Promise<unknown> {
     sql: `SELECT ${listingColumns(userId, LIST_PAYLOAD)},
                  c.n AS attempts,
                  c.last_at AS last_contact_at,
+                 -- Le rang de relance DÉPARTAGE, et il le faut : deux démarches
+                 -- écrites dans la même milliseconde portent la même date
+                 -- d'envoi, et « la dernière » devenait alors arbitraire — un
+                 -- appel passé après un courriel s'annonçait comme un courriel.
                  (SELECT outcome FROM contact_attempts
                    WHERE listing_id = listings.id AND user_id = c.user_id
-                   ORDER BY sent_at DESC LIMIT 1) AS last_outcome,
+                   ORDER BY sent_at DESC, follow_up_index DESC LIMIT 1) AS last_outcome,
                  (SELECT channel FROM contact_attempts
                    WHERE listing_id = listings.id AND user_id = c.user_id
-                   ORDER BY sent_at DESC LIMIT 1) AS last_channel
+                   ORDER BY sent_at DESC, follow_up_index DESC LIMIT 1) AS last_channel
             FROM listings ${USER_STATE_JOIN}
             JOIN (SELECT listing_id, user_id, COUNT(*) AS n, MAX(sent_at) AS last_at
                     FROM contact_attempts WHERE user_id = ?

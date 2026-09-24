@@ -223,6 +223,31 @@ describe('cloisonnement entre comptes (§26)', () => {
     expect(vu.exchanges?.[0]?.lastChannel).toBe('phone');
   });
 
+  /**
+   * DEUX DÉMARCHES DANS LA MÊME MILLISECONDE. Le cas n'a rien de théorique :
+   * ce test-ci l'a rencontré en intégration continue, un appel passé après un
+   * courriel s'annonçant comme un courriel. Départager par la date d'envoi
+   * seule laissait l'ordre au hasard du moteur.
+   */
+  it('désigne la dernière démarche même à date d’envoi identique', async () => {
+    for (const channel of ['email', 'phone']) {
+      await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
+        channel,
+        message: '',
+        sourceId: 'orpi',
+      });
+    }
+    await db.execute({
+      sql: "UPDATE contact_attempts SET sent_at = ? WHERE user_id = 'alice'",
+      args: ['2026-09-24T09:00:00.000Z'],
+    });
+
+    const vu = (await call(db, 'alice', 'GET', '/api/exchanges')) as {
+      exchanges?: { lastChannel: string }[];
+    };
+    expect(vu.exchanges?.[0]?.lastChannel).toBe('phone');
+  });
+
   it('ne montre pas les démarches du compte d’à côté', async () => {
     await call(db, 'alice', 'POST', '/api/listings/orpi:1/contact', {
       channel: 'email',
