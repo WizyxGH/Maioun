@@ -24,6 +24,7 @@ import { networkInterfaces } from 'node:os';
 import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { route } from '../server/routes.js';
+import { CURRENT_USER } from '@maioun/shared';
 import { openDatabase } from '../db/client.js';
 import { loadDotEnv } from '../config.js';
 import { entetes } from '../server/local-cors.js';
@@ -120,6 +121,25 @@ const serveur = createServer((requete, reponse) => {
     const cors = entetes(requete.headers.origin, SUR_LE_RESEAU);
     if (requete.method === 'OPTIONS') {
       reponse.writeHead(204, cors).end();
+      return;
+    }
+
+    /**
+     * QUI REGARDE — et ici, il n'y a qu'une réponse possible.
+     *
+     * Cette route appartient au Worker, qui la déduit d'un cookie signé. Le
+     * serveur local n'a ni comptes ni sessions : il sert la machine de son
+     * propriétaire, et `route` prend déjà `CURRENT_USER` par défaut.
+     *
+     * SANS ELLE, LE SITE SE CROYAIT DEVANT UN INCONNU. Le 404 le faisait
+     * basculer en visiteur : « Connectez-vous pour continuer » sur les
+     * Paramètres, favoris en lecture seule, et une liste filtrée sur le
+     * catalogue au lieu des critères du compte. Répondre ici accorde l'écran
+     * avec le serveur, qui lui accordait déjà tout à cet utilisateur.
+     */
+    if (url.pathname === '/api/me') {
+      reponse.writeHead(200, { ...cors, 'content-type': 'application/json' });
+      reponse.end(JSON.stringify({ user: CURRENT_USER }));
       return;
     }
 

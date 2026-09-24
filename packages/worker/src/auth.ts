@@ -19,6 +19,8 @@
  * modifié ne vérifie plus, et il est refusé.
  */
 
+import { SESSION_TOKEN_HEADER } from '@maioun/shared';
+
 /**
  * Le PLAFOND DE LA PLATEFORME, et non la recommandation.
  *
@@ -265,7 +267,7 @@ export function clearedCookie(): string {
  * un stockage du site même, que ces navigateurs conservent — et, lisible par
  * la page, il n'est émis que LIÉ à sa clé d'appareil.
  */
-export const SESSION_HEADER = 'X-Session-Token';
+export const SESSION_HEADER = SESSION_TOKEN_HEADER;
 
 /**
  * En-têtes d'une réponse qui ouvre ou renouvelle une session : le cookie

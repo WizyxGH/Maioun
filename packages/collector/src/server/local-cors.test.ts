@@ -8,6 +8,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import {
+  CORS_ALLOWED_HEADERS,
+  CORS_ALLOWED_METHODS,
+  SESSION_KEY_HEADER,
+  SESSION_PROOF_HEADER,
+  SESSION_TIME_HEADER,
+  SESSION_TOKEN_HEADER,
+} from '@maioun/shared';
 import { entetes } from '../server/local-cors.js';
 
 describe('entetes (CORS du serveur local)', () => {
@@ -86,5 +94,55 @@ describe('entetes (CORS du serveur local)', () => {
     it('n’élargit rien tant que l’écoute est restée locale', () => {
       expect(entetes('http://192.168.1.24:5173')['Access-Control-Allow-Origin']).toBeUndefined();
     });
+  });
+});
+
+/**
+ * CE QUE LE NAVIGATEUR A LE DROIT D'ENVOYER.
+ *
+ * Ces listes étaient écrites à la main ici, plus courtes que celles du Worker :
+ * `content-type` seul, et pas de PUT. La page joint pourtant à chaque appel sa
+ * clé d'appareil et sa preuve — le pré-vol échouait donc, le navigateur
+ * refusait la requête AVANT de l'envoyer, et le site branché sur l'API locale
+ * n'affichait rien. Sans message : le serveur ne voyait rien passer.
+ */
+describe('en-têtes autorisés', () => {
+  it('laisse passer ce que la page envoie vraiment', () => {
+    const permis = entetes('http://localhost:5173')['Access-Control-Allow-Headers'] ?? '';
+    for (const nom of [
+      'Content-Type',
+      'Authorization',
+      SESSION_KEY_HEADER,
+      SESSION_PROOF_HEADER,
+      SESSION_TIME_HEADER,
+    ]) {
+      expect(permis).toContain(nom);
+    }
+  });
+
+  it('laisse la page LIRE le jeton renouvelé', () => {
+    // Sans cela la session expire au lieu de se prolonger, et l'on est
+    // déconnecté sans raison apparente.
+    expect(entetes('http://localhost:5173')['Access-Control-Expose-Headers']).toBe(
+      SESSION_TOKEN_HEADER,
+    );
+  });
+
+  it('autorise PUT, par quoi passent les critères et les réglages', () => {
+    expect(entetes('http://localhost:5173')['Access-Control-Allow-Methods']).toContain('PUT');
+  });
+
+  // LA MÊME LISTE QUE LE WORKER, et c'est tout l'objet du partage : une
+  // constante recopiée redeviendrait fausse au premier en-tête ajouté.
+  it('prend les listes partagées, sans les recopier', () => {
+    const rendus = entetes('http://localhost:5173');
+    expect(rendus['Access-Control-Allow-Headers']).toBe(CORS_ALLOWED_HEADERS);
+    expect(rendus['Access-Control-Allow-Methods']).toBe(CORS_ALLOWED_METHODS);
+  });
+
+  // Une origine refusée ne reçoit PAS d'autorisation d'origine — mais les
+  // listes communes, elles, n'ont rien de secret.
+  it('ne donne pas l’origine à un site tiers', () => {
+    expect(entetes('https://exemple.test')['Access-Control-Allow-Origin']).toBeUndefined();
   });
 });

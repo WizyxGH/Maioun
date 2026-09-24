@@ -11,6 +11,8 @@
  * aucun jeton et s'en tient au cookie.
  */
 
+import { SESSION_KEY_HEADER, SESSION_PROOF_HEADER, SESSION_TIME_HEADER } from '@maioun/shared';
+
 const DB_NAME = 'maioun';
 const STORE = 'keys';
 const ID = 'session';
@@ -101,9 +103,9 @@ export async function signProof(
     encoder.encode(`${method.toUpperCase()} ${parsed.pathname}${parsed.search} ${time}`),
   );
   return {
-    'X-Session-Key': await publicKeyValue(pair),
-    'X-Session-Time': time,
-    'X-Session-Proof': base64Url(new Uint8Array(signature)),
+    [SESSION_KEY_HEADER]: await publicKeyValue(pair),
+    [SESSION_TIME_HEADER]: time,
+    [SESSION_PROOF_HEADER]: base64Url(new Uint8Array(signature)),
   };
 }
 

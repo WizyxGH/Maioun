@@ -26,6 +26,7 @@ export * from './reference-points.js';
 export * from './credentials.js';
 export * from './notification-preferences.js';
 export * from './alert-senders.js';
+export * from './session-headers.js';
 export * from './subscription.js';
 export * from './rent-reference.js';
 export * from './requirements.js';

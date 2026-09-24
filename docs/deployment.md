@@ -211,6 +211,18 @@ pnpm serve:local                                # un terminal
 VITE_API_URL=http://localhost:8787 pnpm dev     # un autre
 ```
 
+**Ce que le serveur local ne sait PAS faire.** Cinq routes appartiennent au
+Worker et n'ont pas d'équivalent ici, parce qu'elles demandent un secret ou un
+service extérieur : l'adresse e-mail du compte, l'adresse de transfert des
+alertes, l'abonnement, et les identifiants de portails. Deux sous-écrans des
+Paramètres restent donc vides en local — « Votre offre » et « Accès
+supplémentaires ». Tout le reste fonctionne.
+
+`/api/me` fait exception : le serveur local y répond, parce qu'il connaît la
+réponse. Sans elle, le site se croyait devant un inconnu — « Connectez-vous
+pour continuer » sur les Paramètres, et une liste filtrée sur le catalogue au
+lieu des critères du compte.
+
 Il n'a qu'un utilisateur — c'est votre machine, il n'y a personne d'autre —,
 n'écoute que la boucle locale, et annonce au démarrage quel fichier il sert et
 de quand il date. `MAIOUN_LOCAL_DB` en désigne un autre.

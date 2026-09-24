@@ -16,9 +16,10 @@
  */
 
 import { forgetSessionKey, proofHeaders } from './session-key.js';
+import { SESSION_TOKEN_HEADER } from '@maioun/shared';
 
 const KEY = 'maioun.session';
-const HEADER = 'X-Session-Token';
+const HEADER = SESSION_TOKEN_HEADER;
 
 /** Le stockage peut être refusé (navigation privée stricte) : on fait sans. */
 function read(): string | null {

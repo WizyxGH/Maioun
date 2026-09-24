@@ -13,9 +13,13 @@
  * ses propres jetons signés.
  */
 
-export const KEY_HEADER = 'X-Session-Key';
-export const PROOF_HEADER = 'X-Session-Proof';
-export const TIME_HEADER = 'X-Session-Time';
+// Nommés dans `@maioun/shared` : la page les envoie, le Worker et le serveur
+// local les autorisent. Trois copies avaient divergé.
+import { SESSION_KEY_HEADER, SESSION_PROOF_HEADER, SESSION_TIME_HEADER } from '@maioun/shared';
+
+export const KEY_HEADER = SESSION_KEY_HEADER;
+export const PROOF_HEADER = SESSION_PROOF_HEADER;
+export const TIME_HEADER = SESSION_TIME_HEADER;
 
 /** Écart d'horloge toléré, et durée pendant laquelle une preuve reste valable. */
 const MAX_SKEW_MS = 5 * 60_000;

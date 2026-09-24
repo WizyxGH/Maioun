@@ -6,6 +6,8 @@
  * lirait une base.
  */
 
+import { CORS_ALLOWED_HEADERS, CORS_ALLOWED_METHODS, CORS_EXPOSED_HEADERS } from '@maioun/shared';
+
 /**
  * La machine elle-même. C'est le cas par défaut, et le seul sûr.
  *
@@ -38,14 +40,21 @@ const ORIGINE_PRIVEE =
 /**
  * Les en-têtes à rendre pour cette origine.
  *
+ * MÊMES LISTES QUE LE WORKER, prises dans `@maioun/shared`. Celles d'ici
+ * étaient écrites à la main et plus courtes : il manquait `Authorization`, les
+ * trois en-têtes de preuve d'appareil et la méthode `PUT`. Le navigateur
+ * refusait donc CHAQUE appel au pré-vol, et le site branché sur l'API locale
+ * n'affichait rien — sans message, puisque le serveur ne voyait rien passer.
+ *
  * `surLeReseau` suit l'écoute : on n'élargit la règle que là où le serveur est
  * effectivement ouvert. Les deux se décident au même endroit, faute de quoi
  * l'une des deux moitiés se pose sans l'autre.
  */
 export function entetes(origine: string | undefined, surLeReseau = false): Record<string, string> {
   const commun = {
-    'Access-Control-Allow-Headers': 'content-type',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': CORS_ALLOWED_HEADERS,
+    'Access-Control-Allow-Methods': CORS_ALLOWED_METHODS,
+    'Access-Control-Expose-Headers': CORS_EXPOSED_HEADERS,
   };
   const acceptee =
     origine !== undefined &&

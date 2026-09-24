@@ -21,8 +21,9 @@
 
 import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@maioun/collector/server/routes';
-import { SESSION_HEADER, authenticate, clearedCookie, sessionHeaders } from './auth.js';
-import { KEY_HEADER, PROOF_HEADER, TIME_HEADER, provenKey } from './session-proof.js';
+import { authenticate, clearedCookie, sessionHeaders } from './auth.js';
+import { provenKey } from './session-proof.js';
+import { CORS_ALLOWED_HEADERS, CORS_ALLOWED_METHODS, CORS_EXPOSED_HEADERS } from '@maioun/shared';
 import { verifyGoogleToken } from './google-auth.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress, ownsReadMailbox } from './alert-address.js';
@@ -193,16 +194,12 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': same ? origin : allowed,
     'Access-Control-Allow-Credentials': 'true',
-    // PUT MANQUAIT, et c'est le genre d'oubli qui ne se voit qu'à l'usage :
-    // le navigateur REFUSE la requête avant de l'envoyer, si bien que l'écran
-    // annonce un échec pour un appel que le serveur n'a jamais reçu. Les
-    // critères de recherche et les réglages de compte s'enregistrent en PUT :
-    // aucun des deux ne fonctionnait.
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    // `Authorization` porte le jeton de session hors cookie ; la page doit
-    // pouvoir LIRE l'en-tête qui le lui remet.
-    'Access-Control-Allow-Headers': `Content-Type, Authorization, ${KEY_HEADER}, ${PROOF_HEADER}, ${TIME_HEADER}`,
-    'Access-Control-Expose-Headers': SESSION_HEADER,
+    // Les trois listes viennent de `@maioun/shared`, où le serveur local les
+    // prend aussi : recopiées, elles avaient divergé, et le pré-vol refusait
+    // chaque appel local avant de l'envoyer.
+    'Access-Control-Allow-Methods': CORS_ALLOWED_METHODS,
+    'Access-Control-Allow-Headers': CORS_ALLOWED_HEADERS,
+    'Access-Control-Expose-Headers': CORS_EXPOSED_HEADERS,
     Vary: 'Origin',
   };
 }
