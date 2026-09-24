@@ -36,14 +36,6 @@ export function listingUrl(siteUrl: string, id: string): string {
   return `${trimmed(siteUrl)}${listingPath(id)}`;
 }
 
-/**
- * L'écran d'état des sources — où atterrit l'alerte d'exploitation qui dit
- * qu'une source ne rapporte plus rien.
- */
-export function sourcesUrl(siteUrl: string): string {
-  return `${trimmed(siteUrl)}/sources`;
-}
-
 /** Une barre finale de trop, et le routage casse ; les deux formes circulent. */
 function trimmed(siteUrl: string): string {
   return siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;

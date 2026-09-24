@@ -400,21 +400,6 @@ async function deliver(deps: PushDeps, payloads: readonly PushPayload[]): Promis
  * regrouper sous « + 3 autres » ferait perdre la seule information qui compte :
  * LAQUELLE.
  */
-/**
- * Une notification qui ne parle PAS d'une annonce : la santé des sources.
- *
- * Même boucle d'envoi, donc même nettoyage des abonnements morts (410) — la
- * recopier aurait garanti que seule la première continue de purger.
- *
- * @returns le nombre d'envois réussis.
- */
-export async function sendOperatorPush(
-  deps: Omit<PushDeps, 'listings'>,
-  payloads: readonly PushPayload[],
-): Promise<number> {
-  return deliver({ ...deps, listings: [] }, payloads);
-}
-
 export async function sendListingAlerts(
   deps: PushDeps,
   compose: (listing: NotifiableListing, siteUrl: string) => PushPayload,

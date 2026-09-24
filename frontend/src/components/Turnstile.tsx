@@ -50,11 +50,6 @@ declare global {
   }
 }
 
-/** `true` si cette installation a posé sa clé publique. */
-export function captchaActif(): boolean {
-  return SITE_KEY !== '';
-}
-
 /**
  * Charge le script UNE FOIS, même si deux écrans le demandent.
  *

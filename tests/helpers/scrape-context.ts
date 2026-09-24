@@ -17,7 +17,7 @@
  * points le surcharge, et cette surcharge se lit alors comme l'objet du test.
  */
 
-import type { DetailMemoryEntry, ScrapeContext } from '@maioun/shared';
+import type { ScrapeContext } from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
 
 /** Ce qu'un test choisit de faire varier ; tout le reste reste inerte. */
@@ -58,12 +58,4 @@ export function contextServing(
       Promise.resolve({ status: 200, body: pages[url] ?? '', headers: {}, notModified: false }),
     ...overrides,
   });
-}
-
-/** Une entrée de mémoire de fiche, datée par défaut d'un instant fixe. */
-export function detailMemoryEntry(
-  draft: DetailMemoryEntry['draft'],
-  fetchedAt = '2026-08-14T12:00:00.000Z',
-): DetailMemoryEntry {
-  return { draft, fetchedAt };
 }

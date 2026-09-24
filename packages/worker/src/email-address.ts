@@ -164,10 +164,3 @@ export function emailProblem(email: string): EmailProblem | null {
   }
   return null;
 }
-
-/** Le message montré à l'inscription, pour chaque refus. */
-export function emailProblemMessage(problem: EmailProblem): string {
-  return problem === 'disposable'
-    ? 'Les adresses jetables ne sont pas acceptées : sans adresse durable, vous ne pourriez pas récupérer votre compte.'
-    : 'Cette adresse e-mail ne semble pas valide.';
-}

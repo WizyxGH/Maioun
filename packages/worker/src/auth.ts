@@ -199,15 +199,6 @@ export async function readSessionClaims(
   return { userId, keyThumbprint: keyThumbprint ?? null };
 }
 
-/** L'utilisateur d'un jeton, quelle qu'en soit la forme. */
-export async function readSession(
-  token: string | null,
-  secret: string,
-  nowMs: number,
-): Promise<string | null> {
-  return (await readSessionClaims(token, secret, nowMs))?.userId ?? null;
-}
-
 /**
  * Attributs communs au cookie de session.
  *
