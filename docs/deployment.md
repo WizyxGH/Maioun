@@ -147,9 +147,8 @@ GitHub Actions (toutes les 15 min) → collecte 24/7 et notifications Web Push
         ↓ écrit                      (réveillée par le Worker, voir plus bas)
 Turso (SQLite cloud)          → base PRIVÉE, jeton jamais publié
         ↑ lit
-Worker Cloudflare             → l'API, les sessions, les pièces du dossier
-        ↑ appelle                (stockage clé-valeur), le réveil de la
-                                 collecte, et le SEUL détenteur du jeton Turso
+Worker Cloudflare             → l'API, les sessions, le réveil de la collecte,
+        ↑ appelle                et le SEUL détenteur du jeton Turso
 GitHub Pages                  → le site (bundle public, sans aucun secret)
 ```
 
@@ -161,7 +160,7 @@ hors de portée ; le navigateur ne reçoit plus qu'un cookie de session signé.
 
 C'est ce qui rend le **multi-compte** possible : les annonces sont communes,
 mais favoris, suivi, archivage et recherches enregistrées appartiennent à
-chacun (`listing_user_state`), et les pièces du dossier aussi.
+chacun (`listing_user_state`).
 
 ### 1. Base Turso
 
@@ -371,46 +370,6 @@ gh api repos/<propriétaire>/<nom> --jq .id
 Sans le jeton, le réveil se tait **et l'écrit dans le journal** : `npx wrangler
 tail` le montre (« collecte NON demandée : GITHUB_DISPATCH_TOKEN absent »). Le
 `schedule` du workflow reste en place comme filet — il ne coûte rien.
-
-### Les pièces du dossier de candidature (§25) — option gratuite à activer
-
-Elles vivent dans le **stockage clé-valeur des Workers**, compris dans le plan
-gratuit : 1 Go, cent mille lectures et mille écritures par jour, vingt-cinq
-méga-octets par valeur. Un dossier en compte une dizaine, de dix méga-octets au
-plus — deux ordres de grandeur sous les limites.
-
-**R2 aurait été le choix naturel pour des fichiers, et il a été écarté :** il
-exige d'enregistrer une carte bancaire avant de créer le moindre seau, y compris
-pour son palier gratuit. KV n'en demande aucune.
-
-L'espace **existe depuis le 2026-09-07** et son binding est actif dans
-`wrangler.toml` : il n'y a rien à faire ici pour une installation qui part de ce
-dépôt. Un binding KV exige l'identifiant d'un espace DÉJÀ créé — c'est ce qui
-l'avait laissé commenté si longtemps, `/api/documents` répondant `501` pendant
-que l'écran acceptait des fichiers que rien ne conservait.
-
-Pour recréer l'espace (autre compte Cloudflare, espace supprimé) :
-
-```bash
-npx wrangler kv namespace create DOCUMENTS
-# recopier l'`id` affiché dans le bloc [[kv_namespaces]] de wrangler.toml
-npx wrangler deploy
-```
-
-Les pièces sont **rangées par compte** (`<utilisateur>/<fichier>`) : un dossier
-contient une fiche de paie et une pièce d'identité, il n'y a pas de pièces
-communes. PDF et images, 10 Mo par pièce.
-
-Sans ce binding, l'API répond `501` sur `/api/documents` et l'écran ne s'affiche
-pas — plutôt que d'accepter des fichiers pour les perdre. Tout le reste du site
-est identique.
-
-**Rien n'est jamais envoyé automatiquement** (§24) : le site dépose, liste,
-consulte et supprime ; c'est vous qui joignez.
-
-UNE CONTREPARTIE À CONNAÎTRE : KV est _éventuellement cohérent_. Une pièce tout
-juste déposée peut ne pas figurer dans la liste pendant quelques secondes —
-l'écran l'ajoute donc à sa liste sans attendre de relire.
 
 ### Entrer avec un compte Google (§26) — option gratuite à activer
 

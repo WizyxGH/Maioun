@@ -152,7 +152,6 @@ est personnel.**
 | L'état de santé des sources       | Critères de recherche (`app_settings`)        |
 | Le journal des collectes          | Recherches enregistrées, adresses de réf.     |
 | Le cache de géocodage             | Préférences d'alertes, abonnements push       |
-|                                   | Pièces du dossier (KV, préfixées par compte)  |
 |                                   | Pertinence et priorité (`listing_user_score`) |
 |                                   | Historique d'inventaire (`daily_stats`)       |
 

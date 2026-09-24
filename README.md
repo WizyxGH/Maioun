@@ -46,7 +46,7 @@ Ouvert sur un téléphone, il répond à une seule question :
   Un mode automatique optionnel existe sous garde-fous stricts, **désactivé par
   défaut**.
 - **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts
-  (avec les pièces déclarées jointes), consulté/archivé/favori persistants,
+  consulté/archivé/favori persistants,
   classement affiné par vos préférences (affinité transparente), page Stats.
 - **Un accueil qui fait le point**, pas une liste de plus : ce qui est arrivé
   depuis la dernière visite, ce qui attend un appel, et de quoi repartir. Chaque
@@ -62,11 +62,11 @@ Ouvert sur un téléphone, il répond à une seule question :
   jamais contacté ; un favori **disparu de sa source**. Les deux premiers
   élargissements — « juste à côté » et « de retour » — sont éteints par défaut :
   ils ne restreignent pas la recherche, ils l'étendent.
-- **Dossier de candidature** : vos pièces déposées une fois, rangées selon la
-  liste limitative du décret n° 2015-1437, et accessibles depuis vos appareils
-  — une candidature s'envoie d'où l'on est. Elles sont dans l'espace de
-  fichiers du Worker, séparées par compte, et **jamais envoyées
-  automatiquement** : c'est vous qui joignez.
+- **Dossier de candidature** : votre lien **DossierFacile**, le service gratuit
+  de l'État. Vous y déposez vos pièces une fois, elles sont contrôlées, et vos
+  messages ne portent plus qu'un lien — le bailleur ouvre un dossier déjà
+  vérifié, et vos pièces restent chez eux, pas chez nous. Le rappel de ce qu'un
+  bailleur **ne peut pas** exiger (décret n° 2015-1437) est sous le champ.
 - **Consulter est libre, agir demande un compte, candidater à votre place se
   paie.** Les annonces, la carte, les scores et les statistiques s'ouvrent sans
   rien créer. Favoris, suivi, alertes et dossier demandent un compte gratuit.
