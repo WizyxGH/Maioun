@@ -13,6 +13,7 @@
     "build": "pnpm -r --filter \"./packages/*\" run build && pnpm --filter frontend run build",
     "build:landing": "pnpm --filter @maioun/landing run build",
     "dev": "pnpm --filter frontend run dev",
+    "dev:reseau": "pnpm --filter frontend run dev:reseau",
     "collect": "pnpm --filter @maioun/collector run collect",
     "draft": "pnpm --filter @maioun/collector run draft",
     "email:test": "pnpm --filter @maioun/collector run email:test --",

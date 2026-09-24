@@ -20,6 +20,7 @@
  */
 
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { route } from '../server/routes.js';
@@ -28,6 +29,21 @@ import { loadDotEnv } from '../config.js';
 import { entetes } from '../server/local-cors.js';
 
 const PORT = Number(process.env['MAIOUN_LOCAL_PORT'] ?? 8787);
+
+/**
+ * CONSULTER DEPUIS LE TÉLÉPHONE, sur le réseau du logement.
+ *
+ *   MAIOUN_LOCAL_RESEAU=1 pnpm serve:local
+ *
+ * Par défaut le serveur n'écoute que la boucle locale : un téléphone ne peut
+ * pas l'atteindre, et c'est la bonne valeur par défaut. Ouvert, il devient
+ * lisible par QUICONQUE PARTAGE LE WI-FI — il n'y a ni mot de passe ni session
+ * ici, puisque le serveur local n'a qu'un utilisateur. Chez soi c'est sans
+ * conséquence ; sur le réseau d'un café, c'est donner ses annonces et son
+ * suivi. D'où l'interrupteur, et d'où l'avertissement au démarrage.
+ */
+const SUR_LE_RESEAU = process.env['MAIOUN_LOCAL_RESEAU'] === '1';
+const INTERFACE_ECOUTEE = SUR_LE_RESEAU ? '0.0.0.0' : '127.0.0.1';
 
 /** La racine du dépôt, trois niveaux au-dessus de `dist/cli`. */
 const racine = resolve(import.meta.dirname, '../../../..');
@@ -101,7 +117,7 @@ async function verifierLeSchema(): Promise<void> {
 const serveur = createServer((requete, reponse) => {
   void (async () => {
     const url = new URL(requete.url ?? '/', `http://localhost:${PORT}`);
-    const cors = entetes(requete.headers.origin);
+    const cors = entetes(requete.headers.origin, SUR_LE_RESEAU);
     if (requete.method === 'OPTIONS') {
       reponse.writeHead(204, cors).end();
       return;
@@ -133,8 +149,26 @@ const serveur = createServer((requete, reponse) => {
 
 await verifierLeSchema();
 
-serveur.listen(PORT, '127.0.0.1', () => {
+serveur.listen(PORT, INTERFACE_ECOUTEE, () => {
   console.log(`Maïoun — API locale sur http://localhost:${PORT}`);
   console.log(`Base : ${base.chemin} (${base.date})`);
-  console.log(`Le site : VITE_API_URL=http://localhost:${PORT} pnpm dev`);
+  if (!SUR_LE_RESEAU) {
+    console.log(`Le site : VITE_API_URL=http://localhost:${PORT} pnpm dev`);
+    console.log('Depuis un téléphone : MAIOUN_LOCAL_RESEAU=1 (voir docs/deployment.md)');
+    return;
+  }
+  for (const adresse of adressesDuReseau()) {
+    console.log(`  téléphone : http://${adresse}:${PORT}`);
+  }
+  console.warn(
+    'OUVERT AU RÉSEAU : sans mot de passe, quiconque partage ce Wi-Fi peut lire vos annonces.',
+  );
 });
+
+/** Les adresses privées de cette machine, pour les taper sur le téléphone. */
+function adressesDuReseau(): string[] {
+  return Object.values(networkInterfaces())
+    .flatMap((liste) => liste ?? [])
+    .filter((carte) => carte.family === 'IPv4' && !carte.internal)
+    .map((carte) => carte.address);
+}

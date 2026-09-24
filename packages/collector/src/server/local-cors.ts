@@ -7,10 +7,7 @@
  */
 
 /**
- * LES SEULES ORIGINES SERVIES : la machine elle-même.
- *
- * Le site de développement vit sur un autre port, d'où le CORS. Mais deux
- * pièges se referment ici.
+ * La machine elle-même. C'est le cas par défaut, et le seul sûr.
  *
  * `*` NE MARCHE PAS. Le site envoie ses requêtes avec `credentials: 'include'`,
  * et un navigateur refuse alors toute réponse portant une origine générique :
@@ -19,16 +16,41 @@
  * ET RENVOYER L'ORIGINE DEMANDÉE, QUELLE QU'ELLE SOIT, serait pire : n'importe
  * quelle page ouverte dans votre navigateur peut joindre `127.0.0.1`, et
  * lirait alors vos annonces. Écouter la boucle locale ne protège donc de rien
- * à soi seul. Seule une origine locale est acceptée.
+ * à soi seul.
  */
 const ORIGINE_LOCALE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
-export function entetes(origine: string | undefined): Record<string, string> {
+/**
+ * Le réseau domestique, et lui seul — quand on a DÉLIBÉRÉMENT ouvert le
+ * serveur pour consulter depuis un téléphone.
+ *
+ * Les trois plages privées de la RFC 1918, rien d'autre : une adresse publique
+ * n'a aucune raison de figurer ici, et l'accepter reviendrait à rouvrir la
+ * porte que la règle précédente ferme.
+ *
+ * CE N'EST PAS UNE AUTHENTIFICATION. Quiconque partage le Wi-Fi peut alors
+ * lire les annonces, et poser un favori. C'est acceptable chez soi, et c'est
+ * pourquoi cela ne s'allume pas tout seul.
+ */
+const ORIGINE_PRIVEE =
+  /^http:\/\/(10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})(:\d+)?$/;
+
+/**
+ * Les en-têtes à rendre pour cette origine.
+ *
+ * `surLeReseau` suit l'écoute : on n'élargit la règle que là où le serveur est
+ * effectivement ouvert. Les deux se décident au même endroit, faute de quoi
+ * l'une des deux moitiés se pose sans l'autre.
+ */
+export function entetes(origine: string | undefined, surLeReseau = false): Record<string, string> {
   const commun = {
     'Access-Control-Allow-Headers': 'content-type',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   };
-  if (origine === undefined || !ORIGINE_LOCALE.test(origine)) return commun;
+  const acceptee =
+    origine !== undefined &&
+    (ORIGINE_LOCALE.test(origine) || (surLeReseau && ORIGINE_PRIVEE.test(origine)));
+  if (!acceptee) return commun;
   return {
     ...commun,
     'Access-Control-Allow-Origin': origine,

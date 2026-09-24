@@ -6,6 +6,7 @@
   "description": "Interface mobile-first : quelles annonces contacter maintenant.",
   "scripts": {
     "dev": "vite",
+    "dev:reseau": "vite --host",
     "build": "tsc --build && vite build",
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",

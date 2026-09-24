@@ -220,6 +220,25 @@ copie à la première seconde où c'est possible — une requête minuscule par 
 d'heure. Rien n'est perdu pendant ce temps : les favoris, le suivi et les
 archivages restent intacts dans Turso, seulement hors d'atteinte.
 
+**Depuis un téléphone, sur le réseau du logement.** Par défaut le serveur
+n'écoute que la boucle locale : un téléphone ne peut pas l'atteindre, et c'est
+la bonne valeur par défaut. Deux interrupteurs l'ouvrent, et il faut les deux :
+
+```bash
+MAIOUN_LOCAL_RESEAU=1 pnpm serve:local        # affiche l'adresse à taper
+VITE_API_URL=http://192.168.1.x:8787 pnpm dev:reseau
+```
+
+Le serveur annonce alors les adresses privées de la machine, et AVERTIT :
+il n'y a ni mot de passe ni session — le serveur local n'a qu'un utilisateur —
+donc quiconque partage ce Wi-Fi peut lire vos annonces et poser un favori. Chez
+soi c'est sans conséquence ; sur le réseau d'un café, non. La règle d'origine
+s'élargit exactement en même temps, aux seules plages privées de la RFC 1918.
+
+Le site reste en HTTP sur une adresse IP : ce n'est pas un contexte sécurisé,
+donc **pas de notifications push ni d'installation sur l'écran d'accueil** de
+ce côté-là. Consulter, filtrer, mettre en favori : tout le reste fonctionne.
+
 **Et l'on peut travailler ENTIÈREMENT hors de Turso.** `MAIOUN_LOCAL=1`
 l'emporte sur `TURSO_DATABASE_URL`, même présente dans le `.env` — sans quoi il
 fallait commenter une ligne, et penser à la remettre. La collecte écrit alors
