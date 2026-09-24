@@ -78,3 +78,51 @@ describe('parseListPage (Square Habitat)', () => {
     expect(parseListPage(sansNgcontent, PAGE, 'Square Habitat', niceOnly).listings).toHaveLength(2);
   });
 });
+
+/**
+ * LE SITE A RENOMMÉ LA CLASSE DU LOYER, et rien ne l'a dit.
+ *
+ * `.prix-valeur` est devenue `.card-price` : le 2026-09-24, les cinq annonces
+ * niçoises remontaient sans prix. Un champ absent reste absent — c'est la
+ * règle —, donc aucun avertissement ne se déclenchait, et une annonce sans
+ * loyer ne se score ni ne se filtre.
+ *
+ * La fixture ci-dessus porte l'ancien balisage : elle ne pouvait pas voir
+ * passer le changement. Ce cas-ci porte le nouveau.
+ */
+describe('parseListPage : le loyer après le renommage de sa classe', () => {
+  const carte = (classeDuPrix: string): string => `
+    <msl-card id="id-3327d852-37cc-4e65-a2e7-a96b758883d2">
+      <img class="card-top-img"
+           alt="Location appartement 2 pièces - 41.8m² à Nice (06000)">
+      <p class="card-price-label">Au prix de (par mois)</p>
+      <p class="${classeDuPrix}"> 849 € </p>
+      <span class="card-localisation">NICE (06000)</span>
+    </msl-card>`;
+
+  it('lit le loyer sur la classe actuelle', () => {
+    const { listings, warnings } = parseListPage(
+      carte('card-price'),
+      PAGE,
+      'Square Habitat',
+      () => true,
+    );
+    expect(listings[0]?.priceText).toBe('849 €');
+    expect(warnings).toEqual([]);
+  });
+
+  it('lit encore le loyer sur l’ancienne, pour les pages déjà capturées', () => {
+    const { listings } = parseListPage(carte('prix-valeur'), PAGE, 'Square Habitat', () => true);
+    expect(listings[0]?.priceText).toBe('849 €');
+  });
+
+  it('ne prend pas l’étiquette pour la valeur', () => {
+    const { listings } = parseListPage(carte('card-price'), PAGE, 'Square Habitat', () => true);
+    expect(listings[0]?.priceText).not.toContain('Au prix de');
+  });
+
+  it('avertit quand aucune classe ne porte de loyer', () => {
+    const { warnings } = parseListPage(carte('autre-chose'), PAGE, 'Square Habitat', () => true);
+    expect(warnings.join(' ')).toContain('sans loyer lisible');
+  });
+});

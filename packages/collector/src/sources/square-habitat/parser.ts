@@ -159,7 +159,16 @@ export function parseListPage(
       return;
     }
 
-    const price = cleanText(card.find('.prix-valeur').first().text());
+    // DEUX CLASSES, ET LA SECONDE EST L'ACTUELLE. Le site a renommé
+    // `.prix-valeur` en `.card-price` : le parseur ne trouvait plus rien et
+    // rendait cinq annonces sans loyer — sans avertissement, puisqu'un champ
+    // absent reste absent. On garde l'ancienne pour les pages déjà capturées.
+    // `.card-price-label` est l'étiquette « Au prix de (par mois) », pas la
+    // valeur : le sélecteur de classe ne la prend pas, le mot est différent.
+    const price = cleanText(card.find('.prix-valeur, .card-price').first().text());
+    if (price === '') {
+      warnings.push(`Carte ${reference} sans loyer lisible`);
+    }
     const sourceUrl = geo?.url ?? new URL(`#${reference}`, pageUrl).href;
 
     listings.push(

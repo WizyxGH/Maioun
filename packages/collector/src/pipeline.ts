@@ -276,11 +276,20 @@ async function runSource(
     // Une page inchangée (304) ne dit rien du parseur : Centragence passait
     // « dégradée » à chaque passage où son site n'avait pas bougé. Une agence
     // qui affiche n'avoir aucune location non plus.
+    const sansLoyer = loyerDisparu(result.listings);
+    if (sansLoyer) {
+      logger.warn('source.champ_disparu', {
+        champ: 'priceText',
+        listings: result.listings.length,
+      });
+    }
+
     const degraded =
-      result.pagesFetched > 0 &&
-      discovered === 0 &&
-      result.stopReason !== 'notModified' &&
-      result.stopReason !== 'empty';
+      (result.pagesFetched > 0 &&
+        discovered === 0 &&
+        result.stopReason !== 'notModified' &&
+        result.stopReason !== 'empty') ||
+      sansLoyer;
 
     // Une annonce que la source déclare elle-même DÉJÀ CONFIRMÉE n'est pas une
     // nouveauté. Sans cela, une fiche connue relue pour l'enrichir passait pour
@@ -607,6 +616,31 @@ export interface LifecycleSkip {
   readonly sourceId: string;
   readonly code: LifecycleSkipCode;
   readonly reason: string;
+}
+
+/**
+ * Assez d'annonces pour qu'une absence GÉNÉRALE veuille dire quelque chose.
+ *
+ * En dessous, une agence qui n'a que des biens « prix sur demande » suffirait
+ * à déclencher l'alerte.
+ */
+const MIN_POUR_JUGER_UN_CHAMP = 5;
+
+/**
+ * `true` si la source rend des annonces et PAS UNE SEULE ne porte de loyer.
+ *
+ * LE CAS EST RÉEL ET IL ÉTAIT MUET. Square Habitat a renommé la classe CSS de
+ * son prix le 2026-09-24 : cinq annonces niçoises remontaient sans loyer. Un
+ * champ absent reste absent — c'est la règle — donc rien ne protestait, et
+ * l'inventaire ne s'était pas effondré : le garde-fou existant ne voyait rien.
+ *
+ * Une annonce de location sans loyer, c'est un sélecteur mort, pas un bailleur
+ * discret. La source passe « dégradée » ; AUCUNE ANNONCE N'EST ÉCARTÉE pour
+ * autant — un trait inconnu n'exclut jamais.
+ */
+export function loyerDisparu(listings: readonly RawListing[]): boolean {
+  if (listings.length < MIN_POUR_JUGER_UN_CHAMP) return false;
+  return listings.every((listing) => (listing.priceText ?? '').trim() === '');
 }
 
 /** Exécute un cycle complet de collecte. */
