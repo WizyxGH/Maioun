@@ -45,6 +45,13 @@ snapshots/
 # Le miroir local de la base (`pnpm db:mirror`). `*.db` couvre le fichier,
 # pas les `-info` et `-client_wal_index` que pose le réplica embarqué.
 .data/
+# Résidus VIDES que la liaison libsql pose à la racine quand une
+# synchronisation échoue à la création. Ils ont été commités une fois : le
+# dépôt étant public, mieux vaut qu'ils ne puissent plus l'être.
+/auth
+/auth-wal
+/db
+/db-wal
 
 # --- PRIVÉ : captures de scraping brutes -----------------------------------
 # Le HTML brut d'une source peut contenir des coordonnées de particuliers.
