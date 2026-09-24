@@ -16,5 +16,6 @@ export const beaumontScraper = makeApimoScraper({
   name: 'Beaumont Immobilier',
   domain: 'beaumontimmo.com',
   sitemapUrl: 'https://beaumontimmo.com/sitemap.xml',
+  listUrls: ['https://beaumontimmo.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,
 });

@@ -17,5 +17,6 @@ export const partnersImmoScraper = makeApimoScraper({
   name: 'Partners Immo',
   domain: 'partners-immo.fr',
   sitemapUrl: 'https://partners-immo.fr/sitemap.xml',
+  listUrls: ['https://partners-immo.fr/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,
 });

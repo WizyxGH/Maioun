@@ -16,6 +16,7 @@ export const valroseImmobilierScraper = makeApimoScraper({
   name: 'Valrose Immobilier',
   domain: 'valrose-immo.fr',
   sitemapUrl: 'https://valrose-immo.fr/sitemap.xml',
+  listUrls: ['https://valrose-immo.fr/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {
     phone: '04 92 07 08 64', // secret-scan-ignore

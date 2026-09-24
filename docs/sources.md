@@ -2296,3 +2296,23 @@ requête réelle avant d'être inscrite. Le chemin varie d'un site à l'autre
 sur la page d'accueil, il ne se devine pas — une première tentative qui
 supposait `/fr/locations` partout a produit 33 faux zéros, Acropolis y
 répondant 404.
+
+**Douze de plus le 2026-09-24**, relevées de la même façon : `robots.txt`, puis
+la page d'accueil, puis la page candidate, trois secondes entre deux requêtes.
+Onze portent une page de location dédiée — Agence Riviera, Beaumont, D'Azur,
+DG Immo, Five Stars, Immo 3000, La Petite Maison, Maison K, Partners Immo,
+Transactimo, Valrose ; la douzième, Home Pearl, tient un catalogue mixte à
+`/fr/trouver` où trois locations figuraient.
+
+**HUIT DE CES ONZE PAGES NE RENDENT AUCUNE ANNONCE**, et ce n'est pas un
+mauvais chemin : elles affichent « Aucun produit ne correspond à ce jour aux
+critères ». C'est la distinction qui compte — un zéro ne prouve rien tant qu'on
+n'a pas demandé à la page ce qu'elle en dit elle-même. Le chemin est bon, et la
+première location publiée sera vue.
+
+**Douze sources restent sans page de liste**, faute d'en avoir une : Acetimo,
+Akorimmo, Aparté, Ashley Parker, Home on Riviera, Immobilier 2 Nice, Leprince
+Realty, Nice Premium, Réussite Immo, Tosca et Votre Agence n'offrent que la
+vente dans leur menu ; Agence Gounod ne fait que du saisonnier et de la gestion
+locative. Leur sitemap reste leur seule vue — et c'est cohérent : on ne lit pas
+une page de locations là où il n'y en a pas.

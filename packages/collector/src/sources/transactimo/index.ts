@@ -15,6 +15,7 @@ export const transactimoScraper = makeApimoScraper({
   name: 'Transactimo',
   domain: 'transactimo-nice.com',
   sitemapUrl: 'https://transactimo-nice.com/sitemap.xml',
+  listUrls: ['https://transactimo-nice.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {
     phone: '04 93 88 56 61', // secret-scan-ignore

@@ -18,6 +18,7 @@ export const immo3000Scraper = makeApimoScraper({
   name: 'Immo 3000',
   domain: 'immo3000.com',
   sitemapUrl: 'https://immo3000.com/sitemap.xml',
+  listUrls: ['https://immo3000.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,
   maxDetailsBackfill: 30,
 });

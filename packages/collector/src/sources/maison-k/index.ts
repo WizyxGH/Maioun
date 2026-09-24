@@ -15,6 +15,7 @@ export const maisonKScraper = makeApimoScraper({
   name: 'Maison K Immobilier',
   domain: 'maisonk-immobilier.com',
   sitemapUrl: 'https://maisonk-immobilier.com/sitemap.xml',
+  listUrls: ['https://maisonk-immobilier.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {
     phone: '06 62 41 83 00', // secret-scan-ignore

@@ -15,6 +15,7 @@ export const dazurScraper = makeApimoScraper({
   name: "D'Azur Immobilier",
   domain: 'dazur.fr',
   sitemapUrl: 'https://dazur.fr/sitemap.xml',
+  listUrls: ['https://dazur.fr/fr/location'],
   // Les communes écartées le sont par héritage de la liste recopiée, sans
   // raison consignée. Le filtre porte sur un sitemap déjà téléchargé : les
   // rouvrir ne coûterait aucune requête.
