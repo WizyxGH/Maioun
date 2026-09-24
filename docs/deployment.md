@@ -215,6 +215,12 @@ Il n'a qu'un utilisateur — c'est votre machine, il n'y a personne d'autre —,
 n'écoute que la boucle locale, et annonce au démarrage quel fichier il sert et
 de quand il date. `MAIOUN_LOCAL_DB` en désigne un autre.
 
+**Quand le quota est déjà tombé, l'attente se délègue.**
+`pnpm db:mirror -- --attendre` réessaie toutes les quinze minutes et tire la
+copie à la première seconde où c'est possible — une requête minuscule par quart
+d'heure. Rien n'est perdu pendant ce temps : les favoris, le suivi et les
+archivages restent intacts dans Turso, seulement hors d'atteinte.
+
 **Et l'on peut travailler ENTIÈREMENT hors de Turso.** `MAIOUN_LOCAL=1`
 l'emporte sur `TURSO_DATABASE_URL`, même présente dans le `.env` — sans quoi il
 fallait commenter une ligne, et penser à la remettre. La collecte écrit alors
