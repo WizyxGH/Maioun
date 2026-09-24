@@ -20,13 +20,27 @@
  * dépôt est public. `.gitignore` refuse tout `*.db` et le dossier `.data/`.
  */
 
-// Le client ALIASÉ, récent : la plateforme Turso refuse le protocole de
-// synchronisation de `@libsql/client@0.14`, que la collecte utilise par
-// ailleurs. Deux versions cohabitent plutôt que de toucher la production.
-import { createClient } from '@libsql/sync';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { cheminMiroir, identifiants, refusDeQuota, urlMiroir } from './env.mjs';
+
+// LE JOURNAL ROUGE DE LA LIAISON NATIVE, ÉTEINT PAR DÉFAUT. À chaque tentative
+// libsql écrivait « ERROR … status=403 Forbidden … » avec l'adresse interne du
+// serveur — alarmant, et redondant avec le message qui suit, qui dit la même
+// chose en clair et propose le geste. En attente, il le répétait toutes les
+// quinze minutes.
+//
+// `??=` : `RUST_LOG=debug pnpm db:mirror` le rallume quand on enquête.
+process.env.RUST_LOG ??= 'off';
+
+// Le client ALIASÉ, récent : la plateforme Turso refuse le protocole de
+// synchronisation de `@libsql/client@0.14`, que la collecte utilise par
+// ailleurs. Deux versions cohabitent plutôt que de toucher la production.
+//
+// IMPORTÉ APRÈS `RUST_LOG`, et c'est tout l'objet de cet import dynamique : un
+// `import` ordinaire est hissé, la liaison native lirait la variable avant
+// qu'on l'ait posée.
+const { createClient } = await import('@libsql/sync');
 
 const acces = identifiants();
 if (acces.manque !== undefined) {
