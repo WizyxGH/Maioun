@@ -1141,12 +1141,39 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
     try {
-      return await servir(request, env, cors);
+      // CLONÉ AVANT TOUTE LECTURE DU CORPS : un `Request` ne se lit qu'une
+      // fois, et le repli rejoue la requête entière.
+      const rejouable: Request = request.clone() as unknown as Request;
+      return await servir(request, env, cors).catch(async (error: unknown) => {
+        const copie = await secours(rejouable, env, cors, error);
+        if (copie !== null) return copie;
+        throw error;
+      });
     } catch (error) {
-      return (await secours(request, env, cors, error)) ?? panne(error, cors);
+      return panne(error, cors);
     }
   },
 };
+
+/**
+ * CE QUE LA COPIE PEUT SERVIR.
+ *
+ * Tout GET : consulter ne modifie rien.
+ *
+ * PLUS LA CONNEXION, qui est un POST mais ne fait que LIRE — elle compare une
+ * empreinte de mot de passe et signe un jeton, sans écrire une ligne. L'avoir
+ * oubliée vidait le secours de son sens : qui n'a pas DÉJÀ une session ouverte
+ * n'aurait pas pu entrer, donc pas retrouvé ses favoris ni ses critères,
+ * précisément le jour où la base est fermée.
+ *
+ * Le garde-fou reste `clientDeSecours`, qui refuse toute écriture : si cette
+ * liste s'égarait un jour, la requête échouerait bruyamment plutôt que de
+ * faire diverger les deux bases.
+ */
+export function servableParLaCopie(request: Request): boolean {
+  if (request.method === 'GET') return true;
+  return request.method === 'POST' && new URL(request.url).pathname === '/api/login';
+}
 
 /**
  * DE QUAND DATE LA COPIE — retenu pour la durée de l'isolat.
@@ -1201,7 +1228,7 @@ async function secours(
 ): Promise<Response | null> {
   if (readsBlocked(erreur) === null) return null;
   if (env.SECOURS === undefined) return null;
-  if (request.method !== 'GET') return null;
+  if (!servableParLaCopie(request)) return null;
   try {
     const copie = clientDeSecours(env.SECOURS);
     const rendue = await servir(request, env, cors, copie);

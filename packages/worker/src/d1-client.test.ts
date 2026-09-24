@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { clientDeSecours } from './d1-client.js';
+import { servableParLaCopie } from './index.js';
 
 /** Un D1 de façade, qui rend les lignes qu'on lui donne. */
 function fauxD1(lignes: readonly Record<string, unknown>[] = []): D1Database {
@@ -95,5 +96,32 @@ describe('clientDeSecours', () => {
   it('refuse le lot, qui n’existe que pour écrire', () => {
     const client = clientDeSecours(fauxD1());
     expect(() => client.batch([])).toThrow(/lecture seule/i);
+  });
+});
+
+describe('servableParLaCopie', () => {
+  const requete = (methode: string, chemin: string): Request =>
+    new Request(`https://exemple.test${chemin}`, { method: methode });
+
+  it('sert toute consultation', () => {
+    expect(servableParLaCopie(requete('GET', '/api/listings'))).toBe(true);
+  });
+
+  // Sans elle, le secours ne servirait QUE ceux qui ont déjà une session
+  // ouverte : les autres ne retrouveraient ni favoris ni critères le jour où
+  // la base est fermée. La connexion ne fait pourtant que lire.
+  it('sert la connexion, qui ne fait que lire', () => {
+    expect(servableParLaCopie(requete('POST', '/api/login'))).toBe(true);
+  });
+
+  it.each([
+    ['POST', '/api/signup'],
+    ['POST', '/api/password/forgot'],
+    ['POST', '/api/auth/google'],
+    ['PATCH', '/api/listings/a1'],
+    ['PUT', '/api/config'],
+    ['DELETE', '/api/account'],
+  ])('refuse %s %s, qui écrit', (methode, chemin) => {
+    expect(servableParLaCopie(requete(methode, chemin))).toBe(false);
   });
 });

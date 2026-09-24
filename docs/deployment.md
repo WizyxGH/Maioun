@@ -249,7 +249,9 @@ Puis décommenter le bloc `[[d1_databases]]` de `wrangler.toml` avec ce
 traite comme facultatif.
 
 LE REPLI EST EN LECTURE SEULE, et à trois conditions — un refus de quota
-avéré, un liage présent, une requête GET. Consulter fonctionne alors ; poser un
+avéré, un liage présent, et une requête que la copie peut servir : tout GET,
+plus LA CONNEXION, qui est un POST mais ne fait que lire. Sans cette exception
+le secours n'aurait servi que ceux ayant déjà une session ouverte. Consulter fonctionne alors ; poser un
 favori, non. Deux bases qu'on écrirait toutes les deux divergeraient, et ce
 favori disparaîtrait au retour de Turso sans que rien ne le signale. Les
 réponses ainsi servies portent `X-Maioun-Secours` : ce n'est pas l'état du
