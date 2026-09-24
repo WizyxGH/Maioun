@@ -397,16 +397,30 @@ export function parseDetailPage(
   const mentions = extractLegalMentions(blocks);
   const criteria = extractCriteria($);
 
-  // Fiche retirée : ni bien décrit, ni loyer. On ne produit rien plutôt qu'une
-  // fiche fantôme (§17).
-  if (jsonLd === null || jsonLd.price === undefined) {
+  // SANS AUCUN JSON-LD, il ne reste ni titre, ni pièces, ni surface, ni photo :
+  // la fiche est retirée ou vide. On ne produit rien plutôt qu'une fiche
+  // fantôme (§17).
+  if (jsonLd === null) {
     return { listing: null, warnings: [`Fiche sans bien exploitable (ignorée) : ${pageUrl}`] };
   }
-  // « 0 € » : bien sans loyer publié, rien à comparer.
-  const price = Number(jsonLd.price.replace(/\s/g, '').replace(',', '.'));
-  if (Number.isFinite(price) && price <= 0) {
-    return { listing: null, warnings: [`Fiche sans loyer (0 €, ignorée) : ${pageUrl}`] };
-  }
+
+  /**
+   * LOYER NON PUBLIÉ — « nous consulter », ou le « 0 € » que le CMS écrit alors.
+   *
+   * CES FICHES ÉTAIENT ÉCARTÉES, et c'était une perte : un loyer inconnu n'est
+   * pas une annonce absente. Le bien est décrit, situé, photographié, et le
+   * scoring a sa voie pour ce cas — « Loyer non publié », qui ne retire PAS
+   * l'annonce des critères (un trait inconnu n'écarte jamais). Les jeter ici
+   * rendait cette voie morte pour Netty et faisait disparaître des annonces
+   * réelles, sans que rien ne le dise.
+   *
+   * Le champ reste donc ABSENT, et la fiche existe. Si une source entière
+   * cessait de publier ses loyers, `loyerDisparu` la signalerait dégradée —
+   * c'est là que le silence doit se voir, pas ici.
+   */
+  const montant = Number((jsonLd.price ?? '').replace(/\s/g, '').replace(',', '.'));
+  const loyerPublie = Number.isFinite(montant) && montant > 0 ? jsonLd.price : undefined;
+
   const seasonal = seasonalReason(jsonLd, criteria, title, description, mentions);
   if (seasonal !== undefined) {
     return {
@@ -418,13 +432,14 @@ export function parseDetailPage(
 
   const warnings: string[] = [];
   if (description === undefined) warnings.push(`Fiche sans descriptif : ${pageUrl}`);
+  if (loyerPublie === undefined) warnings.push(`Fiche sans loyer publié : ${pageUrl}`);
 
   const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
     title: title ?? jsonLd.name,
     description,
-    priceText: `${jsonLd.price} €`,
+    priceText: loyerPublie === undefined ? undefined : `${loyerPublie} €`,
     // La provision sur charges n'apparaît que dans les mentions légales, jamais
     // dans les caractéristiques : c'est de là qu'il faut la tirer.
     chargesText: chargesFromMentions(mentions) ?? criterion(criteria, [/^charges?$/, /provision/]),

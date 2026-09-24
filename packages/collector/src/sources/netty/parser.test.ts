@@ -232,12 +232,36 @@ describe('parseDetailPage', () => {
     expect(warnings.join(' ')).toMatch(/exploitable/i);
   });
 
-  it('écarte une fiche à « 0 € »', () => {
-    for (const price of [0, '0', '0.00']) {
-      const { listing, warnings } = parseDetailPage(nettyHtml({ price }), URL, AGENCY);
-      expect(listing).toBeNull();
-      expect(warnings.join(' ')).toMatch(/0 €/);
-    }
+  /**
+   * LOYER NON PUBLIÉ : LA FICHE RESTE.
+   *
+   * Elle était écartée — « 0 € », ou pas de prix du tout dans le JSON-LD. Mais
+   * le bien est décrit, situé, photographié, et le scoring a sa voie pour ce
+   * cas : « Loyer non publié », qui ne retire pas l'annonce des critères. Les
+   * jeter ici rendait cette voie morte pour Netty et faisait disparaître des
+   * annonces réelles, sans que rien ne le dise.
+   */
+  it.each([[0], ['0'], ['0.00']])('garde une fiche à « %s € », sans loyer', (price) => {
+    const { listing, warnings } = parseDetailPage(nettyHtml({ price }), URL, AGENCY);
+    expect(listing).not.toBeNull();
+    // UN CHAMP ABSENT RESTE ABSENT : surtout pas « 0 € » affiché comme un loyer.
+    expect(listing?.priceText).toBeUndefined();
+    expect(warnings.join(' ')).toMatch(/sans loyer publié/i);
+  });
+
+  it('garde une fiche dont le JSON-LD ne porte aucun prix', () => {
+    const sansPrix = nettyHtml().replace(/"price": ?"?[\d.]+"?,/, '');
+    const { listing } = parseDetailPage(sansPrix, URL, AGENCY);
+    expect(listing).not.toBeNull();
+    expect(listing?.priceText).toBeUndefined();
+    // Le reste du bien est bien là : ce n'est pas une fiche fantôme.
+    expect(listing?.title).toBeDefined();
+  });
+
+  it('écarte encore une page sans aucun JSON-LD : il n’y a rien à montrer', () => {
+    const { listing, warnings } = parseDetailPage('<html><body>rien</body></html>', URL, AGENCY);
+    expect(listing).toBeNull();
+    expect(warnings.join(' ')).toMatch(/exploitable/i);
   });
 
   describe('location saisonnière', () => {
