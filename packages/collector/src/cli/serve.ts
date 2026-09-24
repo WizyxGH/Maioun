@@ -25,6 +25,7 @@ import { resolve } from 'node:path';
 import { route } from '../server/routes.js';
 import { openDatabase } from '../db/client.js';
 import { loadDotEnv } from '../config.js';
+import { entetes } from '../server/local-cors.js';
 
 const PORT = Number(process.env['MAIOUN_LOCAL_PORT'] ?? 8787);
 
@@ -97,19 +98,12 @@ async function verifierLeSchema(): Promise<void> {
   process.exit(1);
 }
 
-// Le site de développement vit sur un autre port : sans cela, le navigateur
-// refuse la réponse. Origine ouverte, mais le serveur n'écoute que 127.0.0.1.
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-};
-
 const serveur = createServer((requete, reponse) => {
   void (async () => {
     const url = new URL(requete.url ?? '/', `http://localhost:${PORT}`);
+    const cors = entetes(requete.headers.origin);
     if (requete.method === 'OPTIONS') {
-      reponse.writeHead(204, CORS).end();
+      reponse.writeHead(204, cors).end();
       return;
     }
 
@@ -126,12 +120,12 @@ const serveur = createServer((requete, reponse) => {
 
     try {
       const segments = url.pathname.split('/').filter((part) => part !== '');
-      const rendue = await route(db, demande, url, segments, CORS);
+      const rendue = await route(db, demande, url, segments, cors);
       reponse.writeHead(rendue.status, Object.fromEntries(rendue.headers));
       reponse.end(Buffer.from(await rendue.arrayBuffer()));
     } catch (erreur) {
       const message = erreur instanceof Error ? erreur.message : String(erreur);
-      reponse.writeHead(500, { ...CORS, 'content-type': 'application/json' });
+      reponse.writeHead(500, { ...cors, 'content-type': 'application/json' });
       reponse.end(JSON.stringify({ error: message }));
     }
   })();

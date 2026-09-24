@@ -69,8 +69,11 @@ async function main(): Promise<void> {
     logger.warn('database.local_only', {
       url: target.url,
       message:
-        'TURSO_DATABASE_URL absent : la collecte écrit dans un fichier local, ' +
-        'que le site publié ne lit pas. Utile pour essayer un scraper ; sans effet visible ailleurs.',
+        process.env['MAIOUN_LOCAL'] === '1'
+          ? 'MAIOUN_LOCAL=1 : écriture dans le fichier local, jamais dans Turso. ' +
+            'Le site publié ne le lit pas ; `pnpm serve:local` le sert au site de développement.'
+          : 'TURSO_DATABASE_URL absent : la collecte écrit dans un fichier local, ' +
+            'que le site publié ne lit pas. Utile pour essayer un scraper ; sans effet visible ailleurs.',
     });
   }
 
