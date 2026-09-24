@@ -38,6 +38,11 @@ const SKIP_DIRS = new Set([
   // committées, mais contiennent de vraies coordonnées d'annonces. Rien à y
   // scanner puisqu'elles ne peuvent pas fuiter dans le dépôt (§26).
   'data',
+  // Le miroir et les sauvegardes (`pnpm db:mirror`, `pnpm db:dump`), gitignorés
+  // eux aussi. Le trou ne s'était jamais vu : un `.db` est binaire, donc hors
+  // des extensions scannées — un `.sql` de sauvegarde, non, et il faisait
+  // échouer `pnpm verify` à quiconque en avait pris une.
+  '.data',
   // Copies de travail des agents : un clone complet du dépôt, gitignoré comme
   // `data`. Le scanner y signalait chaque fichier deux fois.
   '.claude',

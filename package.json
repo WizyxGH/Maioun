@@ -31,6 +31,7 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "query": "node packages/collector/scripts/query-db.mjs",
     "db:mirror": "node packages/collector/scripts/mirror-db.mjs",
+    "db:dump": "pnpm --filter @maioun/collector run db:dump",
     "serve:local": "pnpm --filter @maioun/collector run serve",
     "db:migrate": "pnpm --filter @maioun/collector run db:migrate",
     "audit:data": "pnpm --filter @maioun/collector run audit:data",

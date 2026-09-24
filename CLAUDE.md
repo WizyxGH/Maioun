@@ -72,6 +72,7 @@ Travaillez donc sur le miroir local, qui ne coûte rien et marche hors ligne :
 ```bash
 pnpm db:mirror                      # tire la copie, puis seulement les changements
 pnpm db:mirror -- --attendre        # réessaie jusqu'à ce que le quota reparte
+pnpm db:dump                        # une sauvegarde .sql portable, dans .data/
 pnpm query --local "select …"       # lit la copie, jamais la base distante
 ```
 

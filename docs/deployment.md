@@ -131,6 +131,7 @@ base à jeton, jamais dans le dépôt (§26).
 | `pnpm publish:turso`         | pousse l'inventaire local vers la base cloud         |
 | `pnpm query "select …"`      | lit la base ; refuse tout ce qui n'est pas un SELECT |
 | `pnpm db:mirror`             | tire un miroir local de la base, dans `.data/`       |
+| `pnpm db:dump`               | sauvegarde la base en `.sql` portable, dans `.data/` |
 | `pnpm query --local "…"`     | lit le miroir : gratuit, hors ligne, et daté         |
 | `pnpm serve:local`           | sert l'API du site à partir du miroir, hors ligne    |
 | `pnpm email:test`            | aperçu de l’alerte e-mail ; `--send` pour un essai   |
@@ -219,6 +220,28 @@ de quand il date. `MAIOUN_LOCAL_DB` en désigne un autre.
 copie à la première seconde où c'est possible — une requête minuscule par quart
 d'heure. Rien n'est perdu pendant ce temps : les favoris, le suivi et les
 archivages restent intacts dans Turso, seulement hors d'atteinte.
+
+**Une sauvegarde qui survit à la plateforme.** Le miroir est un réplica : il
+suit la base, et ne protège donc de rien si c'est la base qu'on perd.
+`pnpm db:dump` en tire un `.sql` ordinaire dans `.data/` — schéma, données,
+index — que n'importe quel SQLite relit, et qui remplit aussi une base de
+secours (`wrangler d1 import`).
+
+```bash
+pnpm db:mirror        # la copie, tant que Turso répond
+pnpm db:dump          # .data/sauvegarde-AAAA-MM-JJ.sql
+```
+
+Les tables sont écrites PARENTS D'ABORD : sept d'entre elles portent des clés
+étrangères, que SQLite ignore par défaut mais que D1 applique. L'aller-retour a
+été vérifié sur la base du 24 septembre 2026, `PRAGMA foreign_keys = ON` :
+10 944 lignes, 26 tables, 53 index, aucune violation, empreintes des 2 285
+fiches identiques — et `pnpm serve:local` sert la restauration comme
+l'original, mêmes 208 annonces dans les critères.
+
+CE FICHIER CONTIENT DES DONNÉES PERSONNELLES : adresses e-mail, empreinte de
+mot de passe, abonnements aux notifications, identifiants de portails. Il reste
+dans `.data/`, que `.gitignore` refuse en entier. Le dépôt est public.
 
 **Depuis un téléphone, sur le réseau du logement.** Par défaut le serveur
 n'écoute que la boucle locale : un téléphone ne peut pas l'atteindre, et c'est
