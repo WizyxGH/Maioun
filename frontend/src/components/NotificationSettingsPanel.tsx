@@ -24,7 +24,7 @@
 
 import { NEAR_MATCH_MARGIN } from '@maioun/shared';
 import type { NotificationFrequency } from '@maioun/shared';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArchiveRestore, ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
 import {
@@ -39,6 +39,7 @@ import { Button } from '@/components/ui/button.js';
 import { Switch } from '@/components/ui/switch.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { EchecDeChargement } from './EchecDeChargement.js';
 import { Radio } from '@/components/ui/checkbox.js';
 
 interface KindInfo {
@@ -139,6 +140,26 @@ export function NotificationSettingsPanel({
 
   // L'abonnement push fait foi au chargement : il survit à un vidage du
   // stockage local, là où la préférence de bandeau, non.
+  /**
+   * La lecture des réglages, à part pour être RELANÇABLE.
+   *
+   * L'échec disait « Revenez sur cet écran pour réessayer » : une consigne de
+   * navigation à la place du geste lui-même, alors que les interrupteurs
+   * restaient grisés en attendant.
+   */
+  const lireLesReglages = useCallback(() => {
+    setStatus('loading');
+    setError(null);
+    void fetchNotificationPreferences().then(
+      (stored) => {
+        latest.current = stored;
+        setPreferences(stored);
+        setStatus('ready');
+      },
+      () => setStatus('failed'),
+    );
+  }, []);
+
   useEffect(() => {
     /**
      * ON REMET L'ABONNEMENT EN PLACE, SANS RIEN DEMANDER, puis on affiche CE QUI
@@ -168,18 +189,8 @@ export function NotificationSettingsPanel({
         if (subscribed && !masterTouched.current) setOn(true);
       });
     }
-    void fetchNotificationPreferences().then(
-      (stored) => {
-        latest.current = stored;
-        setPreferences(stored);
-        setStatus('ready');
-      },
-      () => {
-        setStatus('failed');
-        setError('Vos réglages n’ont pas pu être lus. Revenez sur cet écran pour réessayer.');
-      },
-    );
-  }, []);
+    lireLesReglages();
+  }, [lireLesReglages]);
 
   const persist = (next: NotificationPreferences, failure: string): void => {
     latest.current = next;
@@ -264,6 +275,10 @@ export function NotificationSettingsPanel({
         <Alert variant="warning" className="mt-3">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+
+      {status === 'failed' && (
+        <EchecDeChargement quoi="vos réglages de notification" onReessayer={lireLesReglages} />
       )}
 
       {/* « NOUVELLES ANNONCES » EST L'INTERRUPTEUR PRINCIPAL.

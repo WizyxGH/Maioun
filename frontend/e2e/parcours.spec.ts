@@ -7,7 +7,7 @@
  */
 
 import { expect, test, type Page } from '@playwright/test';
-import { ouvrirRecherche } from './navigation.js';
+import { ouvrirOnglet, ouvrirRecherche } from './navigation.js';
 
 /**
  * Ouvre un écran secondaire (Notifications, Statistiques, Sources) depuis les
@@ -15,15 +15,7 @@ import { ouvrirRecherche } from './navigation.js';
  * barre du haut est réservée aux destinations quotidiennes.
  */
 async function ouvrirReglage(page: Page, lien: string): Promise<void> {
-  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
-  if (await haut.isVisible()) {
-    await haut.getByRole('button', { name: 'Paramètres' }).click();
-  } else {
-    await page
-      .getByRole('navigation', { name: 'Navigation' })
-      .getByRole('button', { name: 'Paramètres' })
-      .click();
-  }
+  await ouvrirOnglet(page, 'Paramètres');
   await page
     .getByRole('navigation', { name: 'Réglages' })
     .getByRole('button', { name: new RegExp(lien) })
@@ -292,11 +284,7 @@ test('les alertes se règlent depuis leur propre écran (§29)', async ({ page }
 });
 
 test('les paramètres sont rangés par sujet (§39)', async ({ page }) => {
-  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
-  const barre = (await haut.isVisible())
-    ? haut
-    : page.getByRole('navigation', { name: 'Navigation', exact: true });
-  await barre.getByRole('button', { name: 'Paramètres' }).click();
+  await ouvrirOnglet(page, 'Paramètres');
 
   // Une liste plate de six entrées ne disait pas ce qui relevait de soi, de sa
   // recherche, ou de l'outil.
@@ -442,9 +430,9 @@ test('« Favoris » est atteignable à toute largeur', async ({ page }) => {
   // Ce que porte la barre basse du téléphone doit exister aussi à l'écran.
   const basse = page.getByRole('navigation', { name: 'Navigation', exact: true });
   const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+  await ouvrirOnglet(page, 'Favoris');
   const barre = (await basse.isVisible()) ? basse : haut;
 
-  await barre.getByRole('button', { name: 'Favoris' }).click();
   await expect(barre.getByRole('button', { name: 'Favoris' })).toHaveAttribute(
     'aria-current',
     'page',

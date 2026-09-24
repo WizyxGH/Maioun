@@ -11,11 +11,13 @@
  * projet, et le cacher derrière un bouton mort ne servirait personne.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchPlan, startCheckout, type PlanView } from '../api/client.js';
 import { Button } from './ui/button.js';
 import { ArrowLeft } from './icons.js';
 import { Alert, AlertDescription } from './ui/alert.js';
+import { PanelSkeleton } from './Skeletons.js';
+import { EchecDeChargement } from './EchecDeChargement.js';
 
 /** Ce que chaque marche donne. La liste est la promesse : elle doit être vraie. */
 const MARCHES: readonly { readonly titre: string; readonly lignes: readonly string[] }[] = [
@@ -57,22 +59,29 @@ export function PlanPanel({ onBack }: { readonly onBack: () => void }): React.JS
   const [plan, setPlan] = useState<PlanView | null>(null);
   const [ouverture, setOuverture] = useState(false);
   const [echec, setEchec] = useState(false);
+  const [echecDeLecture, setEchecDeLecture] = useState(false);
 
-  useEffect(() => {
+  // TROIS ÉTATS. L'échec retombait sur « pas configuré » : une offre qu'on ne
+  // sait pas lire n'est en effet pas une offre à vendre — mais un client qui
+  // PAIE se voyait alors annoncer qu'il n'a rien, sur une simple coupure. On
+  // ne vend toujours rien dans le doute ; on dit seulement le doute.
+  const charger = useCallback(() => {
+    setEchecDeLecture(false);
+    setPlan(null);
     let vivant = true;
     void fetchPlan()
       .then((view) => {
         if (vivant) setPlan(view);
       })
-      // Une offre qu'on ne sait pas lire n'est pas une offre à vendre : on
-      // retombe sur « pas configuré » plutôt que de proposer au hasard.
       .catch(() => {
-        if (vivant) setPlan({ plan: 'unconfigured', until: null });
+        if (vivant) setEchecDeLecture(true);
       });
     return () => {
       vivant = false;
     };
   }, []);
+
+  useEffect(charger, [charger]);
 
   const payer = async (): Promise<void> => {
     setOuverture(true);
@@ -100,6 +109,10 @@ export function PlanPanel({ onBack }: { readonly onBack: () => void }): React.JS
         Consulter est libre. Un compte gratuit sert à agir. Seule la candidature envoyée à votre
         place se paie.
       </p>
+
+      {echecDeLecture && <EchecDeChargement quoi="votre offre" onReessayer={charger} />}
+
+      {plan === null && !echecDeLecture && <PanelSkeleton rows={2} />}
 
       {plan !== null && (
         <div className="border-border mb-5 rounded-xl border p-4">

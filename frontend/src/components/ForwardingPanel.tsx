@@ -26,7 +26,7 @@
  * il vivait. « Dernière alerte reçue » tranche.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   fetchAlertAddress,
   fetchFilters,
@@ -41,6 +41,8 @@ import { Card } from '@/components/ui/card.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible.js';
 import { Check, Copy, ExternalLink, Mail } from './icons.js';
+import { PanelSkeleton } from './Skeletons.js';
+import { EchecDeChargement } from './EchecDeChargement.js';
 
 interface Portal {
   readonly id: PortalId;
@@ -192,16 +194,25 @@ export function ForwardingSection(): React.JSX.Element {
   const [criteria, setCriteria] = useState<FilterConfig | null>(null);
   const address = state?.address ?? null;
 
-  useEffect(() => {
+  // `null` veut dire ÉCHEC, pas « rien à montrer ». Les deux s'affichaient
+  // pareil — « fonctionnalité non configurée » —, si bien qu'une coupure
+  // réseau passait pour une décision d'installation, et qu'on ne pensait pas
+  // à réessayer.
+  const charger = useCallback(() => {
+    setState(undefined);
     void fetchAlertAddress()
       .then(setState)
       .catch(() => setState(null));
+  }, []);
+
+  useEffect(() => {
+    charger();
     // Sans critères, les liens ouvrent une recherche vierge : moins utile,
     // jamais cassé. Rien à signaler.
     void fetchFilters()
       .then(setCriteria)
       .catch(() => undefined);
-  }, []);
+  }, [charger]);
 
   const rotate = (): void => {
     setRotating(true);
@@ -235,11 +246,11 @@ export function ForwardingSection(): React.JSX.Element {
         Ces portails n’autorisent que leur propre alerte par e-mail. Voici où l’envoyer.
       </p>
 
-      {state === undefined && (
-        <p className="text-muted-foreground mt-4 text-[0.9rem]">Chargement…</p>
-      )}
+      {state === undefined && <PanelSkeleton rows={2} />}
 
-      {state !== undefined && address === null && (
+      {state === null && <EchecDeChargement quoi="votre adresse d’alertes" onReessayer={charger} />}
+
+      {state !== undefined && state !== null && address === null && (
         <p className="border-border mt-4 rounded-xl border p-3 text-[0.9rem]">
           Fonctionnalité non configurée sur cette installation : aucune adresse ne vous est
           attribuée.

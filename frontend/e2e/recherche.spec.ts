@@ -6,16 +6,13 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { ouvrirRecherche } from './navigation.js';
 
 test.beforeEach(async ({ page }) => {
   const erreurs: string[] = [];
   page.on('pageerror', (error) => erreurs.push(error.message));
   await page.goto('/');
-  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
-  const barre = (await haut.isVisible())
-    ? haut
-    : page.getByRole('navigation', { name: 'Navigation', exact: true });
-  await barre.getByRole('button', { name: 'Recherche' }).click();
+  await ouvrirRecherche(page);
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
   (page as unknown as { erreurs: string[] }).erreurs = erreurs;
 });

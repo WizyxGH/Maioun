@@ -77,7 +77,12 @@ describe('NotificationSettingsPanel', () => {
     vi.mocked(fetchNotificationPreferences).mockRejectedValue(new Error('réseau'));
     render(<NotificationSettingsPanel onBack={vi.fn()} />);
 
-    expect(await screen.findByText(/n’ont pas pu être lus/)).toBeInTheDocument();
+    // L'échec est NOMMÉ, et propose de recommencer — il disait auparavant
+    // « Revenez sur cet écran », une consigne de navigation à la place du geste.
+    const alerte = await screen.findByRole('alert');
+    expect(alerte).toHaveTextContent(/réglages de notification/i);
+    expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
+
     await userEvent.click(toggle('Favori qui disparaît'));
     expect(saveNotificationPreferences).not.toHaveBeenCalled();
   });

@@ -7,13 +7,14 @@
  * prétend à aucune précision statistique tant qu'il n'y a pas de données (§18).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { StatsData } from '../types.js';
 import { fetchStats } from '../api/client.js';
 import { UNKNOWN, formatSourceName, formatTracking } from '../format.js';
 import type { TrackingStatus } from '../types.js';
 import { HistoryChart } from './HistoryChart.js';
 import { StatsSkeleton } from './Skeletons.js';
+import { EchecDeChargement } from './EchecDeChargement.js';
 import { useCountUp } from '../use-count-up.js';
 
 /**
@@ -141,15 +142,20 @@ function BarRow({
 
 export function StatsPanel(): React.JSX.Element {
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [error, setError] = useState(false);
+  const [echec, setEchec] = useState(false);
 
-  useEffect(() => {
+  // `useCallback` pour que « Réessayer » relance EXACTEMENT la même lecture.
+  const charger = useCallback(() => {
+    setEchec(false);
+    setStats(null);
     void fetchStats()
       .then(setStats)
-      .catch(() => setError(true));
+      .catch(() => setEchec(true));
   }, []);
 
-  if (error) return <p className="text-bad">Impossible de charger les statistiques.</p>;
+  useEffect(charger, [charger]);
+
+  if (echec) return <EchecDeChargement quoi="vos statistiques" onReessayer={charger} />;
   if (stats === null) return <StatsSkeleton />;
 
   const { listings, byTracking, bySource, contacts } = stats;

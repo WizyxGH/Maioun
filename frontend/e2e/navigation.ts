@@ -9,7 +9,14 @@
 
 import { expect, type Page } from '@playwright/test';
 
-export async function ouvrirRecherche(page: Page): Promise<void> {
+/**
+ * Cliquer un onglet, sur celle des deux barres qui le porte.
+ *
+ * Le geste était recopié pour chaque destination — « Recherche »,
+ * « Paramètres », « Favoris » —, et chaque copie portait la même
+ * intermittence. Une seule ici.
+ */
+export async function ouvrirOnglet(page: Page, nom: string): Promise<void> {
   /**
    * `isVisible()` EST UNE PHOTO, PAS UNE ATTENTE — et c'est ce qui rendait ce
    * geste intermittent. Juste après un changement de format et un chargement,
@@ -22,11 +29,16 @@ export async function ouvrirRecherche(page: Page): Promise<void> {
    */
   const haut = page
     .getByRole('navigation', { name: 'Navigation principale' })
-    .getByRole('button', { name: 'Recherche' });
+    .getByRole('button', { name: nom });
   const bas = page
     .getByRole('navigation', { name: 'Navigation', exact: true })
-    .getByRole('button', { name: 'Recherche' });
+    .getByRole('button', { name: nom });
 
   await expect(haut.or(bas).first()).toBeVisible();
   await ((await haut.isVisible()) ? haut : bas).click();
+}
+
+/** La destination de loin la plus demandée par les scénarios. */
+export async function ouvrirRecherche(page: Page): Promise<void> {
+  await ouvrirOnglet(page, 'Recherche');
 }

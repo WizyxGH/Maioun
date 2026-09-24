@@ -17,7 +17,7 @@
  * raison de plus de savoir qui l'a déclaré.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   clearSourceAccess,
   fetchSourceAccess,
@@ -28,22 +28,30 @@ import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { ConfirmDialog } from '@/components/ui/dialog.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
+import { PanelSkeleton } from './Skeletons.js';
+import { EchecDeChargement } from './EchecDeChargement.js';
 
 const SOURCE_ID = 'bep-abonnes';
 
 export function PaidSourcesSection(): React.JSX.Element {
-  const [access, setAccess] = useState<SourceAccess | null>(null);
+  // `undefined` en cours, `null` échoué, la valeur une fois lue. TROIS ÉTATS :
+  // l'échec remettait `null`, indistinct du départ, et « Chargement… » restait
+  // alors à l'écran pour toujours.
+  const [access, setAccess] = useState<SourceAccess | null | undefined>(undefined);
   const [editing, setEditing] = useState(false);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const charger = useCallback(() => {
+    setAccess(undefined);
     void fetchSourceAccess(SOURCE_ID)
       .then(setAccess)
       .catch(() => setAccess(null));
   }, []);
+
+  useEffect(charger, [charger]);
 
   const close = (): void => {
     setEditing(false);
@@ -70,7 +78,10 @@ export function PaidSourcesSection(): React.JSX.Element {
     await clearSourceAccess(SOURCE_ID).catch(() => undefined);
     setBusy(false);
     setAccess((current) =>
-      current === null ? null : { ...current, configured: false, login: null },
+      // Ni pendant le chargement ni après un échec il n'y a d'accès à retirer.
+      current === null || current === undefined
+        ? current
+        : { ...current, configured: false, login: null },
     );
   };
 
@@ -81,9 +92,10 @@ export function PaidSourcesSection(): React.JSX.Element {
         déjà le droit de lire.
       </p>
 
-      {access === null && <p className="text-muted-foreground mt-4 text-[0.9rem]">Chargement…</p>}
+      {access === undefined && <PanelSkeleton rows={2} />}
+      {access === null && <EchecDeChargement quoi="vos accès" onReessayer={charger} />}
 
-      {access !== null && !access.available && (
+      {access !== null && access !== undefined && !access.available && (
         <p className="border-border mt-4 rounded-xl border p-3 text-[0.9rem]">
           Cette installation ne sait pas encore conserver un accès payant en sécurité : il lui
           manque sa clé de chiffrement. Mieux vaut vous le dire que ranger votre mot de passe en
@@ -91,7 +103,7 @@ export function PaidSourcesSection(): React.JSX.Element {
         </p>
       )}
 
-      {access !== null && access.available && (
+      {access !== null && access !== undefined && access.available && (
         <div className="border-border mt-4 rounded-xl border p-3">
           <p className="font-medium">BEP Logement — bulletin abonné</p>
           <p className="text-muted-foreground mt-0.5 text-[0.85rem]">
