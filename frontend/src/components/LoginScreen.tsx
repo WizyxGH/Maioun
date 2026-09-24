@@ -18,6 +18,7 @@
  */
 
 import { useState } from 'react';
+import { Turnstile } from './Turnstile.js';
 import { LogIn, UserPlus } from './icons.js';
 import { login } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
@@ -41,11 +42,14 @@ export function LoginScreen({
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // `undefined` tant que le captcha n'a rien rendu — et il ne rend jamais rien
+  // là où il n'est pas configuré : le formulaire part alors comme avant.
+  const [captcha, setCaptcha] = useState<string | undefined>(undefined);
 
   const submit = async (): Promise<void> => {
     setBusy(true);
     setError(null);
-    const failure = await login(identifiant, password);
+    const failure = await login(identifiant, password, captcha);
     setBusy(false);
     if (failure === null) {
       onSignedIn();
@@ -93,6 +97,8 @@ export function LoginScreen({
               className="w-full text-base"
             />
           </label>
+
+          <Turnstile onToken={(token) => setCaptcha(token ?? undefined)} />
 
           {error !== null && (
             <Alert variant="destructive">

@@ -186,11 +186,15 @@ export function isUnconfigured(): boolean {
  * incorrect » sans préciser lequel, et ce n'est pas une maladresse — distinguer
  * les deux apprendrait quels comptes existent.
  */
-export async function login(identifiant: string, password: string): Promise<string | null> {
+export async function login(
+  identifiant: string,
+  password: string,
+  captcha?: string,
+): Promise<string | null> {
   try {
     await request<{ userId: string }>('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ login: identifiant, password }),
+      body: JSON.stringify({ login: identifiant, password, captcha }),
     });
     return null;
   } catch (error) {
@@ -648,6 +652,8 @@ export async function startCheckout(): Promise<string | null> {
 export async function signup(input: {
   readonly email: string;
   readonly password: string;
+  /** Jeton Turnstile, quand le captcha est en service sur cette installation. */
+  readonly captcha?: string;
 }): Promise<{ ok: true; confirmationSent: boolean } | { ok: false; error: string }> {
   if (DEMO || API_URL === '') {
     return { ok: false, error: "Cette installation n'accepte pas d'inscription." };

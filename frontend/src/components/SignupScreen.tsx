@@ -22,6 +22,7 @@
  */
 
 import { useState } from 'react';
+import { Turnstile } from './Turnstile.js';
 import { MIN_PASSWORD_LENGTH } from '@maioun/shared';
 import { ArrowLeft, Eye, EyeOff, Mail, UserPlus } from './icons.js';
 import { signup } from '../api/client.js';
@@ -45,13 +46,16 @@ export function SignupScreen({
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // `undefined` là où le captcha n'est pas configuré : le formulaire part alors
+  // comme avant, et le serveur ne vérifie rien non plus.
+  const [captcha, setCaptcha] = useState<string | undefined>(undefined);
   const [created, setCreated] = useState<{ confirmationSent: boolean } | null>(null);
   const [verified, setVerified] = useState(false);
 
   const submit = async (): Promise<void> => {
     setBusy(true);
     setError(null);
-    const outcome = await signup({ email, password });
+    const outcome = await signup({ email, password, captcha });
     setBusy(false);
     if (outcome.ok) {
       setCreated({ confirmationSent: outcome.confirmationSent });
@@ -169,6 +173,8 @@ export function SignupScreen({
               {MIN_PASSWORD_LENGTH} caractères au minimum.
             </span>
           </label>
+
+          <Turnstile onToken={(token) => setCaptcha(token ?? undefined)} />
 
           {error !== null && (
             <Alert variant="destructive">

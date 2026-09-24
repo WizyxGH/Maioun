@@ -49,6 +49,7 @@ import {
   signupProblemMessage,
 } from './signup.js';
 import { allow, bucketFor, callerKey, LIMITS } from './rate-limit.js';
+import { captchaConfigured, verifyCaptcha } from './turnstile.js';
 import { contactSubmitRoute } from './contact-submit.js';
 import {
   applyWebhook,
@@ -78,6 +79,17 @@ export interface Env {
    * bouton qui ne mène nulle part (§17).
    */
   readonly GOOGLE_CLIENT_ID?: string;
+  /**
+   * Clé secrète Turnstile, qui met le captcha en service sur la création de
+   * compte et la connexion. Absente : aucune vérification, et le Worker le
+   * journalise à chaque tentative plutôt que de laisser croire le contraire.
+   *
+   *   npx wrangler secret put TURNSTILE_SECRET
+   *
+   * Sa moitié publique est `VITE_TURNSTILE_PUBLIC_KEY`, côté site. Les deux se
+   * posent ensemble : une seule ne protège rien.
+   */
+  readonly TURNSTILE_SECRET?: string;
   /**
    * Gabarit de l'adresse de transfert des alertes (§6), avec `{token}` à la
    * place du jeton du compte — par exemple `alertes+{token}@exemple.fr`.
@@ -220,6 +232,35 @@ function json(body: unknown, cors: Record<string, string>, status = 200): Respon
 }
 
 /**
+ * Le captcha, posé devant une porte d'authentification — ou son absence, dite.
+ *
+ * Rend une réponse d'erreur à renvoyer tel quel, ou `null` pour continuer.
+ *
+ * UN GARDE-FOU ABSENT DOIT S'ENTENDRE. Sans `TURNSTILE_SECRET`, la protection
+ * n'existe pas : on le journalise à CHAQUE tentative plutôt que de laisser
+ * croire qu'elle est en place. C'est la leçon d'un interrupteur d'alertes mal
+ * posé, qui les a fait taire deux heures et demie sans un mot.
+ */
+async function captchaRefuse(
+  env: Env,
+  request: Request,
+  body: { captcha?: unknown },
+  cors: Record<string, string>,
+  porte: string,
+): Promise<Response | null> {
+  if (!captchaConfigured(env)) {
+    console.warn(`auth.captcha_absent porte=${porte}`);
+    return null;
+  }
+  const verdict = await verifyCaptcha(env, body.captcha, callerKey(request));
+  if (verdict.ok) return null;
+  console.warn(`auth.captcha_refuse porte=${porte} raison=${verdict.reason ?? '?'}`);
+  // Le motif exact reste au journal : le dire à l'écran aide surtout qui
+  // cherche à passer.
+  return json({ error: 'Vérification anti-robot échouée. Réessayez.' }, cors, 400);
+}
+
+/**
  * Connexion.
  *
  * LE MÊME MESSAGE POUR UN IDENTIFIANT INCONNU ET UN MAUVAIS MOT DE PASSE.
@@ -231,12 +272,17 @@ function json(body: unknown, cors: Record<string, string>, status = 200): Respon
  */
 async function login(db: Client, request: Request, env: Env, cors: Record<string, string>) {
   const { verifyPassword } = await import('./auth.js');
-  let body: { login?: unknown; password?: unknown };
+  let body: { login?: unknown; password?: unknown; captcha?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return json({ error: 'Requête illisible' }, cors, 400);
   }
+  // AVANT de comparer le mot de passe : la vérification d'empreinte est la
+  // partie coûteuse, et c'est elle qu'un script cherche à faire tourner.
+  const refus = await captchaRefuse(env, request, body, cors, 'connexion');
+  if (refus !== null) return refus;
+
   const identifiant = typeof body.login === 'string' ? body.login.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
   if (identifiant === '' || password === '') {
@@ -482,7 +528,11 @@ async function signup(
   const body = (await request.json().catch(() => ({}))) as {
     email?: unknown;
     password?: unknown;
+    captcha?: unknown;
   };
+  const refus = await captchaRefuse(env, request, body, cors, 'inscription');
+  if (refus !== null) return refus;
+
   const email = typeof body.email === 'string' ? body.email : '';
   const password = typeof body.password === 'string' ? body.password : '';
 
