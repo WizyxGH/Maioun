@@ -50,6 +50,7 @@ import {
 } from './signup.js';
 import { allow, bucketFor, callerKey, LIMITS } from './rate-limit.js';
 import { captchaConfigured, verifyCaptcha } from './turnstile.js';
+import { readsBlocked } from '@maioun/collector/db/quota';
 import { contactSubmitRoute } from './contact-submit.js';
 import {
   applyWebhook,
@@ -1128,6 +1129,45 @@ export default {
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
+    try {
+      return await servir(request, env, cors);
+    } catch (error) {
+      return panne(error, cors);
+    }
+  },
+};
+
+/**
+ * CE QU'ON RÉPOND QUAND LA BASE LÂCHE, plutôt que de laisser l'exception filer.
+ *
+ * Rien n'entourait l'appel aux routes : une erreur Turso remontait en 500 nu,
+ * SANS en-tête CORS. Le navigateur bloque alors la réponse, l'écran n'obtient
+ * qu'un échec réseau opaque et affiche « la connexion a échoué » — le
+ * diagnostic le plus trompeur possible, puisque la connexion, elle, avait
+ * parfaitement abouti.
+ *
+ * Le quota épuisé a son propre code : le site peut alors le DIRE, au lieu de
+ * faire croire à une panne de réseau chez l'utilisateur.
+ */
+function panne(error: unknown, cors: Record<string, string>): Response {
+  if (readsBlocked(error) !== null) {
+    return json(
+      {
+        error:
+          'Les annonces sont momentanément indisponibles : le quota de lectures ' +
+          'mensuel de la base est épuisé. Elles reviendront à la remise à zéro du cycle.',
+        code: 'reads-blocked',
+      },
+      cors,
+      503,
+    );
+  }
+  console.error('worker.panne', error instanceof Error ? error.message : String(error));
+  return json({ error: 'Le service a rencontré une erreur.' }, cors, 500);
+}
+
+async function servir(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+  {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     // Avant toute lecture de session : une requête d'écriture venue d'ailleurs
@@ -1236,5 +1276,5 @@ export default {
     // parfaitement abouti. Un seul endroit à ne pas oublier vaut mieux que
     // vingt.
     return withCors(await route(db, request, url, segments, cors, userId), cors);
-  },
-};
+  }
+}

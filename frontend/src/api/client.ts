@@ -79,6 +79,14 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    /**
+     * Le motif que le serveur a nommé, quand il en a nommé un.
+     *
+     * `reads-blocked` : le quota de lectures de la base est épuisé. L'écran
+     * doit le dire plutôt que d'inviter à réessayer — réessayer ne rendra rien
+     * avant la remise à zéro du cycle.
+     */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -118,6 +126,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    // LE SERVEUR SAIT PARFOIS EXACTEMENT CE QUI SE PASSE, et il vaut mieux le
+    // répéter que de le remplacer par « le serveur ne répond pas correctement ».
+    // Le quota de lectures épuisé en est le cas type : l'API va très bien, c'est
+    // la base qui refuse — et l'utilisateur n'a rien à réessayer.
+    const detail = (await response.json().catch(() => null)) as {
+      error?: unknown;
+      code?: unknown;
+    } | null;
+    if (detail?.code === 'reads-blocked' && typeof detail.error === 'string') {
+      throw new ApiError(detail.error, response.status, 'reads-blocked');
+    }
     throw new ApiError(
       response.status === 401
         ? 'Votre session a expiré. Reconnectez-vous.'

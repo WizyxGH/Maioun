@@ -1005,6 +1005,9 @@ function AppView(): React.JSX.Element {
   const [exchanges, setExchanges] = useState<readonly ExchangeView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // La base refuse de lire — quota épuisé. Ce n'est pas une erreur de
+  // l'utilisateur, et il n'y a rien à retenter : le bandeau change de ton.
+  const [panneDeBase, setPanneDeBase] = useState(false);
 
   /**
    * UNE FICHE OUVERTE PAR SON ADRESSE.
@@ -1377,6 +1380,7 @@ function AppView(): React.JSX.Element {
       const quick = restart || shownParams.current !== params;
       if (quick) setLoading(true);
       setError(null);
+      setPanneDeBase(false);
       try {
         await loadInStages(
           (limit) =>
@@ -1413,6 +1417,7 @@ function AppView(): React.JSX.Element {
           setCurrentUser(null);
           return;
         }
+        setPanneDeBase(caught instanceof ApiError && caught.code === 'reads-blocked');
         setError(caught instanceof Error ? caught.message : 'Erreur inconnue');
       } finally {
         if (current()) setLoading(false);
@@ -2999,8 +3004,12 @@ function AppView(): React.JSX.Element {
         }}
       />
 
+      {/* UNE PANNE DE BASE N'EST PAS UNE ERREUR DE L'UTILISATEUR. Le quota de
+        lectures épuisé rendait ici un bandeau rouge disant « réessayez » —
+        alors que rien ne reviendra avant la remise à zéro du cycle, et qu'il
+        n'y a rien à retenter. Il est signalé, mais du ton qui convient. */}
       {error !== null && (
-        <Alert variant="destructive">
+        <Alert variant={panneDeBase ? 'default' : 'destructive'}>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

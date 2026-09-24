@@ -22,6 +22,7 @@ export default defineConfig({
       // construisent pas — le Worker les importe, et sans eux son aiguillage
       // restait intestable.
       '@maioun/collector/server/routes': fromRoot('./packages/collector/src/server/routes.ts'),
+      '@maioun/collector/db/quota': fromRoot('./packages/collector/src/db/quota.ts'),
       '@maioun/collector/notify/mailer': fromRoot('./packages/collector/src/notify/mailer.ts'),
       '@maioun/collector/notify/email-theme': fromRoot(
         './packages/collector/src/notify/email-theme.ts',

@@ -13,6 +13,10 @@
       "types": "./dist/server/routes.d.ts",
       "default": "./dist/server/routes.js"
     },
+    "./db/quota": {
+      "types": "./dist/db/quota.d.ts",
+      "default": "./dist/db/quota.js"
+    },
     "./notify/mailer": {
       "types": "./dist/notify/mailer.d.ts",
       "default": "./dist/notify/mailer.js"
