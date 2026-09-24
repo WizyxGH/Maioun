@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { databaseTarget, openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
+import { readsBlocked } from '../db/quota.js';
 import { createRepository } from '../db/repository.js';
 import { createRegistry } from '../core/registry.js';
 import { createLogger, narratorSink } from '../core/logger.js';
@@ -768,6 +769,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.stack : String(error));
+  // Le quota épuisé n'est pas un bogue : quatre lignes de pile le faisaient
+  // pourtant passer pour tel, quatre-vingt-seize fois par jour.
+  const quota = readsBlocked(error);
+  console.error(quota ?? (error instanceof Error ? error.stack : String(error)));
   process.exit(1);
 });
