@@ -74,6 +74,14 @@ pnpm db:mirror                      # tire la copie, puis seulement les changeme
 pnpm query --local "select …"       # lit la copie, jamais la base distante
 ```
 
+Pour REGARDER les annonces sans la base distante, le site se branche sur une
+API locale servie par le même code que le Worker :
+
+```bash
+pnpm serve:local                                # puis, dans un autre terminal
+VITE_API_URL=http://localhost:8787 pnpm dev
+```
+
 Le miroir est une PHOTO : chaque lecture locale affiche sa date, et un chiffre
 tiré d'une copie de la veille ne vaut pas l'état du jour. Quand la fraîcheur
 compte, retirez le miroir avant de conclure.

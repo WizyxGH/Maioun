@@ -132,6 +132,7 @@ base à jeton, jamais dans le dépôt (§26).
 | `pnpm query "select …"`      | lit la base ; refuse tout ce qui n'est pas un SELECT |
 | `pnpm db:mirror`             | tire un miroir local de la base, dans `.data/`       |
 | `pnpm query --local "…"`     | lit le miroir : gratuit, hors ligne, et daté         |
+| `pnpm serve:local`           | sert l'API du site à partir du miroir, hors ligne    |
 | `pnpm email:test`            | aperçu de l’alerte e-mail ; `--send` pour un essai   |
 | `pnpm dev`                   | interface seule, en mode démonstration               |
 | `pnpm verify`                | format + lint + types + tests + end-to-end + secrets |
@@ -198,6 +199,21 @@ rien coûter et sans réseau. Tiré à temps, il aurait permis d'enquêter penda
 la panne. Il utilise un client libsql récent, installé sous l'alias
 `@libsql/sync` : la plateforme refuse le protocole de synchronisation de la
 version que la collecte emploie par ailleurs.
+
+**Le site aussi doit pouvoir tomber en secours.** Le miroir servait aux
+requêtes d'enquête ; il manquait de quoi le REGARDER. `pnpm serve:local` sert
+la même API que le Worker — le même `server/routes.ts`, aucun code en double —
+contre le fichier local, sur `http://localhost:8787`. Le site s'y branche :
+
+```bash
+pnpm db:mirror                                  # une fois, tant que Turso répond
+pnpm serve:local                                # un terminal
+VITE_API_URL=http://localhost:8787 pnpm dev     # un autre
+```
+
+Il n'a qu'un utilisateur — c'est votre machine, il n'y a personne d'autre —,
+n'écoute que la boucle locale, et annonce au démarrage quel fichier il sert et
+de quand il date. `MAIOUN_LOCAL_DB` en désigne un autre.
 
 **Une requête de passage sans index se paie tous les quarts d'heure.** Les
 retours en ligne et les baisses de prix se lisaient dans `listing_history` par
