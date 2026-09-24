@@ -46,10 +46,18 @@ export const CORS_ALLOWED_HEADERS = [
 export const CORS_ALLOWED_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
 
 /**
+ * Posé sur une réponse servie depuis la COPIE de secours, Turso ayant refusé.
+ *
+ * Ce n'est pas l'état du jour, et un écran qui l'affiche sans le dire fait
+ * prendre des décisions sur une photo.
+ */
+export const SECOURS_HEADER = 'X-Maioun-Secours';
+
+/**
  * Ce qu'un navigateur a le droit de LIRE dans la réponse.
  *
- * Sans cela, la page ne voit pas le jeton renouvelé : la session expire au
- * bout de son délai au lieu de se prolonger, et l'on est déconnecté sans
- * raison apparente.
+ * Sans le jeton renouvelé, la session expire au bout de son délai au lieu de
+ * se prolonger, et l'on est déconnecté sans raison apparente. Sans la marque
+ * de secours, l'écran ne peut pas dire qu'il montre une copie.
  */
-export const CORS_EXPOSED_HEADERS = SESSION_TOKEN_HEADER;
+export const CORS_EXPOSED_HEADERS = [SESSION_TOKEN_HEADER, SECOURS_HEADER].join(', ');

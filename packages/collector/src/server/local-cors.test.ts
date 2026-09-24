@@ -15,6 +15,7 @@ import {
   SESSION_PROOF_HEADER,
   SESSION_TIME_HEADER,
   SESSION_TOKEN_HEADER,
+  SECOURS_HEADER,
 } from '@maioun/shared';
 import { entetes } from '../server/local-cors.js';
 
@@ -120,12 +121,13 @@ describe('en-têtes autorisés', () => {
     }
   });
 
-  it('laisse la page LIRE le jeton renouvelé', () => {
-    // Sans cela la session expire au lieu de se prolonger, et l'on est
-    // déconnecté sans raison apparente.
-    expect(entetes('http://localhost:5173')['Access-Control-Expose-Headers']).toBe(
-      SESSION_TOKEN_HEADER,
-    );
+  it('laisse la page LIRE le jeton renouvelé et la marque de secours', () => {
+    // Sans le jeton, la session expire au lieu de se prolonger, et l'on est
+    // déconnecté sans raison apparente. Sans la marque, l'écran ne peut pas
+    // dire qu'il montre une copie.
+    const expose = entetes('http://localhost:5173')['Access-Control-Expose-Headers'] ?? '';
+    expect(expose).toContain(SESSION_TOKEN_HEADER);
+    expect(expose).toContain(SECOURS_HEADER);
   });
 
   it('autorise PUT, par quoi passent les critères et les réglages', () => {

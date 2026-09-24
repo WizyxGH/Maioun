@@ -15,6 +15,31 @@ compatibility_date = "2026-01-01"
 # navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
 ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 
+# --- Base de SECOURS, quand Turso refuse de lire ----------------------------
+#
+# Le 24 septembre 2026, le quota mensuel de lectures a été épuisé : la base a
+# tout refusé pendant des jours, et le site publié n'a plus rien eu à montrer.
+# D1 tourne sur cette même plateforme, ne coûte rien, et se remet à zéro CHAQUE
+# JOUR au lieu de chaque mois — le même accident y coûterait une soirée.
+#
+# COMMENTÉ TANT QUE LA BASE N'EXISTE PAS : un `database_id` vide fait échouer
+# le déploiement. Le Worker traite le liage comme facultatif, donc sans ces
+# trois lignes il se comporte exactement comme avant.
+#
+# Mise en place (une fois) :
+#   npx wrangler d1 create maioun-secours     # rend le database_id à recopier
+#   pnpm db:mirror && pnpm db:dump            # la copie, tant que Turso répond
+#   npx wrangler d1 execute maioun-secours --remote --file=.data/sauvegarde-<date>.sql
+#
+# La copie est LUE SEULEMENT (`d1-client.ts` refuse le reste) : pendant une
+# panne, consulter marche, agir non. Deux bases qu'on écrirait toutes les deux
+# divergeraient, et le favori posé ici disparaîtrait au retour de l'autre.
+#
+# [[d1_databases]]
+# binding = "SECOURS"
+# database_name = "maioun-secours"
+# database_id = "<celui rendu par `wrangler d1 create`>"
+
 # --- Alertes des portails par transfert (§6) --------------------------------
 #
 # Adresse montrée à chaque compte, `{token}` étant remplacé par son jeton. Elle

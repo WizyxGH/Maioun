@@ -23,7 +23,13 @@ import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@maioun/collector/server/routes';
 import { authenticate, clearedCookie, sessionHeaders } from './auth.js';
 import { provenKey } from './session-proof.js';
-import { CORS_ALLOWED_HEADERS, CORS_ALLOWED_METHODS, CORS_EXPOSED_HEADERS } from '@maioun/shared';
+import { clientDeSecours } from './d1-client.js';
+import {
+  CORS_ALLOWED_HEADERS,
+  CORS_ALLOWED_METHODS,
+  CORS_EXPOSED_HEADERS,
+  SECOURS_HEADER,
+} from '@maioun/shared';
 import { verifyGoogleToken } from './google-auth.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress, ownsReadMailbox } from './alert-address.js';
@@ -69,6 +75,14 @@ export interface Env {
   readonly SESSION_SECRET: string;
   /** Origine autorisée à appeler l'API (le site). */
   readonly ALLOWED_ORIGIN?: string;
+  /**
+   * La base de SECOURS, consultée quand Turso refuse de lire.
+   *
+   * FACULTATIVE : sans liage D1, le Worker se comporte exactement comme avant.
+   * Elle ne porte qu'une copie (`pnpm db:dump`), n'est lue qu'en dernier
+   * recours, et jamais écrite. Voir `d1-client.ts`.
+   */
+  readonly SECOURS?: D1Database;
   /**
    * Identifiant OAuth de l'application, côté Google.
    *
@@ -1129,10 +1143,51 @@ export default {
     try {
       return await servir(request, env, cors);
     } catch (error) {
-      return panne(error, cors);
+      return (await secours(request, env, cors, error)) ?? panne(error, cors);
     }
   },
 };
+
+/**
+ * LE REPLI SUR LA COPIE, quand Turso a fermé et qu'une copie existe.
+ *
+ * TROIS CONDITIONS, toutes nécessaires :
+ *
+ *   — le refus est bien un refus de QUOTA. Une panne réelle ne se masque pas
+ *     derrière des données d'hier : elle doit rester visible ;
+ *   — un liage D1 existe. Sans lui, rien ne change ;
+ *   — la requête est un GET. La copie est une copie : y écrire fabriquerait
+ *     deux bases divergentes, et le favori posé pendant la panne disparaîtrait
+ *     au retour de l'autre, sans un mot.
+ *
+ * On REJOUE la requête entière plutôt que de la rattraper au vol : les routes
+ * ouvertes s'exécutent avant l'authentification, et un repli posé plus bas les
+ * aurait laissées échouer. Un GET n'a pas de corps, donc rien à relire.
+ *
+ * La réponse est MARQUÉE : ce n'est pas l'état du jour, et un écran qui
+ * l'affiche sans le dire fait prendre des décisions sur une photo.
+ */
+async function secours(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  erreur: unknown,
+): Promise<Response | null> {
+  if (readsBlocked(erreur) === null) return null;
+  if (env.SECOURS === undefined) return null;
+  if (request.method !== 'GET') return null;
+  try {
+    const rendue = await servir(request, env, cors, clientDeSecours(env.SECOURS));
+    const entetes = new Headers(rendue.headers);
+    entetes.set(SECOURS_HEADER, 'copie');
+    return new Response(rendue.body, { status: rendue.status, headers: entetes });
+  } catch (echec) {
+    // La copie a échoué elle aussi : c'est le refus d'origine qui compte, et
+    // c'est lui que l'appelant rendra.
+    console.error('worker.secours', echec instanceof Error ? echec.message : String(echec));
+    return null;
+  }
+}
 
 /**
  * CE QU'ON RÉPOND QUAND LA BASE LÂCHE, plutôt que de laisser l'exception filer.
@@ -1163,7 +1218,13 @@ function panne(error: unknown, cors: Record<string, string>): Response {
   return json({ error: 'Le service a rencontré une erreur.' }, cors, 500);
 }
 
-async function servir(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+async function servir(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  /** Le client à employer. Absent : Turso, comme toujours. */
+  clientImpose?: Client,
+): Promise<Response> {
   {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
@@ -1176,10 +1237,12 @@ async function servir(request: Request, env: Env, cors: Record<string, string>):
     const url = new URL(request.url);
     const segments = url.pathname.split('/').filter((part) => part !== '');
 
-    const db = createClient({
-      url: env.TURSO_DATABASE_URL,
-      authToken: env.TURSO_AUTH_TOKEN,
-    });
+    const db =
+      clientImpose ??
+      createClient({
+        url: env.TURSO_DATABASE_URL,
+        authToken: env.TURSO_AUTH_TOKEN,
+      });
 
     // LES ROUTES OUVERTES D'ABORD, toutes ensemble : elles s'adressent à qui
     // n'a pas — ou pas encore — de session.

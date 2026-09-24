@@ -233,6 +233,32 @@ copie à la première seconde où c'est possible — une requête minuscule par 
 d'heure. Rien n'est perdu pendant ce temps : les favoris, le suivi et les
 archivages restent intacts dans Turso, seulement hors d'atteinte.
 
+**Le site sans le PC : une base de secours sur D1.** Le serveur local demande
+une machine allumée. Pour que le site PUBLIÉ survive à un quota fermé, le
+Worker sait se replier sur une copie D1 — même plateforme que lui, gratuite, et
+remise à zéro chaque jour au lieu de chaque mois.
+
+```bash
+npx wrangler d1 create maioun-secours     # rend le database_id
+pnpm db:mirror && pnpm db:dump            # la copie, tant que Turso répond
+npx wrangler d1 execute maioun-secours --remote --file=.data/sauvegarde-<date>.sql
+```
+
+Puis décommenter le bloc `[[d1_databases]]` de `wrangler.toml` avec ce
+`database_id`, et déployer. **Sans ce liage, rien ne change** : le Worker le
+traite comme facultatif.
+
+LE REPLI EST EN LECTURE SEULE, et à trois conditions — un refus de quota
+avéré, un liage présent, une requête GET. Consulter fonctionne alors ; poser un
+favori, non. Deux bases qu'on écrirait toutes les deux divergeraient, et ce
+favori disparaîtrait au retour de Turso sans que rien ne le signale. Les
+réponses ainsi servies portent `X-Maioun-Secours` : ce n'est pas l'état du
+jour, et l'écran doit pouvoir le dire.
+
+Une panne qui n'est PAS un refus de quota ne se replie pas : elle reste
+visible. Masquer une vraie panne derrière les données d'hier est pire que de
+l'afficher.
+
 **Une sauvegarde qui survit à la plateforme.** Le miroir est un réplica : il
 suit la base, et ne protège donc de rien si c'est la base qu'on perd.
 `pnpm db:dump` en tire un `.sql` ordinaire dans `.data/` — schéma, données,
