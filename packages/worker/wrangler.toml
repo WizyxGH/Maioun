@@ -147,9 +147,16 @@ id = "de510f7eb71d40c9814b440d0e2b202e"
 # l'écrit dans le journal (`npx wrangler tail`). Le dépôt visé est désigné par
 # `GITHUB_REPOSITORY_ID`, plus haut dans `[vars]`.
 [triggers]
-# Toutes les 15 minutes (2026-09-14) : une collecte dure désormais moins de dix
-# minutes, sources en parallèle.
-crons = ["7,22,37,52 * * * *"]
+# Toutes les 20 minutes (2026-09-24), et non plus quinze. Chaque réveil lit la
+# base entière pour dédoublonner : le quota mensuel de lectures de Turso a été
+# épuisé ce jour-là, et la collecte a échoué en boucle. Quatre-vingt-seize
+# réveils quotidiens deviennent soixante-douze, soit un quart de lectures en
+# moins, sans rien changer au code.
+#
+# CE QUE ÇA COÛTE, ET IL FAUT LE SAVOIR : un portail descendu à son plancher de
+# dix minutes est désormais servi toutes les vingt. Les autres familles ont un
+# intervalle de base supérieur (45, 60, 75 minutes) et ne sentent rien.
+crons = ["7,27,47 * * * *"]
 
 # --- Journal du Worker (§17) ---------------------------------------------------
 #

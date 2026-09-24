@@ -8,9 +8,11 @@ name: Collecte
 
 on:
   schedule:
-    # Toutes les 15 minutes. Le scheduler interne filtre ensuite : une source
-    # dont l'intervalle n'est pas écoulé n'émet aucune requête. Plus de réveils
-    # ne chargent donc aucun site ; ils laissent passer à l'heure les sources dues.
+    # Toutes les 20 minutes, comme le Worker. Le scheduler interne filtre
+    # ensuite : une source dont l'intervalle n'est pas écoulé n'émet aucune
+    # requête. Plus de réveils ne chargent donc aucun site ; ils laissent passer
+    # à l'heure les sources dues — mais chacun relit la base pour dédoublonner,
+    # et c'est cette lecture-là qui a épuisé le quota Turso le 2026-09-24.
     #
     # MINUTES DÉCALÉES, volontairement. GitHub ne garantit pas la ponctualité
     # des crons et écarte les réveils quand la file est chargée : sur `*/30`,
@@ -27,7 +29,7 @@ on:
     # réveil qui passait ici ne faisait qu'une seconde exécution mise en file,
     # sans rien collecter de plus. Sept minutes après, il rattrape un silence
     # du Worker au lieu de le doubler.
-    - cron: '14,29,44,59 * * * *'
+    - cron: '14,34,54 * * * *'
   workflow_dispatch:
     inputs:
       backfill:
