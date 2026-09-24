@@ -447,15 +447,44 @@ function ownGallery(urls: readonly string[]): string[] {
  * sans numéro — on ne pouvait que remplir le formulaire et attendre.
  */
 function agencyPhone($: cheerio.CheerioAPI): string | undefined {
-  // Deux recherches, pas un sélecteur unique : `first()` prendrait le premier
-  // dans l'ORDRE DE LA PAGE, où le bouton de la fiche précède le pied de page.
+  // Plusieurs recherches, pas un sélecteur unique : `first()` prendrait le
+  // premier dans l'ORDRE DE LA PAGE, où le bouton de la fiche précède le pied.
   return (
     lienDecode(
       $,
       '.coords-phone a[href^="tel:"], a.coords-phone__content[href^="tel:"], .footer_element__content a.phone[href^="tel:"]',
       /^tel:/,
-    ) ?? lienDecode($, 'a.dispPhoneAgency[href^="tel:"]', /^tel:/)
+    ) ??
+    lienDecode($, 'a.dispPhoneAgency[href^="tel:"]', /^tel:/) ??
+    numeroFrancais($('a[href^="tel:"]').first().attr('href')) ??
+    numeroFrancais($('span.icon-tel').parent().text())
   );
+}
+
+/**
+ * LE NUMÉRO, EXTRAIT DE CE QUE L'AGENCE A TAPÉ.
+ *
+ * Les deux derniers recours ci-dessus ont été ajoutés sur mesure : six agences
+ * de la plateforme sortaient sans téléphone — 40 annonces —, alors que leur
+ * page l'affiche. Aucune n'échouait de la même façon, et aucune n'utilisait les
+ * classes du gabarit :
+ *
+ *   `href="tel:04 00 00 00 01"`         lien nu, sans conteneur nommé ;
+ *   `href="tel: Tél: 04.00.00.00.02"`   l'étiquette est PARTIE DE l'adresse ;
+ *   `href="tel:<span …><a href=…>"`     un fragment de HTML recollé dans le champ ;
+ *   `<span class="icon-tel"></span>04 …` pas de lien du tout, juste une icône.
+ *
+ * D'où cette lecture : on ne fait pas confiance à la forme, on CHERCHE un
+ * numéro français dans ce qui vient — et l'on ne rend rien s'il n'y en a pas,
+ * plutôt qu'une étiquette prise pour un numéro.
+ *
+ * Le téléphone est le champ qui compte le plus pour agir : c'est lui qui permet
+ * d'appeler sans passer par un formulaire et attendre.
+ */
+function numeroFrancais(brut: string | undefined): string | undefined {
+  if (brut === undefined) return undefined;
+  const trouve = /(?:\+33|0)\s*[1-9](?:[\s.-]?\d{2}){4}/.exec(brut);
+  return trouve === null ? undefined : cleanText(trouve[0]);
 }
 
 /**

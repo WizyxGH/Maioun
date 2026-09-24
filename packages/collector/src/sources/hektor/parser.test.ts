@@ -577,6 +577,73 @@ describe('parseDetailPage — fiche retirée, référence et surface déclarées
     expect(listing?.phoneText).toBe('06 00 00 00 08');
   });
 
+  /**
+   * QUATRE AGENCES, QUATRE FAÇONS DE RATER LE MÊME CHAMP.
+   *
+   * Six sites de la plateforme sortaient sans téléphone — 40 annonces —, alors
+   * que leur page l'affiche : aucun n'employait les classes du gabarit, et
+   * aucun n'échouait comme un autre. Les formes ci-dessous sont celles
+   * relevées le 2026-09-24, numéros remplacés.
+   */
+  describe('téléphone hors des classes du gabarit', () => {
+    const avec = (fragment: string): string =>
+      ficheSansPied().replace(
+        '<a href="tel:06 00 00 00 08 " class="dispPhoneAgency">Afficher le téléphone</a>',
+        fragment,
+      );
+
+    it('lit un lien tel: nu, sans conteneur nommé', () => {
+      const { listing } = parseDetailPage(
+        avec('<a href="tel:04 00 00 00 01" class="">04 00 00 00 01</a>'),
+        URL_553,
+        'Agence Fictive',
+      );
+      expect(listing?.phoneText).toBe('04 00 00 00 01');
+    });
+
+    it('écarte l’étiquette quand elle est PARTIE DE l’adresse', () => {
+      const { listing } = parseDetailPage(
+        avec('<a href="tel: Tél: 04.00.00.00.02" class="">Nous appeler</a>'),
+        URL_553,
+        'Agence Fictive',
+      );
+      expect(listing?.phoneText).toBe('04.00.00.00.02');
+    });
+
+    // Une agence avait recollé un fragment de HTML dans le champ « téléphone »
+    // de son back-office : l'adresse contient une balise entière.
+    it('retrouve le numéro dans un fragment de HTML recollé', () => {
+      const { listing } = parseDetailPage(
+        avec(
+          `<a href="tel:<span class='tel_custom'> <a href='tel:0400000003'>Service Transaction : 04.00.00.00.03 </a></span>"></a>`,
+        ),
+        URL_553,
+        'Agence Fictive',
+      );
+      expect(listing?.phoneText).toBe('0400000003');
+    });
+
+    it('lit la ligne du pied marquée par une icône, sans aucun lien', () => {
+      const { listing } = parseDetailPage(
+        avec('<p class="clearfix"><span class="icon-footer icon-tel"></span>04 00 00 00 04</p>'),
+        URL_553,
+        'Agence Fictive',
+      );
+      expect(listing?.phoneText).toBe('04 00 00 00 04');
+    });
+
+    // UN CHAMP ABSENT RESTE ABSENT : une étiquette sans chiffres ne doit pas
+    // être prise pour un numéro.
+    it('ne rend rien quand il n’y a pas de numéro à lire', () => {
+      const { listing } = parseDetailPage(
+        avec('<a href="tel:" class="">Nous appeler</a>'),
+        URL_553,
+        'Agence Fictive',
+      );
+      expect(listing?.phoneText).toBeUndefined();
+    });
+  });
+
   it('garde le balcon déclaré d’un logement NON meublé', () => {
     // « Meublé : NON » et « Balcon : OUI » se suivaient dans le texte assemblé
     // pour la normalisation : « … non meublé Balcon » niait le balcon.

@@ -2370,3 +2370,40 @@ publiés. Réveil : des fiches de location à son sitemap.
 
 Déjà consignée le 2026-09-17. Recontrôlée le 2026-09-24 : toujours injoignable,
 `www.` compris. Rien à changer.
+
+## Le téléphone manquant de six agences La Boîte Immo (2026-09-24)
+
+Relevé du remplissage champ par champ, source par source, sur la collecte
+locale : **55 cas où un champ est vide à 100 %**. La plupart sont attendus et
+déjà expliqués ailleurs — LocService et Studapart ne publient pas de téléphone,
+la FNAIM ne met pas les charges sur la carte, les alertes e-mail n'ont ni
+adresse ni téléphone.
+
+Restaient six agences de la fabrique La Boîte Immo **sans aucun téléphone, alors
+que leur page l'affiche** : SAG Immobilier, Agence Passy, Coprogestimmo,
+Sud Contact, Agence du Centre, Immobilière Niçoise — une quarantaine d'annonces.
+
+La fabrique savait pourtant le lire. **Aucune de ces six n'employait les classes
+du gabarit, et aucune n'échouait comme une autre** :
+
+| Forme relevée                                                           | Site                             |
+| ----------------------------------------------------------------------- | -------------------------------- |
+| `href="tel:04 …"`, lien nu sans conteneur nommé                         | Sud Contact, Immobilière Niçoise |
+| `href="tel: Tél: 04.00…"`, l'étiquette DANS l'adresse                   | Coprogestimmo                    |
+| `href="tel:<span …><a href=…>"`, fragment de HTML recollé dans le champ | SAG Immobilier                   |
+| `class="coords__value"`, voisine mais différente de `coords-phone`      | Agence du Centre                 |
+| `<span class="icon-tel"></span>04 …`, aucun lien                        | Agence Passy                     |
+
+D'où deux recours ajoutés après les sélecteurs existants : n'importe quel lien
+`tel:` de la page, puis la ligne marquée d'une icône `.icon-tel`. Et surtout,
+**on ne fait plus confiance à la forme** : on cherche un numéro français dans ce
+qui vient, et l'on ne rend rien s'il n'y en a pas — une étiquette ne doit pas
+être prise pour un numéro.
+
+Vérifié sur de VRAIES fiches, le 2026-09-24 : cinq des six rendent désormais
+leur numéro (SAG, Coprogestimmo, Sud Contact, Agence du Centre, Immobilière
+Niçoise). Agence Passy n'a aucune fiche de location à son sitemap ce jour-là ;
+son numéro est lu sur le pied de page, identique sur tout le site.
+
+Les sélecteurs existants passent en premier : les cinquante autres agences de la
+plateforme ne changent pas de comportement.
