@@ -2172,6 +2172,28 @@ consignée dans `sources/dormant.ts`.
 locations de Nice, celle que le `robots.txt` autorise. Le jour où elle répond,
 il n'y a plus rien à lever — c'est la leçon que Square Habitat a coûtée.
 
+## Le Figaro Immobilier — consignée en veille
+
+Demandé par son nom (`immobilier.lefigaro.fr`). Deux refus, relevés le
+2026-09-24, et le second survivrait au premier.
+
+**Son `robots.txt` ferme les fiches.** Il ouvre largement les listes
+`/annonces/…` — avec un `Allow: /annonces/*page=*` qui autorise même la
+pagination — mais il porte `Disallow: /annonce/`, au singulier : les pages
+d'annonce elles-mêmes. Il ferme aussi `/api/`, `/rest/`, `/recherche/` et tout
+ce qui finit par `xhr`. Même pare-feu levé, il faudrait donc tout tirer des
+pages de liste, comme le fait déjà `sources/apimo/list-scraper.ts` pour les
+agences dont le sitemap ment.
+
+**Et le pare-feu n'est pas levé.** Le `robots.txt` répond 200, mais le
+`sitemap_index.xml` qu'il déclare répond **403** derrière un défi JavaScript
+Cloudflare (« Just a moment… », `challenges.cloudflare.com`). Le résoudre
+serait un contournement : la source est consignée dans `sources/dormant.ts`.
+
+**Sa sonde vise le sitemap que le site déclare lui-même** — pas une adresse
+devinée. Le jour où il répond sans défi, l'obstacle qui compte aura disparu,
+et il restera à décider si les seules pages de liste valent un parseur.
+
 ## Immobilière Tichadou (`tichadou`)
 
 Agence niçoise demandée par son nom, **2 rue du Congrès**. `robots.txt`

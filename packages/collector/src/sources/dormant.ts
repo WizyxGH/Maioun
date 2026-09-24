@@ -219,6 +219,22 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     probe: { kind: 'page', url: 'https://www.lacartedescolocs.fr/colocations/france/nice' },
   },
   {
+    id: 'lefigaro-immobilier',
+    name: 'Le Figaro Immobilier',
+    origin: 'https://immobilier.lefigaro.fr',
+    reason: 'antiBot',
+    checkedOn: '2026-09-24',
+    // DEUX REFUS, ET LE SECOND SURVIVRAIT AU PREMIER : son robots.txt autorise
+    // les listes « /annonces/… » mais ferme « /annonce/ » — les fiches
+    // elles-mêmes. Même Cloudflare levé, il faudrait tout lire depuis les
+    // pages de liste, comme on le fait déjà pour certaines agences Apimo.
+    refusal:
+      'défi Cloudflare en 403 jusque sur le sitemap qu’il déclare ; ' +
+      'et son robots.txt interdit « /annonce/ », c’est-à-dire les fiches',
+    wakesIf: 'le sitemap qu’il déclare répond enfin, sans défi',
+    probe: { kind: 'sitemap', url: 'https://immobilier.lefigaro.fr/sitemap_index.xml' },
+  },
+  {
     id: 'seloger',
     name: 'SeLoger',
     origin: 'https://www.seloger.com',
