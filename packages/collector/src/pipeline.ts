@@ -1437,7 +1437,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
   // Instantané du jour : ces chiffres ne sont pas reconstituables après coup,
   // il faut les mesurer au moment où ils sont vrais (§33).
-  await repository.recordDailyStat();
+  await repository.recordDailyStat(nowMs);
 
   // Biens signalés « déjà loués » : on les marque APRÈS l'écriture, pour que le
   // lien occurrence → fiche existe. Ils sortent de la liste active mais restent

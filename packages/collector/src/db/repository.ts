@@ -513,7 +513,7 @@ export interface Repository {
    * Écrit l'instantané du jour POUR CHAQUE COMPTE (une ligne par jour et par
    * compte, réécrite à chaque passage).
    */
-  readonly recordDailyStat: () => Promise<void>;
+  readonly recordDailyStat: (nowMs?: number) => Promise<void>;
   /** Historique de l'inventaire d'un compte, du plus ancien au plus récent. */
   readonly dailyStats: (userId: string, limit?: number) => Promise<readonly DailyStat[]>;
 
@@ -2007,17 +2007,42 @@ export function createRepository(db: Database): Repository {
      * `total` et `active_sources` décrivent le marché et la collecte : ils sont
      * les mêmes pour tout le monde, et recopiés tels quels sur chaque ligne.
      */
-    async recordDailyStat() {
+    async recordDailyStat(nowMs = Date.now()) {
+      const day = new Date(nowMs).toISOString().slice(0, 10);
+      const now = new Date(nowMs).toISOString();
+
+      // QUI A BESOIN D'UN RECALCUL, et personne le plus souvent. Le reste de
+      // cette méthode balaie les occurrences puis les annonces, une fois par
+      // utilisateur — et le faisait à CHAQUE réveil, soit quatre-vingt-seize
+      // fois par jour, pour réécrire une statistique JOURNALIÈRE sur la même
+      // ligne. C'est ce genre de dépense qui a épuisé le quota de lectures de
+      // Turso le 24 septembre 2026. Une heure de retard sur une courbe
+      // quotidienne ne se voit pas ; son coût, si.
+      const candidats: string[] = [];
+      for (const userId of await scorableUserIds(db)) {
+        const row = (
+          await db.execute({
+            sql: 'SELECT recorded_at FROM daily_stats WHERE user_id = ? AND day = ?',
+            args: [userId, day],
+          })
+        ).rows[0];
+        const releve = row === undefined ? Number.NaN : Date.parse(String(row['recorded_at']));
+        // Pas de ligne, ou date illisible : on recalcule. Le jour doit avoir la
+        // sienne, et un instantané manquant n'est pas reconstituable après coup.
+        if (!Number.isFinite(releve) || nowMs - releve >= DAILY_STAT_MAX_AGE_MS) {
+          candidats.push(userId);
+        }
+      }
+      if (candidats.length === 0) return;
+
       const sources = (
         await db.execute(
           "SELECT COUNT(DISTINCT source_id) AS n FROM occurrences WHERE lifecycle = 'active'",
         )
       ).rows[0];
-      const day = new Date().toISOString().slice(0, 10);
-      const now = new Date().toISOString();
 
       const statements: { sql: string; args: (string | number)[] }[] = [];
-      for (const userId of await scorableUserIds(db)) {
+      for (const userId of candidats) {
         const row = (
           await db.execute({
             sql: `SELECT
@@ -3090,6 +3115,14 @@ function serializeListing(listing: ScoredListing): Record<string, unknown> {
 const RUN_LOG_DAYS = 90;
 const HISTORY_DAYS = 180;
 const EVENT_DAYS = 90;
+
+/**
+ * Âge au-delà duquel la ligne du jour est recalculée.
+ *
+ * Une heure : la page Statistiques montre une courbe par JOUR, et personne n'y
+ * lit un quart d'heure. En dessous, on repayait le balayage pour rien.
+ */
+const DAILY_STAT_MAX_AGE_MS = 60 * 60 * 1000;
 
 const ORPHAN_PREDICATE = 'id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)';
 

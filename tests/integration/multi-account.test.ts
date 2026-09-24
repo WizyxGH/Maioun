@@ -420,6 +420,43 @@ describe('cloisonnement entre comptes (§26)', () => {
   });
 
   /**
+   * UNE STATISTIQUE JOURNALIÈRE NE SE RECALCULE PAS TOUTES LES VINGT MINUTES.
+   *
+   * Le relevé balaie les occurrences puis les annonces, une fois par compte, et
+   * le faisait à CHAQUE réveil — quatre-vingt-seize fois par jour — pour
+   * réécrire la même ligne. C'est ce genre de dépense qui a épuisé le quota de
+   * lectures de Turso le 24 septembre 2026.
+   */
+  it('ne recalcule le relevé du jour qu’une fois par heure', async () => {
+    const repository = createRepository(db);
+    const depart = Date.parse('2026-09-24T08:00:00.000Z');
+
+    // `dailyStats` ne rend pas la date du relevé — elle n'intéresse que ce
+    // test —, on la lit donc en base.
+    const releveDe = async (): Promise<string | undefined> => {
+      const rows = await db.execute({
+        sql: 'SELECT recorded_at FROM daily_stats WHERE user_id = ? ORDER BY day DESC LIMIT 1',
+        args: ['alice'],
+      });
+      const value = rows.rows[0]?.['recorded_at'];
+      return value === undefined || value === null ? undefined : String(value);
+    };
+
+    await repository.recordDailyStat(depart);
+    const premier = await releveDe();
+    expect(premier).toBeDefined();
+    expect((await repository.dailyStats('alice')).at(-1)?.total).toBeGreaterThan(0);
+
+    // Vingt minutes plus tard : la ligne ne bouge pas.
+    await repository.recordDailyStat(depart + 20 * 60 * 1000);
+    expect(await releveDe()).toBe(premier);
+
+    // Une heure passée, elle est rafraîchie.
+    await repository.recordDailyStat(depart + 61 * 60 * 1000);
+    expect(await releveDe()).not.toBe(premier);
+  });
+
+  /**
    * LE TRANSFERT D'ALERTES EST PROPRE À CHAQUE COMPTE (§6). Chacun a son
    * jeton ; ce que l'un fait suivre ne doit pas se lire comme une preuve que
    * le transfert de l'autre marche.
