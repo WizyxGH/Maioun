@@ -2,13 +2,17 @@
  * Recherche libre dans la liste des annonces (§36).
  *
  * Cherche dans ce qui identifie un logement pour un humain : le titre, la
- * commune, le quartier, la rue, la description et le nom de l'agence. Chaque
+ * commune, le quartier, la rue, la description, le nom de l'agence déclaré par
+ * l'annonce et celui des SOURCES qui la publient — le nom qu'on lit sur la
+ * carte. Chaque
  * mot saisi doit se retrouver quelque part (ET implicite), pour que
  * « nice gambetta » restreigne au lieu d'élargir.
  *
  * La comparaison ignore casse et accents : « libération » trouve « LIBERATION »,
  * fréquent dans les annonces écrites en capitales.
  */
+
+import { listingSourceLabels } from './format.js';
 
 /** Un champ fusionné, tel que l API le rend — ou rien du tout. */
 type Field = { readonly value: string | null } | undefined;
@@ -35,6 +39,17 @@ export interface Searchable {
   readonly address?: Field;
   readonly postalCode?: Field;
   readonly contact?: { readonly agencyName: string | null } | undefined;
+  /**
+   * Les sources qui publient l'annonce — c'est-à-dire, le plus souvent,
+   * L'AGENCE DONT ON LIT LE NOM SUR LA CARTE.
+   *
+   * On ne cherchait que dans `contact.agencyName`, le nom que l'annonce
+   * DÉCLARE. Or la carte affiche celui de la source, et les deux diffèrent
+   * souvent : une annonce d'un site d'agence ne répète pas forcément le nom de
+   * l'agence dans son contact. Taper « Tichadou » ne rendait alors rien, alors
+   * que le mot était à l'écran.
+   */
+  readonly occurrences?: readonly { readonly id: string; readonly sourceId: string }[];
 }
 
 /** Minuscules sans accent, pour comparer « Libération » et « LIBERATION ». */
@@ -61,6 +76,7 @@ export function matchesSearch(listing: Searchable, query: string): boolean {
       listing.address?.value,
       listing.postalCode?.value,
       listing.contact?.agencyName,
+      ...listingSourceLabels(listing.occurrences ?? []),
     ]
       .filter((part): part is string => typeof part === 'string' && part !== '')
       .join(' '),
@@ -140,6 +156,7 @@ export function suggestSearch(
     const address = listing.address?.value;
     if (typeof address === 'string') add(streetName(address), 'street');
     add(listing.contact?.agencyName, 'agency');
+    for (const source of listingSourceLabels(listing.occurrences ?? [])) add(source, 'agency');
     add(listing.city?.value, 'city');
   }
 

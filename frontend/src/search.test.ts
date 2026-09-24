@@ -37,6 +37,28 @@ describe('matchesSearch', () => {
     expect(matchesSearch(listing(), 'cassini')).toBe(true);
   });
 
+  // LE NOM QU'ON LIT SUR LA CARTE. Il vient de la SOURCE, et l'annonce ne le
+  // répète pas forcément dans son contact : chercher « Tichadou » ne rendait
+  // rien alors que le mot était à l'écran.
+  it('trouve par le nom de la source, pas seulement par le contact déclaré', () => {
+    const chezTichadou: Searchable = {
+      ...listing({ agencyName: null }),
+      occurrences: [{ id: 'tichadou:1234', sourceId: 'tichadou' }],
+    };
+    expect(matchesSearch(chezTichadou, 'tichadou')).toBe(true);
+    expect(matchesSearch(chezTichadou, 'immobilière tichadou')).toBe(true);
+  });
+
+  // Une alerte e-mail porte le nom du PORTAIL expéditeur : c'est par lui qu'on
+  // la cherche, « Alertes e-mail » ne désignant aucune agence en particulier.
+  it('trouve une alerte e-mail par le portail qui l’a envoyée', () => {
+    const parSeLoger: Searchable = {
+      ...listing({ agencyName: null }),
+      occurrences: [{ id: 'email-alerts:seloger:23-543-06200', sourceId: 'email-alerts' }],
+    };
+    expect(matchesSearch(parSeLoger, 'seloger')).toBe(true);
+  });
+
   it('exige TOUS les mots saisis, pour restreindre et non élargir', () => {
     expect(matchesSearch(listing(), 'nice gambetta')).toBe(true);
     // « cimiez » n'est nulle part : la combinaison ne doit pas passer.
