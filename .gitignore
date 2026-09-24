@@ -42,6 +42,9 @@ data/
 *.sqlite3
 exports/
 snapshots/
+# Le miroir local de la base (`pnpm db:mirror`). `*.db` couvre le fichier,
+# pas les `-info` et `-client_wal_index` que pose le réplica embarqué.
+.data/
 
 # --- PRIVÉ : captures de scraping brutes -----------------------------------
 # Le HTML brut d'une source peut contenir des coordonnées de particuliers.

@@ -1,0 +1,17 @@
+-- LIRE L'HISTORIQUE PAR TYPE DE CHANGEMENT, sans le balayer en entier.
+--
+-- Chaque passage de collecte demande deux choses à `listing_history` : les
+-- retours en ligne récents, et les baisses de prix récentes. Les deux filtrent
+-- sur `change` et `recorded_at`, or le seul index portait sur
+-- `(occurrence_id, recorded_at)` : inutilisable ici. SQLite balayait donc la
+-- table entière, deux fois, quatre-vingt-seize fois par jour — sur une table
+-- qui ne fait que grandir, puisqu'on n'y réécrit jamais rien.
+--
+-- Le 24 septembre 2026 le quota mensuel de lignes lues de Turso a été épuisé :
+-- la base a refusé TOUTE lecture, l'export compris, et la collecte a échoué en
+-- boucle pendant des heures. Ces deux balayages n'en sont pas la seule cause,
+-- mais ils sont la plus grosse dépense qu'un index suffise à supprimer.
+--
+-- L'ordre des colonnes est celui du filtre : `change` en égalité d'abord,
+-- `recorded_at` en intervalle ensuite.
+CREATE INDEX IF NOT EXISTS idx_history_change ON listing_history (change, recorded_at);

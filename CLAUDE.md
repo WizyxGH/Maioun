@@ -62,6 +62,22 @@ Cet outil refuse tout ce qui n'est pas un `SELECT`, avant d'atteindre la base.
 N'écrivez pas votre propre script de requête : c'est ainsi qu'un `UPDATE`
 distrait finit en production.
 
+**Les lectures sont COMPTÉES, et le quota est fini.** Le 24 septembre 2026 le
+plafond mensuel de Turso a été atteint : la base a refusé toute lecture —
+l'export compris —, la collecte a échoué en boucle et plus aucun diagnostic
+n'était possible. Une enquête curieuse coûte des millions de lignes.
+
+Travaillez donc sur le miroir local, qui ne coûte rien et marche hors ligne :
+
+```bash
+pnpm db:mirror                      # tire la copie, puis seulement les changements
+pnpm query --local "select …"       # lit la copie, jamais la base distante
+```
+
+Le miroir est une PHOTO : chaque lecture locale affiche sa date, et un chiffre
+tiré d'une copie de la veille ne vaut pas l'état du jour. Quand la fraîcheur
+compte, retirez le miroir avant de conclure.
+
 Tables utiles : `occurrences` (ce qu'une source publie), `listings` (la fiche
 dédoublonnée), `listing_user_state` (favori, suivi, archivage), `source_state`,
 `collection_runs`.
