@@ -23,6 +23,13 @@ export const STUDAPART_DESCRIPTOR: SourceDescriptor = {
   name: 'Studapart',
   domain: 'studapart.com',
   kind: 'portal',
+  /**
+   * SES ANNONCES SONT LES SIENNES. Sur ses 201 occurrences actives, une seule
+   * agence est nommée : « Studapart » (relevé du 2026-09-25). Contrairement à
+   * Bien'ici (175 noms) ou à la FNAIM (56), elle ne relaie personne — son image
+   * n'usurpe donc l'identité d'aucune agence.
+   */
+  publishesOwnListings: true,
   method: 'officialApi',
   priority: 2,
   schedule: scheduleFor('portal'),

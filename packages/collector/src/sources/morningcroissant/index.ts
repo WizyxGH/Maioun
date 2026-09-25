@@ -48,6 +48,12 @@ export const MORNINGCROISSANT_DESCRIPTOR: SourceDescriptor = {
   name: 'MorningCroissant',
   domain: 'morningcroissant.fr',
   kind: 'portal',
+  /**
+   * SES ANNONCES SONT LES SIENNES : ses 94 occurrences actives ne nomment aucune
+   * agence tierce — seulement « Loueur professionnel », un libellé générique
+   * (relevé du 2026-09-25).
+   */
+  publishesOwnListings: true,
   method: 'html',
   priority: 1,
   schedule: scheduleFor('portal'),

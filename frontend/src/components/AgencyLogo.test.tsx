@@ -28,10 +28,33 @@ describe('agencyLogoUrl', () => {
     );
   });
 
-  it('ne rend rien pour un nom qui désigne un portail', () => {
-    // Le domaine d'un portail n'est celui d'aucune des agences qui y publient.
+  /**
+   * UN RELAIS NE PRÊTE PAS SON IMAGE. Bien'ici nomme 175 agences tierces, la
+   * FNAIM 56, ParuVendu 37 (relevé du 2026-09-25) : coller la marque du portail
+   * sur ces annonces mettrait l'enseigne de l'un sur l'annonce de l'autre.
+   */
+  it('ne rend rien pour un portail qui relaie des agences tierces', () => {
     expect(agencyLogoUrl('FNAIM')).toBeNull();
-    expect(agencyLogoUrl('Studapart')).toBeNull();
+    expect(agencyLogoUrl('Bien’ici')).toBeNull();
+  });
+
+  /**
+   * MAIS UNE SOURCE QUI PUBLIE EN PROPRE, SI. Studapart nomme UNE agence sur ses
+   * 201 annonces : elle-même. Son image n'usurpe l'identité de personne, et
+   * c'était la plus grosse ligne de l'annuaire sous une icône neutre.
+   */
+  it('rend le logo d’un portail qui est lui-même le bailleur', () => {
+    expect(agencyLogoUrl('Studapart')).toBe('https://studapart.com/favicon.ico');
+  });
+
+  /**
+   * ET UN RÉSEAU PORTE SA MARQUE. « CENTURY 21 Lafage Transactions Mont Boron »
+   * EST une Century 21 : les 86 annonces de ses trois graphies restaient sous
+   * l'icône neutre alors que l'enseigne est la bonne.
+   */
+  it('rend la marque du réseau à ses franchises', () => {
+    expect(agencyLogoUrl('CENTURY 21 Lafage Transactions Mont Boron')).not.toBeNull();
+    expect(agencyLogoUrl('Century 21')).not.toBeNull();
   });
 
   /**

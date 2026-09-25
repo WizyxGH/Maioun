@@ -85,6 +85,12 @@ export const IMMOJEUNE_DESCRIPTOR: SourceDescriptor = {
   name: 'ImmoJeune',
   domain: 'immojeune.com',
   kind: 'portal',
+  /**
+   * SES ANNONCES SONT LES SIENNES : aucune de ses 31 occurrences actives ne
+   * nomme d'agence tierce — les bailleurs y déposent en direct (relevé du
+   * 2026-09-25).
+   */
+  publishesOwnListings: true,
   method: 'html',
   // Du particulier joignable sans frais : la denrée rare de cet inventaire.
   priority: 1,

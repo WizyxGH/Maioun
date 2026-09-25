@@ -1,3 +1,8 @@
+// @vitest-environment node
+// Aucun navigateur ici : ce test ne touche ni au DOM, ni au stockage, ni à
+// `window`. Monter jsdom pour rien coûtait 0,9 s par fichier — 6 s sur les
+// trente et un fichiers concernés, à chaque exécution.
+
 /**
  * « CE QUE VOUS VOYEZ EST UNE COPIE » — et le bandeau doit PARTIR tout seul.
  *

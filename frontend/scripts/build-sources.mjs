@@ -56,9 +56,12 @@ const entries = [...ALL_SCRAPERS]
     // l'agence sous la graphie d'un portail, avant même de savoir si son logo
     // est affichable.
     const alsoKnownAs = descriptor.alsoKnownAs ?? [];
+    // Une source qui publie EN PROPRE peut prêter son image : elle ne
+    // relaie personne, il n'y a donc aucune agence à qui la coller à tort.
+    const publishesOwnListings = descriptor.publishesOwnListings === true;
     return `  '${descriptor.id}': { name: ${JSON.stringify(descriptor.name)}, domain: ${JSON.stringify(
       domain === '' ? null : domain,
-    )}, kind: ${JSON.stringify(descriptor.kind)}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)}, alsoKnownAs: ${JSON.stringify(alsoKnownAs)} },`;
+    )}, kind: ${JSON.stringify(descriptor.kind)}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)}, alsoKnownAs: ${JSON.stringify(alsoKnownAs)}, publishesOwnListings: ${String(publishesOwnListings)} },`;
   });
 
 const file = `/**
@@ -104,6 +107,8 @@ export interface SourceInfo {
   } | null;
   /** Les autres noms sous lesquels les portails la publient. */
   readonly alsoKnownAs: readonly string[];
+  /** Ses annonces sont les SIENNES : elle ne relaie pas d'agences tierces. */
+  readonly publishesOwnListings: boolean;
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {

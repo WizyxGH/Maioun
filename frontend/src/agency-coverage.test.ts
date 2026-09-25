@@ -1,3 +1,8 @@
+// @vitest-environment node
+// Aucun navigateur ici : ce test ne touche ni au DOM, ni au stockage, ni à
+// `window`. Monter jsdom pour rien coûtait 0,9 s par fichier — 6 s sur les
+// trente et un fichiers concernés, à chaque exécution.
+
 /**
  * L'ÉCRAN RÉPONDAIT À LA MAUVAISE QUESTION. « Non suivie » voulait dire « cette
  * annonce-ci n'est pas venue du site de l'agence », alors qu'on lit « nous ne
@@ -17,6 +22,7 @@ const source = (over: Partial<SourceInfo> & { name: string }): SourceInfo => ({
   paidContact: false,
   address: null,
   alsoKnownAs: [],
+  publishesOwnListings: false,
   ...over,
 });
 

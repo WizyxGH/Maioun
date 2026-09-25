@@ -33,6 +33,12 @@ export const ONE_TWO_THREE_LOGER_DESCRIPTOR: SourceDescriptor = {
   name: '123Loger',
   domain: '123loger.com',
   kind: 'portal',
+  /**
+   * SES ANNONCES SONT LES SIENNES : ce sont des PROPRIÉTAIRES qui déposent, et
+   * le site fait payer 34 € pour les contacter — il n'y a donc aucune agence
+   * tierce à qui sa marque serait collée à tort.
+   */
+  publishesOwnListings: true,
   method: 'html',
   priority: 3,
   schedule: scheduleFor('portal'),

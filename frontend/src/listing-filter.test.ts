@@ -1,3 +1,8 @@
+// @vitest-environment node
+// Aucun navigateur ici : ce test ne touche ni au DOM, ni au stockage, ni à
+// `window`. Monter jsdom pour rien coûtait 0,9 s par fichier — 6 s sur les
+// trente et un fichiers concernés, à chaque exécution.
+
 import { describe, expect, it } from 'vitest';
 import { EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';

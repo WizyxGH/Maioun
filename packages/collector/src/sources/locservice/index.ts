@@ -83,6 +83,13 @@ export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
   name: 'LocService',
   domain: 'locservice.fr',
   kind: 'portal',
+  /**
+   * SES ANNONCES SONT LES SIENNES. Sur ses 730 occurrences actives, AUCUNE ne
+   * nomme d'agence tierce : la mise en relation est son métier, il n'y a
+   * personne derrière à qui l'on collerait sa marque à tort (relevé du
+   * 2026-09-25).
+   */
+  publishesOwnListings: true,
   method: 'html',
   // Priorité haute : du particulier, que les autres sources n'apportent pas.
   priority: 1,

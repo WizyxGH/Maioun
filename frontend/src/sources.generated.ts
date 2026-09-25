@@ -41,6 +41,8 @@ export interface SourceInfo {
   } | null;
   /** Les autres noms sous lesquels les portails la publient. */
   readonly alsoKnownAs: readonly string[];
+  /** Ses annonces sont les SIENNES : elle ne relaie pas d'agences tierces. */
+  readonly publishesOwnListings: boolean;
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {
@@ -52,6 +54,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: true,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: true,
   },
   'aa-gestion': {
     name: 'AA Gestion',
@@ -61,6 +64,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 boulevard du Parc Impérial', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'abyla-bosse': {
     name: 'Abyla Bosse',
@@ -70,6 +74,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   acetimo: {
     name: 'Acetimo',
@@ -79,6 +84,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '1 avenue Mirabeau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'acropolis-immo': {
     name: 'Acropolis Immobilier',
@@ -88,6 +94,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '47 rue Arson', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   aequalis: {
     name: 'Aequalis Immobilier',
@@ -97,6 +104,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   afedim: {
     name: 'AFEDIM',
@@ -106,6 +114,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-5-promenade': {
     name: 'Agence 5 Promenade',
@@ -115,6 +124,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '5 promenade des Anglais', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-azureenne': {
     name: 'L’Agence Azuréenne',
@@ -124,6 +134,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '157 avenue de Nice', postalCode: '06800', city: 'Cagnes-sur-Mer' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-californie': {
     name: 'Agence Californie',
@@ -133,6 +144,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '229 avenue de la Californie', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-castel': {
     name: 'Agence Castel',
@@ -142,6 +154,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '25 rue Bonaparte', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-des-domaines': {
     name: 'Agence des Domaines',
@@ -151,6 +164,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '57 avenue de la Gare', postalCode: '06800', city: 'Cagnes-sur-Mer' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-du-centre': {
     name: 'Agence du Centre',
@@ -160,6 +174,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-du-port': {
     name: 'Agence du Port de Nice',
@@ -169,6 +184,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '28 boulevard Stalingrad', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-dumas': {
     name: 'Agence Dumas',
@@ -178,6 +194,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-gounod': {
     name: 'Agence Gounod',
@@ -187,6 +204,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '19 rue Gounod', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-longchamp': {
     name: 'Agence Longchamp',
@@ -196,6 +214,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-passy': {
     name: 'Agence Passy',
@@ -205,6 +224,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 place Franklin', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-riviera': {
     name: 'Agence Riviera Real Estate',
@@ -214,6 +234,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '12 rue Cassini', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agence-victoire': {
     name: 'Agence de la Victoire',
@@ -223,6 +244,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'agent-nicois': {
     name: "L'Agent Niçois",
@@ -232,6 +254,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   agir: {
     name: 'Cabinet A.G.I.R.',
@@ -241,6 +264,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 rue Maréchal Joffre', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   akorimmo: {
     name: 'AKOR Immo',
@@ -250,6 +274,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   alberti: {
     name: 'Alberti Immobilier',
@@ -259,6 +284,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'alliance-conseil': {
     name: 'A Alliance Conseil Immobilier',
@@ -268,6 +294,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 rue Auguste Gal', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'altarea-nice': {
     name: 'Altarea Gestion Immobilière - Nice',
@@ -277,6 +304,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'am-concept': {
     name: 'AM Concept Patrimoine Immobilier',
@@ -286,6 +314,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'ang-immobilier': {
     name: 'ANG Immobilier',
@@ -295,6 +324,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'aparte-immobilier': {
     name: 'Aparté Immobilier',
@@ -304,6 +334,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '47 rue Rossini', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'api-nice': {
     name: 'API Nice (Azur Patrimoine Immobilier)',
@@ -313,6 +344,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 rue Bavastro', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   appartager: {
     name: 'Appartager',
@@ -322,6 +354,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: true,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   arthurimmo: {
     name: 'Arthurimmo.com Nice',
@@ -331,6 +364,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'ashley-parker': {
     name: 'Ashley & Parker',
@@ -340,6 +374,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '39 rue de France', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   aurus: {
     name: 'Aurus Immobilier',
@@ -349,6 +384,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '14 rue du Maréchal Joffre', postalCode: '06310', city: 'Beaulieu-sur-Mer' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'azur-conseil-salmon': {
     name: 'Azur Conseil Salmon',
@@ -358,6 +394,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '26 boulevard de Cessole', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   azurimmo: {
     name: 'Azurimmo',
@@ -367,6 +404,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '170 boulevard Napoléon III', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'barbera-gestion': {
     name: 'Barbera Gestion & Patrimoine',
@@ -376,6 +414,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '29 avenue Jean Médecin', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   barnes: {
     name: 'BARNES',
@@ -385,6 +424,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   bbii: {
     name: 'BBii',
@@ -394,6 +434,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   beaumont: {
     name: 'Beaumont Immobilier',
@@ -403,6 +444,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   belgravia: {
     name: 'Belgravia',
@@ -412,6 +454,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '54 rue Gioffredo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   bep: {
     name: 'BEP Logement',
@@ -421,6 +464,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: ['BEP Nice', 'BEP Antibes'],
+    publishesOwnListings: false,
   },
   'bep-abonnes': {
     name: 'BEP Logement (abonné)',
@@ -430,6 +474,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   berenice: {
     name: 'Bérénice Immobilier',
@@ -439,6 +484,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 boulevard Gambetta', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   bienici: {
     name: 'Bien’ici',
@@ -448,6 +494,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'blue-residences': {
     name: 'Blue Résidences',
@@ -457,6 +504,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 boulevard de Cimiez', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   bomarche: {
     name: 'BôMarché by Lambda Immobilier',
@@ -466,6 +514,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '14 avenue Borriglione', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'borne-delaunay': {
     name: 'Borne & Delaunay',
@@ -475,6 +524,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-central-gestion': {
     name: 'Cabinet Central Gestion',
@@ -484,6 +534,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '24 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-cordier': {
     name: 'Cabinet Cordier',
@@ -493,6 +544,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-europazur': {
     name: 'Cabinet Europazur',
@@ -502,6 +554,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '9 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-ledeux': {
     name: 'Cabinet Ledeux Immobilier',
@@ -511,6 +564,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '15 rue Cassini', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-nardi': {
     name: 'Cabinet Nardi',
@@ -520,6 +574,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '11 rue Gubernatis', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-reynier': {
     name: 'Cabinet Reynier',
@@ -529,6 +584,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '78 boulevard Napoléon III', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cabinet-ventura': {
     name: 'Cabinet Ventura',
@@ -538,6 +594,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '61 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cap-sud-immobilier': {
     name: 'Cap Sud Immobilier',
@@ -547,6 +604,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '256 avenue de la Californie', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   carletta: {
     name: 'Carletta Immobilier',
@@ -556,6 +614,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cdc-immobilier': {
     name: 'CDC Immobilier',
@@ -565,6 +624,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 place Wilson', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cds-gestion': {
     name: 'CDS Gestion',
@@ -574,6 +634,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '51 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   cegestim: {
     name: 'Cegestim',
@@ -583,6 +644,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '8 rue Gioffredo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   centragence: {
     name: 'Centragence',
@@ -592,6 +654,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   century21: {
     name: 'Century 21',
@@ -601,6 +664,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cimiez-boulevard': {
     name: 'Cimiez Boulevard',
@@ -610,6 +674,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   citya: {
     name: 'Citya Immobilier',
@@ -619,6 +684,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   climmo: {
     name: 'CL Immo Gestion',
@@ -628,6 +694,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   coccimmo: {
     name: 'Coccimmo',
@@ -637,6 +704,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '143 boulevard René Cassin', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'concept-patrimoine': {
     name: 'Concept Patrimoine Immobilier',
@@ -646,6 +714,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   contesso: {
     name: 'Orpi Agence Contesso',
@@ -655,6 +724,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '5 avenue des Cigales', postalCode: '06510', city: 'Carros' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   coprogestimmo: {
     name: 'Coprogestimmo',
@@ -664,6 +734,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cot-ouest': {
     name: "Cot'Ouest Immobilier",
@@ -673,6 +744,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '203 avenue de la Californie', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cote-dazur-properties': {
     name: "Côte d'Azur Properties",
@@ -682,6 +754,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 boulevard Carlone', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'cote-village': {
     name: 'Immobilier Côté Village',
@@ -691,6 +764,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '112 boulevard Général de Gaulle', postalCode: '06340', city: 'La Trinité' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'crouzet-breil': {
     name: 'Cabinet Crouzet & Breil',
@@ -700,6 +774,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   dazur: {
     name: "D'Azur Immobilier",
@@ -709,6 +784,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'de-vita': {
     name: 'De Vita Immobilier',
@@ -718,6 +794,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '52 rue Gioffredo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'delta-promotion': {
     name: 'Delta Promotion',
@@ -727,6 +804,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '29 rue Pastorelli', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   dgimmo: {
     name: 'DG Immo',
@@ -736,6 +814,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   difimmo: {
     name: 'Diffusion Immobilière',
@@ -745,6 +824,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   dinamy: {
     name: 'Dinamy Immobilier',
@@ -754,6 +834,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '13 rue François Guisol', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'domi-nice-immobilier': {
     name: 'Domi Nice Immobilier',
@@ -763,6 +844,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '24 rue Gioffredo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   drago: {
     name: 'Cabinet Drago',
@@ -772,6 +854,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '29 rue Pastorelli', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   elitimo: {
     name: 'Elitimo',
@@ -781,6 +864,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '7 rue de Rivoli', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'email-alerts': {
     name: 'Alertes e-mail',
@@ -790,6 +874,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   englimmo: {
     name: 'Englimmo',
@@ -799,6 +884,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '165 avenue de la Californie', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   era: {
     name: 'ERA Immobilier',
@@ -808,6 +894,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'eric-immo': {
     name: 'Eric Immo',
@@ -817,6 +904,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '173 boulevard de la Madeleine', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'etude-des-vosges': {
     name: 'Étude des Vosges',
@@ -826,6 +914,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 avenue de Saint-Sylvestre', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'etude-lotte': {
     name: 'Étude Lotte',
@@ -835,6 +924,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '36 avenue Paul Arène', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'fds-carre-dor': {
     name: 'FDS Immobilier Carré d’Or',
@@ -844,6 +934,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '53 rue de France', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   ferrero: {
     name: 'Agence Ferrero',
@@ -853,6 +944,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'figaro-immo': {
     name: 'Figaro Immobilier',
@@ -862,6 +954,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'fit-immobilier': {
     name: 'FIT Immobilier',
@@ -871,6 +964,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '1 avenue de la Lanterne', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'five-stars': {
     name: '5 Stars Holiday House',
@@ -880,6 +974,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '40 rue de la Buffa', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   fnaim: {
     name: 'FNAIM',
@@ -889,6 +984,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   foncia: {
     name: 'Foncia',
@@ -898,6 +994,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   forimmo: {
     name: 'Forimmo',
@@ -907,6 +1004,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '31 ter rue Barla', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'french-riviera-studios': {
     name: 'French Riviera Studios',
@@ -916,6 +1014,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 place Magenta', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'gestion-casa-immo': {
     name: 'Gestion Casa Immobilière',
@@ -925,6 +1024,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '49 rue Gioffredo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'gestion-cassini': {
     name: 'Gestion Cassini',
@@ -934,6 +1034,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '12 rue François Guisol', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   gestymo: {
     name: 'Gestymo',
@@ -943,6 +1044,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '375 promenade des Anglais', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   giletta: {
     name: 'Giletta Immobilier',
@@ -952,6 +1054,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '1 rue Maurice Jaubert', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'grand-metropole': {
     name: 'Grand Métropole',
@@ -961,6 +1064,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '8 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   griguer: {
     name: 'Cabinet Griguer',
@@ -970,6 +1074,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'groupe-foch': {
     name: 'Foch Immobilier',
@@ -979,6 +1084,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'groupe-marshall': {
     name: 'Groupe Marshall',
@@ -988,6 +1094,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 rue de la Liberté', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'groupe-picado': {
     name: 'Groupe Picado',
@@ -997,6 +1104,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '12 avenue Malausséna', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'guy-hoquet': {
     name: 'Guy Hoquet',
@@ -1006,6 +1114,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'home-on-riviera': {
     name: 'Home on Riviera',
@@ -1015,6 +1124,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 rue Cronstadt', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'home-pearl': {
     name: 'Home Pearl',
@@ -1024,6 +1134,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '16 rue Foncet', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'ici-immobilier': {
     name: 'I.C.I Info Conseil Immobilier',
@@ -1033,6 +1144,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   igti: {
     name: 'Immobilière GTI',
@@ -1042,6 +1154,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immo-3-points': {
     name: 'Immo 3 Points',
@@ -1051,6 +1164,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '1 rue Alberti', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immo-consult-cote-sud': {
     name: 'Immo Consult Côté Sud',
@@ -1060,6 +1174,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '72 avenue d’Estienne d’Orves', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immo-ideal': {
     name: 'Immo Idéal',
@@ -1069,6 +1184,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '24 avenue de Saint-Sylvestre', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immo-jbf': {
     name: 'Immo JBF',
@@ -1078,6 +1194,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immo-riviera-transactions': {
     name: 'Immo Riviera Transactions',
@@ -1087,6 +1204,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immo-sud': {
     name: 'Immo-Sud Nice',
@@ -1096,6 +1214,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   immo3000: {
     name: 'Immo 3000',
@@ -1105,6 +1224,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   immobilier2nice: {
     name: 'Immobilier 2 Nice',
@@ -1114,6 +1234,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '1 boulevard Auguste Raynaud', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immobiliere-camo': {
     name: 'Immobilière Camo',
@@ -1123,6 +1244,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '26 rue Arson', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immobiliere-nicoise': {
     name: "L'Immobilière Niçoise",
@@ -1132,6 +1254,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '33 avenue du Maréchal Foch', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'immobiliere-pelou': {
     name: 'Immobilière Pelou',
@@ -1141,6 +1264,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   immojeune: {
     name: 'ImmoJeune',
@@ -1150,6 +1274,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: true,
   },
   imodirect: {
     name: 'Imodirect',
@@ -1159,6 +1284,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   inli: {
     name: "In'li",
@@ -1168,6 +1294,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'isit-immobilier': {
     name: 'ISIT Immobilier',
@@ -1177,6 +1304,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '26 rue de la Buffa', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'john-taylor': {
     name: 'John Taylor',
@@ -1186,6 +1314,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'joseph-garnier': {
     name: 'Joseph Garnier Real Estate',
@@ -1195,6 +1324,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '6 boulevard Joseph Garnier', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'kalliste-immo-conseil': {
     name: 'Kalliste Immo Conseil',
@@ -1204,6 +1334,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '27 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   kapera: {
     name: 'Kapera Immobilier',
@@ -1213,6 +1344,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'keller-williams': {
     name: 'Keller Williams',
@@ -1222,6 +1354,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-chouette': {
     name: 'La Chouette Agence Immobilière',
@@ -1231,6 +1364,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 place Pellegrini', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-clef-immobiliere': {
     name: 'La Clef Immobilière',
@@ -1240,6 +1374,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '24 boulevard Saint-Roch', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-conca-dor': {
     name: 'La Conca d’Or',
@@ -1249,6 +1384,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '466 boulevard Léon Sauvan', postalCode: '06690', city: 'Tourrette-Levens' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-firme': {
     name: 'La Firme',
@@ -1258,6 +1394,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '12 rue Gioffredo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-franco-suisse': {
     name: 'La Franco Suisse',
@@ -1267,6 +1404,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: "19 rue de l'Hôtel des Postes", postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-perouse': {
     name: 'La Pérouse Immobilier',
@@ -1276,6 +1414,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '17 rue Alfred Mortier', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'la-petite-maison': {
     name: 'La Petite Maison',
@@ -1285,6 +1424,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '301 chemin de la Ginestière', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   ladresse: {
     name: "L'Adresse",
@@ -1294,6 +1434,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   laforet: {
     name: 'Laforêt',
@@ -1303,6 +1444,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'lagence-jean-jaures': {
     name: 'L’Agence Jean Jaurès',
@@ -1312,6 +1454,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '48 boulevard Jean Jaurès', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   lamy: {
     name: 'Lamy Immobilier',
@@ -1321,6 +1464,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   lapierre: {
     name: 'Anne-Sophie Lapierre Immobilier',
@@ -1330,6 +1474,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'lb-immobilier': {
     name: 'L&B Immobilier',
@@ -1339,6 +1484,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 avenue de Verdun', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'leprince-realty': {
     name: 'leprince realty',
@@ -1348,6 +1494,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   lesiteimmo: {
     name: 'LeSiteImmo',
@@ -1357,6 +1504,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'liberty-agency': {
     name: 'Liberty Agency',
@@ -1366,6 +1514,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '136 boulevard Gambetta', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   lienhard: {
     name: 'Lienhard Immo',
@@ -1375,6 +1524,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   locservice: {
     name: 'LocService',
@@ -1384,6 +1534,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: true,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: true,
   },
   lodgis: {
     name: 'Lodgis',
@@ -1393,6 +1544,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   loquis: {
     name: 'Cabinet Loquis',
@@ -1402,6 +1554,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 place Alexandre Médecin', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'lt-immobilier': {
     name: 'LT Immobilier',
@@ -1411,6 +1564,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   lumina: {
     name: 'Lumina Immobilier',
@@ -1420,6 +1574,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'maison-k': {
     name: 'Maison K Immobilier',
@@ -1429,6 +1584,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '3 place Masséna', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'maison-quatre': {
     name: 'Maison Quatre',
@@ -1438,6 +1594,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 rue Dalpozzo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   maisonette: {
     name: 'Maisonette',
@@ -1447,6 +1604,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   marcele: {
     name: 'Marcele Immobilier',
@@ -1456,6 +1614,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'marchal-immobilier': {
     name: 'Marchal Immobilier',
@@ -1465,6 +1624,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '83 boulevard Gambetta', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'marro-immobilier': {
     name: 'Cabinet Marro Immobilier',
@@ -1474,6 +1634,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '41 boulevard Pierre Sola', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'massena-immo': {
     name: 'Masséna Immobilier',
@@ -1483,6 +1644,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '12 avenue Félix Faure', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'mediterranee-immo': {
     name: 'Méditerranée Immo',
@@ -1492,6 +1654,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '20 avenue Valombrose', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   midem: {
     name: 'Midem Immobilier',
@@ -1501,6 +1664,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '8 avenue Saint-Augustin', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'milor-immobilier': {
     name: 'Milor Immobilier',
@@ -1510,6 +1674,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '50 boulevard Joseph Garnier', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   mirabello: {
     name: 'Mirabello Immobilier',
@@ -1519,6 +1684,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   miramar: {
     name: 'Miramar Real Estate',
@@ -1528,6 +1694,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '7/13 boulevard Franck Pilatte', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'mk-immo': {
     name: 'MK Immo',
@@ -1537,6 +1704,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   morningcroissant: {
     name: 'MorningCroissant',
@@ -1546,6 +1714,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: true,
   },
   'moss-immobilier': {
     name: 'Moss Immobilier',
@@ -1555,6 +1724,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 rue Beethoven', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   murta: {
     name: 'Murta Immobilier',
@@ -1564,6 +1734,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '23 bis avenue Général de Gaulle', postalCode: '06340', city: 'Drap' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'nestenn-nice-port': {
     name: 'Nestenn Nice Port - Riquier',
@@ -1573,6 +1744,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '18 boulevard de Riquier', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'nice-premium': {
     name: 'Nice Premium Immobilier',
@@ -1582,6 +1754,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '21 rue Michel-Ange', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'nicolas-pisani': {
     name: 'Nicolas Pisani Real Estate',
@@ -1591,6 +1764,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '1 rue Paul Doumer', postalCode: '06310', city: 'Beaulieu-sur-Mer' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   norait: {
     name: 'Norait Immobilier',
@@ -1600,6 +1774,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '20 rue Verdi', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   nousgerons: {
     name: 'NousGérons',
@@ -1609,6 +1784,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   optimmo: {
     name: 'Optimmo',
@@ -1618,6 +1794,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   oqoro: {
     name: 'Oqoro',
@@ -1627,6 +1804,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   orea: {
     name: 'Oréa Immobilier',
@@ -1636,6 +1814,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'orientation-immobiliere': {
     name: 'L’Orientation Immobilière',
@@ -1645,6 +1824,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '76 avenue de Brancolar', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   orpi: {
     name: 'Orpi',
@@ -1654,6 +1834,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'palais-immobilier': {
     name: 'Palais Immobilier',
@@ -1663,6 +1844,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   pap: {
     name: 'PAP',
@@ -1672,6 +1854,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'parnasse-immobilier': {
     name: 'Parnasse Immobilier',
@@ -1681,6 +1864,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '10 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'partners-immo': {
     name: 'Partners Immo',
@@ -1690,6 +1874,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   paruvendu: {
     name: 'ParuVendu',
@@ -1699,6 +1884,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   personalimmo: {
     name: 'Personal Immo',
@@ -1708,6 +1894,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   petrova: {
     name: 'Petrova Investissement Immobilier',
@@ -1717,6 +1904,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '5 bis quai Rauba Capeu', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'phoenix-glv': {
     name: 'Phoenix GLV',
@@ -1726,6 +1914,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '455 promenade des Anglais', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'pht-real-estate': {
     name: 'PHT Real Estate',
@@ -1735,6 +1924,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '15 rue Biscarra', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'platine-immobilier': {
     name: 'Platine Immobilier',
@@ -1744,6 +1934,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '5 rue Blacas', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   postillon: {
     name: 'Postillon Immobilier',
@@ -1753,6 +1944,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   privilege: {
     name: 'Agence Privilège',
@@ -1762,6 +1954,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   procivis: {
     name: 'Immo de France Côte d’Azur',
@@ -1771,6 +1964,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   provencalpes: {
     name: 'Provencalpes',
@@ -1780,6 +1974,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   pujol: {
     name: 'Immobilière Pujol',
@@ -1789,6 +1984,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '7 rue du Dr Fiolle', postalCode: '13006', city: 'Marseille' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   rentumo: {
     name: 'Rentumo',
@@ -1798,6 +1994,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: true,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'resid-immo': {
     name: 'Resid’Immo',
@@ -1807,6 +2004,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '900 boulevard du Mercantour', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'reussite-immo': {
     name: 'Réussite Immo Nice',
@@ -1816,6 +2014,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '6 rue Massenet', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'reutter-invest': {
     name: 'Reutter Invest',
@@ -1825,6 +2024,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '45 rue Rossini', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'richer-immobilier': {
     name: 'Richer Immobilier',
@@ -1834,6 +2034,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '50 boulevard Stalingrad', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'riviera-angels': {
     name: 'Riviera Angels Immobilier',
@@ -1843,6 +2044,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '50 rue de France', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'riviera-concept': {
     name: 'Riviera Concept',
@@ -1852,6 +2054,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '67 rue Rossini', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'riviera-sud-immobilier': {
     name: 'Riviera Sud Immobilier',
@@ -1861,6 +2064,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '5 boulevard Gambetta', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   roseland: {
     name: 'Immobilière Roseland',
@@ -1870,6 +2074,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '38 rue Auguste Gal', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   safi: {
     name: 'SAFI Méditerranée',
@@ -1879,6 +2084,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'sag-immobilier': {
     name: 'SAG Immobilier',
@@ -1888,6 +2094,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'saint-roch': {
     name: 'Saint Roch Immobilier',
@@ -1897,6 +2104,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   sambroni: {
     name: 'Sambroni Immobilier',
@@ -1906,6 +2114,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '186 avenue de Pessicart', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'savi-esteve': {
     name: 'Agence Savi Estève',
@@ -1915,6 +2124,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '24 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   solissimmo: {
     name: 'Solissimmo',
@@ -1924,6 +2134,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '30 rue Alphonse Karr', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'square-habitat': {
     name: 'Square Habitat',
@@ -1933,6 +2144,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   studapart: {
     name: 'Studapart',
@@ -1942,6 +2154,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: true,
   },
   'sud-agence': {
     name: 'Sud Agence',
@@ -1951,6 +2164,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '25 rue Arson', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'sud-contact': {
     name: 'Sud Contact Immobilier',
@@ -1960,6 +2174,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '46 avenue Saint-Augustin', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'sun-immobilia': {
     name: 'Sun Immobilia',
@@ -1969,6 +2184,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   tichadou: {
     name: 'Immobilière Tichadou',
@@ -1978,6 +2194,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '2 rue du Congrès', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'tosca-nice-le-port': {
     name: 'Agence Tosca Nice le Port',
@@ -1987,6 +2204,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '13 rue Cassini', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   transactimo: {
     name: 'Transactimo',
@@ -1996,6 +2214,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '19 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'valrose-immobilier': {
     name: 'Valrose Immobilier',
@@ -2005,6 +2224,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '108 avenue Saint-Lambert', postalCode: '06100', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'victor-hugo': {
     name: 'Immobilière Victor Hugo',
@@ -2014,6 +2234,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '15 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   vizcaya: {
     name: 'Vizcaya Immobilier',
@@ -2023,6 +2244,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '4 quai Papacino', postalCode: '06300', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   'votre-agence-immo': {
     name: 'Votre Agence Immo',
@@ -2032,6 +2254,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   westimmo: {
     name: 'Westimmo',
@@ -2041,6 +2264,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: { street: '200 avenue de la Californie', postalCode: '06200', city: 'Nice' },
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
   winter: {
     name: 'Winter Immobilier',
@@ -2050,5 +2274,6 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     paidContact: false,
     address: null,
     alsoKnownAs: [],
+    publishesOwnListings: false,
   },
 };

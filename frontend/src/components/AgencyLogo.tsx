@@ -49,13 +49,34 @@ function ownSource(name: string): { readonly logo: string | null; readonly domai
   return id === null ? null : parSonIdentifiant(id);
 }
 
-/** La source elle-même, quand elle est le site propre d'une agence. */
+/**
+ * La source qui a le droit de prêter son image à ce nom.
+ *
+ * LA QUESTION N'EST PAS LE GENRE DE LA SOURCE, C'EST QUI PUBLIE. Trois cas ont
+ * ce droit, et un ne l'a pas :
+ *
+ *   - une AGENCE LOCALE : c'est son site, c'est son logo ;
+ *   - un RÉSEAU — Century 21, Orpi, Laforêt, ERA : ses annonces viennent de ses
+ *     franchises, qui portent toutes cette marque. « CENTURY 21 Lafage
+ *     Transactions » EST une Century 21. Mesuré le 2026-09-25 : Orpi nomme
+ *     16 agences, toutes des Orpi ; Century 21 en nomme 7, toutes des Century
+ *     21 ;
+ *   - un portail qui publie EN PROPRE, déclaré tel quel : Studapart nomme UNE
+ *     agence sur ses 201 annonces, elle-même ;
+ *   - un RELAIS, non : Bien'ici nomme 175 agences tierces, la FNAIM 56,
+ *     ParuVendu 37. Leur coller la marque du portail mettrait l'enseigne de
+ *     l'un sur l'annonce de l'autre.
+ *
+ * Un logo faux est pire qu'une icône neutre : on le croit.
+ */
 function parSonIdentifiant(
   id: string,
 ): { readonly logo: string | null; readonly domain: string } | null {
   const source = SOURCES[id];
-  if (source === undefined || source.kind !== 'localAgency' || source.domain === null) return null;
-  return { logo: source.logo, domain: source.domain };
+  if (source === undefined || source.domain === null) return null;
+  const aLeDroit =
+    source.kind === 'localAgency' || source.kind === 'agencyNetwork' || source.publishesOwnListings;
+  return aLeDroit ? { logo: source.logo, domain: source.domain } : null;
 }
 
 /**

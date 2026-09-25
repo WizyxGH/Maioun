@@ -124,6 +124,19 @@ export interface SourceDescriptor {
    */
   readonly alsoKnownAs?: readonly string[];
 
+  /**
+   * LES ANNONCES SONT LES SIENNES : cette source n'est pas un relais.
+   *
+   * La différence décide du LOGO. Un relais nomme des dizaines d'agences
+   * tierces — Bien'ici en nomme 175, la FNAIM 56, ParuVendu 37 (relevé du
+   * 2026-09-25) —, et lui prêter son image reviendrait à coller la marque du
+   * portail sur l'annonce de quelqu'un d'autre. Studapart, lui, nomme UNE seule
+   * agence sur ses 201 annonces : lui-même. Son image est alors la bonne.
+   *
+   * Le `kind` ne suffit pas à trancher : les deux sont des `portal`.
+   */
+  readonly publishesOwnListings?: boolean;
+
   /** `false` désactive la source sans supprimer son code (§5, §76). */
   readonly enabled: boolean;
 

@@ -1,3 +1,8 @@
+// @vitest-environment node
+// Aucun navigateur ici : ce test ne touche ni au DOM, ni au stockage, ni à
+// `window`. Monter jsdom pour rien coûtait 0,9 s par fichier — 6 s sur les
+// trente et un fichiers concernés, à chaque exécution.
+
 /**
  * « Parfois la première image du carrousel est la même que la deuxième, mais
  * en flou » — relevé du 2026-09-18 : 138 fiches actives sur 3 072 publiaient
