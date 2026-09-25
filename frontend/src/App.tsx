@@ -23,7 +23,6 @@ import {
 } from 'react';
 import type { TenantProfile } from '@maioun/shared';
 import { awaitsContact, merged, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
-import type { ExchangeView } from './api/client.js';
 import type {
   FilterConfig,
   ListingView,
@@ -33,8 +32,6 @@ import type {
 } from './types.js';
 import {
   ApiError,
-  fetchAgencies,
-  fetchAgency,
   fetchFilters,
   fetchListing,
   fetchListings,
@@ -42,11 +39,8 @@ import {
   fetchChangelogSeen,
   fetchOnboardingDone,
   fetchSavedSearches,
-  fetchAlerts,
-  fetchExchanges,
   fetchSources,
   isDemoMode,
-  isUnconfigured,
   requiresLogin,
   markViewed,
   setArchived,
@@ -76,7 +70,6 @@ import { Select } from '@/components/ui/select.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { HomePanel } from './components/HomePanel.js';
-import { LoginScreen } from './components/LoginScreen.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
 import {
   describeSearch,
@@ -104,7 +97,6 @@ import {
   MapSkeleton,
   RowsSkeleton,
 } from './components/Skeletons.js';
-import type { AgencySummary } from './api/client.js';
 import { SettingsLinks } from './components/SettingsLinks.js';
 import { ProfileSummary } from './components/ProfileSummary.js';
 import {
@@ -115,13 +107,7 @@ import {
   type ExtraChip,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
-import {
-  forgetCleared,
-  recallCleared,
-  rememberCleared,
-  type ClearedCriteria,
-} from './cleared-criteria.js';
-import { clearedCriteria, criteriaChips } from './criteria-chips.js';
+import { criteriaChips } from './criteria-chips.js';
 import { filterListings } from './listing-filter.js';
 import { hasSessionToken } from './api/session-token.js';
 import { forgetListing, replaceListing } from './listing-store.js';
@@ -129,15 +115,13 @@ import { loadInStages } from './progressive-load.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { useAlertsSeen } from './use-alerts-seen.js';
 import { readViewState, writeViewState } from './view-state.js';
-import {
-  readPendingSharedToken,
-  readVisitorSearch,
-  writePendingSharedToken,
-  writeVisitorSearch,
-} from './visitor-search.js';
+import { readVisitorSearch, writeVisitorSearch } from './visitor-search.js';
+import { consumePendingSharedToken, ecranDEntree } from './screens/EntranceScreen.js';
 import type { Route, View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
+import { useScreenData } from './use-screen-data.js';
+import { useCriteria } from './use-criteria.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
 import { messageDeSecours, secoursActuel, surChangementDeSecours } from './api/secours.js';
@@ -180,29 +164,8 @@ const SourcesPanel = lazy(() =>
 const SavedSearchesPanel = lazy(() =>
   import('./components/SavedSearchesPanel.js').then((m) => ({ default: m.SavedSearchesPanel })),
 );
-const ForgotPassword = lazy(() =>
-  import('./components/ForgotPassword.js').then((m) => ({ default: m.ForgotPassword })),
-);
-const ResetPassword = lazy(() =>
-  import('./components/ResetPassword.js').then((m) => ({ default: m.ResetPassword })),
-);
-const SignupScreen = lazy(() =>
-  import('./components/SignupScreen.js').then((m) => ({ default: m.SignupScreen })),
-);
-const ConfirmEmail = lazy(() =>
-  import('./components/ConfirmEmail.js').then((m) => ({ default: m.ConfirmEmail })),
-);
-const SharedSearch = lazy(() =>
-  import('./components/SharedSearch.js').then((m) => ({ default: m.SharedSearch })),
-);
-const UnconfiguredScreen = lazy(() =>
-  import('./components/UnconfiguredScreen.js').then((m) => ({ default: m.UnconfiguredScreen })),
-);
 const ChangelogModal = lazy(() =>
   import('./components/ChangelogModal.js').then((m) => ({ default: m.ChangelogModal })),
-);
-const OnboardingPanel = lazy(() =>
-  import('./components/OnboardingPanel.js').then((m) => ({ default: m.OnboardingPanel })),
 );
 const SourcePanel = lazy(() =>
   import('./components/SourcePanel.js').then((m) => ({ default: m.SourcePanel })),
@@ -232,29 +195,6 @@ const MapView = lazy(() => import('./components/MapView.js'));
  * source de vérité à côté de `favoritesOnly`, que la modale règle aussi.
  */
 type NavTarget = View | 'favorites';
-
-/**
- * LES ÉCRANS QUI PARLENT DE QUELQU'UN, et qu'un visiteur ne peut donc pas voir.
- *
- * Le partage est net : le CATALOGUE décrit le marché — les annonces, les
- * quartiers, les sources, les agences — et s'ouvre à tous. Ceux-ci décrivent
- * une personne : son dossier, ses alertes, ses recherches, ses statistiques.
- * L'API applique la même coupure de son côté, et c'est elle qui fait foi ;
- * cette liste ne fait qu'éviter d'envoyer quelqu'un vers un écran qui
- * répondrait « connexion requise » sans expliquer pourquoi.
- */
-const PERSONAL_VIEWS: ReadonlySet<View> = new Set<View>([
-  'stats',
-  'profile',
-  'tenant',
-  'reference',
-  'saved',
-  'notifications',
-  'access',
-  'plan',
-  'alerts',
-  'onboarding',
-]);
 
 /**
  * Options de tri de la liste (§36). L'ordre définit celui du menu.
@@ -496,29 +436,6 @@ function VisitorSearchBanner({
  * la patience de quelqu'un devant une page blanche.
  */
 const SESSION_TIMEOUT_MS = 10_000;
-
-/**
- * L'attente de la vérification de session.
- *
- * RIEN PENDANT UNE SECONDE, puis un mot. Le cas courant se règle en deux
- * cents millisecondes : y afficher un indicateur le ferait clignoter à chaque
- * ouverture, ce qui est pire que le silence. Passé une seconde, le silence
- * devient une page blanche, et une page blanche ne dit pas si l'on attend, si
- * l'on est déconnecté, ou si tout est cassé.
- */
-function SessionPending(): React.JSX.Element {
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSlow(true), 1000);
-    return () => window.clearTimeout(timer);
-  }, []);
-  if (!slow) return <></>;
-  return (
-    <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-4">
-      <p className="text-muted-foreground text-center text-sm">Connexion en cours…</p>
-    </main>
-  );
-}
 
 /**
  * Nombre de filtres POSÉS — c'est la pastille du bouton « Filtres ».
@@ -878,13 +795,6 @@ function AppView(): React.JSX.Element {
   const { route, go, replace, back } = useRoute();
   const view = route.view;
   const [savedSearches, setSavedSearches] = useState<readonly SavedSearch[]>([]);
-  // L'annuaire des agences et la fiche ouverte. Chargés à la demande : ils
-  // demandent une agrégation en base que la liste ne transporte pas (§30).
-  const [agencies, setAgencies] = useState<readonly AgencySummary[]>([]);
-  const [agencyDetail, setAgencyDetail] = useState<{
-    agency: AgencySummary;
-    listings: readonly ListingView[];
-  } | null>(null);
   // Qui est connecté. `undefined` = on ne sait pas encore : montrer l'écran de
   // connexion à ce moment-là le ferait clignoter chez quelqu'un qui a déjà une
   // session valide.
@@ -978,21 +888,6 @@ function AppView(): React.JSX.Element {
   // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
   // liste déjà chargée, sans toucher aux critères de collecte (§66).
   const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(restored.quickFilters);
-  /**
-   * LES CRITÈRES, ICI AUSSI. Ils ne vivaient que dans le panneau de la modale :
-   * la barre de puces et la pastille ne pouvaient donc pas montrer ce qu'ils
-   * écartent — quartiers, trajet, exclusions, bailleur, meublé —, et l'écran
-   * annonçait « 3 » filtres pour une dizaine de règles en vigueur.
-   * `null` tant qu'on ne les a pas : on ne devine pas des filtres.
-   */
-  const [criteria, setCriteria] = useState<FilterConfig | null>(null);
-  /**
-   * LE RETOUR ARRIÈRE D'« EFFACER TOUT » : les critères d'avant, et le nom de
-   * ce qui a été levé. `null` quand il n'y a rien à annuler. Le pourquoi est
-   * dans `ClearedCriteriaNotice`, avec la rangée qui l'affiche ; sa survie au
-   * rechargement est dans `cleared-criteria.ts`.
-   */
-  const [clearedUndo, setClearedUndo] = useState<ClearedCriteria | null>(null);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>(restored.displayMode);
   // Au-dessus de 1024 px, annonces et plan tiennent ensemble : la vue
@@ -1022,6 +917,18 @@ function AppView(): React.JSX.Element {
     void clearTenantProfile().catch(() => undefined);
   };
   const [onboardingDone, setOnboardingDone] = useState<boolean | undefined>(undefined);
+
+  /** L'accueil est terminé : l'écran se referme d'abord, la base suit. */
+  const finishOnboarding = (): void => {
+    setOnboardingDone(true);
+    // Attendre le réseau pour retirer un écran qu'on vient de terminer donnerait
+    // l'impression d'un bouton qui ne répond pas.
+    void markOnboardingDone().catch(() => undefined);
+    // Et on pose le repère des nouveautés : qui découvre l'application n'a rien
+    // à rattraper. Sans cela, la modale s'ouvrirait dans la seconde suivante.
+    const latest = latestEntryId();
+    if (latest !== null) void markChangelogSeen(latest).catch(() => undefined);
+  };
   /** Nouveautés publiées depuis la dernière visite. Vide = rien à annoncer. */
   const [news, setNews] = useState<readonly ChangelogEntry[]>([]);
   /**
@@ -1031,13 +938,20 @@ function AppView(): React.JSX.Element {
    * hors critères : une détection qui s'améliore effaçait alors des alertes bel
    * et bien parties. Sur cent seize signalées, trente-deux restaient visibles.
    */
-  const [alerts, setAlerts] = useState<readonly ListingView[]>([]);
-  const [exchanges, setExchanges] = useState<readonly ExchangeView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // La base refuse de lire — quota épuisé. Ce n'est pas une erreur de
   // l'utilisateur, et il n'y a rien à retenter : le bandeau change de ton.
   const [panneDeBase, setPanneDeBase] = useState(false);
+
+  // Les écrans qu'on ne charge qu'en y arrivant : annuaire, fiche d'agence,
+  // historique des alertes, démarches. Voir `use-screen-data.ts`.
+  const { agencies, agencyDetail, alerts, exchanges } = useScreenData({
+    view,
+    agencyName: selectedSourceId,
+    currentUser,
+    onError: setError,
+  });
 
   /**
    * UNE FICHE OUVERTE PAR SON ADRESSE.
@@ -1094,23 +1008,6 @@ function AppView(): React.JSX.Element {
       cancelled = true;
     };
   }, [view, selectedId, listings, go, favoritesOnly, currentUser]);
-
-  // L'annuaire n'est demandé qu'en arrivant dessus : c'est une agrégation en
-  // base, inutile à qui ne l'ouvre jamais (§30).
-  useEffect(() => {
-    if (view !== 'agencies') return;
-    void fetchAgencies()
-      .then(setAgencies)
-      .catch(() => setError('L’annuaire des agences n’a pas pu être chargé'));
-  }, [view]);
-
-  useEffect(() => {
-    if (view !== 'agency' || selectedSourceId === null) return;
-    setAgencyDetail(null);
-    void fetchAgency(selectedSourceId)
-      .then(setAgencyDetail)
-      .catch(() => setError('Cette agence n’a pas pu être chargée'));
-  }, [view, selectedSourceId]);
 
   // Le drapeau « favoris » se change aussi depuis la modale de filtres. Il doit
   // alors se lire dans la barre d'adresse — mais sans empiler d'entrée : passer
@@ -1455,6 +1352,20 @@ function AppView(): React.JSX.Element {
     },
     [sort, showArchived, favoritesOnly, visitorCriteria],
   );
+
+  /**
+   * Les critères du compte, et les gestes qui les lèvent. Après `load` : c'est
+   * lui qu'ils rappellent — le serveur filtre là-dessus (voir `use-criteria.ts`).
+   */
+  const {
+    criteria,
+    clearedUndo,
+    adoptCriteria,
+    relaxCriterion,
+    clearEveryCriterion,
+    undoClear,
+    forgetUndo,
+  } = useCriteria({ currentUser, reload: () => load(true), onError: setError });
   // Au retour sur l'application, la liste se recharge — sans squelette ni
   // retour à cinquante lignes : vues et alertes lues ailleurs y apparaissent.
   reloadRef.current = () => void load();
@@ -1529,23 +1440,6 @@ function AppView(): React.JSX.Element {
    * considère qu'il a été fait — mieux vaut ne pas le montrer que le montrer à
    * chaque chargement sans pouvoir le refermer.
    */
-  // L'historique ne se charge qu'en OUVRANT l'écran : c'est une consultation
-  // occasionnelle, pas une donnée dont la liste a besoin (§30).
-  useEffect(() => {
-    if (view !== 'alerts' || currentUser === undefined || currentUser === null) return;
-    void fetchAlerts()
-      .then(setAlerts)
-      .catch(() => undefined);
-  }, [view, currentUser]);
-
-  // Même règle pour les démarches : on les lit en ouvrant l'écran, pas avant.
-  useEffect(() => {
-    if (view !== 'exchanges' || currentUser === undefined || currentUser === null) return;
-    void fetchExchanges()
-      .then(setExchanges)
-      .catch(() => undefined);
-  }, [view, currentUser]);
-
   /**
    * Consulter l'historique, c'est avoir vu les alertes : la pastille tombe.
    * Les LIGNES, elles, gardent leur repère « non lue » — d'où l'instant
@@ -1565,22 +1459,6 @@ function AppView(): React.JSX.Element {
     setAlertsViewedFrom(alertsSeenAt);
     markAlertsSeenEverywhere(Date.now());
   }, [view]);
-
-  // Les critères du compte, une fois : ils ne changent ensuite que par le
-  // panneau de la modale, qui rend ce qu'il écrit. Un visiteur sans compte n'en
-  // a pas — la demande n'est même pas émise.
-  useEffect(() => {
-    if (currentUser === undefined || currentUser === null) return;
-    void fetchFilters()
-      .then((config) => {
-        setCriteria(config);
-        // Le retour arrière du dernier « Effacer tout » revient avec eux, s'il
-        // vaut encore : c'est ici, et pas ailleurs, qu'on sait ce que le compte
-        // porte vraiment.
-        setClearedUndo(recallCleared(config));
-      })
-      .catch(() => undefined);
-  }, [currentUser]);
 
   /**
    * Le profil locataire suit le COMPTE, et non l'appareil.
@@ -1977,7 +1855,7 @@ function AppView(): React.JSX.Element {
       // collecte ramènera, pas seulement de ce qu'on regarde aujourd'hui.
       await saveFilters(saved.criteria);
       // Les puces suivent : ce sont ces critères-là qui filtrent désormais.
-      setCriteria(saved.criteria);
+      adoptCriteria(saved.criteria);
       await load(true);
     } catch {
       setError('Les critères de cette recherche n’ont pas pu être appliqués');
@@ -2135,193 +2013,32 @@ function AppView(): React.JSX.Element {
     clearVisitorSearch();
     // Un lien partagé suivi avant l'inscription : on y revient, cette fois pour
     // l'appliquer ou l'enregistrer.
-    const sharedToken = readPendingSharedToken();
-    if (sharedToken !== null) {
-      writePendingSharedToken(null);
-      replace({ view: 'shared', id: sharedToken });
-    }
+    const sharedToken = consumePendingSharedToken();
+    if (sharedToken !== null) replace({ view: 'shared', id: sharedToken });
     setCurrentUser('inconnu');
     void fetchCurrentUser()
       .then(setCurrentUser)
       .catch(() => setCurrentUser(null));
   };
 
-  /**
-   * CE QUI PASSE AVANT L'APPLICATION.
-   *
-   * Plusieurs écrans se succèdent avant qu'il y ait quoi que ce soit à
-   * naviguer : on ne sait pas encore qui regarde, personne n'est connecté, ou
-   * le compte vient d'être créé. Aucun ne porte de coquille ni d'onglets —
-   * proposer d'aller ailleurs pendant qu'on demande un mot de passe
-   * reviendrait à ne rien demander du tout.
-   *
-   * Regroupés ici plutôt qu'en autant de sorties anticipées : le corps d'`App`
-   * dépassait sinon le seuil de complexité, et ils forment une seule question
-   * — « peut-on afficher l'application ? ».
-   */
-  const entranceScreen = (): React.JSX.Element | null => {
-    // AVANT TOUT LE RESTE : sans adresse d'API, il n'y a rien à charger et rien
-    // à connecter. L'application se croyait connectée et affichait une liste
-    // vide, ce qui se lit « aucune annonce ne correspond » au lieu de « rien
-    // n'est branché ».
-    if (isUnconfigured()) return <UnconfiguredScreen />;
-
-    // LE LIEN DE RÉINITIALISATION PASSE AVANT LA SESSION, et il le faut : on
-    // arrive dessus précisément parce qu'on ne peut pas se connecter. Attendre
-    // la réponse de `/api/me` pour l'afficher renverrait vers l'écran de
-    // connexion, c'est-à-dire vers le mur qu'on essaie de contourner.
-    if (view === 'reset') {
-      return <ResetPassword token={route.id ?? ''} onDone={() => replace({ view: 'home' })} />;
-    }
-
-    // MÊME RAISON POUR LA CONFIRMATION D'ADRESSE : on suit ce lien depuis sa
-    // boîte, souvent sur un autre appareil que celui de l'inscription. Exiger
-    // une session ici bloquerait la moitié des gens sur l'écran de connexion,
-    // pour un geste qui n'en a pas besoin — le jeton suffit à dire quelle
-    // adresse est confirmée.
-    if (view === 'confirm') {
-      return <ConfirmEmail token={route.id ?? ''} onDone={() => replace({ view: 'home' })} />;
-    }
-
-    /**
-     * UNE RECHERCHE PARTAGÉE PASSE APRÈS LA SESSION, contrairement aux deux
-     * écrans ci-dessus. Ceux-là existent précisément pour qui ne peut pas se
-     * connecter ; celle-ci, au contraire, ÉCRIT dans un compte — il faut donc
-     * savoir lequel. Un visiteur en reçoit une version sans écriture, plus bas.
-     */
-    if (view === 'shared' && currentUser !== null && currentUser !== undefined) {
-      return (
-        <SharedSearch
-          token={route.id ?? ''}
-          onApply={(shared) => {
-            replace({ view: 'list' });
-            void applySavedSearch(shared);
-          }}
-          onSave={(shared) => {
-            replace({ view: 'saved' });
-            void storeSharedSearch(shared);
-          }}
-          onCancel={() => replace({ view: 'home' })}
-        />
-      );
-    }
-
-    // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
-    // quelqu'un déjà connecté. Passé une seconde, en revanche, le blanc n'est
-    // plus une transition : il faut dire qu'il se passe quelque chose.
-    if (currentUser === undefined) return <SessionPending />;
-
-    if (currentUser === null) {
-      if (view === 'shared') {
-        const token = route.id ?? '';
-        return (
-          <SharedSearch
-            token={token}
-            onApply={() => undefined}
-            onSave={() => undefined}
-            onCancel={() => replace({ view: 'home' })}
-            visitor={{
-              onBrowse: (shared) => {
-                browseSharedSearch(shared);
-                replace({ view: 'list' });
-              },
-              onSignup: () => {
-                writePendingSharedToken(token);
-                go({ view: 'signup' });
-              },
-            }}
-          />
-        );
-      }
-      if (view === 'forgot') {
-        return <ForgotPassword onBack={() => replace({ view: 'home' })} />;
-      }
-      // L'INSCRIPTION OUVRE DÉJÀ LA SESSION : le serveur pose le cookie avec
-      // le compte. On relit donc `/api/me` exactement comme après une
-      // connexion, plutôt que de renvoyer vers l'écran de connexion pour y
-      // retaper ce qu'on vient de saisir.
-      if (view === 'signup') {
-        return (
-          <SignupScreen
-            onBack={() => replace({ view: 'home' })}
-            onSignedIn={() => {
-              replace({ view: 'home' });
-              enterSession();
-            }}
-          />
-        );
-      }
-      /**
-       * UN SEUL ÉCRAN DE CONNEXION, et non deux.
-       *
-       * Il y en avait un premier — « Connectez-vous pour continuer », un bouton
-       * « Se connecter » — devant celui qui porte le formulaire. Deux écrans
-       * pour le même geste, et le premier n'apportait qu'une phrase : le nom de
-       * ce qu'on venait faire. Cette phrase tient dans le second.
-       *
-       * CONSULTER RESTE LIBRE : l'écran ne s'impose pas à l'arrivée, il vient
-       * quand on le demande ou quand on tente un geste qui appartient à
-       * quelqu'un — un favori, un dossier. Le catalogue, lui, s'affiche sans
-       * rien demander (§26), et « Revenir aux annonces » y ramène.
-       */
-      if (pendingAction !== null || PERSONAL_VIEWS.has(view) || view === 'login') {
-        const clear = (): void => setPendingAction(null);
-        return (
-          <LoginScreen
-            {...(pendingAction !== null ? { raison: pendingAction } : {})}
-            onForgot={() => {
-              clear();
-              go({ view: 'forgot' });
-            }}
-            onSignup={() => {
-              clear();
-              go({ view: 'signup' });
-            }}
-            onSignedIn={() => {
-              clear();
-              enterSession();
-            }}
-            onBack={() => {
-              clear();
-              replace({ view: 'list' });
-            }}
-          />
-        );
-      }
-      // Tout le reste est du catalogue : on laisse l'application s'afficher.
-      return null;
-    }
-
-    /**
-     * L'ACCUEIL NE S'IMPOSE QU'À QUI A UN COMPTE. Il demande des critères et un
-     * dossier — des choses qui n'ont de sens qu'attachées à quelqu'un. Un
-     * visiteur y arriverait avant même d'avoir vu une annonce.
-     */
-    if (onboardingDone === false) {
-      return (
-        <OnboardingPanel
-          profile={profile}
-          onSaveProfile={rememberProfile}
-          onFinish={() => {
-            setOnboardingDone(true);
-            // L'écran se referme tout de suite ; la marque part en base
-            // derrière. Attendre le réseau pour retirer un écran qu'on vient de
-            // terminer donnerait l'impression d'un bouton qui ne répond pas.
-            void markOnboardingDone().catch(() => undefined);
-            // Et on pose le repère des nouveautés : quelqu'un qui découvre
-            // l'application n'a rien à rattraper. Sans cela, la modale des
-            // nouveautés s'ouvrirait dans la seconde suivant son accueil.
-            const latest = latestEntryId();
-            if (latest !== null) void markChangelogSeen(latest).catch(() => undefined);
-          }}
-        />
-      );
-    }
-
-    return null;
-  };
-
-  const entrance = entranceScreen();
+  // `null` veut dire « rien ne barre la route » : l'application s'affiche.
+  const entrance = ecranDEntree({
+    view,
+    routeId: route.id,
+    currentUser,
+    pendingAction,
+    onboardingDone,
+    profile,
+    go,
+    replace,
+    onSessionOpened: enterSession,
+    onClearPendingAction: () => setPendingAction(null),
+    onApplySharedSearch: (shared) => void applySavedSearch(shared),
+    onSaveSharedSearch: (shared) => void storeSharedSearch(shared),
+    onBrowseSharedSearch: browseSharedSearch,
+    onSaveProfile: rememberProfile,
+    onFinishOnboarding: finishOnboarding,
+  });
   if (entrance !== null) return entrance;
 
   /**
@@ -2712,49 +2429,12 @@ function AppView(): React.JSX.Element {
     ]),
   );
 
-  /**
-   * Pose le retour arrière, ou l'oublie — À L'ÉCRAN ET DANS LE NAVIGATEUR.
-   *
-   * Deux mémoires pour une seule notion : les tenir séparément, c'est
-   * s'exposer à une rangée « Annuler » qui a survécu au geste qu'elle défait,
-   * ou disparu alors qu'il valait encore.
-   */
-  const keepClearedUndo = (memo: ClearedCriteria | null): void => {
-    setClearedUndo(memo);
-    if (memo === null) forgetCleared();
-    else rememberCleared(memo);
-  };
-
-  /**
-   * Lève un critère, et recharge : c'est le SERVEUR qui filtre là-dessus.
-   *
-   * L'écran change d'abord — la puce doit disparaître sous le doigt — et
-   * revient en arrière si l'écriture échoue : garder une puce retirée ferait
-   * croire à un filtre levé qui filtre encore.
-   */
-  const relaxCriterion = async (patch: Partial<FilterConfig>): Promise<void> => {
-    if (criteria === null) return;
-    const previous = criteria;
-    const next = { ...criteria, ...patch };
-    setCriteria(next);
-    // Le retour arrière de « Effacer tout » ne vaut plus : il remettrait les
-    // critères d'avant l'effacement, donc aussi celui qu'on vient de lever
-    // exprès. Un « Annuler » ne défait que le geste qu'il annonce.
-    keepClearedUndo(null);
-    try {
-      await saveFilters(next);
-      await load(true);
-    } catch {
-      setCriteria(previous);
-      setError('Ce critère n’a pas pu être modifié');
-    }
-  };
-
   const criteriaRestrictions = criteriaExtras(criteria, (patch) => void relaxCriterion(patch));
   otherRestrictions.push(...criteriaRestrictions);
 
   /** Tout ce qui filtre DANS LE NAVIGATEUR : filtres rapides, recherche,
-   * sources, bascules. */
+   * sources, bascules. Les CRITÈRES, eux, sont au serveur — voir
+   * `use-criteria.ts`. */
   const clearBrowserFilters = (): void => {
     setQuickFilters(EMPTY_QUICK_FILTERS);
     setSourceFilter(ALL_SOURCES);
@@ -2765,77 +2445,16 @@ function AppView(): React.JSX.Element {
     setNewOnly(false);
   };
 
-  /**
-   * « EFFACER TOUT » EFFACE TOUT — critères de recherche compris.
-   *
-   * Il ne touchait qu'à l'affichage, et une phrase sous les puces expliquait
-   * que les critères, eux, continuaient d'écarter des annonces. Demande de
-   * l'utilisateur : ni la phrase, ni l'exception. Une barre où l'on retire les
-   * puces une à une et un lien qui n'en retire que la moitié ne peuvent pas
-   * cohabiter.
-   *
-   * CE QUI RESTE : la commune, le budget et la surface. Ce ne sont pas des
-   * puces — c'est le périmètre de l'outil, et sans eux il n'y a plus de
-   * recherche.
-   *
-   * L'écran change d'abord et revient en arrière si l'écriture échoue, comme
-   * pour le retrait d'une seule puce. Le retour arrière, lui, survit à
-   * l'écriture réussie : c'est là qu'il sert.
-   */
+  /** « Effacer tout » : les deux étages, du navigateur jusqu'au serveur. */
   const clearEveryFilter = async (): Promise<void> => {
     clearBrowserFilters();
-    const previous = criteria;
-    if (previous === null) return;
-    const chips = criteriaChips(previous);
-    if (chips.length === 0) return;
-    const next = clearedCriteria(previous);
-    setCriteria(next);
-    // `cleared` sert à vérifier, au prochain chargement, que rien n'a bougé
-    // depuis : sans lui, « Annuler » écraserait des critères réglés entre temps.
-    keepClearedUndo({ previous, cleared: next, labels: chips.map((chip) => chip.label) });
-    try {
-      await saveFilters(next);
-      await load(true);
-    } catch {
-      setCriteria(previous);
-      keepClearedUndo(null);
-      setError('Les critères n’ont pas pu être effacés');
-    }
+    await clearEveryCriterion();
   };
 
-  /**
-   * Remet les critères d'avant l'effacement, d'un seul clic.
-   *
-   * SI L'ÉCRITURE ÉCHOUE, LE BOUTON REVIENT. Sans cela, l'écran afficherait des
-   * critères rétablis que le serveur ne connaît pas, et le seul moyen de les
-   * rétablir vraiment aurait disparu avec la rangée : la perte silencieuse
-   * qu'on cherche précisément à éviter.
-   */
-  const undoClear = async (): Promise<void> => {
-    const pending = clearedUndo;
-    if (pending === null) return;
-    const cleared = criteria;
-    setCriteria(pending.previous);
-    keepClearedUndo(null);
-    try {
-      await saveFilters(pending.previous);
-      await load(true);
-    } catch {
-      setCriteria(cleared);
-      keepClearedUndo(pending);
-      setError('Vos critères n’ont pas pu être rétablis');
-    }
-  };
-
+  /** Le tri en plus : « Réinitialiser » rend l'écran d'ouverture entier. */
   const resetSortAndFilters = (): void => {
     setSort('priority');
-    setQuickFilters(EMPTY_QUICK_FILTERS);
-    setSourceFilter(ALL_SOURCES);
-    setSearch('');
-    setFavoritesOnly(false);
-    setShowArchived(false);
-    setHideUncertain(false);
-    setNewOnly(false);
+    clearBrowserFilters();
   };
 
   const toolbarBadge = countActiveSettings({ quickFilters, extras: otherRestrictions });
@@ -3001,10 +2620,7 @@ function AppView(): React.JSX.Element {
           onReset={resetSortAndFilters}
           onCriteriaSaved={(saved) => {
             // La barre de puces suit le panneau sans redemander les critères.
-            setCriteria(saved);
-            // Même raison que dans `relaxCriterion` : le retour arrière de
-            // l'effacement écraserait ce réglage-ci.
-            keepClearedUndo(null);
+            adoptCriteria(saved);
             void load(true);
           }}
         />
@@ -3024,7 +2640,7 @@ function AppView(): React.JSX.Element {
         <ClearedCriteriaNotice
           cleared={clearedUndo}
           onUndo={() => void undoClear()}
-          onHide={() => keepClearedUndo(null)}
+          onHide={forgetUndo}
         />
       </div>
 
