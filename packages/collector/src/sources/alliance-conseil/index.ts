@@ -9,7 +9,7 @@
  */
 
 import { makeApimoScraper } from '../apimo/scraper.js';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 
 export const allianceConseilScraper = makeApimoScraper({
   id: 'alliance-conseil',

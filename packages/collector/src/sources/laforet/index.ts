@@ -1,7 +1,7 @@
 /**
  * Source : Laforêt (réseau d'agences).
  *
- * POURQUOI CETTE SOURCE EN PREMIER — voir `docs/sources.md` pour l'étude complète.
+ * POURQUOI CETTE SOURCE EN PREMIER — voir `docs/sources-enquetes.md` pour l'étude complète.
  *
  *   - Son `robots.txt` n'interdit que `/louer/rechercher?*` ; les pages
  *     `/ville/location-appartement-{ville}-{cp}` utilisées ici sont autorisées.

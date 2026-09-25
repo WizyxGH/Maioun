@@ -1,6 +1,6 @@
 /**
  * Source : Rentumo — voir l'étude dans `parser.ts` et la fiche de
- * `docs/sources.md`.
+ * `docs/sources-enquetes.md`.
  *
  * AGRÉGATEUR, et collecté en connaissance de cause (décision utilisateur du
  * 2026-09-03) : il republie des annonces sans jamais lier l'annonce d'origine

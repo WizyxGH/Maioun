@@ -1,7 +1,7 @@
 /**
  * Source : PAP — De Particulier À Particulier (portail).
  *
- * POURQUOI CETTE SOURCE — voir `docs/sources.md` pour l'étude complète.
+ * POURQUOI CETTE SOURCE — voir `docs/sources-enquetes.md` pour l'étude complète.
  *
  *   - Bailleurs PARTICULIERS : contact direct, sans agence ni frais d'agence.
  *     Complément exact des réseaux déjà couverts (Laforêt, Orpi).
@@ -53,7 +53,7 @@ export const PAP_DESCRIPTOR: SourceDescriptor = {
     delayBetweenRequestsMs: 3_000,
   }),
   /**
-   * DÉSACTIVÉE le 2026-08-15, RECONTRÔLÉE le 2026-09-16 — voir docs/sources.md.
+   * DÉSACTIVÉE le 2026-08-15, RECONTRÔLÉE le 2026-09-16 — voir docs/sources-enquetes.md.
    *
    * Le robots.txt autorise toujours ces pages et le sitemap les déclare
    * toujours, MAIS le pare-feu s'est refermé davantage. En août, le filtrage

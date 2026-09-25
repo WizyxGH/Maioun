@@ -24,7 +24,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 import { parseDetailPage, parseSitemap, type ParsedListingUrl } from './parser.js';
 
 const SITEMAP_URL = 'https://cimiez-boulevard.fr/sitemap.xml';

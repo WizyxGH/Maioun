@@ -1,6 +1,6 @@
 /**
  * Source : Cimiez Boulevard (cimiez-boulevard.fr) — agence niçoise.
- * Voir la fiche d'étude dans `docs/sources.md`.
+ * Voir la fiche d'étude dans `docs/sources-enquetes.md`.
  *
  * PREMIÈRE SOURCE HORS PLATEFORME CONNUE. Les cinq dernières agences ajoutées
  * étaient sur Apimo, où une entrée de configuration suffit. Celle-ci a son

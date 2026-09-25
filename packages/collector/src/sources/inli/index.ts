@@ -1,5 +1,5 @@
 /**
- * Source : In'li — voir l'étude dans `parser.ts` et `docs/sources.md`. Catalogue
+ * Source : In'li — voir l'étude dans `parser.ts` et `docs/sources-enquetes.md`. Catalogue
  * paginé national : on parcourt les pages, on ne RETIENT que Nice, on ne VISITE
  * que les fiches nouvelles (§30, §32).
  */

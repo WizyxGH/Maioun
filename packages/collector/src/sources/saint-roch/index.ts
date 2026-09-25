@@ -1,6 +1,6 @@
 /**
  * Source : Saint Roch Immobilier — voir l'étude dans `parser.ts` et
- * `docs/sources.md`. Liste SSR → seules les fiches RÉSIDENTIELLES des communes
+ * `docs/sources-enquetes.md`. Liste SSR → seules les fiches RÉSIDENTIELLES des communes
  * cibles et nouvelles sont visitées (§30) ; les connues sont confirmées sans
  * requête (§32).
  */

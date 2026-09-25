@@ -37,7 +37,7 @@ import { compactListing } from '../shared/raw-listing.js';
  * le dédoublonnage écarte les adresses que trop d'annonces partagent, sans quoi
  * ce seul lien réunirait tout le stock en un logement. L'utilisateur, une fois
  * connecté, retrouve l'annonce par sa référence (affichée sur la fiche Maïoun).
- * Voir `docs/sources.md`.
+ * Voir `docs/sources-enquetes.md`.
  */
 const BULLETIN_URL = 'http://abonnes.beplogement.com/w_index_abonnes.php';
 /** Le formulaire de demande, une annonce à la fois. */

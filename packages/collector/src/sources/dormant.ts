@@ -9,7 +9,7 @@
  *
  * Cette liste rend ces verdicts exécutables : pour chaque candidat, le motif du
  * refus, la date du relevé, et surtout LA PREUVE qui dirait que la situation a
- * changé. Les faits viennent de `docs/sources.md`, fiche par fiche.
+ * changé. Les faits viennent de `docs/sources-enquetes.md`, fiche par fiche.
  *
  * ZÉRO FAUX POSITIF, C'EST LA RÈGLE. Un 200 ne prouve rien : le site de
  * Confiance Immobilière répond 200 avec une page « Maintenance », un domaine
@@ -82,7 +82,7 @@ export interface DormantCandidate {
 const DEFAULT_MIN_MATCHES = 3;
 
 /**
- * LA LISTE, dérivée de `docs/sources.md`.
+ * LA LISTE, dérivée de `docs/sources-enquetes.md`.
  *
  * Chaque entrée reprend un verdict daté et le traduit en une vérification que
  * la machine sait faire. Rien n'y est deviné : les adresses sondées sont celles

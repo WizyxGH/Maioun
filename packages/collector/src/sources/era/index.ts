@@ -1,6 +1,6 @@
 /**
  * Source : ERA Immobilier — voir l'étude dans `parser.ts` et la fiche de
- * `docs/sources.md`.
+ * `docs/sources-enquetes.md`.
  *
  * L'utilisateur a demandé « ERA Mac Immobilier », une franchise niçoise. On
  * prend le réseau plutôt que cette agence-là : la page ville d'ERA rassemble

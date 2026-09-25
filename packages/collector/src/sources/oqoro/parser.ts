@@ -1,7 +1,7 @@
 /**
  * Source : Oqoro (oqoro.com) — gestionnaire locatif en ligne, qui publie son
  * parc géré sur son propre site. Étude du 2026-09-16, fiche dans
- * `docs/sources.md`.
+ * `docs/sources-enquetes.md`.
  *
  * LE SITE PUBLIE TOUT SON PARC, LOUÉ COMPRIS. Sur les quarante-sept biens des
  * Alpes-Maritimes relevés le 2026-09-16, quarante-quatre portent le bandeau

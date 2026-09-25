@@ -1,5 +1,5 @@
 /**
- * Source : Immobilière Pujol. Voir `parser.ts` et `docs/sources.md`.
+ * Source : Immobilière Pujol. Voir `parser.ts` et `docs/sources-enquetes.md`.
  *
  * COLLECTE PAR PLAN DE SITE. Cinq fichiers énumèrent 4 681 annonces, dont
  * dix-huit à Nice — l'agence est marseillaise. On ne visite que celles-là, et

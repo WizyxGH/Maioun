@@ -1,6 +1,6 @@
 /**
  * Source : Rentumo (rentumo.com) — AGRÉGATEUR, demandé par l'utilisateur le
- * 2026-09-03. Voir la fiche d'étude dans `docs/sources.md`.
+ * 2026-09-03. Voir la fiche d'étude dans `docs/sources-enquetes.md`.
  *
  * CE QU'IL FAUT SAVOIR AVANT DE LIRE CE FICHIER.
  *

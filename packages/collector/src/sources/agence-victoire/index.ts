@@ -11,13 +11,6 @@
 import { makeApimoScraper } from '../apimo/scraper.js';
 import { NICE_AREA_SLUGS } from '../shared/communes.js';
 
-/**
- * Les communes cibles des agences niçoises vivent désormais dans
- * `shared/communes.ts`, avec les orthographes que chaque portail attend.
- * Réexporté ici parce que soixante-dix sources l'importent par ce chemin.
- */
-export { NICE_AREA_SLUGS };
-
 export const agenceVictoireScraper = makeApimoScraper({
   id: 'agence-victoire',
   name: 'Agence de la Victoire',

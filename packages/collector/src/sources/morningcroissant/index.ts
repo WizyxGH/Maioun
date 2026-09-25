@@ -1,6 +1,6 @@
 /**
  * Source : MorningCroissant (morningcroissant.fr) — voir l'étude dans
- * `parser.ts` et `docs/sources.md`.
+ * `parser.ts` et `docs/sources-enquetes.md`.
  *
  * UNE SEULE ENTRÉE POUR TOUT LE PÉRIMÈTRE. La recherche « Nice » est un rayon,
  * pas une commune : au relevé du 2026-09-16, ses quatre-vingt-douze résultats

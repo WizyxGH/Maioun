@@ -1,6 +1,6 @@
 /**
  * Source : Studapart — voir l'étude détaillée dans `parser.ts` et
- * `docs/sources.md`. Collecte par API JSON publique (POST), une requête par
+ * `docs/sources-enquetes.md`. Collecte par API JSON publique (POST), une requête par
  * commune cible : chaque requête rend tout le stock de la ville dédoublonné.
  */
 

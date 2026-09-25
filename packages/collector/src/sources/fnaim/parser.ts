@@ -1,6 +1,6 @@
 /**
  * Source : FNAIM (fnaim.fr) — portail de la fédération professionnelle.
- * Voir la fiche d'étude dans `docs/sources.md`.
+ * Voir la fiche d'étude dans `docs/sources-enquetes.md`.
  *
  * POURQUOI ELLE COMPTE PLUS QUE LES AUTRES. Les trois quarts de l'inventaire
  * viennent aujourd'hui d'alertes e-mail, qui ne publient ni adresse ni

@@ -170,14 +170,15 @@ critères, sans lancer la collecte à la main :
 
 ## Documentation
 
-| Document                                    | Contenu                                                                                                                            |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| [architecture.md](docs/architecture.md)     | composants et flux, puis par sections : scoring, détection de risque, dédoublonnage, scheduler, scraping, base de données, contact |
-| [sources.md](docs/sources.md)               | étude datée des sources (robots.txt, verdicts, priorités)                                                                          |
-| [deployment.md](docs/deployment.md)         | installation locale, `.env`, notifications, et option cloud gratuite (Turso + Actions + Pages)                                     |
-| [privacy.md](docs/privacy.md)               | cartographie des données, les six barrières anti-fuite                                                                             |
-| [CLAUDE.md](CLAUDE.md)                      | ce qu'il ne faut pas se tromper quand on travaille sur le dépôt, humain ou agent                                                   |
-| [risque-arnaque.md](docs/risque-arnaque.md) | fausses annonces : le croisement courte durée / longue durée mesuré, les règles écartées et leur compte de faux positifs           |
+| Document                                        | Contenu                                                                                                                            |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| [architecture.md](docs/architecture.md)         | composants et flux, puis par sections : scoring, détection de risque, dédoublonnage, scheduler, scraping, base de données, contact |
+| [sources.md](docs/sources.md)                   | pourquoi une source est collectée ou non, les plateformes, et quoi vérifier avant d'en ajouter une                                 |
+| [deployment.md](docs/deployment.md)             | installation locale, `.env`, notifications, et option cloud gratuite (Turso + Actions + Pages)                                     |
+| [privacy.md](docs/privacy.md)                   | cartographie des données, les six barrières anti-fuite                                                                             |
+| [CLAUDE.md](CLAUDE.md)                          | ce qu'il ne faut pas se tromper quand on travaille sur le dépôt, humain ou agent                                                   |
+| [risque-arnaque.md](docs/risque-arnaque.md)     | fausses annonces : le croisement courte durée / longue durée mesuré, les règles écartées et leur compte de faux positifs           |
+| [sources-enquetes.md](docs/sources-enquetes.md) | archive : le relevé daté de chaque balayage, avec la mesure qui l'a tranché                                                        |
 
 Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 [`packages/collector/src/sources/index.ts`](packages/collector/src/sources/index.ts).
@@ -205,11 +206,12 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 - **L'offre payante n'encaisse rien** : aucune clé de paiement n'est branchée.
   La route de paiement répond franchement « pas configuré » plutôt que
   d'ouvrir une page qui échouerait.
-- 210 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
-  Century 21, Orpi, Arthurimmo, LocService, les adaptateurs génériques Apimo et
-  La Boîte Immo/Hektor, et Studapart par API) ; PAP est implémentée mais
-  désactivée (son WAF refuse les clients non-navigateurs, qu'on ne contourne
-  pas) — l'[étude des sources](docs/sources.md) détaille chaque verdict.
+- 223 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
+  Century 21, Orpi, Arthurimmo, LocService, les fabriques Apimo et La Boîte
+  Immo/Hektor, et Studapart par API) ; PAP est implémentée mais désactivée (son
+  WAF refuse les clients non-navigateurs, qu'on ne contourne pas) — les verdicts
+  sont dans [sources.md](docs/sources.md), et les refus réversibles dans
+  `sources/dormant.ts`, avec la preuve qui les lèverait.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
 - Leboncoin et SeLoger restent **écartés** : DataDome + interdiction explicite
   de l'accès automatisé (Leboncoin), qu'on ne contourne pas. La voie conforme —
@@ -228,9 +230,9 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 
 ## Roadmap
 
-- **Actuel** : pipeline complet, 210 sources actives (portails + réseaux +
-  agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
-  par API publique) + PAP prête mais désactivée ; mode local zéro-cloud et mode
+- **Actuel** : pipeline complet, 223 sources actives (portails + réseaux +
+  agences niçoises via les fabriques Apimo et Hektor, Studapart par API
+  publique) + PAP prête mais désactivée ; mode local zéro-cloud et mode
   publié (Actions + Pages + Turso) ; dédoublonnage multi-signaux ; contact
   manuel + relance et trace des pièces envoyées ; affinité et statistiques ;
   notifications Web Push et e-mail ; recherches enregistrées ; dossier de
@@ -250,7 +252,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 | `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due. Vérifier la page Sources (Paramètres → Sources) ; pour en forcer une : `pnpm collect -- --source=<id>`.                                   |
 | Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement. Voir son verdict dans [docs/sources.md](docs/sources.md).                           |
 | Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans Paramètres → Sources), les autres sources continuent.                                                                                |
-| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 20 m², Nice). Ouvrir « Filtres » et élargir, ou décocher les restrictions.                                                             |
+| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors des critères enregistrés du compte. Ouvrir « Filtres » et élargir, ou retirer les puces de la barre.                                                        |
 | Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                        |
 | Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que les alertes sont activées depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation. |
 

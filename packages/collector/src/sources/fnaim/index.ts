@@ -1,6 +1,6 @@
 /**
  * Source : FNAIM — voir l'étude dans `parser.ts` et la fiche de
- * `docs/sources.md`.
+ * `docs/sources-enquetes.md`.
  *
  * C'est la réponse à « réduire la dépendance aux alertes e-mail de SeLoger » :
  * 193 agences niçoises publient sur ce portail, dont beaucoup n'ont pas de

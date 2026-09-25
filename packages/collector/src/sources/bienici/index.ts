@@ -1,6 +1,6 @@
 /**
  * Source : Bien'ici — voir l'étude complète en tête de `parser.ts` et dans
- * `docs/sources.md`. Collecte par l'API de recherche du site, en GET, six
+ * `docs/sources-enquetes.md`. Collecte par l'API de recherche du site, en GET, six
  * pages de cent annonces pour couvrir Nice, puis la fiche JSON des annonces
  * dont on ne connaît pas encore l'agence et son téléphone.
  */

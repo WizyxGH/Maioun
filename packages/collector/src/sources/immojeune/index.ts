@@ -1,5 +1,5 @@
 /**
- * Source : ImmoJeune (immojeune.com) — voir l'étude dans `docs/sources.md`.
+ * Source : ImmoJeune (immojeune.com) — voir l'étude dans `docs/sources-enquetes.md`.
  *
  * UN PORTAIL DE PARTICULIERS DONT LE CONTACT EST GRATUIT, ce qui manquait.
  * LocService apporte déjà du particulier, mais vend la mise en relation ;

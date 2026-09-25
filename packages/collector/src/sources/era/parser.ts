@@ -1,7 +1,7 @@
 /**
  * Source : ERA Immobilier (eraimmobilier.com) — réseau, demandé par
  * l'utilisateur le 2026-09-04 sous le nom de sa franchise niçoise « ERA Mac
- * Immobilier ». Voir la fiche d'étude dans `docs/sources.md`.
+ * Immobilier ». Voir la fiche d'étude dans `docs/sources-enquetes.md`.
  *
  * ON NE LIT QUE `www.eraimmobilier.com`. Le site est un Angular rendu côté
  * serveur : chaque page embarque, dans un `<script id="ng-state">`, l'état de

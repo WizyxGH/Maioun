@@ -8,7 +8,7 @@
  */
 
 import { makeNettyScraper } from '../netty/scraper.js';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 
 export const optimmoScraper = makeNettyScraper({
   id: 'optimmo',

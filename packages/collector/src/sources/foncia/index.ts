@@ -1,7 +1,7 @@
 /**
  * Source : Foncia (réseau d'agences / administrateur de biens).
  *
- * POURQUOI CETTE SOURCE — voir `docs/sources.md` pour l'étude complète.
+ * POURQUOI CETTE SOURCE — voir `docs/sources-enquetes.md` pour l'étude complète.
  *
  *   - Premier administrateur de biens de France : gros volume de gestion
  *     locative en propre, dont une partie n'apparaît pas ailleurs (§3).

@@ -1,9 +1,9 @@
 # Travailler sur Maïoun
 
-Agrégateur de locations sur Nice. Une collecte lit ~216 sources, dédoublonne,
+Agrégateur de locations sur Nice. Une collecte lit 223 sources, dédoublonne,
 score, puis alerte. `README.md` décrit le produit, `docs/architecture.md` le
-flux, `docs/sources.md` chaque source. **Ce fichier-ci ne dit que ce qu'il ne
-faut pas se tromper.**
+flux, `docs/sources.md` ce qu'on collecte et ce qu'on refuse. **Ce fichier-ci ne
+dit que ce qu'il ne faut pas se tromper.**
 
 ## Une seule commande avant de committer
 
@@ -120,8 +120,8 @@ dédoublonnée), `listing_user_state` (favori, suivi, archivage), `source_state`
   clair. (L'ancien code en contient encore ; ne pas en ajouter.)
 - **Fabriques partagées plutôt que parseurs recopiés.** Avant d'écrire un
   parseur, chercher si la source tourne sur une plateforme déjà servie :
-  `sources/hektor/` (La Boîte Immo, 56 agences), `sources/apimo/` (60),
-  `sources/shared/`.
+  `sources/apimo/` (78 sources), `sources/hektor/` (La Boîte Immo, 53),
+  `sources/netty/` (9), `sources/twimmo/` (4), `sources/shared/`.
 - **Tests permanents plutôt que scripts jetables.** Chaque correctif a un test
   qui échoue sans lui — le vérifier en remettant le code d'origine.
 

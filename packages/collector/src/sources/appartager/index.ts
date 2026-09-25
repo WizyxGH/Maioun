@@ -1,6 +1,6 @@
 /**
  * Source : Appartager (appartager.com) — voir l'étude dans `parser.ts` et
- * `docs/sources.md`.
+ * `docs/sources-enquetes.md`.
  *
  * TROIS PAGES, ET AUCUN PARAMÈTRE. Le robots.txt interdit toutes les URL de
  * recherche paramétrées — elles portent toutes un `=` — mais la pagination

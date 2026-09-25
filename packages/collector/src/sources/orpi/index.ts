@@ -1,7 +1,7 @@
 /**
  * Source : Orpi (réseau d'agences).
  *
- * POURQUOI CETTE SOURCE EN DEUXIÈME — voir `docs/sources.md` pour l'étude.
+ * POURQUOI CETTE SOURCE EN DEUXIÈME — voir `docs/sources-enquetes.md` pour l'étude.
  *
  *   - `robots.txt` (revérifié le 2026-09-16) : `/recherche/*` est interdit,
  *     mais les pages ville `/location-immobiliere-{commune}/` ne le sont pas,

@@ -1,6 +1,6 @@
 /**
  * Source : Borne & Delaunay (borne-delaunay.com) — agence niçoise, demandée par
- * l'utilisateur le 2026-09-04. Voir la fiche d'étude dans `docs/sources.md`.
+ * l'utilisateur le 2026-09-04. Voir la fiche d'étude dans `docs/sources-enquetes.md`.
  *
  * Site Rails maison, rendu côté serveur, sans anti-bot. `robots.txt` n'interdit
  * qu'un endpoint de formulaire (`/contacts/success_landing`).

@@ -371,6 +371,7 @@ jamais de données fictives.
 | `CREDENTIALS_KEY`                         | déchiffre les accès abonnés déclarés depuis le site — **exactement la même valeur que le Worker** |
 | `IMAP_USER` / `IMAP_APP_PASSWORD`         | la boîte où arrivent les alertes des portails (§6, §10)                                           |
 | `BEP_SUBSCRIBER_USER` / `_PASSWORD`       | optionnel (amorçage d'un accès abonné payé)                                                       |
+| `CLOUDFLARE_API_TOKEN`                    | déploie le Worker depuis Actions (`deploy-worker.yml`) — jeton « Edit Cloudflare Workers »        |
 
 Et les _variables_ (onglet « Variables », pas « Secrets ») :
 
@@ -382,6 +383,7 @@ Et les _variables_ (onglet « Variables », pas « Secrets ») :
 | `IMAP_HOST` / `IMAP_MAILBOX` | la boîte à lire ; défauts `imap.gmail.com` et la boîte de réception                                                                                                                                                                      |
 | `ALERT_ADDRESS_TEMPLATE`     | **le même gabarit que le Worker.** Le Worker MONTRE l'adresse à chaque compte, le collecteur s'en sert pour ROUTER ce qui arrive : configuré d'un seul côté, l'écran affiche une adresse dont les messages n'appartiendraient à personne |
 | `AUTO_CONTACT_ENABLED`       | interrupteur global du contact automatique (§23). Absent = OFF                                                                                                                                                                           |
+| `COLLECTE_EN_PAUSE_JUSQU_AU` | une date `AAAA-MM-JJ` avant laquelle la collecte ne part pas — le temps qu'un quota Turso se remette. **La reprise est automatique** : rien à réactiver, donc rien à oublier de réactiver. Voir `scripts/pause-collecte.mjs`.            |
 
 **Les valeurs manquantes ne font pas d'erreur, elles font du silence.** Les
 quatre variables IMAP ont manqué longtemps : la source des alertes e-mail se

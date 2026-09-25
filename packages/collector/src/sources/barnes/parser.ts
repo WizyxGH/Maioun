@@ -14,7 +14,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 import { htmlToText } from '../shared/html-text.js';
 import { afterLabel } from '../shared/labels.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';

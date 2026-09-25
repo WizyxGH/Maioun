@@ -1,6 +1,6 @@
 /**
  * Source : Arthurimmo — agence de Nice du réseau. Voir `parser.ts` et
- * `docs/sources.md` pour l'étude.
+ * `docs/sources-enquetes.md` pour l'étude.
  *
  * UNE PAGE DE LISTE, PUIS UNE FICHE PAR ANNONCE. La liste ne porte rien
  * d'exploitable hormis les adresses des fiches ; tout le reste est sur

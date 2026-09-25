@@ -1,6 +1,6 @@
 /**
  * Source : Mirabello Immobilier — voir l'étude dans `parser.ts` et
- * `docs/sources.md`. Liste unique server-rendered → seules les fiches NOUVELLES
+ * `docs/sources-enquetes.md`. Liste unique server-rendered → seules les fiches NOUVELLES
  * sont visitées (§30) ; les connues sont confirmées sans requête (§32).
  */
 

@@ -1,5 +1,5 @@
 /**
- * Source : AFEDIM — voir `parser.ts` et `docs/sources.md`.
+ * Source : AFEDIM — voir `parser.ts` et `docs/sources-enquetes.md`.
  *
  * Une requête pour l'inventaire du département, puis la fiche de CHAQUE bien
  * retenu, à chaque passage. Le stock est minuscule (trois biens dans les
@@ -20,7 +20,7 @@ import type {
   StopReason,
 } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { NICE_AREA_SLUGS } from '../agence-victoire/index.js';
+import { NICE_AREA_SLUGS } from '../shared/communes.js';
 import type { RawDraft } from '../shared/raw-listing.js';
 import { LIST_URL, announcedCount, parseDetail, parseListPage } from './parser.js';
 

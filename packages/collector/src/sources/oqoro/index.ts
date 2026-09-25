@@ -1,6 +1,6 @@
 /**
  * Source : Oqoro — voir l'étude dans `parser.ts` et la fiche de
- * `docs/sources.md`.
+ * `docs/sources-enquetes.md`.
  *
  * TROIS PAGES PAR PASSAGE, pas treize. La liste départementale porte les mêmes
  * annonces que les treize pages de commune, et une commune où Oqoro n'a encore

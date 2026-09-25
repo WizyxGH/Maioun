@@ -2,7 +2,7 @@
  * Source : MorningCroissant (morningcroissant.fr) — place de marché de la
  * location meublée et non meublée en MOYENNE et LONGUE durée.
  *
- * POURQUOI ELLE ENTRE — l'étude complète est dans `docs/sources.md`.
+ * POURQUOI ELLE ENTRE — l'étude complète est dans `docs/sources-enquetes.md`.
  *
  *   - Ce ne sont PAS des meublés touristiques. La page tarifaire énumère les
  *     baux pratiqués : bail civil de date à date, bail mobilité de 1 à 10 mois,

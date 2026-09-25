@@ -5,7 +5,7 @@
  * robots.txt : seules les recherches par CODE POSTAL (`cp-…`) et par agence
  * sont interdites — le format par ville `/annonces/location-appartement/v-nice/`
  * ne l'est pas, s'affiche en SSR et se déclare lui-même indexable. Corrigé le
- * 2026-08-15, voir docs/sources.md.
+ * 2026-08-15, voir docs/sources-enquetes.md.
  *
  * UNE SEULE RECHERCHE POUR TOUT UN RÉSEAU, ET ELLE EN VOYAIT MOINS DE LA
  * MOITIÉ. Dénombrement du 2026-09-17, à partir des totaux que le site publie

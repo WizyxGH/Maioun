@@ -1,5 +1,5 @@
 /**
- * Source : Lamy Immobilier — voir l'en-tête de `parser.ts` et `docs/sources.md`.
+ * Source : Lamy Immobilier — voir l'en-tête de `parser.ts` et `docs/sources-enquetes.md`.
  *
  * Méthode sitemap, comme l'adaptateur Apimo (§47) : le sitemap (urlset unique,
  * ~1,9 Mo) donne toutes les fiches ; seules les NOUVELLES fiches des communes
