@@ -31,12 +31,23 @@ export function LoginScreen({
   onSignedIn,
   onForgot,
   onSignup,
+  raison,
+  onBack,
 }: {
   readonly onSignedIn: () => void;
   /** Ouvre la demande de lien. Absent : le lien ne s'affiche pas. */
   readonly onForgot?: () => void;
   /** Ouvre la création de compte. Absent : le bouton ne s'affiche pas. */
   readonly onSignup?: () => void;
+  /**
+   * LE GESTE QU'ON VENAIT FAIRE, sans majuscule : « garder une annonce en
+   * favori ». Il devient la phrase d'accroche, à la place de la générique.
+   *
+   * C'est tout ce qu'un second écran apportait — voir le commentaire en tête.
+   */
+  readonly raison?: string;
+  /** Retour au catalogue. Absent : on n'affiche pas de sortie. */
+  readonly onBack?: () => void;
 }): React.JSX.Element {
   const [identifiant, setIdentifiant] = useState('');
   const [password, setPassword] = useState('');
@@ -64,7 +75,11 @@ export function LoginScreen({
   return (
     <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-4">
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Maïoun</h1>
-      <p className="text-muted-foreground mb-5 text-sm">Connectez-vous pour voir vos annonces.</p>
+      <p className="text-muted-foreground mb-5 text-sm">
+        {raison === undefined
+          ? 'Connectez-vous pour voir vos annonces.'
+          : `Connectez-vous pour ${raison}.`}
+      </p>
 
       <Card>
         <form
@@ -152,6 +167,15 @@ export function LoginScreen({
         Les annonces sont communes à tous les comptes ; vos favoris, votre suivi et vos recherches
         enregistrées n’appartiennent qu’à vous.
       </p>
+
+      {/* CONSULTER RESTE LIBRE : qui arrive ici par un geste personnel doit
+        pouvoir revenir aux annonces sans compte, et sans le bouton « retour »
+        du navigateur — cet écran occupe tout, barre de navigation comprise. */}
+      {onBack !== undefined && (
+        <Button variant="ghost" onClick={onBack} className="mt-3 w-full">
+          Revenir aux annonces, sans compte
+        </Button>
+      )}
     </main>
   );
 }

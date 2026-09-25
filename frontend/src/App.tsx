@@ -77,7 +77,6 @@ import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
-import { AccountRequired } from './components/AccountRequired.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
 import {
   describeSearch,
@@ -2238,32 +2237,6 @@ function AppView(): React.JSX.Element {
       if (view === 'forgot') {
         return <ForgotPassword onBack={() => replace({ view: 'home' })} />;
       }
-      /**
-       * CONSULTER EST LIBRE. L'écran de connexion ne s'impose plus à l'arrivée :
-       * il vient quand on le demande, ou quand on tente un geste qui appartient
-       * à quelqu'un. Le catalogue, lui, s'affiche sans rien demander — c'est
-       * l'API qui garantit que rien de personnel ne part avec (§26).
-       */
-      if (pendingAction !== null || PERSONAL_VIEWS.has(view)) {
-        const clear = (): void => setPendingAction(null);
-        return (
-          <AccountRequired
-            {...(pendingAction !== null ? { action: pendingAction } : {})}
-            onLogin={() => {
-              clear();
-              go({ view: 'login' });
-            }}
-            onSignup={() => {
-              clear();
-              go({ view: 'signup' });
-            }}
-            onBack={() => {
-              clear();
-              if (PERSONAL_VIEWS.has(view)) replace({ view: 'list' });
-            }}
-          />
-        );
-      }
       // L'INSCRIPTION OUVRE DÉJÀ LA SESSION : le serveur pose le cookie avec
       // le compte. On relit donc `/api/me` exactement comme après une
       // connexion, plutôt que de renvoyer vers l'écran de connexion pour y
@@ -2279,12 +2252,40 @@ function AppView(): React.JSX.Element {
           />
         );
       }
-      if (view === 'login') {
+      /**
+       * UN SEUL ÉCRAN DE CONNEXION, et non deux.
+       *
+       * Il y en avait un premier — « Connectez-vous pour continuer », un bouton
+       * « Se connecter » — devant celui qui porte le formulaire. Deux écrans
+       * pour le même geste, et le premier n'apportait qu'une phrase : le nom de
+       * ce qu'on venait faire. Cette phrase tient dans le second.
+       *
+       * CONSULTER RESTE LIBRE : l'écran ne s'impose pas à l'arrivée, il vient
+       * quand on le demande ou quand on tente un geste qui appartient à
+       * quelqu'un — un favori, un dossier. Le catalogue, lui, s'affiche sans
+       * rien demander (§26), et « Revenir aux annonces » y ramène.
+       */
+      if (pendingAction !== null || PERSONAL_VIEWS.has(view) || view === 'login') {
+        const clear = (): void => setPendingAction(null);
         return (
           <LoginScreen
-            onForgot={() => go({ view: 'forgot' })}
-            onSignup={() => go({ view: 'signup' })}
-            onSignedIn={enterSession}
+            {...(pendingAction !== null ? { raison: pendingAction } : {})}
+            onForgot={() => {
+              clear();
+              go({ view: 'forgot' });
+            }}
+            onSignup={() => {
+              clear();
+              go({ view: 'signup' });
+            }}
+            onSignedIn={() => {
+              clear();
+              enterSession();
+            }}
+            onBack={() => {
+              clear();
+              replace({ view: 'list' });
+            }}
           />
         );
       }
