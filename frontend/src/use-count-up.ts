@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { mouvementRefuse } from './reduced-motion.js';
 
 /** Assez pour voir le mouvement, trop court pour retarder la lecture. */
 const DUREE_MS = 550;
@@ -34,15 +35,6 @@ const DUREE_MS = 550;
  * Elle se perd au rechargement de la page, et c'est bien : là, tout recharge.
  */
 const dejaDeroules = new Set<string>();
-
-/** `true` si le système demande de limiter les animations. */
-function mouvementRefuse(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
 
 /**
  * La valeur à afficher : elle monte jusqu'à `value`, puis s'y arrête.

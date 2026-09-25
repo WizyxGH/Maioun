@@ -56,18 +56,11 @@ export function OverallScore({
         <p className="mt-0.5 text-sm font-medium">
           {label} — {rank}.
         </p>
-        <details className="group mt-2">
-          <summary className="cursor-pointer list-none text-[0.82rem] text-muted-foreground">
-            Comment il est calculé
-            <span
-              aria-hidden="true"
-              className="ml-1 inline-block transition-transform group-open:rotate-90"
-            >
-              ▸
-            </span>
-          </summary>
-          <p className="mt-1 text-[0.82rem] text-muted-foreground">{SCORE_EXPLANATION}</p>
-        </details>
+        {/* UN SEUL DÉPLIANT, et non deux. « Comment il est calculé » et « Ce qui
+          a fait ce score » se suivaient sous la même note, chacun avec sa
+          flèche : deux gestes pour une seule question — d'où vient ce chiffre.
+          La règle du barème ouvre désormais le détail, juste avant les raisons
+          qui l'appliquent. */}
         {children}
       </Card>
     </section>
@@ -133,6 +126,9 @@ export function ScoreBreakdown({
         </summary>
 
         <div className="pb-2">
+          {/* LE BARÈME D'ABORD, LES RAISONS ENSUITE : on ne comprend « 590 € ≤
+            700 € de budget » qu'en sachant que la correspondance pèse 30 %. */}
+          <p className="mb-3 text-[0.82rem] text-muted-foreground">{SCORE_EXPLANATION}</p>
           {groups.map((groupe) => (
             <section key={groupe.title} className="mt-2 first:mt-0">
               <h4 className="text-[0.82rem] font-semibold text-muted-foreground uppercase">

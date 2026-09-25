@@ -85,6 +85,9 @@ export const IMMOJEUNE_DESCRIPTOR: SourceDescriptor = {
   name: 'ImmoJeune',
   domain: 'immojeune.com',
   kind: 'portal',
+  // Pas de /favicon.ico exploitable : le site sert son logo en SVG, à l'adresse
+  // qu'il déclare lui-même (§17 — relevé, pas deviné).
+  logo: 'https://www.immojeune.com/img/logo.svg',
   /**
    * SES ANNONCES SONT LES SIENNES : aucune de ses 31 occurrences actives ne
    * nomme d'agence tierce — les bailleurs y déposent en direct (relevé du

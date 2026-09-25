@@ -147,7 +147,9 @@ test('la fiche porte un score unique, avec son échelle et sa recette', async ({
   // veut dire « au milieu de ce qui existe à Nice aujourd'hui ».
   await expect(page.getByText(/annonces\.$|tiers le mieux placé/)).toBeVisible();
 
-  await page.getByText('Comment il est calculé').click();
+  // UN SEUL DÉPLIANT : le barème et les raisons se suivaient sous deux flèches,
+  // pour une seule question — d'où vient ce chiffre.
+  await page.getByText('Ce qui a fait ce score').click();
   await expect(page.getByText(/30 %.*correspondance/i)).toBeVisible();
 });
 

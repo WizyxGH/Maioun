@@ -21,6 +21,7 @@ import type { ListingView, TrackingStatus } from '../types.js';
 import {
   formatPostalAddress,
   formatAge,
+  formatAvailability,
   formatArea,
   formatCity,
   formatDuration,
@@ -718,11 +719,14 @@ export function ListingDetail({
         <dd>{formatAge(listing.publishedAt.value, nowMs)}</dd>
 
         <dt className={FACT_LABEL}>Disponible</dt>
-        <dd>
-          {listing.availableAt.value === null
-            ? UNKNOWN
-            : new Date(listing.availableAt.value).toLocaleDateString('fr-FR')}
-        </dd>
+        {/* `formatAvailability` ET NON UNE DATE BRUTE. Les agences renseignent
+          ce champ une fois et ne le reprennent pas : Bien'ici publiait
+          « 01/08/2016 » sur une fiche intitulée « DISPONIBLE IMMÉDIATEMENT », et
+          vingt annonces actives sur 1 056 portaient une date déjà passée
+          (relevé du 2026-09-25). La fiche affichait la date telle quelle —
+          seule de tout le site à le faire, la carte disant déjà « Dispo
+          maintenant ». */}
+        <dd>{formatAvailability(listing.availableAt.value, nowMs) ?? UNKNOWN}</dd>
 
         <dt className={FACT_LABEL}>Vue pour la première fois</dt>
         <dd>{formatAge(listing.firstSeenAt, nowMs)}</dd>

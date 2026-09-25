@@ -142,6 +142,24 @@ export function agencyAddress(name: string): string | null {
   return `${address.street}, ${address.postalCode} ${address.city}`;
 }
 
+/**
+ * LE SITE DE L'AGENCE, quand ce nom désigne une source que nous connaissons.
+ *
+ * Le téléphone et le courriel viennent des ANNONCES, et manquent souvent : 280
+ * agences sur 351 ont un numéro, 112 un courriel (relevé du 2026-09-25). Le
+ * domaine, lui, vient de la table des sources — il est là dès qu'on collecte
+ * l'agence, et c'est la seule coordonnée qui ne dépend pas de ce qu'une annonce
+ * a bien voulu publier.
+ *
+ * MÊME RÈGLE QUE LE LOGO : un relais ne prête pas son adresse. « FNAIM » comme
+ * nom d'agence ne doit pas renvoyer vers la FNAIM comme si c'était le site du
+ * bailleur.
+ */
+export function agencyWebsite(name: string): string | null {
+  const source = ownSource(name);
+  return source === null ? null : `https://${source.domain}`;
+}
+
 export function AgencyLogo({
   name,
   className = 'size-5',

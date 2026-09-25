@@ -40,6 +40,7 @@ import { useConstrainedNetwork } from '../network-quality.js';
 import { PHOTO_WIDTH, photoVariant } from '../photo-variant.js';
 import { nextHistoryState } from '../use-route.js';
 import { ChevronLeft, ChevronRight, ImageOff, Play, X } from './icons.js';
+import { mouvementRefuse } from '../reduced-motion.js';
 
 /** En deçà, c'est une hésitation du doigt, pas une intention de changer de photo. */
 const SWIPE_MIN_PX = 40;
@@ -166,6 +167,7 @@ export function PhotoCarousel({
   videoUrl,
   tall = false,
   expandable = false,
+  autoAdvanceMs,
 }: {
   readonly urls: readonly string[];
   /**
@@ -185,6 +187,22 @@ export function PhotoCarousel({
   readonly tall?: boolean;
   /** Un clic sur la photo ouvre la galerie plein écran. Réservé à la fiche. */
   readonly expandable?: boolean;
+  /**
+   * DÉFILE TOUT SEUL TANT QUE LE POINTEUR EST DESSUS, à cet intervalle.
+   *
+   * Pour la LISTE : on y survole une carte après l'autre sans jamais cliquer,
+   * et la première photo d'une annonce est souvent la façade — celle qui
+   * apprend le moins. Voir la suite sans lever la main change ce qu'on retient
+   * d'une carte.
+   *
+   * Absent sur la FICHE : on y est venu exprès, et une image qui bouge pendant
+   * qu'on la regarde est une gêne, pas un service.
+   *
+   * Il s'arrête net dès que le pointeur part, et ne démarre JAMAIS quand le
+   * système demande de limiter les animations : ce mouvement-là n'est pas
+   * demandé par qui le subit.
+   */
+  readonly autoAdvanceMs?: number;
 }): React.JSX.Element {
   const [index, setIndex] = useState(0);
   // Les URLs dont le chargement échoue sont retirées : le carrousel ne montre
@@ -222,6 +240,52 @@ export function PhotoCarousel({
     ...(videoUrl !== undefined ? [{ video: videoUrl }] : []),
     ...photos.map((photo) => ({ photo })),
   ];
+
+  /**
+   * Le pointeur est-il sur le carrousel ? Un état, et non une classe CSS : le
+   * défilement est du comportement, et `:hover` ne se lit pas en JavaScript.
+   */
+  const [survole, setSurvole] = useState(false);
+
+  /**
+   * LE DÉFILEMENT AU SURVOL, et les quatre cas où il se tait.
+   *
+   * Une seule diapositive : il n'y a rien à faire défiler. La galerie ouverte
+   * ou la vidéo lancée : on regarde déjà quelque chose, et le faire glisser
+   * sous les yeux serait une nuisance. Le mouvement refusé par le système : ce
+   * n'est pas une préférence esthétique.
+   *
+   * IL BOUCLE, contrairement aux flèches. Celles-ci sont bornées — `go(-1)` sur
+   * la première ne fait rien, parce qu'un clic qui ne répond pas se remarque.
+   * Ici, s'arrêter sur la dernière laisserait la carte figée sans raison
+   * visible ; on revient au début.
+   */
+  useEffect(() => {
+    if (autoAdvanceMs === undefined || !survole) return;
+    if (slides.length < 2 || zoomed !== null || playing) return;
+    if (mouvementRefuse()) return;
+    const minuteur = window.setInterval(() => {
+      setIndex((courant) => (courant + 1) % slides.length);
+    }, autoAdvanceMs);
+    return () => window.clearInterval(minuteur);
+  }, [autoAdvanceMs, survole, slides.length, zoomed, playing]);
+
+  /**
+   * Les photos voisines du rang courant sont montées.
+   *
+   * `show` le fait pour les gestes ; le défilement automatique, lui, n'appelle
+   * que `setIndex` — sans cet effet, la photo suivante arriverait sur un cadre
+   * vide, puisqu'elle n'aurait jamais été demandée.
+   */
+  useEffect(() => {
+    const portee = constrained ? 0 : 1;
+    const voisines = photos.filter(
+      (_, at) => Math.abs(at + videoOffset - Math.min(index, slides.length - 1)) <= portee,
+    );
+    setMounted((current) =>
+      voisines.every((url) => current.has(url)) ? current : new Set([...current, ...voisines]),
+    );
+  }, [index, photos, videoOffset, slides.length, constrained]);
 
   const closeGallery = useCallback((): void => {
     setZoomed(null);
@@ -266,6 +330,13 @@ export function PhotoCarousel({
       // `touch-pan-y` : le geste VERTICAL reste à la page (on continue de faire
       // défiler la liste en partant d'une photo), l'horizontal nous revient.
       style={{ touchAction: 'pan-y' }}
+      // LE SURVOL FAIT DÉFILER, quand l'appelant le demande. `onMouseEnter` et
+      // non `:hover` : c'est un comportement, pas un style. Le doigt n'en
+      // déclenche pas — il n'y a pas de survol au toucher, et une photo qui
+      // bouge sous le pouce pendant qu'on lit serait une gêne.
+      onMouseEnter={() => setSurvole(true)}
+      onMouseLeave={() => setSurvole(false)}
+      data-testid="photo-rail"
       onTouchStart={(event) => {
         swipeFrom.current = event.touches[0]?.clientX ?? null;
         swiped.current = false;

@@ -141,10 +141,6 @@ export function RequirementsPanel({
           Renseignez votre profil locataire pour savoir si votre dossier passe.
         </p>
       )}
-
-      <p className="text-muted-foreground mt-3 text-[0.82rem]">
-        Lu dans le texte de l’annonce, sans interprétation. En cas de doute, la source fait foi.
-      </p>
     </Card>
   );
 }

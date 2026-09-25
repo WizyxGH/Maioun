@@ -19,8 +19,8 @@
  * était « collectons-nous cette agence ? ». Voir `agency-coverage.ts`.
  */
 
-import { ArrowLeft, Mail, MapPin, Phone } from './icons.js';
-import { AgencyLogo, agencyAddress } from './AgencyLogo.js';
+import { ArrowLeft, ExternalLink, Mail, MapPin, Phone } from './icons.js';
+import { AgencyLogo, agencyAddress, agencyWebsite } from './AgencyLogo.js';
 import type { AgencySummary } from '../api/client.js';
 import type { ListingView } from '../types.js';
 import { formatSourceName } from '../format.js';
@@ -35,7 +35,10 @@ import { ToggleGroup } from '@/components/ui/toggle.js';
 /** Coordonnées d'une agence : ce dont on se sert pour la joindre. */
 function AgencyContact({ agency }: { readonly agency: AgencySummary }): React.JSX.Element | null {
   const address = agencyAddress(agency.name);
-  if (agency.phone === null && agency.email === null && address === null) return null;
+  const website = agencyWebsite(agency.name);
+  if (agency.phone === null && agency.email === null && address === null && website === null) {
+    return null;
+  }
   return (
     <div className="mt-2 flex flex-wrap items-center gap-3 text-[0.9rem]">
       {address !== null && (
@@ -55,6 +58,19 @@ function AgencyContact({ agency }: { readonly agency: AgencySummary }): React.JS
         >
           <Mail aria-hidden="true" className="size-4 shrink-0" />
           <span className="truncate">{agency.email}</span>
+        </a>
+      )}
+      {/* LE SITE OUVRE AILLEURS, et l'annonce. `noreferrer` : le site d'une
+        agence n'a pas à savoir d'où vient la visite (§26). */}
+      {website !== null && (
+        <a
+          href={website}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-primary inline-flex min-w-0 items-center gap-1.5"
+        >
+          <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
+          <span className="truncate">{website.replace(/^https:\/\//, '')}</span>
         </a>
       )}
     </div>

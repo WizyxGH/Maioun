@@ -38,10 +38,17 @@ describe('le score de la fiche', () => {
     expect(screen.getByText(/Dans la liste/)).toBeInTheDocument();
   });
 
-  it('explique comment il est calculé, sans qu’il faille deviner', () => {
-    render(<OverallScore value={64}>{null}</OverallScore>);
-    expect(screen.getByText('Comment il est calculé')).toBeInTheDocument();
-    expect(screen.getByText(/30 %.*correspondance/i)).toBeInTheDocument();
+  /**
+   * UN SEUL DÉPLIANT SOUS LA NOTE. « Comment il est calculé » et « Ce qui a
+   * fait ce score » se suivaient, chacun avec sa flèche : deux gestes pour une
+   * seule question — d'où vient ce chiffre. Le barème a rejoint le détail, en
+   * tête, parce qu'on ne comprend « 590 € ≤ 700 € de budget » qu'en sachant
+   * que la correspondance pèse 30 %.
+   */
+  it('ne garde qu’un dépliant sous la note', () => {
+    const { container } = render(<OverallScore value={64}>{null}</OverallScore>);
+    expect(container.querySelectorAll('details')).toHaveLength(0);
+    expect(screen.queryByText('Comment il est calculé')).toBeNull();
   });
 
   it('garde le détail des mesures sous le score', () => {

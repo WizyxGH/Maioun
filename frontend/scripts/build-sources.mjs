@@ -39,9 +39,21 @@ const entries = [...ALL_SCRAPERS]
     // logo d'agence donnerait le logo du portail à des dizaines d'agences
     // différentes (§17).
     const ownSite = descriptor.kind === 'localAgency' && domain !== '';
-    // Le logo n'est transporté que pour une agence : il n'a de sens qu'avec le
-    // domaine qui l'accompagne.
-    const logo = ownSite ? (descriptor.logo ?? null) : null;
+    /**
+     * LE LOGO SUIT CEUX QUI ONT LE DROIT DE LE PRÊTER, et ils sont trois : une
+     * agence locale, un RÉSEAU dont les franchises portent l'enseigne, et un
+     * portail qui publie EN PROPRE. C'est la règle d'`AgencyLogo`, et elle était
+     * écrite ici plus étroitement — le logo déclaré par ImmoJeune n'arrivait
+     * jamais jusqu'à l'écran, laissé à `null` par ce seul filtre.
+     *
+     * Un RELAIS n'y a pas droit : sa marque irait sur l'annonce d'autrui.
+     */
+    const peutPreterSonImage =
+      domain !== '' &&
+      (descriptor.kind === 'localAgency' ||
+        descriptor.kind === 'agencyNetwork' ||
+        descriptor.publishesOwnListings === true);
+    const logo = peutPreterSonImage ? (descriptor.logo ?? null) : null;
     // Une source qui FAIT PAYER la mise en relation doit le dire à l'écran,
     // avant le clic. C'est un fait sur la source, il vient donc d'elle.
     const paidContact = descriptor.paidContact === true;

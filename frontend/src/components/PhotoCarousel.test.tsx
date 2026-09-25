@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PhotoCarousel } from './PhotoCarousel.js';
 
@@ -223,5 +223,82 @@ describe('visite en vidéo', () => {
   it('ne montre rien de tel sans vidéo', () => {
     render(<PhotoCarousel urls={URLS} />);
     expect(screen.queryByLabelText('Lire la visite en vidéo')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * LE DÉFILEMENT AU SURVOL, sur la liste seulement.
+ *
+ * On y survole une carte après l'autre sans jamais cliquer, et la première
+ * photo est souvent la façade — celle qui apprend le moins. La fiche, elle, ne
+ * bouge pas : on y est venu exprès.
+ */
+describe('PhotoCarousel — défilement au survol', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // jsdom ne répond pas à `matchMedia` : sans cela, la lecture du refus de
+    // mouvement jette, et le carrousel ne défilerait jamais.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  // L'élément EXACT qui porte le survol : `mouseenter` ne remonte pas, et le
+  // déclencher sur un enfant ne réveillerait rien.
+  const rail = (): HTMLElement => screen.getByTestId('photo-rail');
+
+  it('avance tant que le pointeur est dessus', () => {
+    render(<PhotoCarousel urls={URLS} autoAdvanceMs={3000} />);
+    expect(screen.getByLabelText('Aller à la photo 1')).toHaveAttribute('aria-current', 'true');
+
+    fireEvent.mouseEnter(rail());
+    act(() => void vi.advanceTimersByTime(3000));
+    expect(screen.getByLabelText('Aller à la photo 2')).toHaveAttribute('aria-current', 'true');
+  });
+
+  // IL BOUCLE, contrairement aux flèches : s'arrêter sur la dernière laisserait
+  // la carte figée sans raison visible.
+  it('revient à la première après la dernière', () => {
+    render(<PhotoCarousel urls={URLS} autoAdvanceMs={3000} />);
+    fireEvent.mouseEnter(rail());
+    act(() => void vi.advanceTimersByTime(9000));
+    expect(screen.getByLabelText('Aller à la photo 1')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('s’arrête net quand le pointeur part', () => {
+    render(<PhotoCarousel urls={URLS} autoAdvanceMs={3000} />);
+    fireEvent.mouseEnter(rail());
+    act(() => void vi.advanceTimersByTime(3000));
+    fireEvent.mouseLeave(rail());
+    act(() => void vi.advanceTimersByTime(9000));
+    expect(screen.getByLabelText('Aller à la photo 2')).toHaveAttribute('aria-current', 'true');
+  });
+
+  // LA FICHE NE DEMANDE RIEN : sans la prop, le survol ne fait rien du tout.
+  it('ne bouge pas sans qu’on le demande', () => {
+    render(<PhotoCarousel urls={URLS} />);
+    fireEvent.mouseEnter(rail());
+    act(() => void vi.advanceTimersByTime(30000));
+    expect(screen.getByLabelText('Aller à la photo 1')).toHaveAttribute('aria-current', 'true');
+  });
+
+  /**
+   * « LIMITER LES ANIMATIONS » N'EST PAS UNE PRÉFÉRENCE ESTHÉTIQUE : le
+   * mouvement déclenche nausées et migraines chez une partie des gens.
+   */
+  it('ne démarre pas quand le système refuse le mouvement', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+    render(<PhotoCarousel urls={URLS} autoAdvanceMs={3000} />);
+    fireEvent.mouseEnter(rail());
+    act(() => void vi.advanceTimersByTime(30000));
+    expect(screen.getByLabelText('Aller à la photo 1')).toHaveAttribute('aria-current', 'true');
   });
 });

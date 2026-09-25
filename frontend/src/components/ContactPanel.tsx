@@ -39,6 +39,7 @@ import { Mail, PhoneCall } from './icons.js';
 import { Textarea } from '@/components/ui/textarea.js';
 import { AgencyFormSend } from './AgencyFormSend.js';
 import { DossierFacileOffer } from './DossierFacileOffer.js';
+import { AgencyLogo } from './AgencyLogo.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -185,7 +186,12 @@ function ContactDetails({
         {agencyName !== null && (
           <>
             <dt className="text-muted-foreground">Agence</dt>
-            <dd>
+            <dd className="flex min-w-0 items-center gap-2">
+              {/* LE LOGO ICI AUSSI : c'est le même repère que dans l'annuaire et
+                sur la carte de liste, et on reconnaît son agence avant d'avoir
+                lu son nom. Il ne s'affiche que s'il est vraiment le sien —
+                `AgencyLogo` se tait pour un relais. */}
+              <AgencyLogo name={agencyName} className="size-5 shrink-0" />
               {/* Le nom mène à SA PAGE ICI : ses coordonnées, l'état de sa
                 collecte, et toutes ses annonces actives — ce qu'on veut avant
                 d'appeler.

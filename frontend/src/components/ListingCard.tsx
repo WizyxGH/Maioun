@@ -113,7 +113,7 @@ function PriorityBar({
           <span className="text-[0.75rem] font-medium text-muted-foreground">/100</span>
         </span>
       </div>
-      <Progress value={priority} aria-label="Priorité d’action" indicatorClassName="bg-good" />
+      <Progress value={priority} aria-label="Priorité d’action" gradient />
     </div>
   );
 }
@@ -163,11 +163,17 @@ function RequirementBadges({
   if (verdict === 'guarantee') return <Badge variant="warning">Garantie refusée</Badge>;
 
   /**
-   * LA GLI N'EST PAS UN REFUS, C'EST UNE EXIGENCE : un repère neutre, et rien
-   * de plus quand un autre badge dit déjà ce qui coince. Elle compte parce que
-   * c'est alors l'assureur qui fixe les critères, sans exception possible.
+   * LA GLI NE PORTE PLUS DE PASTILLE SUR LA CARTE.
+   *
+   * Ce n'est ni un refus ni une alerte : c'est une exigence, la plus commune du
+   * marché. Elle s'affichait donc en permanence sur des dizaines de cartes,
+   * sans jamais rien départager — et une pastille qui ne distingue rien fait
+   * baisser l'attention portée à celles qui, elles, disent un refus.
+   *
+   * ELLE RESTE SUR LA FICHE, avec le reste des exigences : c'est là qu'on
+   * prépare un dossier, et c'est là qu'elle compte — l'assureur fixe alors les
+   * critères, sans exception possible.
    */
-  if (requirements.insuredRent === true) return <Badge>Garantie loyers impayés</Badge>;
   return null;
 }
 
@@ -412,7 +418,9 @@ export function ListingCard({
           sous le titre, joue ce rôle et laisse l'image entière. */}
       {photos.length > 0 && (
         <div className={archived ? 'grayscale' : undefined}>
-          <PhotoCarousel urls={photos} />
+          {/* Trois secondes : le temps de voir, pas celui d'attendre. La fiche,
+            elle, ne défile pas toute seule — on y est venu exprès. */}
+          <PhotoCarousel urls={photos} autoAdvanceMs={3000} />
         </div>
       )}
       <header className="flex items-start gap-3">

@@ -46,17 +46,23 @@ function show(
 }
 
 describe('badge de conditions', () => {
-  it('signale l’assurance loyers impayés sans profil, et sans alarme', () => {
+  /**
+   * LA GLI NE PORTE PLUS DE PASTILLE ICI. Ce n'est ni un refus ni une alerte,
+   * c'est l'exigence la plus commune du marché : elle s'affichait donc en
+   * permanence sur des dizaines de cartes sans jamais rien départager, et une
+   * pastille qui ne distingue rien fait baisser l'attention portée à celles
+   * qui, elles, disent un refus. Elle reste sur la FICHE, avec le reste des
+   * exigences — c'est là qu'on prépare un dossier.
+   */
+  it('ne met pas de pastille sur l’assurance loyers impayés', () => {
     show({ insuredRent: true }, null);
-    expect(screen.getByText('Garantie loyers impayés')).toBeInTheDocument();
+    expect(screen.queryByText('Garantie loyers impayés')).toBeNull();
   });
 
   it('dit « Revenu exigé » quand le multiple du loyer écarte le dossier', () => {
     // 3 × 900 = 2 700 € exigés, 1 400 € déclarés.
     show({ insuredRent: true, incomeMultiplier: 3 }, PROFILE);
     expect(screen.getByText('Revenu exigé')).toBeInTheDocument();
-    // Un seul repère : le badge neutre s'efface devant ce qui coince.
-    expect(screen.queryByText('Garantie loyers impayés')).not.toBeInTheDocument();
   });
 
   it('dit « Garantie refusée » quand le dossier ne tient que par elle', () => {

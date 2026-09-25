@@ -1270,7 +1270,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     name: 'ImmoJeune',
     domain: 'immojeune.com',
     kind: 'portal',
-    logo: null,
+    logo: 'https://www.immojeune.com/img/logo.svg',
     paidContact: false,
     address: null,
     alsoKnownAs: [],
