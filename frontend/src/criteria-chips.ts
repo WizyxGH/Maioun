@@ -17,11 +17,15 @@
  * Ce qui les retenait a été traité à la source : l'effacement se défait d'un
  * clic (« Annuler »), et « aucun plafond de trajet » s'enregistre vraiment.
  *
- * LE BUDGET ET LA SURFACE N'EN SONT PAS. Ils existent des deux côtés — les
- * filtres rapides s'ouvrent sur les valeurs des critères. Ce sont LES FILTRES
- * RAPIDES QUI FONT FOI : eux seuls portent une puce, parce qu'eux seuls se
- * retirent d'un clic et parce que ce sont eux qui filtrent l'écran. Les
- * recompter ici doublerait la pastille.
+ * LE BUDGET ET LA SURFACE EN SONT, DEPUIS QUE LES FILTRES RAPIDES S'OUVRENT
+ * VIDES. Ils s'ouvraient sur 250–700 € et ≥ 20 m² — les critères d'une
+ * personne, écrits en dur —, et c'étaient eux qui portaient la puce. Ces
+ * valeurs ont disparu du code ; le SERVEUR, lui, applique toujours le budget
+ * enregistré d'un compte. Sans puce ici, ce filtre-là redevenait invisible :
+ * exactement ce que cette barre existe pour empêcher.
+ *
+ * Aucun double compte à craindre : un filtre rapide POSÉ à la main porte sa
+ * propre puce, et l'ouverture n'en pose plus aucun.
  *
  * LA COMMUNE NON PLUS : c'est le périmètre de l'outil, pas un filtre qu'on
  * retire — sans elle il ne resterait rien à chercher.
@@ -45,6 +49,18 @@ export interface CriteriaChip {
 function formatDay(iso: string): string {
   const [year, month, day] = iso.split('-');
   return day === undefined ? iso : `${day}/${month}/${year}`;
+}
+
+/** « 250 – 700 € », « ≤ 700 € », « ≥ 250 € ». */
+function priceRangeLabel(min: number | undefined, max: number | undefined): string {
+  if (min !== undefined && max !== undefined) return `${min} – ${max} €`;
+  return max !== undefined ? `≤ ${max} €` : `≥ ${min ?? 0} €`;
+}
+
+/** Même forme, en mètres carrés. */
+function areaRangeLabel(min: number | undefined, max: number | undefined): string {
+  if (min !== undefined && max !== undefined) return `${min} – ${max} m²`;
+  return max !== undefined ? `≤ ${max} m²` : `≥ ${min ?? 0} m²`;
 }
 
 /**
@@ -75,6 +91,21 @@ export function criteriaChips(criteria: FilterConfig | null): readonly CriteriaC
         patch: { includeUnknownDistrict: true },
       });
     }
+  }
+
+  // LE BUDGET ET LA SURFACE DU COMPTE. Le serveur les applique à la liste ; la
+  // barre doit donc les montrer, et les rendre retirables comme le reste.
+  if (criteria.maxPrice !== undefined || criteria.minPrice !== undefined) {
+    chips.push({
+      label: priceRangeLabel(criteria.minPrice, criteria.maxPrice),
+      patch: { minPrice: undefined, maxPrice: undefined },
+    });
+  }
+  if (criteria.minArea !== undefined || criteria.maxArea !== undefined) {
+    chips.push({
+      label: areaRangeLabel(criteria.minArea, criteria.maxArea),
+      patch: { minArea: undefined, maxArea: undefined },
+    });
   }
 
   // Les minutes sont celles qui sont stockées, dans le mode où la collecte a

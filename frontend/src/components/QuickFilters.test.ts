@@ -1,14 +1,16 @@
 /**
- * Les DEUX questions que posent les filtres rapides (§39).
+ * CE QUE LES FILTRES RAPIDES ÉCARTENT — et, à l'ouverture, RIEN.
  *
- * Un seul prédicat y répondait, et les deux réponses diffèrent : l'état
- * d'ouverture n'est pas « aucun filtre », il porte déjà 250–700 € et ≥ 20 m².
+ * Ils s'ouvraient sur 250–700 € et ≥ 20 m², les critères d'une personne écrits
+ * en dur : tout le monde en héritait, et un visiteur voyait 169 annonces sur
+ * 2 285 sans qu'aucune puce ne le dise. Deux prédicats cohabitaient pour
+ * distinguer « posé » de « s'écarte de l'ouverture » ; sans valeurs
+ * d'ouverture, c'est la même question.
  */
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_QUICK_FILTERS,
-  hasActiveQuickFilters,
+  EMPTY_QUICK_FILTERS,
   hasAppliedQuickFilters,
   priceLabel,
   type QuickFilterValues,
@@ -24,23 +26,17 @@ const AUCUN: QuickFilterValues = {
   types: new Set(),
 };
 
-describe('filtres rapides : écart et application', () => {
-  it('à l’ouverture, des filtres sont POSÉS sans que rien ne s’écarte', () => {
-    // C'est tout le sujet : la liste est filtrée sur le budget et la surface,
-    // donc les puces doivent se montrer — mais « Réinitialiser » n'a rien à
-    // faire, puisqu'on est exactement à l'état d'ouverture.
-    expect(hasAppliedQuickFilters(DEFAULT_QUICK_FILTERS)).toBe(true);
-    expect(hasActiveQuickFilters(DEFAULT_QUICK_FILTERS)).toBe(false);
+describe('filtres rapides : ce qui est posé', () => {
+  // L'OUVERTURE N'ÉCARTE RIEN : le budget d'un compte sert à scorer et à
+  // alerter, pas à retrancher en silence la liste de quelqu'un d'autre.
+  it('à l’ouverture, aucun filtre n’est posé', () => {
+    expect(hasAppliedQuickFilters(EMPTY_QUICK_FILTERS)).toBe(false);
+    expect(EMPTY_QUICK_FILTERS.maxPrice).toBeNull();
+    expect(EMPTY_QUICK_FILTERS.minArea).toBeNull();
   });
 
-  it('après « Effacer tout », plus rien n’est posé — mais tout s’écarte', () => {
-    // La barre de puces disparaît (rien à montrer), et « Réinitialiser »
-    // apparaît (il y a de quoi rétablir). C'est l'inverse exact de
-    // l'ouverture, et c'est ce que l'ancien prédicat unique ne pouvait pas
-    // exprimer : la barre restait affichée, vide, avec son seul lien
-    // « Effacer tout » sur lequel recliquer ne faisait rien.
-    expect(hasAppliedQuickFilters(AUCUN)).toBe(false);
-    expect(hasActiveQuickFilters(AUCUN)).toBe(true);
+  it('un budget posé à la main se voit', () => {
+    expect(hasAppliedQuickFilters({ ...AUCUN, maxPrice: 700 })).toBe(true);
   });
 
   it('le plancher anti-parking compte comme un filtre posé', () => {

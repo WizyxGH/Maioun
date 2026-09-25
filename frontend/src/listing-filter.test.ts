@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_QUICK_FILTERS, EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
+import { EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
 import { filterListings } from './listing-filter.js';
 import { MOCK_LISTINGS } from './api/mock-data.js';
 import { ALL_SOURCES } from './source-selection.js';
@@ -7,7 +7,7 @@ import { ALL_SOURCES } from './source-selection.js';
 describe('filterListings', () => {
   const base = {
     sources: ALL_SOURCES,
-    quick: DEFAULT_QUICK_FILTERS,
+    quick: EMPTY_QUICK_FILTERS,
     search: '',
     hideUncertain: false,
     newOnly: false,
@@ -21,9 +21,10 @@ describe('filterListings', () => {
   };
 
   // « UNE PARTIE DES FILTRES N'EST PAS PRISE EN COMPTE » — relevé du
-  // 2026-09-17. Le réglage d'ouverture porte 250–700 € et ≥ 20 m², la barre
-  // l'affiche en puces et la pastille le compte : il doit donc filtrer.
-  it('le réglage d’ouverture filtre ce que ses puces annoncent', () => {
+  // 2026-09-17 : ce que la barre annonce en puces doit filtrer. La règle tient
+  // toujours, mais l'ouverture ne pose plus rien : c'est un budget SAISI qu'on
+  // vérifie, et lui seul écarte.
+  it('un budget et une surface posés filtrent ce que leurs puces annoncent', () => {
     const petit = {
       ...MOCK_LISTINGS[0]!,
       id: 'petit',
@@ -34,9 +35,21 @@ describe('filterListings', () => {
       id: 'cher',
       price: { ...MOCK_LISTINGS[0]!.price, value: 1200 },
     };
-    expect(filterListings([MOCK_LISTINGS[0]!, petit, cher], base).map((one) => one.id)).toEqual([
+    const pose = { ...base, quick: { ...base.quick, minPrice: 250, maxPrice: 700, minArea: 20 } };
+    expect(filterListings([MOCK_LISTINGS[0]!, petit, cher], pose).map((one) => one.id)).toEqual([
       MOCK_LISTINGS[0]!.id,
     ]);
+  });
+
+  // ET L'OUVERTURE N'ÉCARTE RIEN : c'était tout le problème, trois quarts du
+  // catalogue retranchés en silence pour le budget de quelqu'un d'autre.
+  it('sans filtre posé, la liste garde tout', () => {
+    const petit = {
+      ...MOCK_LISTINGS[0]!,
+      id: 'petit',
+      area: { ...MOCK_LISTINGS[0]!.area, value: 18 },
+    };
+    expect(filterListings([MOCK_LISTINGS[0]!, petit], base)).toHaveLength(2);
   });
 
   // L'EFFET NE DOIT PAS ATTENDRE UN AUTRE RÉGLAGE. Poser « 1 personne » — que
@@ -50,7 +63,7 @@ describe('filterListings', () => {
       area: { ...MOCK_LISTINGS[0]!.area, value: 18 },
     };
     const listings = [MOCK_LISTINGS[0]!, petit];
-    const avec = { ...base, quick: { ...DEFAULT_QUICK_FILTERS, minOccupants: 1 } };
+    const avec = { ...base, quick: { ...EMPTY_QUICK_FILTERS, minOccupants: 1 } };
     expect(filterListings(listings, avec)).toEqual(filterListings(listings, base));
   });
 

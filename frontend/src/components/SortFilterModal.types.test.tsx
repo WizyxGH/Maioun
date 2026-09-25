@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SortFilterModal } from './SortFilterModal.js';
 import { ALL_SOURCES } from '../source-selection.js';
-import { DEFAULT_QUICK_FILTERS } from './QuickFilters.js';
+import { EMPTY_QUICK_FILTERS } from './QuickFilters.js';
 import type { PropertyType } from '@maioun/shared';
 
 vi.mock('../api/client.js', async (original) => ({
@@ -27,7 +27,7 @@ function ouvrir(types: ReadonlySet<PropertyType> = new Set()) {
       open
       onClose={vi.fn()}
       toggles={[]}
-      quickFilters={{ ...DEFAULT_QUICK_FILTERS, types }}
+      quickFilters={{ ...EMPTY_QUICK_FILTERS, types }}
       onQuickFiltersChange={vi.fn()}
       sources={['orpi']}
       sourceFilter={ALL_SOURCES}

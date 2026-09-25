@@ -1803,13 +1803,18 @@ async function handleConfigRoute(
   return json({ error: 'Route inconnue' }, cors, 404);
 }
 
-/** Ce qu'on rend tant que personne n'a rien réglé. */
-const DEFAULT_FILTERS = {
-  cities: [...MVP_CRITERIA.cities],
-  maxPrice: MVP_CRITERIA.maxPrice,
-  minArea: MVP_CRITERIA.minArea,
-  ...(MVP_CRITERIA.minPrice !== undefined ? { minPrice: MVP_CRITERIA.minPrice } : {}),
-};
+/**
+ * Ce qu'on rend tant que personne n'a rien réglé : LE PÉRIMÈTRE, ET RIEN DE PLUS.
+ *
+ * On rendait le budget et la surface d'UNE personne — 250–700 €, ≥ 20 m² —
+ * écrits en dur dans le code partagé. Chaque compte nouveau les héritait, sans
+ * les avoir demandés et sans que rien ne le dise : trois quarts du catalogue
+ * retranchés d'entrée (169 annonces sur 2 285 au relevé du 2026-09-25).
+ *
+ * La commune reste, parce qu'elle n'est pas un filtre : c'est le périmètre de
+ * l'outil, et sans elle il ne resterait rien à chercher.
+ */
+const DEFAULT_FILTERS = { cities: [...MVP_CRITERIA.cities] };
 
 /**
  * Budget et surface tels que CET utilisateur les a réglés, appliqués en direct

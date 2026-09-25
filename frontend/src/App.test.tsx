@@ -12,7 +12,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App, anyClientFilter, countActiveSettings } from './App.js';
-import { DEFAULT_QUICK_FILTERS, EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
+import { EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
 import { MOCK_LISTINGS } from './api/mock-data.js';
 import { ALL_SOURCES } from './source-selection.js';
 
@@ -423,7 +423,7 @@ describe('countActiveSettings', () => {
 
 describe('anyClientFilter', () => {
   const base = {
-    quickFilters: DEFAULT_QUICK_FILTERS,
+    quickFilters: EMPTY_QUICK_FILTERS,
     sources: ALL_SOURCES,
     search: '',
     hideUncertain: false,
@@ -454,7 +454,7 @@ describe('anyClientFilter', () => {
       true,
     );
     expect(
-      anyClientFilter({ ...base, quickFilters: { ...DEFAULT_QUICK_FILTERS, minRooms: 3 } }),
+      anyClientFilter({ ...base, quickFilters: { ...EMPTY_QUICK_FILTERS, minRooms: 3 } }),
     ).toBe(true);
   });
 });

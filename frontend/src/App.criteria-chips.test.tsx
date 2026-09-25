@@ -90,9 +90,9 @@ describe('les critères comptent dans la barre de filtres', () => {
     expect(screen.getByText('Sans colocations')).toBeInTheDocument();
     expect(screen.getByText('Sans logements étudiants')).toBeInTheDocument();
 
-    // Deux filtres rapides (budget, surface) + quatre critères = six, et non
-    // huit : budget et surface existent des deux côtés et ne comptent qu'une
-    // fois.
+    // SIX CRITÈRES, ET AUCUN FILTRE RAPIDE : ils s'ouvrent vides depuis que les
+    // valeurs d'une personne ont quitté le code. Le budget et la surface du
+    // COMPTE restent comptés — le serveur les applique — mais une seule fois.
     const button = screen.getAllByRole('button', { name: 'Filtres' })[0]!;
     expect(within(button).getByText('6')).toBeInTheDocument();
     expect(screen.getAllByText(/250 – 700 €/)).toHaveLength(1);
@@ -181,17 +181,23 @@ describe('les critères comptent dans la barre de filtres', () => {
     expect(written.excludeFlatShare).toBe(false);
     expect(written.excludeStudent).toBe(false);
     expect(written.maxCommuteMinutes).toBeUndefined();
-    // LE PÉRIMÈTRE RESTE : sans commune, budget ni surface, il n'y a plus de
-    // recherche.
+    // LE PÉRIMÈTRE RESTE — la commune, sans quoi il n'y a plus rien à chercher.
     expect(written.cities).toEqual(['nice']);
-    expect(written.maxPrice).toBe(700);
+    // LE BUDGET PART AVEC LE RESTE, depuis qu'il porte une puce : une puce qui
+    // ne s'efface pas avec « Effacer tout » est précisément l'exception qu'on
+    // a retirée aux quartiers. « Annuler » le rétablit d'un clic.
+    expect(written.maxPrice).toBeUndefined();
+    expect(written.minArea).toBeUndefined();
     // La liste est rechargée : c'est le serveur qui filtre là-dessus.
     await waitFor(() => expect(state.listingCalls).toBeGreaterThan(before));
     // Et la barre dit la même chose que la liste : plus une puce.
     await waitFor(() => expect(screen.queryByText('87 quartiers')).toBeNull());
     expect(screen.queryByText('Sans colocations')).toBeNull();
     expect(screen.queryByText('Trajet ≤ 60 min')).toBeNull();
-    expect(screen.queryByText(/250 – 700 €/)).toBeNull();
+    // PLUS DE RANGÉE DU TOUT : il ne reste aucune puce à montrer. La bannière
+    // « Annuler », elle, énumère ce qui vient d'être levé, budget compris —
+    // c'est son travail, et c'est pourquoi on regarde la rangée et non l'écran.
+    expect(screen.queryByTestId('filter-chips')).toBeNull();
   });
 
   it('et il se défait d’un seul clic : « Annuler » remet les 87 quartiers', async () => {

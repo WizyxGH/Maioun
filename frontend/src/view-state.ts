@@ -18,7 +18,7 @@
 
 import type { PropertyType } from '@maioun/shared';
 import type { SortMode } from './types.js';
-import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
+import { EMPTY_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
 import { ALL_SOURCES, readSourceSelection, type SourceSelection } from './source-selection.js';
 
 const KEY = 'maioun.viewState';
@@ -40,7 +40,7 @@ export interface ViewState {
 
 export const DEFAULT_VIEW_STATE: ViewState = {
   sort: 'priority',
-  quickFilters: DEFAULT_QUICK_FILTERS,
+  quickFilters: EMPTY_QUICK_FILTERS,
   sources: ALL_SOURCES,
   search: '',
   hideUncertain: false,

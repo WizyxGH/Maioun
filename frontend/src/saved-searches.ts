@@ -27,7 +27,7 @@ import {
   type PropertyType,
 } from '@maioun/shared';
 import type { FilterConfig, SortMode } from './types.js';
-import { DEFAULT_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
+import { EMPTY_QUICK_FILTERS, type QuickFilterValues } from './components/QuickFilters.js';
 import {
   describeSourceSelection,
   readSourceSelection,
@@ -112,12 +112,12 @@ export function toSavedView(
  * de la rappeler (§69).
  */
 export function toQuickFilters(view: Partial<SavedView> | undefined): QuickFilterValues {
-  if (view === undefined) return DEFAULT_QUICK_FILTERS;
+  if (view === undefined) return EMPTY_QUICK_FILTERS;
   return {
-    minPrice: view.minPrice ?? DEFAULT_QUICK_FILTERS.minPrice,
-    maxPrice: view.maxPrice ?? DEFAULT_QUICK_FILTERS.maxPrice,
-    minArea: view.minArea ?? DEFAULT_QUICK_FILTERS.minArea,
-    maxArea: view.maxArea ?? DEFAULT_QUICK_FILTERS.maxArea,
+    minPrice: view.minPrice ?? EMPTY_QUICK_FILTERS.minPrice,
+    maxPrice: view.maxPrice ?? EMPTY_QUICK_FILTERS.maxPrice,
+    minArea: view.minArea ?? EMPTY_QUICK_FILTERS.minArea,
+    maxArea: view.maxArea ?? EMPTY_QUICK_FILTERS.maxArea,
     minRooms: view.minRooms ?? null,
     minOccupants: view.minOccupants ?? null,
     types: new Set(view.types ?? []),

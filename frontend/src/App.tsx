@@ -109,10 +109,9 @@ import { SettingsLinks } from './components/SettingsLinks.js';
 import { ProfileSummary } from './components/ProfileSummary.js';
 import {
   QuickFilters,
-  DEFAULT_QUICK_FILTERS,
   EMPTY_QUICK_FILTERS,
   appliedQuickFilterCount,
-  hasActiveQuickFilters,
+  hasAppliedQuickFilters,
   type ExtraChip,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
@@ -426,7 +425,7 @@ function viewDiffersFromDefault(view: {
 }): boolean {
   return (
     view.sort !== 'priority' ||
-    hasActiveQuickFilters(view.quickFilters) ||
+    hasAppliedQuickFilters(view.quickFilters) ||
     view.sourcesRestricted ||
     view.search !== '' ||
     view.toggles.some(Boolean)
@@ -455,7 +454,7 @@ export function anyClientFilter(view: {
   readonly newOnly: boolean;
 }): boolean {
   return (
-    hasActiveQuickFilters(view.quickFilters) ||
+    hasAppliedQuickFilters(view.quickFilters) ||
     restrictsSources(view.sources) ||
     view.search.trim() !== '' ||
     view.hideUncertain ||
@@ -2830,7 +2829,7 @@ function AppView(): React.JSX.Element {
 
   const resetSortAndFilters = (): void => {
     setSort('priority');
-    setQuickFilters(DEFAULT_QUICK_FILTERS);
+    setQuickFilters(EMPTY_QUICK_FILTERS);
     setSourceFilter(ALL_SOURCES);
     setSearch('');
     setFavoritesOnly(false);

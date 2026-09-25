@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MVP_CRITERIA, rentForBudget, type PropertyType } from '@maioun/shared';
+import { rentForBudget, type PropertyType } from '@maioun/shared';
 import { formatPropertyType } from '../format.js';
 import { Button } from '@/components/ui/button.js';
 import { Toggle } from '@/components/ui/toggle.js';
@@ -52,43 +52,23 @@ export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
 };
 
 /**
- * Réglage d'ouverture : VOS critères de recherche, pas des champs vides.
+ * IL N'Y A PLUS DE RÉGLAGE D'OUVERTURE, et c'est le correctif.
  *
- * Les champs partaient vides alors que les critères existent et sont connus
- * (250–700 €, ≥ 20 m²). Il fallait les ressaisir pour affiner, et rien à
- * l'écran ne rappelait sur quoi la liste était bâtie.
- */
-export const DEFAULT_QUICK_FILTERS: QuickFilterValues = {
-  minPrice: MVP_CRITERIA.minPrice ?? null,
-  maxPrice: MVP_CRITERIA.maxPrice,
-  minArea: MVP_CRITERIA.minArea,
-  // Aucun plafond par défaut : le projet n'en pose pas, et en inventer un
-  // écarterait des annonces que personne n'a demandé d'écarter.
-  maxArea: MVP_CRITERIA.maxArea ?? null,
-  minRooms: null,
-  minOccupants: null,
-  types: new Set(),
-};
-
-/**
- * `true` si les filtres S'ÉCARTENT des critères de recherche.
+ * Les champs s'ouvraient sur 250–700 € et ≥ 20 m² — les critères d'UNE
+ * personne, écrits en dur dans le code partagé. Tout le monde les héritait :
+ * un visiteur sans compte voyait 169 annonces sur 2 285 (relevé du
+ * 2026-09-25), filtrées dans son navigateur, pour un budget qui n'était pas le
+ * sien. Le serveur, lui, rendait bien le catalogue entier.
  *
- * On compare au réglage par défaut et non au vide : sans cela, la pastille
- * « filtres actifs » s'allumerait en permanence, puisque les champs sont
- * désormais pré-remplis.
+ * Les critères d'un compte servent à SCORER et à ALERTER. Ils n'ont pas à
+ * retrancher en silence les trois quarts de la liste de quelqu'un d'autre. Qui
+ * veut un budget le pose, et une puce le dit.
+ *
+ * D'où la disparition de `hasActiveQuickFilters` : « l'état s'écarte-t-il de
+ * l'ouverture ? » et « y a-t-il un filtre posé ? » étaient deux questions
+ * DIFFÉRENTES tant que l'ouverture portait des valeurs. Sans elle, c'est la
+ * même — `hasAppliedQuickFilters` répond aux deux.
  */
-export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
-  const d = DEFAULT_QUICK_FILTERS;
-  return (
-    v.minPrice !== d.minPrice ||
-    v.maxPrice !== d.maxPrice ||
-    v.minArea !== d.minArea ||
-    v.maxArea !== d.maxArea ||
-    v.minRooms !== d.minRooms ||
-    v.minOccupants !== d.minOccupants ||
-    v.types.size !== d.types.size
-  );
-}
 
 /**
  * `true` si un filtre est RÉELLEMENT POSÉ — indépendamment des valeurs par

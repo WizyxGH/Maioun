@@ -8,7 +8,7 @@ import {
   type SavedSearch,
   type SearchPart,
 } from './saved-searches.js';
-import { DEFAULT_QUICK_FILTERS } from './components/QuickFilters.js';
+import { EMPTY_QUICK_FILTERS } from './components/QuickFilters.js';
 import type { FilterConfig } from './types.js';
 
 const VIEW: SavedSearch['view'] = {
@@ -73,7 +73,7 @@ describe('searchParts', () => {
 describe('suggestName', () => {
   it('reprend la ville bien écrite', () => {
     expect(
-      suggestName({ cities: ['cagnes-sur-mer'], maxPrice: 700, minArea: 0 }, DEFAULT_QUICK_FILTERS),
+      suggestName({ cities: ['cagnes-sur-mer'], maxPrice: 700, minArea: 0 }, EMPTY_QUICK_FILTERS),
     ).toMatch(/^Cagnes-sur-Mer/);
   });
 });

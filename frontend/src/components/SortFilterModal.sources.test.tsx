@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { SortFilterModal } from './SortFilterModal.js';
 import { ALL_SOURCES, type SourceSelection } from '../source-selection.js';
-import { DEFAULT_QUICK_FILTERS } from './QuickFilters.js';
+import { EMPTY_QUICK_FILTERS } from './QuickFilters.js';
 
 // La modale charge la répartition des loyers, et son repli de critères parle à
 // l'API : ni l'une ni l'autre ne concerne les sources.
@@ -28,7 +28,7 @@ function ouvrir(sourceFilter: SourceSelection = ALL_SOURCES) {
       open
       onClose={vi.fn()}
       toggles={[]}
-      quickFilters={DEFAULT_QUICK_FILTERS}
+      quickFilters={EMPTY_QUICK_FILTERS}
       onQuickFiltersChange={vi.fn()}
       sources={['orpi', 'locservice', 'agence-sans-annonce']}
       sourceCounts={new Map([['orpi', 12]])}
