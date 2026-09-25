@@ -92,17 +92,18 @@ const NICE_CENTER: [number, number] = [43.7009, 7.2683];
  */
 type GeoJsonInput = Parameters<typeof L.geoJSON>[0];
 
-export type MapStyle = 'plan' | 'satellite';
+export type MapStyle = 'plan' | 'sobre' | 'satellite';
 
 /** Choix de fond mémorisé sur cet appareil : il suit la personne, pas le compte. */
 const MAP_STYLE_KEY = 'maioun.mapStyle';
 
 export function readMapStyle(): MapStyle {
   try {
-    return localStorage.getItem(MAP_STYLE_KEY) === 'satellite' ? 'satellite' : 'plan';
+    const garde = localStorage.getItem(MAP_STYLE_KEY);
+    return garde === 'satellite' || garde === 'sobre' || garde === 'plan' ? garde : 'sobre';
   } catch {
-    // Stockage bloqué (navigation privée) : le plan par défaut.
-    return 'plan';
+    // Stockage bloqué (navigation privée) : le fond sobre par défaut.
+    return 'sobre';
   }
 }
 
@@ -114,8 +115,44 @@ function writeMapStyle(style: MapStyle): void {
   }
 }
 
-/** Crée le fond de carte demandé. La vue satellite montre la rue, la verdure, la mer. */
+/**
+ * Crée le fond de carte demandé.
+ *
+ * TROIS FONDS, ET LE SOBRE PAR DÉFAUT. Le plan d'OpenStreetMap est dessiné pour
+ * qu'on y lise des rues : routes rouges, parcs verts, bâtiments ocre. Nos
+ * pastilles de prix s'y perdaient — elles sont ce qu'on vient voir, et elles
+ * rivalisaient avec le fond. Le fond sobre (CARTO) est en gris : il situe sans
+ * disputer l'attention.
+ *
+ * IL SUIT LE THÈME du site, clair ou sombre. Une carte blanche dans une page
+ * sombre éblouit, et c'est le soir qu'on cherche un logement.
+ *
+ * La vue satellite, elle, montre la rue, la verdure, la mer — un autre usage,
+ * gardé tel quel.
+ */
 function tileLayer(style: MapStyle): L.TileLayer {
+  if (style === 'sobre') {
+    // `data-theme` PUIS le système : « auto » ne pose pas d'attribut, et lire
+    // l'attribut seul aurait servi une carte blanche à qui a un appareil sombre.
+    const choisi =
+      typeof document === 'undefined' ? null : document.documentElement.getAttribute('data-theme');
+    const sombre =
+      choisi === 'dark' ||
+      (choisi === null &&
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches);
+    return L.tileLayer(
+      `https://{s}.basemaps.cartocdn.com/${sombre ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`,
+      {
+        maxZoom: 20,
+        subdomains: 'abcd',
+        // La licence de CARTO exige de les citer, en plus d'OpenStreetMap.
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      },
+    );
+  }
   if (style === 'satellite') {
     return L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -392,6 +429,15 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   const layerRef = useRef<L.LayerGroup | null>(null);
   const tilesRef = useRef<L.TileLayer | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyle>(readMapStyle);
+  /**
+   * PLEIN ÉCRAN : la carte prend toute la fenêtre, sans le reste de la page.
+   *
+   * Un état, et non l'API `requestFullscreen` du navigateur : celle-ci sort du
+   * document, ce qui emporte les modales, coupe les raccourcis et se comporte
+   * différemment sur chaque plateforme. Un simple `fixed inset-0` garde la page
+   * intacte dessous, et la touche Échap referme comme partout ailleurs.
+   */
+  const [pleinEcran, setPleinEcran] = useState(false);
   const [boundaries, setBoundaries] = useState<DistrictBoundaries | null>(null);
   /** Les zones que l'INSEE nomme et que nos quartiers ignorent. */
   const [inseeZones, setInseeZones] = useState<InseeZones | null>(null);
@@ -513,6 +559,29 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       zoneShapesRef.current = new Map<string, L.Polygon>();
     };
   }, [inseeZones]);
+
+  /**
+   * ÉCHAP REFERME, et Leaflet réapprend sa taille.
+   *
+   * Sans `invalidateSize`, la carte garde les dimensions qu'elle avait au
+   * montage : passée en plein écran, elle laisse une bande grise là où les
+   * tuiles n'ont jamais été demandées. Le temps d'attente couvre la transition
+   * CSS — mesurer avant qu'elle ne finisse mesurerait l'ancienne taille.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null) return;
+    const timer = window.setTimeout(() => map.invalidateSize(), 220);
+    if (!pleinEcran) return () => window.clearTimeout(timer);
+    const surTouche = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setPleinEcran(false);
+    };
+    window.addEventListener('keydown', surTouche);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('keydown', surTouche);
+    };
+  }, [pleinEcran]);
 
   // Le fond se remplace sous les marqueurs, sans toucher ni à eux ni au cadrage.
   useEffect(() => {
@@ -695,7 +764,15 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   }, [located]);
 
   return (
-    <div className="relative lg:flex lg:h-full lg:flex-col">
+    <div
+      className={
+        pleinEcran
+          ? // `fixed inset-0` et non l'API du navigateur : la page reste intacte
+            // dessous, et la touche Échap referme comme partout ailleurs.
+            'fixed inset-0 z-[2000] flex flex-col bg-background p-2'
+          : 'relative lg:flex lg:h-full lg:flex-col'
+      }
+    >
       {/* LA HAUTEUR SE CALCULE, elle n'est plus devinée.
         `65vh` obligeait à faire défiler la page pour voir le bas de la carte
         sur un téléphone : l'en-tête, la barre de filtres et la barre de
@@ -723,10 +800,30 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       <div
         ref={containerRef}
         data-testid="map-view"
-        className="border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-auto lg:min-h-0 lg:flex-1"
+        className={
+          pleinEcran
+            ? 'border-border h-auto min-h-0 w-full flex-1 overflow-hidden rounded-xl border'
+            : 'border-border h-[max(260px,calc(100dvh-23rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-17rem))] lg:h-auto lg:min-h-0 lg:flex-1'
+        }
       />
       {/* En haut à droite : le coin libre, les boutons de zoom sont à gauche.
         Au-dessus des panneaux de Leaflet, qui montent jusqu'à z-index 1000. */}
+      {/* PLEIN ÉCRAN : la carte est ce qu'on vient voir, et la page autour lui
+        prend la moitié de la hauteur. Sous les fonds de carte, dans le même
+        coin — les boutons de zoom occupent l'autre. */}
+      <button
+        type="button"
+        onClick={() => setPleinEcran((ouvert) => !ouvert)}
+        aria-pressed={pleinEcran}
+        aria-label={pleinEcran ? 'Quitter le plein écran' : 'Carte en plein écran'}
+        title={pleinEcran ? 'Quitter le plein écran (Échap)' : 'Carte en plein écran'}
+        // `px-3 py-1.5` comme les boutons de fond juste au-dessus : la
+        // vérification d'accessibilité refuse une cible plus petite, et un
+        // bouton qu'on rate au doigt ne sert personne.
+        className="border-border bg-card text-foreground hover:bg-muted absolute top-12 right-2.5 z-[1000] rounded-lg border px-3 py-1.5 text-[0.8rem] font-medium shadow-md"
+      >
+        {pleinEcran ? 'Réduire' : 'Plein écran'}
+      </button>
       <div
         role="group"
         aria-label="Fond de carte"
@@ -734,6 +831,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       >
         {(
           [
+            ['sobre', 'Sobre'],
             ['plan', 'Plan'],
             ['satellite', 'Satellite'],
           ] as const

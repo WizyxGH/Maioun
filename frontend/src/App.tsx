@@ -120,6 +120,7 @@ import { consumePendingSharedToken, ecranDEntree } from './screens/EntranceScree
 import type { Route, View } from './router.js';
 import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
+import { useFitsViewport } from './use-fits-viewport.js';
 import { useScreenData } from './use-screen-data.js';
 import { useCriteria } from './use-criteria.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
@@ -632,6 +633,10 @@ function SearchResults({
   readonly onOpen: (id: string) => void;
   readonly onFavorite: (id: string, favorite: boolean) => void;
 }): React.JSX.Element {
+  // La colonne de la carte se mesure : voir `use-fits-viewport.ts`.
+  const mapColumn = useRef<HTMLDivElement | null>(null);
+  const mapHeight = useFitsViewport(mapColumn);
+
   return loading ? (
     <ListingListSkeleton />
   ) : filtered.length === 0 ? (
@@ -692,7 +697,16 @@ function SearchResults({
         {/* LA COLONNE BORNE LA CARTE, et c'est elle qui connaît la place :
           collée à un rem du haut, elle s'arrête un rem avant le bas. La carte
           remplit ce qu'on lui donne, la note de localisation comprise. */}
-        <div className="lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]">
+        {/* LA HAUTEUR EST MESURÉE, pas devinée. `100dvh - 2rem` tombait juste
+          une fois le défilement engagé, mais à l'arrivée la colonne commence
+          sous l'en-tête, la recherche et les puces : son bas passait alors sous
+          le pli, et il fallait faire défiler pour voir la carte en entier. La
+          hauteur du bandeau varie trop pour être écrite en dur. */}
+        <div
+          ref={mapColumn}
+          className="lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)]"
+          style={mapHeight === null ? undefined : { height: mapHeight }}
+        >
           <Suspense fallback={<MapSkeleton />}>
             <MapView listings={ranked} onOpen={onOpen} />
           </Suspense>

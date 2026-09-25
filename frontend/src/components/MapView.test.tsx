@@ -27,14 +27,24 @@ function at(id: string, latitude: number, longitude: number): ListingView {
 describe('MapView — fond de carte', () => {
   afterEach(() => localStorage.clear());
 
-  it('part du plan, et retient la vue satellite choisie', async () => {
+  /**
+   * LE FOND SOBRE PAR DÉFAUT, et non le plan d'OpenStreetMap.
+   *
+   * Celui-ci est dessiné pour qu'on y lise des rues : routes rouges, parcs
+   * verts, bâtiments ocre. Nos pastilles de prix s'y perdaient — elles sont ce
+   * qu'on vient voir, et elles rivalisaient avec le fond. Le gris de CARTO
+   * situe sans disputer l'attention, et suit le thème clair/sombre du site.
+   */
+  it('part du fond sobre, et retient la vue satellite choisie', async () => {
     const { container } = render(<MapView listings={[]} onOpen={() => undefined} />);
-    const plan = screen.getByRole('button', { name: 'Plan' });
+    const sobre = screen.getByRole('button', { name: 'Sobre' });
     const satellite = screen.getByRole('button', { name: 'Satellite' });
-    expect(plan.getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('.leaflet-control-attribution')?.textContent).toContain(
-      'OpenStreetMap',
-    );
+    expect(sobre.getAttribute('aria-pressed')).toBe('true');
+    // La licence de CARTO exige de les citer, en plus d'OpenStreetMap.
+    const attribution = (): string =>
+      container.querySelector('.leaflet-control-attribution')?.textContent ?? '';
+    expect(attribution()).toContain('OpenStreetMap');
+    expect(attribution()).toContain('CARTO');
 
     await userEvent.click(satellite);
     expect(satellite.getAttribute('aria-pressed')).toBe('true');
@@ -317,5 +327,35 @@ describe('MapView — contours de quartiers', () => {
     expect(zones?.querySelector(`option[value="${premier.properties.slug}"]`)?.textContent).toBe(
       premier.properties.label,
     );
+  });
+});
+
+/**
+ * LA CARTE EN PLEIN ÉCRAN.
+ *
+ * Sur ordinateur, sa colonne commence sous l'en-tête, la recherche et les
+ * puces : son bas passait sous le pli, et il fallait faire défiler pour la voir
+ * en entier. La hauteur est désormais mesurée, mais la carte reste ce qu'on
+ * vient voir — le plein écran lui donne la fenêtre.
+ */
+describe('MapView — plein écran', () => {
+  it('bascule et revient', async () => {
+    render(<MapView listings={[]} onOpen={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Carte en plein écran' }));
+    const sortie = screen.getByRole('button', { name: 'Quitter le plein écran' });
+    expect(sortie.getAttribute('aria-pressed')).toBe('true');
+    await userEvent.click(sortie);
+    expect(
+      screen.getByRole('button', { name: 'Carte en plein écran' }).getAttribute('aria-pressed'),
+    ).toBe('false');
+  });
+
+  // ÉCHAP REFERME, comme partout ailleurs : c'est le réflexe, et sans lui on
+  // cherche le bouton dans une fenêtre qui n'a plus de repère.
+  it('se referme sur Échap', async () => {
+    render(<MapView listings={[]} onOpen={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Carte en plein écran' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Carte en plein écran' })).toBeInTheDocument();
   });
 });
