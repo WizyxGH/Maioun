@@ -55,13 +55,38 @@ permissions:
   contents: read
 
 jobs:
+  # LE QUOTA ÉPUISÉ, AUCUN RÉVEIL NE PEUT ABOUTIR avant la remise à zéro du
+  # mois : la collecte s'arrête avant sa première requête. Le 2026-09-24, elle
+  # a donc échoué soixante fois en une nuit, à l'identique — et une intégration
+  # continue rouge en permanence ne prévient plus de rien.
+  #
+  # LA PAUSE SE LÈVE SEULE à la date posée dans `COLLECTE_EN_PAUSE_JUSQU_AU` :
+  # rien à réactiver, donc rien à oublier de réactiver. Les règles, et ce qui
+  # se passe quand la valeur est douteuse, sont dans le script.
+  garde:
+    name: Faut-il collecter ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Sans base cloud configurée, on ne consomme aucune minute.
+    if: ${{ vars.CLOUD_COLLECT_ENABLED == 'true' }}
+    outputs:
+      collecter: ${{ steps.pause.outputs.collecter }}
+    steps:
+      - uses: actions/checkout@v5
+      # Script Node sans dépendance : ni installation ni compilation, sinon la
+      # garde coûterait ce qu'elle fait économiser.
+      - id: pause
+        run: node scripts/pause-collecte.mjs
+        env:
+          COLLECTE_EN_PAUSE_JUSQU_AU: ${{ vars.COLLECTE_EN_PAUSE_JUSQU_AU }}
+
   collect:
     name: Cycle de collecte
     runs-on: ubuntu-latest
     # Borne dure : une source qui traîne ne doit pas consommer le quota.
     timeout-minutes: 20
-    # Sans base cloud configurée, on ne consomme aucune minute.
-    if: ${{ vars.CLOUD_COLLECT_ENABLED == 'true' }}
+    needs: garde
+    if: ${{ needs.garde.outputs.collecter == 'true' }}
 
     steps:
       - uses: actions/checkout@v5

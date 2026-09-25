@@ -67,6 +67,18 @@ plafond mensuel de Turso a été atteint : la base a refusé toute lecture —
 l'export compris —, la collecte a échoué en boucle et plus aucun diagnostic
 n'était possible. Une enquête curieuse coûte des millions de lignes.
 
+**Le quota épuisé, mettre la collecte en pause jusqu'au 1er du mois suivant** :
+elle ne peut plus aboutir, et chaque réveil n'ajoute qu'un échec rouge de plus
+— soixante en une nuit, cette fois-là.
+
+```bash
+gh variable set COLLECTE_EN_PAUSE_JUSQU_AU --body 2026-10-01
+```
+
+La reprise est AUTOMATIQUE à cette date : rien à réactiver, donc rien à oublier
+de réactiver. Les règles sont dans `scripts/pause-collecte.mjs`, qui se trompe
+du bon côté — valeur absente, illisible ou trop lointaine, on collecte.
+
 Travaillez donc sur le miroir local, qui ne coûte rien et marche hors ligne :
 
 ```bash
