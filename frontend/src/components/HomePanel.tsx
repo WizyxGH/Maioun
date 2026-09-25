@@ -29,8 +29,8 @@ import {
 import { archiveReasonOf } from '../availability.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { SearchSummary } from './SearchSummary.js';
-import { ListingThumbnail } from './ListingThumbnail.js';
-import { formatAge, formatArea, formatCity, formatPrice, listingSourceLabels } from '../format.js';
+import { ListingCard } from './ListingCard.js';
+import { formatAge } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Button } from '@/components/ui/button.js';
@@ -110,40 +110,54 @@ function StatTile({
 }
 
 /** Une ligne d'annonce compacte : de quoi la reconnaître, et rien de plus. */
-function MiniRow({
-  listing,
+/**
+ * LES ANNONCES EN CARTES, QU'ON FAIT DÉFILER DU POUCE.
+ *
+ * L'accueil n'offrait que des lignes compactes : le loyer, la surface, une
+ * vignette grosse comme un timbre. On ne décidait rien avec ça, on ouvrait la
+ * liste. La carte, elle, porte la photo, les scores et le geste — autant la
+ * mettre là où l'on regarde en premier.
+ *
+ * EN CSS, SANS LIBRAIRIE : `scroll-snap` suffit, et rend au clavier, à la
+ * molette et au doigt ce qu'un carrousel maison rend mal. Pas de flèches non
+ * plus : elles ne servent qu'à la souris, et le débordement se voit puisque la
+ * carte suivante dépasse volontairement du bord.
+ *
+ * SANS MARGE NÉGATIVE, malgré l'envie de coller au bord de l'écran : elle
+ * élargirait le conteneur au-delà de la page, et c'est exactement le
+ * débordement horizontal que les scénarios interdisent.
+ */
+function Carrousel({
+  listings,
+  nowMs,
   onOpen,
+  etiquette,
 }: {
-  readonly listing: ListingView;
+  readonly listings: readonly ListingView[];
+  readonly nowMs: number;
   readonly onOpen: (id: string) => void;
+  readonly etiquette: string;
 }): React.JSX.Element {
-  const sources = listingSourceLabels(listing.occurrences);
-  const photo = listing.imageUrls.find((url) => url.startsWith('https://'));
   return (
-    <ItemButton size="sm" onClick={() => onOpen(listing.id)}>
-      {photo === undefined ? (
-        <span aria-hidden="true" className="bg-muted size-12 shrink-0 rounded-lg" />
-      ) : (
-        <ListingThumbnail
-          url={photo}
-          className="bg-muted size-12 shrink-0 rounded-lg object-cover"
-        />
-      )}
-      <ItemContent>
-        <span className="flex items-baseline gap-2">
-          <strong>{formatPrice(listing.price.value)}</strong>
-          <span className="text-muted-foreground text-sm">{formatArea(listing.area.value)}</span>
-        </span>
-        <ItemDescription className="truncate">
-          {formatCity(listing.city.value)} · {sources.join(', ')}
-        </ItemDescription>
-      </ItemContent>
-      <ArrowRight aria-hidden="true" className="text-muted-foreground size-4 shrink-0" />
-    </ItemButton>
+    <ul
+      aria-label={etiquette}
+      className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]"
+    >
+      {listings.map((listing, rank) => (
+        <li
+          key={listing.id}
+          // La carte ne rétrécit pas : elle garde sa largeur et l'on défile.
+          // 86 % sur téléphone pour que la suivante DÉPASSE du bord — c'est ce
+          // qui dit qu'il y en a d'autres, sans avoir à l'écrire.
+          className="w-[86%] max-w-[330px] shrink-0 snap-start sm:w-[330px]"
+        >
+          <ListingCard listing={listing} nowMs={nowMs} rank={rank} onOpen={onOpen} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
-/** Une tâche en attente : ce qu'elle compte, ce qu'elle veut dire, où elle mène. */
 function ChoreRow({
   Icon,
   iconClassName = 'text-muted-foreground',
@@ -222,6 +236,21 @@ export function HomePanel({
         Date.parse(b.notifiedAt ?? b.firstSeenAt) - Date.parse(a.notifiedAt ?? a.firstSeenAt),
     );
 
+  /**
+   * À DÉFAUT DE NOUVEAUTÉ, LES DERNIÈRES ANNONCES DANS LES CRITÈRES.
+   *
+   * La section affichait sinon une carte morte — « rien de neuf » — qui
+   * occupait le haut de l'accueil sans rien apprendre. Les plus récentes de ce
+   * qui correspond valent mieux : ce sont elles qu'on irait chercher.
+   *
+   * L'ÉTIQUETTE CHANGE AVEC LE CONTENU. Montrer d'anciennes annonces sous le
+   * titre « Nouveautés » serait un mensonge, et le genre qui se paie : on
+   * appellerait une agence pour un bien vu il y a trois semaines.
+   */
+  const recentes = active
+    .filter((listing) => listing.matchesCriteria)
+    .sort((a, b) => Date.parse(b.firstSeenAt) - Date.parse(a.firstSeenAt));
+
   // À FAIRE : ce qui attend un geste. Une annonce « à contacter » n'a pas
   // encore été appelée ; un favori laissé en « nouvelle » non plus.
   const toCall = active.filter(
@@ -251,23 +280,33 @@ export function HomePanel({
             </Button>
           )}
         </div>
-        {fresh.length === 0 ? (
+        {fresh.length > 0 && (
+          <Carrousel
+            listings={fresh.slice(0, 8)}
+            nowMs={nowMs}
+            onOpen={onOpenListing}
+            etiquette="Nouveautés depuis votre dernier passage"
+          />
+        )}
+        {fresh.length === 0 && recentes.length > 0 && (
+          <>
+            <p className="text-muted-foreground mb-2 text-[0.92rem]">
+              Rien de neuf depuis votre dernier passage. Voici les dernières annonces dans vos
+              critères.
+            </p>
+            <Carrousel
+              listings={recentes.slice(0, 8)}
+              nowMs={nowMs}
+              onOpen={onOpenListing}
+              etiquette="Dernières annonces dans vos critères"
+            />
+          </>
+        )}
+        {fresh.length === 0 && recentes.length === 0 && (
           <Card className="text-muted-foreground text-[0.92rem]">
-            Rien de neuf depuis votre dernier passage. Les annonces signalées s’affichent ici, et
-            l’historique complet est dans les notifications.
+            Rien de neuf depuis votre dernier passage, et aucune annonce dans vos critères pour le
+            moment. L’historique complet est dans les notifications.
           </Card>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {fresh.slice(0, 4).map((listing, rank) => (
-              <li
-                key={listing.id}
-                className="rf-rise"
-                style={{ '--rf-delay': `${rank * 30}ms` } as React.CSSProperties}
-              >
-                <MiniRow listing={listing} onOpen={onOpenListing} />
-              </li>
-            ))}
-          </ul>
         )}
       </section>
 
