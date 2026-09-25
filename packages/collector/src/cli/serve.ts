@@ -24,7 +24,7 @@ import { networkInterfaces } from 'node:os';
 import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { route } from '../server/routes.js';
-import { CURRENT_USER } from '@maioun/shared';
+import { identiteLocale, motIdentite } from './serve-options.js';
 import { openDatabase } from '../db/client.js';
 import { descriptionDeLaCopie, SQL_DERNIERE_COLLECTE } from '../db/fraicheur.js';
 import { loadDotEnv } from '../config.js';
@@ -80,6 +80,13 @@ function choisirBase(): { chemin: string; modifieLe: Date } {
 }
 
 loadDotEnv();
+
+/**
+ * L'identité servie : le propriétaire, ou un visiteur si on l'a demandé.
+ * Les règles et leur raison sont dans `serve-options.ts`, avec leurs scénarios.
+ */
+const QUI_REGARDE = identiteLocale(process.env);
+
 const base = choisirBase();
 const db = openDatabase({ url: `file:${base.chemin.split('\\').join('/')}` });
 
@@ -126,21 +133,24 @@ const serveur = createServer((requete, reponse) => {
     }
 
     /**
-     * QUI REGARDE — et ici, il n'y a qu'une réponse possible.
+     * QUI REGARDE.
      *
      * Cette route appartient au Worker, qui la déduit d'un cookie signé. Le
      * serveur local n'a ni comptes ni sessions : il sert la machine de son
-     * propriétaire, et `route` prend déjà `CURRENT_USER` par défaut.
+     * propriétaire.
      *
      * SANS ELLE, LE SITE SE CROYAIT DEVANT UN INCONNU. Le 404 le faisait
      * basculer en visiteur : « Connectez-vous pour continuer » sur les
      * Paramètres, favoris en lecture seule, et une liste filtrée sur le
-     * catalogue au lieu des critères du compte. Répondre ici accorde l'écran
-     * avec le serveur, qui lui accordait déjà tout à cet utilisateur.
+     * catalogue au lieu des critères du compte.
+     *
+     * `{ user: null }` EST CE QUE LE WORKER RÉPOND À UN VISITEUR : le mode
+     * anonyme rend exactement cela, sans quoi le site local ne se comporterait
+     * pas comme le site public — et c'est tout l'intérêt.
      */
     if (url.pathname === '/api/me') {
       reponse.writeHead(200, { ...cors, 'content-type': 'application/json' });
-      reponse.end(JSON.stringify({ user: CURRENT_USER }));
+      reponse.end(JSON.stringify({ user: QUI_REGARDE }));
       return;
     }
 
@@ -157,7 +167,7 @@ const serveur = createServer((requete, reponse) => {
 
     try {
       const segments = url.pathname.split('/').filter((part) => part !== '');
-      const rendue = await route(db, demande, url, segments, cors);
+      const rendue = await route(db, demande, url, segments, cors, QUI_REGARDE);
       reponse.writeHead(rendue.status, Object.fromEntries(rendue.headers));
       reponse.end(Buffer.from(await rendue.arrayBuffer()));
     } catch (erreur) {
@@ -193,6 +203,7 @@ serveur.listen(PORT, INTERFACE_ECOUTEE, () => {
   console.log(`Maïoun — API locale sur http://localhost:${PORT}`);
   console.log(`Base : ${base.chemin}`);
   console.log(`       ${descriptionDeLaCopie('annonces', collecteeLe, base.modifieLe)}`);
+  console.log(`       ${motIdentite(process.env)}`);
   if (!SUR_LE_RESEAU) {
     console.log(`Le site : VITE_API_URL=http://localhost:${PORT} pnpm dev`);
     console.log('Depuis un téléphone : MAIOUN_LOCAL_RESEAU=1 (voir docs/deployment.md)');
