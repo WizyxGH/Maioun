@@ -245,6 +245,38 @@ describe('parseDetailPage — gabarits sans table', () => {
     expect(normalized?.postalCode).toBe('06340');
   });
 
+  /**
+   * LA VISITE EN VIDÉO. La plateforme pose l'adresse du lecteur dans un
+   * attribut et la charge au clic ; rien n'est caché, et c'est le même
+   * balisage chez les cinquante-six agences La Boîte Immo. Sans cette
+   * lecture, la vidéo n'était ni collectée ni montrée — on ne la perdait
+   * pas, on ne la cherchait jamais.
+   */
+  it('garde l’adresse du lecteur vidéo, sans la relayer', () => {
+    const url =
+      'https://www.immobilier-cote-village.com/location/1-la-trinite/duplex/1216-a-louer-la-trinite-grand-duplex-108-m-avec-terrasse-de-plus-de-100-m';
+    const { listing } = parseDetailPage(read('detail-cote-village.html'), url, 'Côté Village');
+    expect(listing?.videoUrl).toBe(
+      'https://player.previsite.net/video/00000000-0000-4000-8000-000000000001',
+    );
+    const normalized = normalize(listing as NonNullable<typeof listing>);
+    expect(normalized?.videoUrl).toBe(
+      'https://player.previsite.net/video/00000000-0000-4000-8000-000000000001',
+    );
+  });
+
+  // Un champ absent reste absent (§17) : pas de vidéo, pas de valeur.
+  it('ne rend aucune vidéo quand la fiche n’en porte pas', () => {
+    const url =
+      'https://www.mediterranee-immo.fr/location/3-nice/studio/9-nice-location-studio-neuf-dans-jolie-maison-au-calme-vue-collines-et-verdure';
+    const { listing } = parseDetailPage(
+      read('detail-mediterranee-immo.html'),
+      url,
+      'Méditerranée Immo',
+    );
+    expect(listing?.videoUrl).toBeUndefined();
+  });
+
   it('quartier, référence, code postal et téléphone du gabarit « detail_content » (Méditerranée Immo)', () => {
     const url =
       'https://www.mediterranee-immo.fr/location/3-nice/studio/9-nice-location-studio-neuf-dans-jolie-maison-au-calme-vue-collines-et-verdure';

@@ -593,6 +593,9 @@ export function normalizeListing(
     // §11 : uniquement des URLs distantes, jamais de téléchargement.
     imageUrls: [...(raw.imageUrls ?? [])].filter((url) => url.startsWith('http')),
 
+    // Même règle pour la vidéo : l'adresse du lecteur chez la source, rien de plus.
+    videoUrl: raw.videoUrl !== undefined && raw.videoUrl.startsWith('http') ? raw.videoUrl : null,
+
     // §17 : `null` signifie « la source ne publie pas cette information ».
     views: extractNumber(raw.viewsText, { min: 0, max: 10_000_000 }),
     favorites: extractNumber(raw.favoritesText, { min: 0, max: 1_000_000 }),

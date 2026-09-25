@@ -846,6 +846,27 @@ function declaredFloor(table: Map<string, string>): string | undefined {
   return /^(\d{1,2})\b/.exec(value)?.[1];
 }
 
+/**
+ * LA VISITE EN VIDÉO, quand l'agence en publie une.
+ *
+ * La plateforme pose un bouton dont l'attribut porte l'adresse du lecteur —
+ * `<button class="tools__video" data-mediasrc="https://player.previsite.net/…">`
+ * — et la charge en JavaScript au clic. Rien n'est caché : l'adresse est dans
+ * le HTML servi, et c'est la même chez les cinquante-six agences de la
+ * plateforme.
+ *
+ * ON GARDE L'ADRESSE, RIEN D'AUTRE (§11) : le lecteur reste chez la source,
+ * comme les photos. La vidéo n'est ni téléchargée, ni relayée.
+ *
+ * `tools__video` et RIEN D'AUTRE : le conteneur voisin `tools__vv` porte
+ * d'autres boutons de la même famille, et prendre le premier `data-mediasrc`
+ * venu ferait passer un média quelconque pour une visite du logement.
+ */
+function videoDeLaFiche($: cheerio.CheerioAPI): string | undefined {
+  const source = $('button.tools__video[data-mediasrc]').first().attr('data-mediasrc')?.trim();
+  return source !== undefined && source.startsWith('https://') ? source : undefined;
+}
+
 export function parseDetailPage(html: string, pageUrl: string, agencyName: string): ParsedDetail {
   const parsedUrl = parseListingUrl(pageUrl, pageUrl);
   if (parsedUrl === null) {
@@ -939,6 +960,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
     imageUrls: imageUrls.length > 0 ? ownGallery(imageUrls) : undefined,
+    videoUrl: videoDeLaFiche($),
     extra: hektorExtra(table, content, {
       district: declaredDistrict($, table, content),
       dpe: energyClass($, 'dpe'),

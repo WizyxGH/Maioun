@@ -39,7 +39,7 @@ import { createPortal } from 'react-dom';
 import { useConstrainedNetwork } from '../network-quality.js';
 import { PHOTO_WIDTH, photoVariant } from '../photo-variant.js';
 import { nextHistoryState } from '../use-route.js';
-import { ChevronLeft, ChevronRight, ImageOff, X } from './icons.js';
+import { ChevronLeft, ChevronRight, ImageOff, Play, X } from './icons.js';
 
 /** En deçà, c'est une hésitation du doigt, pas une intention de changer de photo. */
 const SWIPE_MIN_PX = 40;
@@ -107,12 +107,76 @@ function fullscreenWidth(constrained: boolean, floor: number): number {
   return Math.min(Math.max(Math.ceil(window.innerWidth * density), floor), cap);
 }
 
+/**
+ * LA VISITE EN VIDÉO, première diapositive de la série.
+ *
+ * TANT QU'ON NE LA DEMANDE PAS, CE N'EST QU'UNE VIGNETTE. Monter le lecteur
+ * d'emblée ferait charger un tiers à chaque ouverture de fiche, pour une vidéo
+ * que la plupart ne regarderont pas — et la source saurait qui a ouvert quoi.
+ * Au clic, l'iframe remplace la vignette, à la même place.
+ *
+ * `allowFullScreen` : une visite se regarde en grand, et le plein écran est le
+ * geste du lecteur, pas le nôtre.
+ */
+function VideoSlide({
+  url,
+  playing,
+  onPlay,
+  height,
+}: {
+  readonly url: string;
+  readonly playing: boolean;
+  readonly onPlay: () => void;
+  readonly height: string;
+}): React.JSX.Element {
+  if (playing) {
+    return (
+      <iframe
+        src={url}
+        title="Visite en vidéo"
+        allow="fullscreen; autoplay"
+        allowFullScreen
+        referrerPolicy="no-referrer"
+        className={`w-full shrink-0 border-0 bg-black ${height}`}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label="Lire la visite en vidéo"
+      className={`flex w-full shrink-0 cursor-pointer flex-col items-center justify-center gap-2 bg-neutral-900 text-white ${height}`}
+      onClick={(event) => {
+        // Sur une carte de liste, toute la surface mène à la fiche : sans cela,
+        // lancer la vidéo naviguerait au lieu de la lire.
+        event.stopPropagation();
+        onPlay();
+      }}
+    >
+      <span className="flex size-12 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/30">
+        <Play aria-hidden="true" className="size-6" />
+      </span>
+      <span className="text-xs font-medium tracking-wide uppercase">Visite en vidéo</span>
+    </button>
+  );
+}
+
 export function PhotoCarousel({
   urls,
+  videoUrl,
   tall = false,
   expandable = false,
 }: {
   readonly urls: readonly string[];
+  /**
+   * La visite en vidéo, en TÊTE de la série — une diapositive comme les autres.
+   *
+   * Un bouton séparé aurait vécu à côté du carrousel, et c'est dans le
+   * carrousel qu'on regarde un logement. Le lecteur n'est monté qu'au clic :
+   * ouvrir une fiche ne doit pas charger un lecteur tiers pour tout le monde.
+   * Il reste CHEZ LA SOURCE (§11), comme les photos — rien n'est relayé.
+   */
+  readonly videoUrl?: string;
   /**
    * Format FICHE : plus haut, et sans les marges négatives qui font déborder
    * le carrousel des bords de la carte de liste. La fiche n'a pas de cadre à
@@ -141,8 +205,23 @@ export function PhotoCarousel({
   const swiped = useRef(false);
   // La photo par laquelle on est entré en plein écran, pour lui rendre le focus.
   const cameFrom = useRef<HTMLButtonElement | null>(null);
+  // Lecteur demandé : tant qu'il ne l'est pas, la vidéo n'est qu'une vignette.
+  const [playing, setPlaying] = useState(false);
   const constrained = useConstrainedNetwork();
   const photos = urls.filter((url) => !broken.has(url));
+
+  /**
+   * La série montrée : la vidéo d'abord, puis les photos.
+   *
+   * Un DÉCALAGE d'un rang en découle, et la galerie plein écran ne connaît que
+   * les photos : c'est `videoOffset` qui traduit l'un dans l'autre. Sans lui,
+   * agrandir la deuxième photo en ouvrait une autre.
+   */
+  const videoOffset = videoUrl !== undefined ? 1 : 0;
+  const slides: readonly ({ readonly video: string } | { readonly photo: string })[] = [
+    ...(videoUrl !== undefined ? [{ video: videoUrl }] : []),
+    ...photos.map((photo) => ({ photo })),
+  ];
 
   const closeGallery = useCallback((): void => {
     setZoomed(null);
@@ -152,16 +231,16 @@ export function PhotoCarousel({
     cameFrom.current = null;
   }, []);
 
-  if (photos.length === 0) return <></>;
+  if (slides.length === 0) return <></>;
 
-  const last = photos.length - 1;
+  const last = slides.length - 1;
   const clamped = Math.min(index, last);
   const reach = constrained ? 0 : 1;
   const inWindow = (at: number): boolean => Math.abs(at - clamped) <= reach;
   const width = PHOTO_WIDTH[tall ? 'detail' : 'card'][level(constrained)];
 
   const show = (next: number): void => {
-    const kept = photos.filter((_, at) => inWindow(at));
+    const kept = photos.filter((_, at) => inWindow(at + videoOffset));
     if (kept.some((url) => !mounted.has(url))) {
       setMounted((current) => new Set([...current, ...kept]));
     }
@@ -194,7 +273,7 @@ export function PhotoCarousel({
       onTouchEnd={(event) => {
         const from = swipeFrom.current;
         swipeFrom.current = null;
-        if (from === null || photos.length < 2) return;
+        if (from === null || slides.length < 2) return;
         const delta = (event.changedTouches[0]?.clientX ?? from) - from;
         if (Math.abs(delta) < SWIPE_MIN_PX) return;
         swiped.current = true;
@@ -214,8 +293,21 @@ export function PhotoCarousel({
         className="flex h-full transition-transform duration-300 ease-out"
         style={{ transform: `translateX(-${clamped * 100}%)` }}
       >
-        {photos.map((url, at) => {
-          if (!inWindow(at) && !mounted.has(url)) {
+        {slides.map((slide, position) => {
+          if ('video' in slide) {
+            return (
+              <VideoSlide
+                key={slide.video}
+                url={slide.video}
+                playing={playing}
+                onPlay={() => setPlaying(true)}
+                height={height}
+              />
+            );
+          }
+          const at = position - videoOffset;
+          const url = slide.photo;
+          if (!inWindow(position) && !mounted.has(url)) {
             return <div key={url} aria-hidden="true" className={`w-full shrink-0 ${height}`} />;
           }
           const src = original.has(url) ? url : photoVariant(url, width);
@@ -255,7 +347,7 @@ export function PhotoCarousel({
         })}
       </div>
 
-      {photos.length > 1 && (
+      {slides.length > 1 && (
         <>
           {/* `hidden sm:flex` : la souris seule a besoin de flèches. Sur
             téléphone, le glissement fait le même travail sans rien couvrir. */}
@@ -286,11 +378,15 @@ export function PhotoCarousel({
 
           {/* Points de position, cliquables. */}
           <div className="absolute right-0 bottom-1.5 left-0 flex justify-center gap-1">
-            {photos.map((url, dot) => (
+            {slides.map((slide, dot) => (
               <button
-                key={url}
+                key={'video' in slide ? slide.video : slide.photo}
                 type="button"
-                aria-label={`Aller à la photo ${dot + 1}`}
+                aria-label={
+                  'video' in slide
+                    ? 'Aller à la vidéo'
+                    : `Aller à la photo ${dot + 1 - videoOffset}`
+                }
                 aria-current={dot === clamped}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -308,7 +404,7 @@ export function PhotoCarousel({
       {zoomed !== null && (
         <PhotoGallery
           urls={photos}
-          startAt={Math.min(zoomed, last)}
+          startAt={Math.min(zoomed, photos.length - 1)}
           // La largeur que le carrousel montre DÉJÀ : c'est elle qui est en
           // cache, et c'est donc elle que la galerie affiche le temps que la
           // grande arrive.

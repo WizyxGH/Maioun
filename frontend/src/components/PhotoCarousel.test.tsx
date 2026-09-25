@@ -176,3 +176,52 @@ describe('PhotoCarousel — glissement du doigt', () => {
     expect((root.firstElementChild as HTMLElement).style.transform).toBe('translateX(-0%)');
   });
 });
+
+/**
+ * LA VISITE EN VIDÉO, première diapositive de la série.
+ *
+ * Elle ouvre un DÉCALAGE d'un rang entre ce qu'on fait défiler et les photos
+ * que connaît la galerie plein écran : c'est là que ça casse en silence, en
+ * agrandissant une autre photo que celle qu'on a touchée.
+ */
+describe('visite en vidéo', () => {
+  const VIDEO = 'https://player.previsite.net/video/00000000-0000-4000-8000-000000000001';
+
+  it('met la vidéo en tête, sans charger le lecteur', () => {
+    render(<PhotoCarousel urls={URLS} videoUrl={VIDEO} />);
+    expect(screen.getByLabelText('Aller à la vidéo')).toHaveAttribute('aria-current', 'true');
+    // Le lecteur d'un tiers ne se monte pas à l'ouverture d'une fiche : la
+    // source saurait qui a ouvert quoi, pour une vidéo que peu regarderont.
+    expect(document.querySelector('iframe')).toBeNull();
+    expect(screen.getByLabelText('Lire la visite en vidéo')).toBeInTheDocument();
+  });
+
+  it('monte le lecteur au clic, chez la source', async () => {
+    const user = userEvent.setup();
+    render(<PhotoCarousel urls={URLS} videoUrl={VIDEO} />);
+    await user.click(screen.getByLabelText('Lire la visite en vidéo'));
+    const lecteur = document.querySelector('iframe');
+    expect(lecteur).not.toBeNull();
+    expect(lecteur).toHaveAttribute('src', VIDEO);
+  });
+
+  it('garde les trois photos derrière elle', () => {
+    render(<PhotoCarousel urls={URLS} videoUrl={VIDEO} />);
+    expect(screen.getByLabelText('Aller à la photo 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Aller à la photo 3')).toBeInTheDocument();
+  });
+
+  // LE DÉCALAGE : la deuxième diapositive est la PREMIÈRE photo.
+  it('agrandit la photo touchée, et non sa voisine', async () => {
+    const user = userEvent.setup();
+    render(<PhotoCarousel urls={URLS} videoUrl={VIDEO} tall expandable />);
+    expect(screen.getByLabelText('Agrandir la photo 1 sur 3')).toBeInTheDocument();
+    await user.click(screen.getByLabelText('Agrandir la photo 1 sur 3'));
+    expect(screen.getByText('1 / 3')).toBeInTheDocument();
+  });
+
+  it('ne montre rien de tel sans vidéo', () => {
+    render(<PhotoCarousel urls={URLS} />);
+    expect(screen.queryByLabelText('Lire la visite en vidéo')).not.toBeInTheDocument();
+  });
+});

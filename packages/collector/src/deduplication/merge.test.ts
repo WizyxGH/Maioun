@@ -42,6 +42,7 @@ function occurrence(id: string, applicationStatus?: ApplicationStatus | null): N
     publishedAt: null,
     availableAt: null,
     imageUrls: [],
+    videoUrl: null,
     views: null,
     favorites: null,
     ...(applicationStatus !== undefined ? { applicationStatus } : {}),

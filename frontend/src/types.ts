@@ -94,6 +94,12 @@ export interface ListingView {
   readonly favorites: MergedField<number | null>;
   readonly contact: Contact;
   readonly imageUrls: readonly string[];
+
+  /**
+   * La visite en vidéo, quand la source en publie une : l'adresse du lecteur
+   * CHEZ ELLE, jamais un fichier relayé (§11). Absente le plus souvent.
+   */
+  readonly videoUrl?: string | null;
   readonly scores: ListingScores;
   readonly distances: readonly ReferenceDistance[];
   readonly occurrences: readonly OccurrenceView[];

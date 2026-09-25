@@ -372,6 +372,10 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
 
     imageUrls,
 
+    // La PREMIÈRE trouvée, sans en préférer aucune : deux sources qui filment
+    // le même bien filment le même bien.
+    videoUrl: occurrences.find((occurrence) => occurrence.videoUrl !== null)?.videoUrl ?? null,
+
     views: mergeField(occurrences, primary, (l) => l.views),
     favorites: mergeField(occurrences, primary, (l) => l.favorites),
     applicationStatus: mergeApplicationStatus(occurrences),

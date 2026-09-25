@@ -222,6 +222,10 @@ export function occurrenceHash(listing: NormalizedListing): string {
     // Même raison : omis quand inconnus.
     ...(listing.deposit !== null ? [`deposit:${listing.deposit}`] : []),
     ...(listing.tenantFees !== null ? [`fees:${listing.tenantFees}`] : []),
+    // Omise quand absente, comme le GES : sans cela, l'arrivée du champ
+    // changerait l'empreinte de tout le stock d'un coup. Dans l'empreinte tout
+    // de même, sinon une vidéo ajoutée après coup ne descendrait jamais.
+    ...(listing.videoUrl !== null ? [`video:${listing.videoUrl}`] : []),
     listing.address,
     listing.city,
     listing.postalCode,
@@ -3078,6 +3082,7 @@ function serializeListing(listing: ScoredListing): Record<string, unknown> {
     publishedAt: listing.publishedAt,
     availableAt: listing.availableAt,
     imageUrls: listing.imageUrls,
+    videoUrl: listing.videoUrl,
     views: listing.views,
     favorites: listing.favorites,
     scores: listing.scores,
@@ -3267,6 +3272,7 @@ function occurrencePayload(listing: NormalizedListing): Record<string, unknown> 
   return {
     description: listing.description,
     imageUrls: listing.imageUrls,
+    videoUrl: listing.videoUrl,
     views: listing.views,
     favorites: listing.favorites,
     chargesIncluded: listing.chargesIncluded,
@@ -3339,6 +3345,7 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     publishedAt: text('published_at'),
     availableAt: text('available_at'),
     imageUrls: (payload['imageUrls'] as string[] | undefined) ?? [],
+    videoUrl: (payload['videoUrl'] as string | null | undefined) ?? null,
     views: (payload['views'] as number | null) ?? null,
     favorites: (payload['favorites'] as number | null) ?? null,
     applicationStatus:

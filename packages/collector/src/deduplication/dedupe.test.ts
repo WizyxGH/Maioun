@@ -49,6 +49,7 @@ function listing(overrides: Partial<NormalizedListing> & { id: string }): Normal
     publishedAt: null,
     availableAt: null,
     imageUrls: [],
+    videoUrl: null,
     views: null,
     favorites: null,
     firstSeenAt: BASE_TIME,

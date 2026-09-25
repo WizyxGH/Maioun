@@ -409,14 +409,26 @@ const classeOu = (etiquette: ListingView['dpe']): string =>
  * laisser l'annonce muette — ce qu'elle était : le carrousel les retirait une
  * à une sans rien dire —, on donne les liens et on explique pourquoi.
  */
-function Photos({ urls }: { readonly urls: readonly string[] }): React.JSX.Element | null {
+function Photos({
+  urls,
+  videoUrl,
+}: {
+  readonly urls: readonly string[];
+  /** La visite en vidéo, en tête du carrousel — voir `PhotoCarousel`. */
+  readonly videoUrl?: string;
+}): React.JSX.Element | null {
   const photos = splitPhotos(urls);
-  if (photos.embeddable.length > 0) {
+  if (photos.embeddable.length > 0 || videoUrl !== undefined) {
     return (
       <div className="mb-3 overflow-hidden rounded-xl">
         {/* `expandable` ICI et pas sur la carte de liste : la fiche est le seul
             endroit où un clic sur la photo n'a pas déjà un autre travail. */}
-        <PhotoCarousel urls={photos.embeddable.slice(0, 12)} tall expandable />
+        <PhotoCarousel
+          urls={photos.embeddable.slice(0, 12)}
+          {...(videoUrl !== undefined ? { videoUrl } : {})}
+          tall
+          expandable
+        />
       </div>
     );
   }
@@ -582,7 +594,10 @@ export function ListingDetail({
           flèches, points, une image à la fois — plutôt qu'un bandeau à faire
           glisser, dont rien n'indiquait qu'il continuait hors de l'écran.
           Quand aucune n'est affichable, `Photos` propose les liens. */}
-      <Photos urls={listing.imageUrls} />
+      <Photos
+        urls={listing.imageUrls}
+        {...(listing.videoUrl != null ? { videoUrl: listing.videoUrl } : {})}
+      />
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>
 

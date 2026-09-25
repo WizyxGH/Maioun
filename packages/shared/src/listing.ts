@@ -194,6 +194,15 @@ export interface RawListing {
    */
   readonly imageUrls?: readonly string[];
 
+  /**
+   * Visite en vidéo publiée par la source — la page du lecteur, pas un fichier.
+   *
+   * MÊME RÈGLE QUE LES PHOTOS (§11) : jamais téléchargée, jamais stockée,
+   * jamais relayée. On garde l'adresse, et le navigateur va la chercher chez
+   * la source.
+   */
+  readonly videoUrl?: string;
+
   /** Signaux d'intérêt éventuellement exposés par la source (§17). */
   readonly viewsText?: string;
   readonly favoritesText?: string;
@@ -307,6 +316,9 @@ export interface ListingOccurrence {
   /** URLs distantes uniquement — voir §11. */
   readonly imageUrls: readonly string[];
 
+  /** La visite en vidéo, ou `null` si la source n'en publie pas (§17). */
+  readonly videoUrl: Maybe<string>;
+
   /** Signaux d'intérêt. `null` = la source ne les publie pas (§17). */
   readonly views: Maybe<number>;
   readonly favorites: Maybe<number>;
@@ -405,6 +417,9 @@ export interface AggregatedListing {
   readonly availableAt: MergedField<Maybe<IsoDateTime>>;
 
   readonly imageUrls: readonly string[];
+
+  /** La première visite en vidéo trouvée parmi les occurrences (§17). */
+  readonly videoUrl: Maybe<string>;
 
   readonly views: MergedField<Maybe<number>>;
   readonly favorites: MergedField<Maybe<number>>;
