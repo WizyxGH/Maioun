@@ -115,25 +115,67 @@ type LegacyProfile = Partial<TenantProfile> & {
   guarantorName?: string;
 };
 
-function migrateGuarantors(parsed: LegacyProfile): Pick<TenantProfile, 'guarantors'> | object {
-  if (Array.isArray(parsed.guarantors)) return {};
+/**
+ * TOUJOURS UNE LISTE, quoi qu'on ait lu.
+ *
+ * Cette reprise rendait `{}` quand elle n'avait rien à dire, laissant passer ce
+ * que le profil portait — y compris un `guarantors` qui n'était PAS une liste.
+ * L'écran du profil tombait alors sur « profile.guarantors is not iterable » et
+ * ne s'affichait plus du tout. Elle pose donc le champ dans tous les cas.
+ */
+function migrateGuarantors(parsed: LegacyProfile): Pick<TenantProfile, 'guarantors'> {
+  if (Array.isArray(parsed.guarantors)) {
+    // Une entrée sans nature ne se lit nulle part et ferait tomber l'écran un
+    // cran plus loin. On la laisse de côté plutôt que d'inventer sa nature.
+    return { guarantors: parsed.guarantors.filter((one) => estUneGarantie(one)) };
+  }
   if (parsed.guarantor !== undefined && parsed.guarantor !== 'none') {
     const name = parsed.guarantorName?.trim() ?? '';
     return { guarantors: [{ kind: parsed.guarantor, ...(name === '' ? {} : { name }) }] };
   }
   // Une case cochée valait « personne physique », le seul sens qu'elle ait eu.
   if (parsed.hasGuarantor === true) return { guarantors: [{ kind: 'physical' as const }] };
-  return {};
+  return { guarantors: [] };
+}
+
+const NATURES: ReadonlySet<string> = new Set<GuarantorKind>([
+  'physical',
+  'visale',
+  'garantme',
+  'other',
+]);
+
+function estUneGarantie(valeur: unknown): valeur is Guarantor {
+  return (
+    typeof valeur === 'object' &&
+    valeur !== null &&
+    NATURES.has((valeur as { kind?: unknown }).kind as string)
+  );
+}
+
+/**
+ * Rend un profil SÛR À AFFICHER, d'où qu'il vienne.
+ *
+ * DEUX PROVENANCES, UNE SEULE REPRISE. Le profil du navigateur passait par
+ * `loadProfile`, qui rattrape les formes anciennes ; celui rapporté du compte
+ * (`fetchTenantProfile`) était posé à l'écran tel quel. Un profil enregistré
+ * avant que les garanties ne deviennent une liste arrivait donc sans
+ * `guarantors`, et l'écran du profil ne s'affichait plus — « n'est pas
+ * itérable », sur fond d'erreur, alors que le reste de l'application marchait.
+ */
+export function profilUtilisable(brut: unknown): TenantProfile | null {
+  if (typeof brut !== 'object' || brut === null) return null;
+  const parsed = brut as LegacyProfile;
+  // Un profil sans nom ne permet pas de composer un message crédible.
+  if (!parsed.firstName || !parsed.lastName) return null;
+  return { ...EMPTY_PROFILE, ...parsed, ...migrateGuarantors(parsed) };
 }
 
 export function loadProfile(): TenantProfile | null {
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (raw === null) return null;
-    const parsed = JSON.parse(raw) as LegacyProfile;
-    // Un profil sans nom ne permet pas de composer un message crédible.
-    if (!parsed.firstName || !parsed.lastName) return null;
-    return { ...EMPTY_PROFILE, ...parsed, ...migrateGuarantors(parsed) };
+    return profilUtilisable(JSON.parse(raw));
   } catch {
     return null;
   }

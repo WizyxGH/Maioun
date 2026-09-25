@@ -11,6 +11,7 @@
  * désormais par le Worker, qui sait qui demande.
  */
 
+import { profilUtilisable } from '../profile.js';
 import type {
   FilterConfig,
   ListingView,
@@ -1101,7 +1102,12 @@ export function savedSearchesAvailable(): boolean {
  * profil parce qu'une requête a échoué.
  */
 export async function fetchTenantProfile(): Promise<TenantProfile | null> {
-  return readSetting<TenantProfile>(TENANT_PROFILE_SETTING);
+  // RÉPARÉ ICI, au seuil : c'est du JSON écrit par une version antérieure de
+  // l'application, et un profil d'avant la liste de garanties arrivait sans
+  // `guarantors`. Posé tel quel à l'écran, il rendait « n'est pas itérable » et
+  // l'écran du profil ne s'affichait plus. Le navigateur, lui, passait déjà par
+  // la même reprise depuis toujours.
+  return profilUtilisable(await readSetting<unknown>(TENANT_PROFILE_SETTING));
 }
 
 export async function saveTenantProfile(profile: TenantProfile): Promise<void> {
