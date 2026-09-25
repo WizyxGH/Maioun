@@ -69,6 +69,8 @@ export interface ApimoConfig {
   readonly operator?: string;
   /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
   readonly agencyContact?: SourceDescriptor['agencyContact'];
+  /** Les autres noms sous lesquels les portails publient cette agence. */
+  readonly alsoKnownAs?: readonly string[];
 }
 
 export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
@@ -90,6 +92,7 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     enabled: true,
     ...(config.operator !== undefined ? { operator: config.operator } : {}),
     ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
+    ...(config.alsoKnownAs !== undefined ? { alsoKnownAs: config.alsoKnownAs } : {}),
     /**
      * Les pages de liste EN FONT PARTIE, et il fallait le dire : ce champ
      * existe « pour que la conformité soit auditable sans relire le code ».

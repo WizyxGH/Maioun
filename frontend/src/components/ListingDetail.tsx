@@ -26,6 +26,7 @@ import {
   formatDuration,
   formatPrice,
   formatPropertyType,
+  formatBedrooms,
   formatRooms,
   formatSourceName,
   formatTracking,
@@ -624,6 +625,13 @@ export function ListingDetail({
       <dl className={FACTS_GRID}>
         <dt className={FACT_LABEL}>Type</dt>
         <dd>{formatPropertyType(listing.propertyType.value)}</dd>
+
+        {/* LES CHAMBRES ÉTAIENT LUES ET JETÉES. Les sources les publient — 1 067
+            occurrences actives sur 2 746 —, la base les rangeait, et la fusion
+            les perdait faute de champ dans le modèle agrégé. Un T3 d'une
+            chambre et un T3 de deux ne se cherchent pas de la même façon. */}
+        <dt className={FACT_LABEL}>Chambres</dt>
+        <dd>{formatBedrooms(listing.bedrooms?.value)}</dd>
 
         <dt className={FACT_LABEL}>Meublé</dt>
         <dd>

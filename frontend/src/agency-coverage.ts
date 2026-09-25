@@ -34,6 +34,10 @@ function handles(table: Readonly<Record<string, SourceInfo>>): readonly AgencyHa
     id,
     name: info.name,
     domain: info.domain ?? '',
+    // Les noms que les PORTAILS lui donnent, quand la règle ne peut pas les
+    // deviner : « BEP NICE » ne se rapproche de « BEP Logement » par aucune
+    // forme commune assez longue pour être sûre.
+    alsoKnownAs: info.alsoKnownAs,
   }));
 }
 

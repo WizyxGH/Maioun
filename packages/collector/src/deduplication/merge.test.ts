@@ -104,6 +104,42 @@ describe('dépôt de garantie, honoraires et charges comprises', () => {
   });
 });
 
+/**
+ * LES CHAMBRES ÉTAIENT LUES, RANGÉES, PUIS JETÉES.
+ *
+ * Les sources les publient — 1 067 occurrences actives sur 2 746 au relevé du
+ * 2026-09-25 —, la table `occurrences` en gardait la colonne, et la FUSION les
+ * perdait : le modèle agrégé ne portait pas le champ. L'écran ne pouvait donc
+ * rien en montrer, et un T3 d'une chambre ressemblait à un T3 de deux.
+ */
+describe('chambres', () => {
+  it('les porte jusqu’à la fiche agrégée', () => {
+    const merged = mergeGroup([{ ...occurrence('bienici:1'), bedrooms: 2 }]);
+    expect(merged.bedrooms.value).toBe(2);
+  });
+
+  // ZÉRO EST UNE VALEUR : un studio a zéro chambre, et le dire n'est pas
+  // l'ignorer. Le confondre avec « inconnu » effacerait l'information.
+  it('garde le zéro d’un studio', () => {
+    expect(mergeGroup([{ ...occurrence('bienici:1'), bedrooms: 0 }]).bedrooms.value).toBe(0);
+  });
+
+  it('garde le désaccord entre deux sources, comme les pièces', () => {
+    const merged = mergeGroup([
+      { ...occurrence('bienici:1'), bedrooms: 2 },
+      { ...occurrence('paruvendu:1'), bedrooms: 3 },
+    ]);
+    expect(merged.bedrooms.value).toBe(2);
+    expect(merged.bedrooms.conflicts).toEqual([
+      expect.objectContaining({ value: 3, sourceId: 'paruvendu' }),
+    ]);
+  });
+
+  it('reste inconnu quand aucune source ne le dit', () => {
+    expect(mergeGroup([{ ...occurrence('bienici:1') }]).bedrooms.value).toBeNull();
+  });
+});
+
 describe('description', () => {
   it('ne compte pas des retours à la ligne comme un désaccord', () => {
     const merged = mergeGroup([

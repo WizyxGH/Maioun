@@ -48,6 +48,19 @@ export function formatRooms(rooms: number | null): string {
   return rooms === 1 ? '1 pièce' : `${rooms} pièces`;
 }
 
+/**
+ * Le nombre de CHAMBRES, distinct de celui des pièces : un T3 peut en avoir une
+ * ou deux, et c'est cette différence-là qu'on regarde en cherchant.
+ *
+ * ZÉRO SE DIT, et ne se tait pas : « aucune chambre » désigne un studio, ce qui
+ * n'est pas la même chose qu'un nombre inconnu.
+ */
+export function formatBedrooms(bedrooms: number | null | undefined): string {
+  if (bedrooms === null || bedrooms === undefined) return UNKNOWN;
+  if (bedrooms === 0) return 'Aucune (studio)';
+  return bedrooms === 1 ? '1 chambre' : `${bedrooms} chambres`;
+}
+
 const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   apartment: 'Appartement',
   house: 'Maison',

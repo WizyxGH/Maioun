@@ -383,6 +383,18 @@ export interface AggregatedListing {
   readonly tenantFees: MergedField<Maybe<number>>;
   readonly area: MergedField<Maybe<number>>;
   readonly rooms: MergedField<Maybe<number>>;
+  /**
+   * Nombre de CHAMBRES, distinct du nombre de pièces.
+   *
+   * Il était lu par les sources et rangé en base occurrence par occurrence,
+   * puis PERDU À LA FUSION : le modèle agrégé ne le portait pas, l'écran ne
+   * pouvait donc pas l'afficher. Mille soixante-sept occurrences actives sur
+   * 2 746 le publiaient, sans que rien n'en sorte (relevé du 2026-09-25).
+   *
+   * ZÉRO EST UNE VALEUR : un studio a zéro chambre, et le dire n'est pas la
+   * même chose que l'ignorer.
+   */
+  readonly bedrooms: MergedField<Maybe<number>>;
   readonly propertyType: MergedField<PropertyType>;
   readonly furnished: MergedField<Maybe<boolean>>;
   readonly flatShare: MergedField<Maybe<boolean>>;

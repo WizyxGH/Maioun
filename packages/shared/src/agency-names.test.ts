@@ -156,4 +156,61 @@ describe('sourceAliases', () => {
       sourceAliases({ name: "Cot'Ouest", id: 'cot-ouest', domain: 'www.cot-ouest.fr' }),
     ).toEqual(["Cot'Ouest", 'cot ouest', 'cot ouest']);
   });
+
+  /**
+   * LES PORTAILS REBAPTISENT, et trois lettres ne suffisent pas à les suivre.
+   *
+   * Bien'ici écrit « BEP NICE », ParuVendu « BEP LOGEMENT », pour la même
+   * maison : trois lignes dans l'annuaire, dont deux sans logo ni adresse. La
+   * règle générale se tait à juste titre — rapprocher sur « BEP » enverrait
+   * chercher une annonce chez quelqu'un d'autre. Ce qu'elle ne peut pas
+   * déduire, la source le DÉCLARE.
+   */
+  it('accepte les noms que la source déclare elle-même', () => {
+    const noms = sourceAliases({
+      name: 'BEP Logement',
+      id: 'bep',
+      domain: 'bep-logement.com',
+      alsoKnownAs: ['BEP Nice', 'BEP Antibes'],
+    });
+    expect(noms).toContain('BEP Nice');
+    expect(noms).toContain('BEP Antibes');
+  });
+
+  it('n’en invente aucun quand la source n’en déclare pas', () => {
+    expect(sourceAliases({ name: 'BEP Logement', id: 'bep', domain: 'bep-logement.com' })).toEqual([
+      'BEP Logement',
+      'bep',
+      'bep logement',
+    ]);
+  });
+});
+
+/**
+ * LE NOM D'UN PORTAIL DOIT RAMENER À LA SOURCE, sinon l'agence perd son logo et
+ * son adresse sur toutes les annonces arrivées par ce chemin.
+ */
+describe('un nom déclaré ramène à sa source', () => {
+  const sources = [
+    {
+      id: 'bep',
+      name: 'BEP Logement',
+      domain: 'bep-logement.com',
+      alsoKnownAs: ['BEP Nice', 'BEP Antibes'],
+    },
+    { id: 'saint-roch', name: 'Saint Roch Immobilier', domain: 'saint-roch-immobilier.com' },
+  ];
+
+  it('reconnaît l’agence sous la graphie du portail', () => {
+    const resolver = createAgencySourceResolver(sources);
+    for (const nom of ['BEP NICE', 'BEP LOGEMENT', 'BEP ANTIBES']) {
+      expect(resolver.resolve(nom), nom).toBe('bep');
+    }
+  });
+
+  // ET RIEN DE PLUS : une déclaration ouvre trois noms, pas la famille entière.
+  it('ne rapproche pas une agence qui partage seulement le préfixe', () => {
+    const resolver = createAgencySourceResolver(sources);
+    expect(resolver.resolve('BEP Habitat Marseille')).toBeNull();
+  });
 });

@@ -6,6 +6,7 @@ import {
   formatAddress,
   formatAge,
   formatArea,
+  formatBedrooms,
   formatDay,
   formatDistrict,
   formatOccurrenceSource,
@@ -334,5 +335,25 @@ describe('le portail qui a envoyé l’alerte', () => {
         { id: 'bienici:C', sourceId: 'bienici' },
       ]),
     ).toEqual(['Alertes e-mail (SeLoger)', 'Bien’ici']);
+  });
+});
+
+/**
+ * LE NOMBRE DE CHAMBRES N'EST PAS CELUI DES PIÈCES, et c'est tout l'intérêt de
+ * l'afficher : un T3 d'une chambre et un T3 de deux ne se cherchent pas de la
+ * même façon.
+ */
+describe('formatBedrooms', () => {
+  it('accorde le pluriel', () => {
+    expect(formatBedrooms(1)).toBe('1 chambre');
+    expect(formatBedrooms(3)).toBe('3 chambres');
+  });
+
+  // ZÉRO SE DIT. « Aucune chambre » désigne un studio ; le taire reviendrait à
+  // confondre une information publiée avec une information absente (§17).
+  it('dit le zéro d’un studio, et ne le confond pas avec l’inconnu', () => {
+    expect(formatBedrooms(0)).toBe('Aucune (studio)');
+    expect(formatBedrooms(null)).toBe(UNKNOWN);
+    expect(formatBedrooms(undefined)).toBe(UNKNOWN);
   });
 });

@@ -16,6 +16,17 @@ export const bepScraper = makeApimoScraper({
   id: 'bep',
   name: 'BEP Logement',
   domain: 'bep-logement.com',
+  /**
+   * LES PORTAILS LA REBAPTISENT, et l'annuaire en faisait trois agences :
+   * Bien'ici écrit « BEP NICE » (48 annonces), ParuVendu « BEP LOGEMENT » (44)
+   * et « BEP ANTIBES » (2), le bulletin abonnés « BEP Logement » (26). Deux de
+   * ces lignes n'avaient ni logo ni adresse, faute de se rattacher ici.
+   *
+   * Relevé sur les annonces le 2026-09-25, pas deviné : « BEP » seul fait trois
+   * lettres, et la règle de rapprochement refuse à juste titre d'en tirer quoi
+   * que ce soit.
+   */
+  alsoKnownAs: ['BEP Nice', 'BEP Antibes'],
   // MÊME MAISON QUE `bep-abonnes` : le bulletin abonnés publie le même stock,
   // avec d'autres références et d'autres photos (§14).
   operator: 'bep-logement',

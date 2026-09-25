@@ -125,9 +125,16 @@ export function sourceAliases(source: {
   readonly name: string;
   readonly id: string;
   readonly domain: string;
+  readonly alsoKnownAs?: readonly string[];
 }): readonly string[] {
   return [
     source.name,
+    // LES NOMS DÉCLARÉS, et non devinés. Les portails rebaptisent : Bien'ici
+    // écrit « BEP NICE » et ParuVendu « BEP LOGEMENT » pour la même maison. La
+    // règle générale se tait à juste titre — « BEP » fait trois lettres, trop
+    // peu pour rapprocher quoi que ce soit sans risque. Ce que la règle ne peut
+    // pas déduire, la source le déclare.
+    ...(source.alsoKnownAs ?? []),
     source.id.replace(/-/g, ' '),
     source.domain
       .replace(/^www\./, '')
@@ -196,6 +203,8 @@ export interface AgencyHandle {
   readonly id: string;
   readonly name: string;
   readonly domain: string;
+  /** Les autres noms sous lesquels les portails publient cette agence. */
+  readonly alsoKnownAs?: readonly string[];
 }
 
 /**

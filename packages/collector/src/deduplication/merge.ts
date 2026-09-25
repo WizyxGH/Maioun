@@ -340,6 +340,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     tenantFees: mergeField(occurrences, primary, (l) => l.tenantFees, numbersEqual(0.01)),
     area: mergeField(occurrences, primary, (l) => l.area, numbersEqual(0.01)),
     rooms: mergeField(occurrences, primary, (l) => l.rooms),
+    bedrooms: mergeField(occurrences, primary, (l) => l.bedrooms),
     propertyType: mergeField<PropertyType>(occurrences, primary, (l) => l.propertyType),
     furnished: mergeField(occurrences, primary, (l) => l.furnished),
     flatShare: mergeField(occurrences, flatShareAnchor(occurrences, primary), (l) => l.flatShare),

@@ -203,6 +203,10 @@ export function occurrenceHash(listing: NormalizedListing): string {
     ...(listing.chargesIncluded !== null ? [`cc:${listing.chargesIncluded}`] : []),
     listing.area,
     listing.rooms,
+    // Les CHAMBRES s'affichent, donc elles entrent ici. Omises quand inconnues :
+    // sans cela, l'arrivée du champ réécrirait tout le stock d'un coup. Zéro est
+    // une valeur — un studio a zéro chambre.
+    ...(listing.bedrooms !== null ? [`ch:${listing.bedrooms}`] : []),
     listing.propertyType,
     listing.furnished,
     listing.flatShare,
@@ -296,6 +300,9 @@ export function listingHash(listing: ScoredListing): string {
     // seules les fiches qui en gagnent un seront réécrites, une fois.
     ...(listing.ges.value !== null ? [`ges:${listing.ges.value}`] : []),
     listing.maxOccupants.value,
+    // Même règle, côté fiche : omises quand inconnues, seules celles qui en
+    // gagnent une sont réécrites.
+    ...(listing.bedrooms.value !== null ? [`ch:${listing.bedrooms.value}`] : []),
     listing.features,
     ...(listing.applicationStatus != null ? [listing.applicationStatus] : []),
     // Les conditions du bailleur s'affichent — encart de fiche, badge de carte

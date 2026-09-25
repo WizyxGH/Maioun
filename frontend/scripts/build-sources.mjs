@@ -52,9 +52,13 @@ const entries = [...ALL_SCRAPERS]
     // à reconnaître une agence sous ses graphies (« COT'OUEST IMMOBILIER » ne
     // rejoint « Cot'Ouest » que par `cot-ouest.fr`). C'est `kind` qui dit s'il
     // est affichable comme logo, et lui seul.
+    // Les noms DÉCLARÉS suivent pour tout le monde : ils servent à reconnaître
+    // l'agence sous la graphie d'un portail, avant même de savoir si son logo
+    // est affichable.
+    const alsoKnownAs = descriptor.alsoKnownAs ?? [];
     return `  '${descriptor.id}': { name: ${JSON.stringify(descriptor.name)}, domain: ${JSON.stringify(
       domain === '' ? null : domain,
-    )}, kind: ${JSON.stringify(descriptor.kind)}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)} },`;
+    )}, kind: ${JSON.stringify(descriptor.kind)}, logo: ${JSON.stringify(logo)}, paidContact: ${String(paidContact)}, address: ${JSON.stringify(address)}, alsoKnownAs: ${JSON.stringify(alsoKnownAs)} },`;
   });
 
 const file = `/**
@@ -78,6 +82,10 @@ const file = `/**
  * l'écran le dit avant le clic, plutôt que de laisser découvrir le péage.
  *
  * \`address\` est l'adresse de vitrine que l'agence publie, quand on la connaît.
+ *
+ * \`alsoKnownAs\` porte les noms sous lesquels les PORTAILS la publient, quand la
+ * règle de rapprochement ne peut pas les deviner — « BEP NICE » pour BEP
+ * Logement. Relevés sur les annonces, jamais inventés.
  */
 
 export interface SourceInfo {
@@ -94,6 +102,8 @@ export interface SourceInfo {
     readonly postalCode: string;
     readonly city: string;
   } | null;
+  /** Les autres noms sous lesquels les portails la publient. */
+  readonly alsoKnownAs: readonly string[];
 }
 
 export const SOURCES: Readonly<Record<string, SourceInfo>> = {

@@ -98,6 +98,7 @@ export interface AggregatedOverrides {
   readonly chargesIncluded?: boolean | null;
   readonly area?: number | null;
   readonly rooms?: number | null;
+  readonly bedrooms?: number | null;
   readonly propertyType?: PropertyType;
   readonly furnished?: boolean | null;
   readonly flatShare?: boolean | null;
@@ -145,6 +146,7 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     tenantFees: field(null),
     area: field(pick(overrides.area, 34)),
     rooms: field(pick(overrides.rooms, 2)),
+    bedrooms: field(pick(overrides.bedrooms, 1)),
     propertyType: field(pick(overrides.propertyType, 'apartment')),
     furnished: field(pick(overrides.furnished, null)),
     flatShare: field(pick(overrides.flatShare, null)),

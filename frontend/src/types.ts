@@ -56,6 +56,8 @@ export interface ListingView {
   readonly tenantFees?: MergedField<number | null>;
   readonly area: MergedField<number | null>;
   readonly rooms: MergedField<number | null>;
+  /** Nombre de chambres — absent sur les fiches écrites avant l'ajout du champ. */
+  readonly bedrooms?: MergedField<number | null>;
   readonly propertyType: MergedField<PropertyType>;
   readonly furnished: MergedField<boolean | null>;
   /** Colocation — absent sur les fiches écrites avant l'ajout du champ. */

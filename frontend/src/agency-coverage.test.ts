@@ -16,6 +16,7 @@ const source = (over: Partial<SourceInfo> & { name: string }): SourceInfo => ({
   logo: null,
   paidContact: false,
   address: null,
+  alsoKnownAs: [],
   ...over,
 });
 

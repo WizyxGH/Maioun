@@ -110,6 +110,20 @@ export interface SourceDescriptor {
    */
   readonly logo?: string;
 
+  /**
+   * LES AUTRES NOMS SOUS LESQUELS LES PORTAILS PUBLIENT CETTE AGENCE.
+   *
+   * Bien'ici écrit « BEP NICE », ParuVendu « BEP LOGEMENT », son propre bulletin
+   * « BEP Logement » : trois lignes dans l'annuaire, une seule maison — et deux
+   * d'entre elles sans logo ni adresse, faute de se rattacher à la source.
+   *
+   * LA RÈGLE GÉNÉRALE NE PEUT PAS LE DEVINER, et elle a raison de se taire :
+   * « BEP » fait trois lettres, rapprocher là-dessus enverrait chercher une
+   * annonce chez quelqu'un d'autre. Ce qu'on ne peut pas déduire, on le
+   * DÉCLARE — relevé sur les annonces, pas inventé.
+   */
+  readonly alsoKnownAs?: readonly string[];
+
   /** `false` désactive la source sans supprimer son code (§5, §76). */
   readonly enabled: boolean;
 
