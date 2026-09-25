@@ -37,6 +37,25 @@ const MAX_PAGES = 8;
 const MAX_DETAILS = 30;
 
 /**
+ * En rattrapage : tout le stock, une fois.
+ *
+ * VINGT PASSAGES, C'EST SEPT HEURES — et une fiche se périme au bout d'une
+ * semaine, si bien que le rattrapage courait après lui-même. Relevé du
+ * 2026-09-25 : 30 fiches lues sur 571 annonces actives, donc ni téléphone ni
+ * nom d'agence pour les 541 autres, alors que la fiche les donne toutes deux
+ * (`contactRelativeData`).
+ *
+ * `--backfill` ne part jamais tout seul : c'est une commande qu'on écrit, et
+ * l'attente de vingt minutes qu'elle coûte est le prix qu'on a voulu payer.
+ */
+const MAX_DETAILS_BACKFILL = 600;
+
+/** Fiches allouées à ce passage : tout le stock en rattrapage, un paquet sinon. */
+export function fichesParPassage(mode: ScrapeContext['mode']): number {
+  return mode === 'backfill' ? MAX_DETAILS_BACKFILL : MAX_DETAILS;
+}
+
+/**
  * Fiches de vérification par passage : les annonces que la liste portait au
  * passage précédent et ne porte plus. Une dizaine de départs par jour, donc
  * la marge est large.
@@ -54,7 +73,9 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
   priority: 1,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_PAGES + MAX_DETAILS + MAX_WITHDRAWN_CHECKS,
+    // Plafond du RATTRAPAGE, qui lit tout le stock. Un passage ordinaire reste
+    // bornée bien en dessous, par MAX_DETAILS.
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS_BACKFILL + MAX_WITHDRAWN_CHECKS,
     maxListingsPerRun: 1000,
     delayBetweenRequestsMs: 2_000,
   }),
@@ -232,7 +253,7 @@ export const bieniciScraper: Scraper = {
     // Les fiches APRÈS la pagination, pour ne pas lui prendre son budget ; et
     // aucune après un 429 — la mémoire s'applique quand même, sans requête.
     const enriched = await enrichNewListings(context, listings, {
-      max: stopReason === 'rateLimited' ? 0 : MAX_DETAILS,
+      max: stopReason === 'rateLimited' ? 0 : fichesParPassage(context.mode),
       detailUrl: (listing) => buildDetailUrl(listing.sourceRef),
       parse: (body) => parseAdDetail(body),
     });

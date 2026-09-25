@@ -80,6 +80,22 @@ const MAX_LIST_PAGES = 30;
 /** Fiches lues par passage : le stock se complète en quelques cycles. */
 const MAX_DETAILS = 20;
 
+/**
+ * En rattrapage : tout le stock, une fois.
+ *
+ * À vingt par passage, il fallait onze cycles pour lire les 221 annonces —
+ * et une fiche se périme au bout d'une semaine, si bien que le rattrapage
+ * courait après lui-même. Relevé du 2026-09-25 : 20 fiches lues sur 221.
+ *
+ * `--backfill` ne part jamais tout seul : c'est une commande qu'on écrit.
+ */
+const MAX_DETAILS_BACKFILL = 300;
+
+/** Fiches allouées à ce passage : tout le stock en rattrapage, un paquet sinon. */
+export function fichesParPassage(mode: ScrapeContext['mode']): number {
+  return mode === 'backfill' ? MAX_DETAILS_BACKFILL : MAX_DETAILS;
+}
+
 export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   id: 'paruvendu',
   name: 'ParuVendu',
@@ -90,7 +106,9 @@ export const PARUVENDU_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('portal'),
   budget: budgetFor('portal', {
-    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS,
+    // Plafond du RATTRAPAGE, qui lit tout le stock. Un passage ordinaire reste
+    // borné bien en dessous, par MAX_DETAILS.
+    maxPagesPerRun: MAX_LIST_PAGES + MAX_DETAILS_BACKFILL,
     // 210 annonces relevées le 2026-09-16 (160 à Nice, 42 dans les communes
     // voisines, 8 maisons) : le gabarit de famille en plafonnait 120.
     maxListingsPerRun: 300,
@@ -182,7 +200,7 @@ export const paruvenduScraper: Scraper = {
     });
 
     const enriched = await enrichNewListings(context, offres, {
-      max: MAX_DETAILS,
+      max: fichesParPassage(context.mode),
       detailUrl: (listing) => listing.sourceUrl,
       parse: (html, listing) => parseDetail(html, listing.priceText),
     });

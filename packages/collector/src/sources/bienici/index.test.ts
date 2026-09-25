@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { ScrapeContext } from '@maioun/shared';
 import { MVP_CRITERIA } from '@maioun/shared';
-import { bieniciScraper } from './index.js';
+import { BIENICI_DESCRIPTOR, bieniciScraper, fichesParPassage } from './index.js';
 import { buildSearchUrl, NICE_ZONE_ID, PAGE_SIZE } from './parser.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -205,5 +205,57 @@ describe('fiches JSON', () => {
 
     expect(urls).toHaveLength(1);
     expect(resultat.listings.every((one) => one.agencyName === 'ELITIMO')).toBe(true);
+  });
+});
+
+/**
+ * LE RATTRAPAGE LIT TOUT LE STOCK, un passage ordinaire un paquet.
+ *
+ * Trente fiches par passage et une fiche qui se périme au bout d'une semaine :
+ * le rattrapage courait après lui-même. Relevé du 2026-09-25, trente fiches
+ * lues sur 571 annonces actives — donc ni téléphone ni nom d'agence pour les
+ * 541 autres, que la fiche donne pourtant.
+ */
+describe('rattrapage', () => {
+  /** La page de recherche, gonflée à `combien` annonces aux références distinctes. */
+  function pageDe(combien: number): string {
+    const base = JSON.parse(PLEINE) as { realEstateAds: { id: string }[] };
+    const modele = base.realEstateAds;
+    base.realEstateAds = Array.from({ length: combien }, (_, rang) => ({
+      ...(modele[rang % modele.length] as { id: string }),
+      id: `annonce-${rang}`,
+    }));
+    return JSON.stringify(base);
+  }
+
+  async function fichesLues(mode: 'live' | 'backfill', annonces: number): Promise<number> {
+    const page = pageDe(annonces);
+    const urls: string[] = [];
+    const { ctx } = contexte([], new Map());
+    await bieniciScraper.run({
+      ...ctx,
+      mode,
+      fetch: (url) => {
+        urls.push(url);
+        const body = url.includes('/realEstateAd.json') ? '{}' : page;
+        return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
+      },
+    });
+    return urls.filter((url) => url.includes('/realEstateAd.json?id=')).length;
+  }
+
+  it('s’arrête à trente fiches en passage ordinaire', async () => {
+    expect(await fichesLues('live', 60)).toBe(30);
+  });
+
+  it('les lit toutes en rattrapage', async () => {
+    expect(await fichesLues('backfill', 60)).toBe(60);
+  });
+
+  // LE PIÈGE N'EST PAS LE NOMBRE, C'EST LE BUDGET : relever le plafond des
+  // fiches sans relever celui des pages fait couper `shouldStop()` au milieu,
+  // et le rattrapage rend la main sans avoir rien rattrapé de plus.
+  it('laisse le budget de pages couvrir un rattrapage entier', () => {
+    expect(BIENICI_DESCRIPTOR.budget.maxPagesPerRun).toBeGreaterThan(fichesParPassage('backfill'));
   });
 });
