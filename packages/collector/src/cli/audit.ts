@@ -34,6 +34,8 @@ import { lookupAgency } from '../core/company-registry.js';
 import { DORMANT_CANDIDATES } from '../sources/dormant.js';
 import { outOfReach } from '../sources/out-of-reach.js';
 import { SHORT_COVERAGE_WARNING } from '../sources/shared/announced-total.js';
+import { REFRESH_AFTER_MS } from '../sources/shared/enrich.js';
+import { couvertureDesFiches } from './audit-details.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -678,6 +680,7 @@ async function reportAgencyCoverage(db: Database): Promise<void> {
   }
 }
 
+const LIGNE_FICHES = '\n── Fiches lues, annonce par annonce ───────────────────────────';
 const LIGNE_TROUS = '\n── Annonces manquées chez une agence que nous lisons ──────────';
 const LIGNE_REGISTRE = '\n── Les agences lues, au registre des entreprises ──────────────';
 const CESSES = '\n   ÉTABLISSEMENT CESSÉ au registre — à vérifier en premier :';
@@ -685,6 +688,64 @@ const SANS_REPONSE = '\n   Sans réponse (ne prouve rien : enseigne ≠ raison s
 /** Le département interrogé au registre : celui de tout le périmètre. */
 const LIGNE_SITEMAP = '\n── Sources Apimo qui ne lisent que leur sitemap ──────────────';
 const DEPARTEMENT = '06';
+
+/**
+ * OÙ EN EST LA LECTURE DES FICHES.
+ *
+ * Un champ vide ne dit pas POURQUOI il l'est : source muette, parseur à
+ * reprendre, ou fiche pas encore lue. Les deux premiers appellent du travail,
+ * le troisième de la patience — ou un rattrapage. Rien ne les distinguait.
+ *
+ * Le tri et la mise à part vivent dans `audit-details.ts`, avec leurs
+ * scénarios : ce qu'on décide de montrer se teste, une requête SQL non.
+ */
+async function reportDetailCoverage(db: Database): Promise<void> {
+  const limite = new Date(Date.now() - REFRESH_AFTER_MS).toISOString();
+  const result = await db.execute({
+    sql: `SELECT o.source_id AS src,
+                 COUNT(*) AS actives,
+                 SUM(CASE WHEN d.source_ref IS NOT NULL THEN 1 ELSE 0 END) AS lues,
+                 SUM(CASE WHEN d.fetched_at < ? THEN 1 ELSE 0 END) AS perimees
+            FROM occurrences o
+            LEFT JOIN detail_drafts d
+              ON d.source_id = o.source_id AND d.source_ref = o.source_ref
+           WHERE o.${ACTIVE}
+           GROUP BY o.source_id`,
+    args: [limite],
+  });
+
+  const { retards, jamais } = couvertureDesFiches(
+    result.rows.map((row) => ({
+      sourceId: String(row['src']),
+      actives: Number(row['actives'] ?? 0),
+      lues: Number(row['lues'] ?? 0),
+      perimees: Number(row['perimees'] ?? 0),
+    })),
+  );
+
+  console.log(LIGNE_FICHES);
+  console.log(
+    '   La liste ne donne qu’un avant-goût chez plusieurs sources : description\n' +
+      '   coupée, ni DPE ni disponibilité. Le reste n’arrive qu’avec la fiche,\n' +
+      '   lue par petits paquets. `pnpm collect -- --backfill` rattrape d’un coup.',
+  );
+  for (const retard of retards.slice(0, 15)) {
+    const perimees = retard.perimees > 0 ? `  (${retard.perimees} à relire)` : '';
+    console.log(
+      `   ${retard.sourceId.padEnd(24)} ${String(retard.lues).padStart(5)} / ` +
+        `${String(retard.actives).padEnd(5)} ${String(retard.part).padStart(3)} %` +
+        `   reste ${String(retard.aLire).padStart(4)}${perimees}`,
+    );
+  }
+  if (jamais.length > 0) {
+    // NI VERDICT NI ALARME : la FNAIM n'en lit aucune parce que son robots.txt
+    // les interdit, une alerte e-mail n'a pas de page. Une panne ressemblerait
+    // exactement à cela.
+    console.log(
+      `\n   Aucune fiche lue — soit la source n’en lit pas, soit rien n’aboutit :\n     ${jamais.join(', ')}`,
+    );
+  }
+}
 
 /**
  * L'ANNONCE EST CHEZ UNE AGENCE QUE NOUS LISONS, ET ELLE NOUS EST ARRIVÉE PAR
@@ -933,6 +994,7 @@ async function main(): Promise<void> {
     await reportRequestBudget(db);
     await reportCatalogCoverage(db);
     await reportAgencyCoverage(db);
+    await reportDetailCoverage(db);
     await reportParserGaps(db);
     await reportSitemapOnly();
     if (process.argv.includes('--registre')) await reportRegistry();
