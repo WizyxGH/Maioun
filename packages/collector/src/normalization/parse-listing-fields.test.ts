@@ -377,6 +377,30 @@ describe('parseFurnished', () => {
     expect(parseFurnished('Appartement non meublé avec balcon')).toBe(false);
   });
 
+  /**
+   * LE FÉMININ PLURIEL RENDAIT `null`. « DEUX PIECES MEUBLEES — ANTIBES » est
+   * un titre entier de famille chez BEP : seize annonces actives sans la
+   * moindre mention de meublé, alors que leur titre le crie.
+   */
+  it('lit « MEUBLEES » au pluriel, dans un titre en capitales', () => {
+    expect(parseFurnished('DEUX PIECES MEUBLEES — ANTIBES')).toBe(true);
+    expect(parseFurnished('Trois pièces meublées, 52 m²')).toBe(true);
+  });
+
+  // Et le refus suit le même pluriel : sans cela, « non meublées » basculerait
+  // dans la branche positive et dirait l'inverse du texte.
+  it('« non meublées » reste non meublé', () => {
+    expect(parseFurnished('DEUX PIECES NON MEUBLEES')).toBe(false);
+  });
+
+  /**
+   * LE MASCULIN PLURIEL RESTE DEHORS : « meubles » est aussi le nom commun.
+   * Le reconnaître ferait de « sans meubles » un logement meublé.
+   */
+  it('ne prend pas le nom commun « meubles » pour l’adjectif', () => {
+    expect(parseFurnished('Appartement vendu sans meubles')).toBeNull();
+  });
+
   it('rend null quand rien n’est précisé', () => {
     expect(parseFurnished('Appartement lumineux')).toBeNull();
   });

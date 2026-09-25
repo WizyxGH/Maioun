@@ -1004,7 +1004,16 @@ function rescuedContact(occurrence: NormalizedListing, text: string): Contact {
  * pour un gain qui n'a pas été mesuré.
  */
 function rescuedCity(occurrence: NormalizedListing): string | null {
-  if (occurrence.city == null || plausibleCommune(occurrence.city) !== null) return occurrence.city;
+  // Rendue TELLE QUELLE quand elle est absente : la remplacer par `null`
+  // ferait voir un changement là où il n'y en a pas, et le rejeu réécrirait
+  // tout le stock sans commune.
+  if (occurrence.city == null) return occurrence.city;
+  // La forme CANONIQUE, et non celle qui est stockée : c'est ce qui permet au
+  // rejeu de réunir « st laurent du var » et « saint laurent du var » sans une
+  // seule requête réseau. Pour tout le reste, la valeur est déjà canonique et
+  // rien ne change — donc aucune occurrence réécrite pour rien.
+  const canonique = plausibleCommune(occurrence.city);
+  if (canonique !== null) return canonique;
   const published = communeWithPostalCode(occurrence.title ?? '');
   if (published === undefined) return null;
   if (occurrence.postalCode !== null && published.postalCode !== occurrence.postalCode) return null;

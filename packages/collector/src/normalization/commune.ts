@@ -24,6 +24,34 @@ const PERIMETER_NAMES = new Set(
 );
 
 /**
+ * « SAINT » ABRÉGÉ EN « ST », et la commune se dédouble.
+ *
+ * La FNAIM écrit « St Laurent du Var », les autres « Saint-Laurent-du-Var ».
+ * Les deux passaient tels quels : DEUX communes en base pour une seule sur la
+ * carte, 45 annonces d'un côté et 16 de l'autre au relevé du 2026-09-25. Le
+ * filtre par commune compare à l'identique — ces seize-là étaient invisibles à
+ * qui cherchait à Saint-Laurent-du-Var, sans que rien ne le dise.
+ *
+ * ON NE CORRIGE QUE CE QU'ON RECONNAÎT. L'abréviation est développée, puis la
+ * table du périmètre doit reconnaître le résultat : sinon on rend le texte tel
+ * quel. Développer à l'aveugle ferait de « St[udio] » une commune, et ce module
+ * existe précisément pour ne rien inventer.
+ */
+const SAINT_ABREGE = /(^|\s)st(e?)(\s)/g;
+
+/** La forme canonique d'une commune du périmètre, ou `null` si inconnue. */
+function communeDuPerimetre(name: string): string | null {
+  if (PERIMETER_NAMES.has(name)) return name;
+  // « Ste » vaut « Sainte », pas « Saint » : les confondre inventerait une
+  // commune voisine le jour où le périmètre en comptera une.
+  const developpe = name.replace(
+    SAINT_ABREGE,
+    (_, avant: string, feminin: string, apres: string) => `${avant}saint${feminin}${apres}`,
+  );
+  return PERIMETER_NAMES.has(developpe) ? developpe : null;
+}
+
+/**
  * LES MOTS D'UN BOUTON. Aucune commune de France n'en porte un, et c'est par
  * eux que le libellé d'action se reconnaît quel que soit le portail.
  */
@@ -76,7 +104,7 @@ const MAX_WORDS = 5;
 export function isPlausibleCommune(raw: string | null | undefined): boolean {
   const name = comparable(raw);
   if (name === '') return false;
-  if (PERIMETER_NAMES.has(name)) return true;
+  if (communeDuPerimetre(name) !== null) return true;
   // Un code postal seul ne nomme personne, et aucune commune ne s'écrit sans lettre.
   if (!/[a-z]/.test(name)) return false;
   const words = name.split(' ');
@@ -92,7 +120,11 @@ export function isPlausibleCommune(raw: string | null | undefined): boolean {
  * s'arrête ici plutôt que de s'afficher comme une adresse.
  */
 export function plausibleCommune(raw: string | null | undefined): string | null {
-  return isPlausibleCommune(raw) ? comparable(raw) : null;
+  if (!isPlausibleCommune(raw)) return null;
+  const name = comparable(raw);
+  // Une commune du périmètre repart sous SON écriture, pas celle de la source :
+  // deux orthographes pour un même lieu, c'est un filtre qui en oublie la moitié.
+  return communeDuPerimetre(name) ?? name;
 }
 
 /**

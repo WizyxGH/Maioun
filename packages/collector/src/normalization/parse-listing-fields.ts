@@ -335,12 +335,23 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
  * Détermine si le bien est meublé.
  * `null` quand le texte ne le dit pas : un logement non mentionné comme meublé
  * n'est pas nécessairement vide.
+ *
+ * LE FÉMININ PLURIEL MANQUAIT, et c'est une famille entière d'annonces :
+ * « DEUX PIECES MEUBLEES — ANTIBES » rendait `null`, la frontière de mot butant
+ * sur le « s ». Seize annonces actives au relevé du 2026-09-25.
+ *
+ * LE MASCULIN PLURIEL RESTE DEHORS, délibérément : « meubles » est aussi le nom
+ * commun, et « sans meubles » deviendrait « meublé ». « Meublées » ne peut être
+ * que l'adjectif.
+ *
+ * Le refus passe AVANT, et il suit le même pluriel : sinon « non meublées »
+ * tomberait dans la branche positive et dirait l'inverse du texte.
  */
 export function parseFurnished(text: string | null | undefined): boolean | null {
   const lower = comparable(text);
   if (lower === '') return null;
-  if (/\bnon meuble\b|\bvide\b|\bnon meublee\b/.test(lower)) return false;
-  if (/\bmeuble\b|\bmeublee\b/.test(lower)) return true;
+  if (/\bnon meublees?\b|\bvide\b|\bnon meuble\b/.test(lower)) return false;
+  if (/\bmeuble\b|\bmeublees?\b/.test(lower)) return true;
   return null;
 }
 

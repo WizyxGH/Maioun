@@ -55,6 +55,30 @@ describe('plausibleCommune', () => {
     expect(plausibleCommune('Cagnes-sur-Mer')).toBe('cagnes sur mer');
     expect(plausibleCommune('Voir l’annonce')).toBeNull();
   });
+
+  /**
+   * UNE COMMUNE, UNE ÉCRITURE — même quand la source l'abrège.
+   *
+   * La FNAIM écrit « St Laurent du Var », les autres « Saint-Laurent-du-Var » :
+   * deux communes en base pour une seule sur la carte, 45 annonces d'un côté et
+   * 16 de l'autre au relevé du 2026-09-25. Le filtre par commune compare à
+   * l'identique — ces seize-là étaient invisibles à qui cherchait
+   * Saint-Laurent-du-Var, sans que rien ne le dise.
+   */
+  it('développe « St » quand la commune du périmètre s’y reconnaît', () => {
+    expect(plausibleCommune('St Laurent du Var')).toBe('saint laurent du var');
+    expect(plausibleCommune('Saint-Laurent-du-Var')).toBe('saint laurent du var');
+    expect(plausibleCommune('ST ANDRE DE LA ROCHE')).toBe('saint andre de la roche');
+  });
+
+  /**
+   * ON NE DÉVELOPPE QUE CE QUI SE RECONNAÎT. Développer à l'aveugle ferait
+   * d'une abréviation quelconque une commune — ce module existe pour ne rien
+   * inventer, pas pour réparer.
+   */
+  it('laisse intacte une commune abrégée hors périmètre', () => {
+    expect(plausibleCommune('St Tropez')).toBe('st tropez');
+  });
 });
 
 describe('communeWithPostalCode', () => {
