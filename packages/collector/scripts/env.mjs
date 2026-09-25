@@ -6,24 +6,64 @@
  * guillemet, un `\r` de Windows. Une seule ici.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** La racine du dépôt, trois niveaux au-dessus de ce fichier. */
 export const racine = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
-/** Le miroir local. Hors de Git : `.gitignore` refuse déjà tout `*.db`. */
-export const cheminMiroir = resolve(racine, '.data/mirror.db');
-
 /**
- * L'adresse `file:` du miroir, SANS percent-encodage.
+ * L'adresse `file:` d'un fichier de base, SANS percent-encodage.
  *
  * `pathToFileURL` écrirait « Ma%C3%AFoun » pour le « ï » du chemin du dépôt, et
  * la liaison native de libsql ne le redécode pas : elle rend « os error 123 ».
  * Le chemin brut, barres inversées retournées, passe.
  */
-export const urlMiroir = `file:${cheminMiroir.split('\\').join('/')}`;
+export function adresseFichier(chemin) {
+  return `file:${chemin.split('\\').join('/')}`;
+}
+
+/** Le miroir local. Hors de Git : `.gitignore` refuse déjà tout `*.db`. */
+export const cheminMiroir = resolve(racine, '.data/mirror.db');
+
+/** La base que `pnpm local` remplit et que `serve:local` sert. */
+export const cheminLocal = resolve(racine, 'data/local.db');
+
+/**
+ * QUELLE BASE LOCALE LIRE, et sous quel nom la dire.
+ *
+ * `pnpm query --local` ne connaissait que le miroir, et refusait donc de lire
+ * la base que `pnpm local` venait de remplir — la seule disponible la semaine
+ * où le quota Turso est épuisé, puisque l'export l'est aussi. « Aucun miroir
+ * local. Tirez-en un » : impossible, justement.
+ *
+ * MÊME ORDRE QUE `serve.ts` ET `dump.ts` : le fichier désigné, sinon le miroir,
+ * sinon la base locale. Diverger ferait lire une base et en servir une autre.
+ *
+ * ET ON DIT LAQUELLE. Un miroir est une PHOTO de la production ; `local.db`
+ * est ce qu'on a collecté ici, qui ne porte ni les comptes ni l'historique des
+ * autres. Confondre les deux, c'est conclure de l'une sur l'autre.
+ */
+export function baseLocale(env = process.env, existe = (chemin) => existsSync(chemin)) {
+  const choisi = env.MAIOUN_LOCAL_DB;
+  const candidats =
+    choisi !== undefined && choisi !== ''
+      ? [{ chemin: resolve(racine, choisi), nom: 'base désignée par MAIOUN_LOCAL_DB' }]
+      : [
+          { chemin: cheminMiroir, nom: 'miroir de la production' },
+          { chemin: cheminLocal, nom: 'base locale, collectée ici' },
+        ];
+  for (const candidat of candidats) {
+    if (existe(candidat.chemin)) {
+      return { ...candidat, url: adresseFichier(candidat.chemin) };
+    }
+  }
+  return null;
+}
+
+/** L'adresse `file:` du miroir, pour l'outil qui l'écrit. */
+export const urlMiroir = adresseFichier(cheminMiroir);
 
 /** Le `.env` du dépôt, complété par l'environnement du shell qui l'emporte. */
 export function environnement() {

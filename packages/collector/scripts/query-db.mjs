@@ -20,8 +20,8 @@
  */
 
 import { createClient } from '@libsql/client';
-import { existsSync, statSync } from 'node:fs';
-import { cheminMiroir, identifiants, refusDeQuota, urlMiroir } from './env.mjs';
+import { statSync } from 'node:fs';
+import { baseLocale, identifiants, refusDeQuota } from './env.mjs';
 
 const arguments_ = process.argv.slice(2);
 const local = arguments_.includes('--local');
@@ -37,12 +37,19 @@ if (!/^select\s/i.test(sql) || sql.includes(';')) {
   process.exit(1);
 }
 
-/** Le miroir, et l'âge qu'on affichera avec ses résultats. */
-function miroir() {
-  if (!existsSync(cheminMiroir)) return null;
+/**
+ * La base locale, et ce qu'on annoncera avec ses résultats.
+ *
+ * SON NOM AVEC SA DATE, toujours : un miroir est une photo de la production,
+ * `data/local.db` ce qu'on a collecté ici. Un chiffre tiré de l'une, pris pour
+ * l'autre, se conclut de travers.
+ */
+function copieLocale() {
+  const choix = baseLocale();
+  if (choix === null) return null;
   return {
-    db: createClient({ url: urlMiroir }),
-    date: new Date(statSync(cheminMiroir).mtime).toLocaleString('fr-FR'),
+    db: createClient({ url: choix.url }),
+    quoi: `${choix.nom} du ${new Date(statSync(choix.chemin).mtime).toLocaleString('fr-FR')}`,
   };
 }
 
@@ -51,12 +58,18 @@ function rendre(lignes) {
 }
 
 if (local) {
-  const copie = miroir();
+  const copie = copieLocale();
   if (copie === null) {
-    console.error('Aucun miroir local. Tirez-en un : pnpm db:mirror');
+    console.error(
+      [
+        'Aucune base locale à lire. Deux voies :',
+        '  pnpm db:mirror   tirer une copie de la production (tant que Turso répond)',
+        '  pnpm local       collecter ici, dans data/local.db',
+      ].join('\n'),
+    );
     process.exit(1);
   }
-  console.error(`— miroir du ${copie.date}, pas la base distante —`);
+  console.error(`— ${copie.quoi}, pas la base distante —`);
   rendre((await copie.db.execute(sql)).rows);
   process.exit(0);
 }
@@ -74,13 +87,13 @@ try {
   });
   rendre((await db.execute(sql)).rows);
 } catch (erreur) {
-  const copie = miroir();
+  const copie = copieLocale();
   const quota = refusDeQuota(erreur);
   if (copie === null) {
     console.error(quota ?? `Base distante indisponible : ${erreur.message ?? erreur}`);
     process.exit(1);
   }
   console.error(quota ?? `Base distante indisponible (${erreur.message}).`);
-  console.error(`— miroir du ${copie.date}, pas la base distante —`);
+  console.error(`— ${copie.quoi}, pas la base distante —`);
   rendre((await copie.db.execute(sql)).rows);
 }
