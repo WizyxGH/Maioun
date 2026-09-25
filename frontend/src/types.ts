@@ -286,6 +286,8 @@ export interface FilterConfig {
   commuteMode?: ReferenceTravelMode;
   excludeFlatShare?: boolean;
   excludeStudent?: boolean;
+  /** Écarter les logements au dernier étage, quand l'annonce le dit. */
+  excludeTopFloor?: boolean;
   /** Nature du bailleur : tous, particuliers (hors agences), ou agences. */
   landlordFilter?: 'all' | 'private' | 'agency';
   /** Meublé : tous, meublés seulement, ou non meublés seulement. */

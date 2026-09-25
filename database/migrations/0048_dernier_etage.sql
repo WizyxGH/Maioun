@@ -1,0 +1,25 @@
+-- ---------------------------------------------------------------------------
+-- « Exclure les appartements au dernier étage » (§66).
+--
+-- POURQUOI CE FILTRE. Sous les toits, c'est la chaleur l'été, l'ascenseur qui
+-- s'arrête un palier plus bas dans les vieux immeubles niçois, et les combles
+-- mansardés dont la surface au sol ment sur la surface habitable. Cent
+-- soixante-treize annonces actives sur 2 453 l'annoncent (relevé du
+-- 2026-09-25) : assez pour valoir un réglage.
+--
+-- POURQUOI UNE COLONNE, et non `json_extract`. Comme le caractère étudiant, le
+-- dernier étage se DÉDUIT du titre et de la description par une expression
+-- régulière — SQLite ne sait pas la rejouer. Il faut donc le stocker au
+-- scoring pour pouvoir filtrer dessus en direct, sans recollecter.
+--
+-- NULL POUR LES FICHES DÉJÀ EN BASE. Elles se remplissent au prochain
+-- `reprocess`, qui rejoue le scoring sur le texte conservé. Un NULL ne fait
+-- jamais sortir une annonce de la liste (§17) : tant que le rejeu n'a pas eu
+-- lieu, le filtre laisse passer plutôt que d'écarter à tort.
+--
+-- ET `false` NE VEUT PAS DIRE « PAS AU DERNIER ÉTAGE » : il veut dire « non
+-- dit ». La plupart des annonces se taisent là-dessus. C'est pourquoi le
+-- filtre écarte ce qui EST au dernier étage, et ne garde jamais par défaut.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE listings ADD COLUMN top_floor INTEGER;

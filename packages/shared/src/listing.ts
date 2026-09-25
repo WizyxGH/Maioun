@@ -494,6 +494,20 @@ export interface ScoredListing extends AggregatedListing {
    * s'appliquer qu'à la collecte — donc jamais à ce qui est déjà affiché.
    */
   readonly studentOnly: boolean;
+
+  /**
+   * Logement au DERNIER ÉTAGE, quand l'annonce le dit.
+   *
+   * Même forme que `studentOnly`, et pour la même raison : il se lit dans le
+   * titre et la description, et la base ne sait pas rejouer l'expression. Sans
+   * cette valeur, le filtre ne pourrait s'appliquer qu'à la collecte — donc
+   * jamais à ce qui est déjà affiché.
+   *
+   * `false` VEUT DIRE « PAS DIT », et non « pas au dernier étage » : la plupart
+   * des annonces se taisent là-dessus. C'est pourquoi le filtre écarte ce qui
+   * EST au dernier étage, et ne garde jamais par défaut (§17).
+   */
+  readonly topFloor: boolean;
   /**
    * `true` si le loyer d'au moins une source a baissé récemment (§17 : signal
    * d'opportunité — agir maintenant). Déduit de `listing_history`.

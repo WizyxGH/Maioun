@@ -32,6 +32,13 @@
 export interface TraitFilters {
   readonly excludeFlatShare?: boolean;
   readonly excludeStudent?: boolean;
+  /**
+   * Écarter les logements au DERNIER ÉTAGE, quand l'annonce le dit.
+   *
+   * Un silence n'écarte jamais : la plupart des annonces ne le précisent pas,
+   * et les retirer toutes ne laisserait presque rien.
+   */
+  readonly excludeTopFloor?: boolean;
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
   readonly maxCommuteMinutes?: number;
@@ -78,6 +85,9 @@ export function traitConditions(filters: TraitFilters): TraitConditions {
 
   if (filters.excludeFlatShare === true) sql.push('COALESCE(flat_share, 0) = 0');
   if (filters.excludeStudent === true) sql.push('COALESCE(student_only, 0) = 0');
+  // `COALESCE(..., 0)` : un NULL — fiche d'avant la colonne, ou annonce qui se
+  // tait — reste dans la liste. Un trait inconnu n'écarte jamais (§17).
+  if (filters.excludeTopFloor === true) sql.push('COALESCE(top_floor, 0) = 0');
 
   // « Particuliers seuls » GARDE LES INCONNUS : beaucoup d'annonces de
   // particuliers ne se déclarent pas comme telles, et les écarter reviendrait à

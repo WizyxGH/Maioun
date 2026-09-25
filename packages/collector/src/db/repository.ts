@@ -325,6 +325,10 @@ export function listingHash(listing: ScoredListing): string {
     // texte révèle un bail étudiant après coup ne serait jamais réécrite : la
     // colonne resterait nulle, et le filtre la laisserait passer à tort.
     listing.studentOnly,
+    // Omis quand FAUX : « non dit » est le cas de la quasi-totalité du stock, et
+    // l'inclure tel quel réécrirait 2 453 fiches d'un coup pour rien. Seules
+    // celles dont le texte l'annonce changent d'empreinte, une fois.
+    ...(listing.topFloor ? ['dernier-etage'] : []),
     listing.contact.kind,
     listing.district.value,
     // LA FORME CANONIQUE EN PLUS DE LA BRUTE, et ce n'est pas une redondance :
@@ -1531,8 +1535,8 @@ export function createRepository(db: Database): Repository {
               lifecycle, match_score, opportunity_score, visit_score,
               risk_score, action_priority, matches_criteria, payload, content_hash, updated_at,
               flat_share, student_only, furnished, landlord_kind, commute_minutes,
-              available_at, district, list_payload, list_scores, list_hash
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              available_at, district, list_payload, list_scores, list_hash, top_floor
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title, price = excluded.price, area = excluded.area,
               rooms = excluded.rooms, property_type = excluded.property_type,
@@ -1551,6 +1555,8 @@ export function createRepository(db: Database): Repository {
               -- un JSON non (et le caractère étudiant ne s'y trouve nulle part,
               -- il se déduit du texte au scoring).
               flat_share = excluded.flat_share, student_only = excluded.student_only,
+              -- Même famille : lu dans le texte au scoring, filtré en SQL.
+              top_floor = excluded.top_floor,
               furnished = excluded.furnished, landlord_kind = excluded.landlord_kind,
               commute_minutes = excluded.commute_minutes,
               -- Même raison que les précédentes : on filtre dessus, donc c'est
@@ -1601,6 +1607,7 @@ export function createRepository(db: Database): Repository {
             list.payload,
             list.scores,
             hash,
+            listing.topFloor ? 1 : 0,
           ],
         });
 

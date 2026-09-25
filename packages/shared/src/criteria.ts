@@ -34,6 +34,14 @@ export interface SearchCriteria {
    */
   readonly excludeStudent?: boolean;
   /**
+   * Écarter les logements au DERNIER ÉTAGE, quand l'annonce le dit.
+   *
+   * Chaleur l'été, ascenseur qui s'arrête un palier plus bas dans les vieux
+   * immeubles, combles mansardés dont la surface au sol ment. Un silence
+   * n'écarte jamais : la plupart des annonces n'en parlent pas.
+   */
+  readonly excludeTopFloor?: boolean;
+  /**
    * Surface MAXIMUM en m². Absent = aucun plafond.
    *
    * Il manquait, et la surface n'avait donc qu'un plancher : rien n'écartait
@@ -267,6 +275,7 @@ export const NEAR_MATCH_NEVER_RELAXED: Readonly<Record<StrictCriterion, string>>
   furnished: 'meublé ou non : un logement ne l’est pas à moitié',
   excludeFlatShare: 'il n’existe pas de demi-colocation',
   excludeStudent: 'un bail étudiant est un bail étudiant, la durée ne se négocie pas d’un cheveu',
+  excludeTopFloor: 'on est au dernier étage ou on ne l’est pas ; il n’y a pas de demi-toit',
   landlordFilter: 'une agence ne devient pas un particulier parce qu’elle en est proche',
   furnishedFilter: 'même raison que `furnished` : le filtre trie deux ensembles disjoints',
   districts:

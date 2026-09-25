@@ -9,6 +9,7 @@ import {
   parseEmail,
   parseFlatShare,
   parseFurnished,
+  parseTopFloor,
   parseDistrict,
   parseDistrictOf,
   parseDpe,
@@ -1811,5 +1812,37 @@ describe('isStudentOnlyHousing — aperçu tronqué', () => {
     expect(isStudentOnlyHousing('Studio idéal étudiant, proche fac...')).toBe(false);
     expect(isStudentOnlyHousing('Studio idéal pour étud…')).toBe(false);
     expect(isStudentOnlyHousing('Bel appartement rénové, étudiant uniquemen')).toBe(false);
+  });
+});
+
+/**
+ * LE DERNIER ÉTAGE : chaleur l'été, ascenseur qui s'arrête un palier plus bas,
+ * combles mansardés dont la surface au sol ment. Cent soixante-treize annonces
+ * actives l'annoncent (relevé du 2026-09-25).
+ */
+describe('parseTopFloor', () => {
+  it('reconnaît les tournures qui le disent', () => {
+    expect(parseTopFloor('Appartement au dernier étage')).toBe(true);
+    expect(parseTopFloor('Charmant studio sous les toits')).toBe(true);
+    expect(parseTopFloor('Duplex au dernier niveau')).toBe(true);
+  });
+
+  /**
+   * « AVANT-DERNIER ÉTAGE » N'EST PAS LE DERNIER, et c'est tout le piège : la
+   * tournure contient le mot. L'écarter est le point de ce test — sans lui, le
+   * filtre retirerait précisément les annonces qui prennent la peine de dire
+   * qu'elles ne sont PAS sous les toits.
+   */
+  it('ne prend pas l’avant-dernier pour le dernier', () => {
+    expect(parseTopFloor('Bel appartement, avant-dernier étage')).toBe(false);
+    expect(parseTopFloor('au 3e et avant dernier étage')).toBe(false);
+  });
+
+  // ON NE DÉDUIT RIEN D'UN NUMÉRO : « 4e étage » ne dit pas si l'immeuble en
+  // compte quatre ou huit. Un silence reste un silence (§17).
+  it('ne déduit rien d’un numéro d’étage', () => {
+    expect(parseTopFloor('T2 au 4e étage avec ascenseur')).toBe(false);
+    expect(parseTopFloor('Appartement lumineux')).toBe(false);
+    expect(parseTopFloor(null)).toBe(false);
   });
 });

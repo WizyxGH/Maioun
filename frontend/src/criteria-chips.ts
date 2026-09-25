@@ -93,6 +93,9 @@ export function criteriaChips(criteria: FilterConfig | null): readonly CriteriaC
   if (criteria.excludeFlatShare === true) {
     chips.push({ label: 'Sans colocations', patch: { excludeFlatShare: false } });
   }
+  if (criteria.excludeTopFloor === true) {
+    chips.push({ label: 'Sans dernier étage', patch: { excludeTopFloor: false } });
+  }
   if (criteria.excludeStudent === true) {
     chips.push({ label: 'Sans logements étudiants', patch: { excludeStudent: false } });
   }

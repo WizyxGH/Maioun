@@ -455,6 +455,17 @@ export function FiltersPanel({
             onChange={(e) => set({ excludeStudent: e.target.checked })}
           />
         </div>
+        {/* CE QUI SE TAIT RESTE : la plupart des annonces ne disent pas l'étage,
+          et les écarter toutes ne laisserait presque rien. Seules les 173 qui
+          l'annoncent sortent (relevé du 2026-09-25). */}
+        <div className={ROW}>
+          <label htmlFor="excludeTopFloor">Exclure les logements au dernier étage</label>
+          <Checkbox
+            id="excludeTopFloor"
+            checked={filters.excludeTopFloor ?? false}
+            onChange={(e) => set({ excludeTopFloor: e.target.checked })}
+          />
+        </div>
         {/* L'INTITULÉ AU-DESSUS, LES PILULES EN DESSOUS — et non l'un à gauche,
           les autres à droite. Ces deux réglages portent des libellés longs
           (« Particuliers seuls », « Agences uniquement ») : poussés à droite,

@@ -17,6 +17,7 @@ import { isStudentHousing, scoreMatch } from './match.js';
 import { scoreOpportunity } from './opportunity.js';
 import { scoreRisk } from './risk.js';
 import { scoreVisitProbability } from './visit-probability.js';
+import { parseTopFloor } from '../normalization/parse-listing-fields.js';
 
 export { scoreMatch } from './match.js';
 export { scoreOpportunity } from './opportunity.js';
@@ -122,6 +123,9 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
     // n'est pas un verdict de filtrage, c'est un fait sur l'annonce. C'est ce
     // qui permet de changer d'avis sur le filtre sans rien recollecter.
     studentOnly: isStudentHousing(listing),
+    // Un FAIT sur l'annonce, calculé que l'utilisateur l'exclue ou non : c'est
+    // ce qui permet de changer d'avis sur le filtre sans rien recollecter.
+    topFloor: parseTopFloor(`${listing.title.value ?? ''} ${listing.description.value ?? ''}`),
     priceDropped,
     reappeared,
   };

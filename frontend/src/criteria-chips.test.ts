@@ -112,6 +112,22 @@ describe('criteriaChips', () => {
     expect(student?.patch).toEqual({ excludeStudent: false });
   });
 
+  /**
+   * TOUT CE QUI ÉCARTE A SA PUCE, et se retire d'un clic. Un critère qui filtre
+   * sans se montrer est exactement ce que cette barre existe pour empêcher.
+   */
+  it('montre le dernier étage quand il est exclu', () => {
+    expect(labels({ ...CRITERIA, excludeTopFloor: true })).toContain('Sans dernier étage');
+    const puce = criteriaChips({ ...CRITERIA, excludeTopFloor: true }).find(
+      (chip) => chip.label === 'Sans dernier étage',
+    );
+    expect(puce?.patch).toEqual({ excludeTopFloor: false });
+  });
+
+  it('n’en dit rien quand il n’est pas exclu', () => {
+    expect(labels(CRITERIA)).not.toContain('Sans dernier étage');
+  });
+
   it('compte aussi le bailleur, le meublé, la date et les quartiers inconnus', () => {
     expect(
       labels({

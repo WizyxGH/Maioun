@@ -30,6 +30,7 @@ export interface LiveFilters {
   readonly maxArea?: number;
   readonly excludeFlatShare?: boolean;
   readonly excludeStudent?: boolean;
+  readonly excludeTopFloor?: boolean;
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
   readonly maxCommuteMinutes?: number;
@@ -153,6 +154,7 @@ export function parseLiveFilters(value: unknown, defauts = false): LiveFilters |
     ...(maxCommuteMinutes !== undefined ? { maxCommuteMinutes } : {}),
     ...(parsed.excludeFlatShare === true ? { excludeFlatShare: true } : {}),
     ...(parsed.excludeStudent === true ? { excludeStudent: true } : {}),
+    ...(parsed.excludeTopFloor === true ? { excludeTopFloor: true } : {}),
     ...(parsed.landlordFilter === 'private' || parsed.landlordFilter === 'agency'
       ? { landlordFilter: parsed.landlordFilter }
       : {}),

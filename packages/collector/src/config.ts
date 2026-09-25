@@ -107,6 +107,7 @@ export interface EditableFilters {
   readonly maxCommuteMinutes?: number;
   readonly excludeFlatShare?: boolean;
   readonly excludeStudent?: boolean;
+  readonly excludeTopFloor?: boolean;
   /** Nature du bailleur : tous, particuliers (hors agences), ou agences. */
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   /** Meublé : tous, meublés seulement, ou non meublés seulement. */
@@ -198,6 +199,8 @@ function validateFilters(input: unknown): EditableFilters {
     ...(maxCommuteMinutes === undefined ? {} : { maxCommuteMinutes }),
     excludeFlatShare: o['excludeFlatShare'] === true,
     excludeStudent: o['excludeStudent'] === true,
+    // §75 : ce que la LISTE sait filtrer, les ALERTES doivent le filtrer aussi.
+    excludeTopFloor: o['excludeTopFloor'] === true,
     landlordFilter:
       o['landlordFilter'] === 'private' || o['landlordFilter'] === 'agency'
         ? o['landlordFilter']

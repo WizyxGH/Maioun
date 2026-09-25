@@ -356,6 +356,33 @@ export function parseFurnished(text: string | null | undefined): boolean | null 
 }
 
 /**
+ * LE DERNIER ÉTAGE, quand l'annonce le dit.
+ *
+ * Pourquoi il se filtre : sous les toits, c'est la chaleur l'été, l'ascenseur
+ * qui s'arrête un palier plus bas dans les vieux immeubles niçois, et les
+ * combles mansardés dont la surface au sol ment sur la surface habitable. Cent
+ * soixante-treize annonces actives sur 2 453 l'annoncent (relevé du
+ * 2026-09-25) — assez pour valoir un filtre.
+ *
+ * « AVANT-DERNIER ÉTAGE » N'EST PAS LE DERNIER, et c'est tout le piège : la
+ * tournure contient le mot. Elle est écartée explicitement, comme
+ * « pénultième ». Sans cela, le filtre retirerait précisément les annonces qui
+ * prennent la peine de dire qu'elles ne sont PAS sous les toits.
+ *
+ * ON NE DÉDUIT RIEN D'UN NUMÉRO. « 4e étage » ne dit pas si l'immeuble en
+ * compte quatre ou huit : seule une mention explicite compte (§17). Un silence
+ * reste un silence, et un trait inconnu n'écarte jamais.
+ */
+const DERNIER_ETAGE =
+  /(?<!avant[- ])(?<!penultieme )\bdernier etage\b|\bsous les toits\b|\bdernier niveau\b/;
+
+export function parseTopFloor(text: string | null | undefined): boolean {
+  const lower = comparable(text);
+  if (lower === '') return false;
+  return DERNIER_ETAGE.test(lower);
+}
+
+/**
  * LE MOT « COLOCATION » SOUS SES ÉCRITURES RÉELLES.
  *
  * Trois formes, et le motif n'en reconnaissait qu'une :

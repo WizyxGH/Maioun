@@ -33,6 +33,7 @@ const TOUT_REGLE = {
   maxCommuteMinutes: 45,
   excludeFlatShare: true,
   excludeStudent: true,
+  excludeTopFloor: true,
   landlordFilter: 'agency',
   furnishedFilter: 'furnished',
   availableBy: '2026-10-01',
