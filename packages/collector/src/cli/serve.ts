@@ -26,6 +26,7 @@ import { resolve } from 'node:path';
 import { route } from '../server/routes.js';
 import { CURRENT_USER } from '@maioun/shared';
 import { openDatabase } from '../db/client.js';
+import { descriptionDeLaCopie, SQL_DERNIERE_COLLECTE } from '../db/fraicheur.js';
 import { loadDotEnv } from '../config.js';
 import { entetes } from '../server/local-cors.js';
 
@@ -55,7 +56,7 @@ const racine = resolve(import.meta.dirname, '../../../..');
  * On ANNONCE lequel et de quand il date. Un écran qui montre l'état d'avant-
  * hier sans le dire est pire qu'un écran vide : on y prend des décisions.
  */
-function choisirBase(): { chemin: string; date: string } {
+function choisirBase(): { chemin: string; modifieLe: Date } {
   // `MAIOUN_LOCAL_DB` désigne un autre fichier — une copie datée qu'on veut
   // relire, par exemple. Sinon : le miroir, puis la base de collecte locale.
   const choisi = process.env['MAIOUN_LOCAL_DB'];
@@ -65,7 +66,7 @@ function choisirBase(): { chemin: string; date: string } {
       : [resolve(racine, '.data/mirror.db'), resolve(racine, 'data/local.db')];
   for (const chemin of candidats) {
     if (!existsSync(chemin)) continue;
-    return { chemin, date: new Date(statSync(chemin).mtime).toLocaleString('fr-FR') };
+    return { chemin, modifieLe: new Date(statSync(chemin).mtime) };
   }
   console.error(
     [
@@ -169,9 +170,29 @@ const serveur = createServer((requete, reponse) => {
 
 await verifierLeSchema();
 
+/**
+ * DE QUAND DATENT CES ANNONCES — et non : de quand date ce fichier.
+ *
+ * Ouvrir une base SQLite suffit à rafraîchir son fichier : la ligne annonçait
+ * l'heure du démarrage pour un contenu de la veille. Voir `db/fraicheur.ts`.
+ */
+async function quandOntEllesEteCollectees(): Promise<string | null> {
+  try {
+    const rendu = await db.execute(SQL_DERNIERE_COLLECTE);
+    const quand = rendu.rows[0]?.['quand'];
+    return quand === null || quand === undefined ? null : String(quand);
+  } catch {
+    // Base vide ou table absente : on le dira, plutôt que de laisser croire.
+    return null;
+  }
+}
+
+const collecteeLe = await quandOntEllesEteCollectees();
+
 serveur.listen(PORT, INTERFACE_ECOUTEE, () => {
   console.log(`Maïoun — API locale sur http://localhost:${PORT}`);
-  console.log(`Base : ${base.chemin} (${base.date})`);
+  console.log(`Base : ${base.chemin}`);
+  console.log(`       ${descriptionDeLaCopie('annonces', collecteeLe, base.modifieLe)}`);
   if (!SUR_LE_RESEAU) {
     console.log(`Le site : VITE_API_URL=http://localhost:${PORT} pnpm dev`);
     console.log('Depuis un téléphone : MAIOUN_LOCAL_RESEAU=1 (voir docs/deployment.md)');

@@ -37,7 +37,7 @@ describe('baseLocale', () => {
   it('se rabat sur la base collectée ici', () => {
     const choix = choisir([LOCAL]);
     expect(choix?.chemin).toBe(LOCAL);
-    expect(choix?.nom).toMatch(/collectée ici/);
+    expect(choix?.nom).toMatch(/cette machine/);
   });
 
   it('ne rend rien quand il n’y a rien à lire', () => {

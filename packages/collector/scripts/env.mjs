@@ -52,7 +52,7 @@ export function baseLocale(env = process.env, existe = (chemin) => existsSync(ch
       ? [{ chemin: resolve(racine, choisi), nom: 'base désignée par MAIOUN_LOCAL_DB' }]
       : [
           { chemin: cheminMiroir, nom: 'miroir de la production' },
-          { chemin: cheminLocal, nom: 'base locale, collectée ici' },
+          { chemin: cheminLocal, nom: 'base locale (collectée sur cette machine)' },
         ];
   for (const candidat of candidats) {
     if (existe(candidat.chemin)) {
@@ -64,6 +64,31 @@ export function baseLocale(env = process.env, existe = (chemin) => existsSync(ch
 
 /** L'adresse `file:` du miroir, pour l'outil qui l'écrit. */
 export const urlMiroir = adresseFichier(cheminMiroir);
+
+/**
+ * DE QUAND DATENT CES DONNÉES — et non : de quand date ce fichier.
+ *
+ * Ouvrir une base SQLite suffit à rafraîchir son fichier : le 2026-09-25,
+ * `pnpm query --local` annonçait « base du 25/09 11:36 » pour un contenu
+ * collecté la veille à 17 h, parce qu'il venait de l'ouvrir. La date la plus
+ * rassurante était la moins vraie — et c'est exactement ce que cet affichage
+ * doit empêcher.
+ *
+ * Une copie de cette règle vit dans `src/db/fraicheur.ts`, pour le serveur
+ * local, qui est compilé. Elles doivent rester d'accord.
+ */
+export const SQL_DERNIERE_COLLECTE = 'SELECT MAX(scraped_at) AS quand FROM occurrences';
+
+/** Ce qu'on affiche à côté d'un chiffre tiré d'une base locale. */
+export function descriptionDeLaCopie(nom, derniereCollecte, modifieLe) {
+  const quand = derniereCollecte === null ? null : new Date(derniereCollecte);
+  if (quand !== null && !Number.isNaN(quand.getTime())) {
+    return `${nom}, collectée le ${quand.toLocaleString('fr-FR')}`;
+  }
+  // « fichier » et non « collectée » : le mot dit que la date n'est pas celle
+  // des données, et qu'elle ne prouve donc pas leur fraîcheur.
+  return `${nom}, fichier du ${modifieLe.toLocaleString('fr-FR')} (contenu de date inconnue)`;
+}
 
 /** Le `.env` du dépôt, complété par l'environnement du shell qui l'emporte. */
 export function environnement() {

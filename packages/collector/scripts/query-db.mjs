@@ -21,7 +21,13 @@
 
 import { createClient } from '@libsql/client';
 import { statSync } from 'node:fs';
-import { baseLocale, identifiants, refusDeQuota } from './env.mjs';
+import {
+  baseLocale,
+  descriptionDeLaCopie,
+  identifiants,
+  refusDeQuota,
+  SQL_DERNIERE_COLLECTE,
+} from './env.mjs';
 
 const arguments_ = process.argv.slice(2);
 const local = arguments_.includes('--local');
@@ -44,12 +50,21 @@ if (!/^select\s/i.test(sql) || sql.includes(';')) {
  * `data/local.db` ce qu'on a collecté ici. Un chiffre tiré de l'une, pris pour
  * l'autre, se conclut de travers.
  */
-function copieLocale() {
+async function copieLocale() {
   const choix = baseLocale();
   if (choix === null) return null;
+  const db = createClient({ url: choix.url });
+  let collecteeLe = null;
+  try {
+    const rendu = await db.execute(SQL_DERNIERE_COLLECTE);
+    const quand = rendu.rows[0]?.quand;
+    collecteeLe = quand === null || quand === undefined ? null : String(quand);
+  } catch {
+    // Base vide ou table absente : on le dira, plutôt que de laisser croire.
+  }
   return {
-    db: createClient({ url: choix.url }),
-    quoi: `${choix.nom} du ${new Date(statSync(choix.chemin).mtime).toLocaleString('fr-FR')}`,
+    db,
+    quoi: descriptionDeLaCopie(choix.nom, collecteeLe, new Date(statSync(choix.chemin).mtime)),
   };
 }
 
@@ -58,7 +73,7 @@ function rendre(lignes) {
 }
 
 if (local) {
-  const copie = copieLocale();
+  const copie = await copieLocale();
   if (copie === null) {
     console.error(
       [
@@ -87,7 +102,7 @@ try {
   });
   rendre((await db.execute(sql)).rows);
 } catch (erreur) {
-  const copie = copieLocale();
+  const copie = await copieLocale();
   const quota = refusDeQuota(erreur);
   if (copie === null) {
     console.error(quota ?? `Base distante indisponible : ${erreur.message ?? erreur}`);
