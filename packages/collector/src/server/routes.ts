@@ -982,26 +982,66 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
  * liste retire précisément pour ne pas les payer (§30).
  *
  * Le nom est la clé, faute de mieux : les sources ne publient pas
- * d'identifiant d'agence. Deux orthographes donneront donc deux entrées — on
+ * d'identifiant d'agence. Deux ORTHOGRAPHES donneront donc deux entrées — on
  * préfère ça à un regroupement inventé (§17).
+ *
+ * MAIS PAS DEUX CASSES. « SAINT ROCH IMMOBILIER » et « Saint Roch Immobilier »
+ * sont le même nom, et l'écran en faisait deux lignes : trente-quatre agences
+ * apparaissaient en double au relevé du 2026-09-25, soit soixante-huit lignes
+ * pour trente-quatre agences, chacune avec la moitié de ses annonces. Les
+ * replier n'invente rien — c'est le même nom, à la casse près.
+ *
+ * L'ÉCRITURE RETENUE EST LA PLUS FRÉQUENTE, et à égalité celle qui n'est pas
+ * tout en capitales : c'est presque toujours celle de l'agence elle-même.
  */
+/**
+ * LA CLÉ D'UNE AGENCE : son nom, à la casse et aux espaces près.
+ *
+ * Une seule définition pour les trois requêtes. Diverger ferait afficher une
+ * agence repliée dans la liste, puis la moitié de ses annonces au clic.
+ */
+const AGENCY_KEY = 'LOWER(TRIM(o.contact_agency))';
+/** La même, là où la table n'est pas aliasée. */
+const AGENCY_KEY_BARE = 'LOWER(TRIM(contact_agency))';
+/** Le paramètre, replié de la même façon que la colonne. */
+const AGENCY_KEY_ARG = 'LOWER(TRIM(?))';
+
 async function listAgencies(db: Client): Promise<unknown> {
   const result = await db.execute(`
     -- group_id et non listing_id : c'est ainsi que la table occurrences
     -- designe la fiche qui la regroupe. Le mauvais nom compilait sans broncher
     -- (une chaine SQL n'est pas typee) et l'ecran affichait « aucune agence
     -- identifiee » alors que 966 occurrences en nomment une.
-    SELECT o.contact_agency                AS name,
-           COUNT(DISTINCT o.group_id)      AS listings,
-           MAX(o.contact_phone)            AS phone,
-           MAX(o.contact_email)            AS email,
-           GROUP_CONCAT(DISTINCT o.source_id) AS sources,
-           MAX(l.last_seen_at)             AS lastSeenAt
-    FROM occurrences o
-    JOIN listings l ON l.id = o.group_id
-    WHERE o.contact_agency IS NOT NULL AND TRIM(o.contact_agency) != ''
-      AND l.lifecycle != 'inactive' AND l.rented = 0
-    GROUP BY o.contact_agency
+    WITH nommees AS (
+      SELECT ${AGENCY_KEY}          AS cle,
+             TRIM(o.contact_agency) AS ecriture,
+             o.group_id, o.contact_phone, o.contact_email, o.source_id,
+             l.last_seen_at
+      FROM occurrences o
+      JOIN listings l ON l.id = o.group_id
+      WHERE o.contact_agency IS NOT NULL AND TRIM(o.contact_agency) != ''
+        AND l.lifecycle != 'inactive' AND l.rented = 0
+    ),
+    -- L'ecriture retenue : la plus frequente, et a egalite celle qui n'est pas
+    -- tout en capitales — presque toujours celle de l'agence elle-meme.
+    ecritures AS (
+      SELECT cle, ecriture,
+             ROW_NUMBER() OVER (
+               PARTITION BY cle
+               ORDER BY COUNT(*) DESC, (ecriture = UPPER(ecriture)) ASC, ecriture ASC
+             ) AS rang
+      FROM nommees
+      GROUP BY cle, ecriture
+    )
+    SELECT e.ecriture                       AS name,
+           COUNT(DISTINCT n.group_id)       AS listings,
+           MAX(n.contact_phone)             AS phone,
+           MAX(n.contact_email)             AS email,
+           GROUP_CONCAT(DISTINCT n.source_id) AS sources,
+           MAX(n.last_seen_at)              AS lastSeenAt
+    FROM nommees n
+    JOIN ecritures e ON e.cle = n.cle AND e.rang = 1
+    GROUP BY n.cle
     ORDER BY listings DESC, name ASC
   `);
 
@@ -1024,7 +1064,7 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
   const listings = await db.execute({
     sql: `SELECT ${listingColumns(userId)} FROM listings ${USER_STATE_JOIN}
           WHERE listings.id IN (
-            SELECT group_id FROM occurrences WHERE contact_agency = ?
+            SELECT group_id FROM occurrences WHERE ${AGENCY_KEY_BARE} = ${AGENCY_KEY_ARG}
           )
           AND listings.lifecycle != 'inactive' AND listings.rented = 0
           ORDER BY COALESCE(sc.action_priority, 0) DESC, listings.last_seen_at DESC
@@ -1035,7 +1075,7 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
   const contact = await db.execute({
     sql: `SELECT MAX(contact_phone) AS phone, MAX(contact_email) AS email,
                  GROUP_CONCAT(DISTINCT source_id) AS sources
-          FROM occurrences WHERE contact_agency = ?`,
+          FROM occurrences WHERE ${AGENCY_KEY_BARE} = ${AGENCY_KEY_ARG}`,
     args: [name],
   });
   const row = contact.rows[0];
