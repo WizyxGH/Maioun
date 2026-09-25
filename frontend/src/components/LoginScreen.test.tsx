@@ -34,6 +34,9 @@ describe('LoginScreen', () => {
   });
 
   // CONSULTER RESTE LIBRE : sans cette sortie, on est coincé sur l'écran.
+  // C'est une FLÈCHE EN HAUT À GAUCHE, là où l'on cherche un retour — elle
+  // occupait le bas de l'écran sous la forme d'une phrase, après le formulaire
+  // et deux paragraphes.
   it('laisse revenir aux annonces sans compte', async () => {
     const onBack = vi.fn();
     render(<LoginScreen onSignedIn={vi.fn()} onBack={onBack} />);
@@ -44,6 +47,17 @@ describe('LoginScreen', () => {
   it('n’affiche pas de sortie quand il n’y en a pas', () => {
     render(<LoginScreen onSignedIn={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /revenir aux annonces/i })).toBeNull();
+  });
+
+  /**
+   * L'ÉCRAN NE SE COMMENTE PAS LUI-MÊME. Un paragraphe expliquait sous le
+   * bouton ce que le compte apporte — favoris, suivi, recherches. Qui arrive
+   * ici le sait déjà, ou vient d'un geste qui le lui a dit ; il repoussait la
+   * sortie hors de vue sur un téléphone.
+   */
+  it('ne commente pas ce qu’un compte apporte', () => {
+    render(<LoginScreen onSignedIn={vi.fn()} onSignup={vi.fn()} />);
+    expect(screen.queryByText(/n’appartiennent qu’à vous/)).toBeNull();
   });
 
   // La création de compte était la porte principale du premier écran : elle

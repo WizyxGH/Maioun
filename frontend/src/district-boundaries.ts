@@ -13,15 +13,29 @@
 
 import { districtLabel } from '@maioun/shared';
 import './district-boundaries.css';
-import type { DistrictBoundaries } from './district-boundaries.generated.js';
+import type { DistrictBoundaries, InseeZones } from './district-boundaries.generated.js';
 
-export type { DistrictBoundaries, DistrictBoundary } from './district-boundaries.generated.js';
+export type {
+  DistrictBoundaries,
+  DistrictBoundary,
+  InseeZone,
+  InseeZones,
+} from './district-boundaries.generated.js';
 
 /** Classe posée sur chaque contour ; la feuille de style fait le reste. */
 export const BOUNDARY_CLASS = 'maioun-quartier';
 
 /** Classe du contour mis en évidence. */
 export const BOUNDARY_ACTIVE_CLASS = 'maioun-quartier-actif';
+
+/**
+ * Classe des zones que l'INSEE nomme et que nos quartiers ignorent.
+ *
+ * Un trait plus discret, et c'est voulu : ce ne sont pas des quartiers. Elles
+ * remplissent la carte là où notre table ne dit rien — près de la moitié de
+ * Nice restait blanche — sans se faire passer pour ce qu'elles ne sont pas.
+ */
+export const INSEE_ZONE_CLASS = 'maioun-zone-insee';
 
 /** Exigée par la Licence Ouverte 2.0 sous laquelle les contours sont publiés. */
 export const BOUNDARY_ATTRIBUTION =
@@ -45,6 +59,20 @@ export async function loadDistrictBoundaries(): Promise<DistrictBoundaries> {
 }
 
 /**
+ * Les zones de l'INSEE qu'aucun de nos quartiers ne nomme.
+ *
+ * MÊME MORCEAU QUE LES CONTOURS : elles voyagent dans le même fichier engendré,
+ * donc aucune requête de plus. Elles s'affichent en dessous et à part — on ne
+ * les coche pas dans les critères, et `districtAt` ne les voit pas : une
+ * annonce ne doit pas se retrouver dans un « quartier » qu'aucun filtre ne
+ * connaît.
+ */
+export async function loadInseeZones(): Promise<InseeZones> {
+  const module = await import('./district-boundaries.generated.js');
+  return module.INSEE_ZONES;
+}
+
+/**
  * Les quartiers dessinés, par ordre alphabétique de nom affiché.
  *
  * Le libellé vient de `districtLabel`, jamais du fichier de contours : celui-ci
@@ -56,6 +84,23 @@ export function boundaryOptions(boundaries: DistrictBoundaries): readonly Distri
       slug: feature.properties.slug,
       label: districtLabel(feature.properties.slug),
     }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+}
+
+/**
+ * Les zones sans quartier, nommées.
+ *
+ * ON LES DIT TOUTES, et c'est le seul endroit qui le fasse. Un contour sur une
+ * carte ne se lit qu'à la souris : sans cette liste, soixante-huit zones
+ * n'auraient de nom que pour qui les survole — et aucun pour qui navigue au
+ * clavier.
+ *
+ * Le libellé vient du fichier, contrairement aux quartiers : il est de l'INSEE,
+ * et aucune table à nous ne saurait le retrouver depuis un slug.
+ */
+export function inseeZoneOptions(zones: InseeZones): readonly DistrictOption[] {
+  return zones.features
+    .map((feature) => ({ slug: feature.properties.slug, label: feature.properties.label }))
     .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 }
 

@@ -50,3 +50,29 @@
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Zones de l'INSEE sans quartier.
+
+   Près de la MOITIÉ DE NICE n'avait aucun contour : notre table de quartiers
+   vient de Wikipédia, la géométrie de l'INSEE, et les deux ne se recouvrent
+   qu'en partie. Soixante-huit IRIS ne portent le nom d'aucun de nos quartiers
+   — « Gare Nice-Ville », « Saleya-Château », « Promenade du Paillon » — et
+   laissaient la carte blanche sans rien dire.
+
+   ELLES SE VOIENT MOINS, ET C'EST LE SUJET. Un quartier se coche dans les
+   critères et nomme une annonce ; ces zones-là ne font que remplir la carte.
+   Le trait est fin et pointillé : présent, mais clairement d'un autre ordre.
+--------------------------------------------------------------------------- */
+
+.maioun-zone-insee {
+  fill: var(--color-foreground);
+  fill-opacity: 0.02;
+  stroke: var(--color-muted-foreground);
+  stroke-width: 1;
+  stroke-opacity: 0.3;
+  stroke-dasharray: 4 4;
+  stroke-linejoin: round;
+  /* Pas de curseur : on ne clique pas dessus, il n'y a rien à filtrer. */
+  pointer-events: none;
+}

@@ -19,7 +19,7 @@
 
 import { useState } from 'react';
 import { Turnstile } from './Turnstile.js';
-import { LogIn, UserPlus } from './icons.js';
+import { ArrowLeft, LogIn, UserPlus } from './icons.js';
 import { login } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { GoogleSignIn } from './GoogleSignIn.js';
@@ -73,7 +73,23 @@ export function LoginScreen({
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-4">
+    <main className="relative mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-4">
+      {/* CONSULTER RESTE LIBRE, et la sortie se prend en haut à gauche — là où
+        l'on cherche un retour. Elle occupait le bas de l'écran sous la forme
+        d'une phrase entière, après le formulaire et deux paragraphes : au
+        mauvais endroit pour un geste qu'on fait sans réfléchir. Cet écran
+        recouvre tout, barre de navigation comprise ; sans elle on est coincé. */}
+      {onBack !== undefined && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          aria-label="Revenir aux annonces"
+          className="absolute top-4 left-2"
+        >
+          <ArrowLeft aria-hidden="true" className="size-5" />
+        </Button>
+      )}
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Maïoun</h1>
       <p className="text-muted-foreground mb-5 text-sm">
         {raison === undefined
@@ -161,20 +177,6 @@ export function LoginScreen({
             <UserPlus aria-hidden="true" className="size-4" /> Créer un compte
           </Button>
         </div>
-      )}
-
-      <p className="text-muted-foreground mt-4 text-[0.82rem]">
-        Les annonces sont communes à tous les comptes ; vos favoris, votre suivi et vos recherches
-        enregistrées n’appartiennent qu’à vous.
-      </p>
-
-      {/* CONSULTER RESTE LIBRE : qui arrive ici par un geste personnel doit
-        pouvoir revenir aux annonces sans compte, et sans le bouton « retour »
-        du navigateur — cet écran occupe tout, barre de navigation comprise. */}
-      {onBack !== undefined && (
-        <Button variant="ghost" onClick={onBack} className="mt-3 w-full">
-          Revenir aux annonces, sans compte
-        </Button>
       )}
     </main>
   );

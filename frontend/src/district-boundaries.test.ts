@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { districtBySlug, NICE_DISTRICTS } from '@maioun/shared';
-import { DISTRICT_BOUNDARIES } from './district-boundaries.generated.js';
+import { DISTRICT_BOUNDARIES, INSEE_ZONES } from './district-boundaries.generated.js';
 import {
   boundaryOptions,
   districtAt,
@@ -88,6 +88,46 @@ describe('contours de quartiers', () => {
 
   it('charge les contours à la demande', async () => {
     await expect(loadDistrictBoundaries()).resolves.toBe(DISTRICT_BOUNDARIES);
+  });
+});
+
+/**
+ * LES ZONES SANS QUARTIER REMPLISSENT LA CARTE, ET RIEN DE PLUS.
+ *
+ * Notre table de quartiers vient de Wikipédia, la géométrie de l'INSEE : les
+ * deux ne se recouvrent qu'en partie, et près de la moitié de Nice n'avait
+ * aucun contour. Ces zones-là comblent le blanc sous leur nom INSEE — contour
+ * officiel, nom officiel.
+ *
+ * MAIS ELLES NE DOIVENT JAMAIS DEVENIR DES QUARTIERS. Les laisser entrer dans
+ * la table des contours rattacherait des annonces à un « quartier » qu'aucun
+ * filtre ne connaît : la puce serait affichée, le critère introuvable, et la
+ * liste écarterait des annonces sans pouvoir l'expliquer.
+ */
+describe('zones INSEE sans quartier', () => {
+  it('remplit la carte là où nos quartiers ne disent rien', () => {
+    expect(INSEE_ZONES.features.length).toBeGreaterThan(50);
+  });
+
+  it('n’en est aucune un de nos quartiers', () => {
+    for (const zone of INSEE_ZONES.features) {
+      expect(districtBySlug(zone.properties.slug), zone.properties.slug).toBeUndefined();
+    }
+  });
+
+  it('ne recoupe aucun contour de quartier', () => {
+    const quartiers = new Set(DISTRICT_BOUNDARIES.features.map((f) => f.properties.slug));
+    for (const zone of INSEE_ZONES.features) {
+      expect(quartiers.has(zone.properties.slug), zone.properties.slug).toBe(false);
+    }
+  });
+
+  // Le nom vient de l'INSEE et voyage avec la géométrie : aucune table à nous
+  // ne saurait le retrouver depuis un slug.
+  it('porte son nom avec elle', () => {
+    for (const zone of INSEE_ZONES.features) {
+      expect(zone.properties.label.trim(), zone.properties.slug).not.toBe('');
+    }
   });
 });
 

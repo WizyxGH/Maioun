@@ -64,7 +64,11 @@ import {
   BOUNDARY_CLASS,
   boundaryOptions,
   loadDistrictBoundaries,
+  loadInseeZones,
+  inseeZoneOptions,
+  INSEE_ZONE_CLASS,
   type DistrictBoundaries,
+  type InseeZones,
 } from '../district-boundaries.js';
 
 /** Aperçu de 220 px de large, sur un écran à densité 2. */
@@ -389,9 +393,13 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   const tilesRef = useRef<L.TileLayer | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyle>(readMapStyle);
   const [boundaries, setBoundaries] = useState<DistrictBoundaries | null>(null);
+  /** Les zones que l'INSEE nomme et que nos quartiers ignorent. */
+  const [inseeZones, setInseeZones] = useState<InseeZones | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
   // Le tracé de chaque quartier, pour le mettre en évidence sans le redessiner.
   const shapesRef = useRef(new Map<string, L.Polygon>());
+  /** Les zones sans quartier, à part : elles se cadrent, elles ne filtrent pas. */
+  const zoneShapesRef = useRef(new Map<string, L.Polygon>());
   // `onOpen` change à chaque rendu : une ref évite de reconstruire les marqueurs.
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
@@ -412,6 +420,12 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   const districtOptions = useMemo(
     () => (boundaries === null ? [] : boundaryOptions(boundaries)),
     [boundaries],
+  );
+
+  /** Les zones sans quartier, nommées : la liste est le seul endroit qui le dit. */
+  const zoneOptions = useMemo(
+    () => (inseeZones === null ? [] : inseeZoneOptions(inseeZones)),
+    [inseeZones],
   );
 
   // Initialisation de la carte, une seule fois.
@@ -454,10 +468,51 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       },
       () => undefined,
     );
+    // Même fichier, donc aucune requête de plus : elles arrivent avec les
+    // contours et remplissent la carte là où nos quartiers ne disent rien.
+    void loadInseeZones().then(
+      (data) => {
+        if (monte) setInseeZones(data);
+      },
+      () => undefined,
+    );
     return () => {
       monte = false;
     };
   }, []);
+
+  /**
+   * LES ZONES SANS QUARTIER, dessinées SOUS les contours.
+   *
+   * Près de la moitié de Nice restait blanche : notre table de quartiers et le
+   * découpage de l'INSEE ne se recouvrent qu'en partie. On les dessine sous
+   * leur nom INSEE — contour officiel, nom officiel, rien de deviné.
+   *
+   * Elles ne sont ni cliquables ni cochables : ce ne sont pas des quartiers.
+   * Leur seul rôle est que la carte ne soit pas trouée, et l'infobulle dit ce
+   * qu'elles sont.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map === null || inseeZones === null) return;
+    const group = L.geoJSON(inseeZones as unknown as GeoJsonInput, {
+      style: () => ({ className: INSEE_ZONE_CLASS, interactive: false }),
+      onEachFeature: (feature, layer) => {
+        const { slug, label } = feature.properties as { slug: string; label: string };
+        layer.bindTooltip(`${label} — hors quartier`, { sticky: true });
+        // Dans le même registre que les quartiers : la liste doit pouvoir les
+        // cadrer, faute de quoi la choisir ne ferait rien.
+        zoneShapesRef.current.set(slug, layer as L.Polygon);
+      },
+    }).addTo(map);
+    // DERRIÈRE LES CONTOURS : un quartier voisin ne doit pas se faire recouvrir
+    // par une zone qui n'en est pas un.
+    group.bringToBack();
+    return () => {
+      group.remove();
+      zoneShapesRef.current = new Map<string, L.Polygon>();
+    };
+  }, [inseeZones]);
 
   // Le fond se remplace sous les marqueurs, sans toucher ni à eux ni au cadrage.
   useEffect(() => {
@@ -723,17 +778,36 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
               // Choisi dans la liste, le quartier est cadré : sans souris, on
               // ne sait pas où regarder. Cliqué sur la carte, il ne l'est pas
               // — on était déjà dessus, et la carte sauterait sous le doigt.
-              const shape = slug === null ? undefined : shapesRef.current.get(slug);
+              const shape =
+                slug === null
+                  ? undefined
+                  : (shapesRef.current.get(slug) ?? zoneShapesRef.current.get(slug));
               if (shape !== undefined) mapRef.current?.fitBounds(shape.getBounds().pad(0.1));
             }}
             className="bg-card shadow-md"
           >
             <option value="">Quartier…</option>
-            {districtOptions.map((option) => (
-              <option key={option.slug} value={option.slug}>
-                {option.label}
-              </option>
-            ))}
+            <optgroup label="Quartiers">
+              {districtOptions.map((option) => (
+                <option key={option.slug} value={option.slug}>
+                  {option.label}
+                </option>
+              ))}
+            </optgroup>
+            {/* LES ZONES SANS QUARTIER, TOUTES NOMMÉES. Un contour sur une carte
+              ne se lit qu'à la souris : sans cette liste, soixante-huit zones
+              n'auraient de nom que pour qui les survole, et aucun pour qui
+              navigue au clavier. L'intitulé du groupe dit ce qu'elles sont —
+              elles se cadrent, elles ne se cochent pas dans les critères. */}
+            {zoneOptions.length > 0 && (
+              <optgroup label="Zones sans quartier (INSEE)">
+                {zoneOptions.map((option) => (
+                  <option key={option.slug} value={option.slug}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </Select>
         </div>
       )}

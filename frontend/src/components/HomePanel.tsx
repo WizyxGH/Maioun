@@ -141,7 +141,7 @@ function Carrousel({
   return (
     <ul
       aria-label={etiquette}
-      className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]"
+      className="rf-rail flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
     >
       {listings.map((listing, rank) => (
         <li

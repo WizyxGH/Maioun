@@ -386,7 +386,7 @@ function ChipRail({ children }: { readonly children: React.ReactNode }): React.J
         ref={rail}
         onScroll={measure}
         data-testid="filter-chips"
-        className="flex touch-pan-x items-center gap-1.5 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]"
+        className="rf-rail flex touch-pan-x items-center gap-1.5 overflow-x-auto overscroll-x-contain"
       >
         {children}
       </div>

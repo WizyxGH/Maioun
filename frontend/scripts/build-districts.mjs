@@ -383,6 +383,36 @@ const features = couverts
 
 const reunis = couverts.reduce((total, [, parts]) => total + parts.length, 0);
 
+/**
+ * LES ZONES QUE PERSONNE NE RÉCLAME — et le trou qu'elles laissaient.
+ *
+ * Notre table de quartiers vient de Wikipédia, la géométrie de l'INSEE : les
+ * deux ne se recouvrent qu'en partie. Des dizaines d'IRIS ne portent le nom
+ * d'aucun de nos quartiers — « Gare Nice-Ville », « Saleya-Château »,
+ * « Promenade du Paillon », « France-Negresco » —, et la carte les laissait
+ * BLANCS. Près de la moitié de Nice sans le moindre contour, sans que rien ne
+ * dise pourquoi.
+ *
+ * ON NE LEUR INVENTE PAS DE NOM DE QUARTIER. On les dessine sous LE LEUR, celui
+ * que l'INSEE leur donne : le contour est officiel, le nom est officiel, et
+ * rien n'est déduit. « Gare Nice-Ville » vaut mieux qu'un blanc.
+ *
+ * ELLES RESTENT À PART, et c'est le point délicat. Ce ne sont pas nos
+ * quartiers : elles ne se cochent pas dans les critères, elles ne nomment pas
+ * le quartier d'une annonce, et `districtAt` ne les voit pas — sinon une
+ * annonce se retrouverait dans un « quartier » qu'aucun filtre ne connaît.
+ * Elles ne font que remplir la carte, dans un trait plus discret.
+ */
+const attribues = new Set(couverts.flatMap(([, parts]) => parts.map((part) => part.nom)));
+const zones = iris
+  .filter((entry) => !attribues.has(entry.nom))
+  .map((entry) => ({
+    type: 'Feature',
+    properties: { slug: `iris-${entry.forme.replace(/ /g, '-')}`, label: entry.nom },
+    geometry: { type: 'MultiPolygon', coordinates: simplifier(reunir([entry])) },
+  }))
+  .sort((a, b) => a.properties.slug.localeCompare(b.properties.slug));
+
 const sommets = features.reduce(
   (total, feature) =>
     total +
@@ -447,6 +477,36 @@ export const DISTRICT_BOUNDARIES: DistrictBoundaries = ${JSON.stringify({
   type: 'FeatureCollection',
   features,
 })} as DistrictBoundaries;
+
+/**
+ * Une zone de l'INSEE qu'aucun de nos quartiers ne nomme.
+ *
+ * Elle porte un \`label\`, contrairement à un contour de quartier : son nom ne
+ * se déduit d'aucune table à nous, il vient de l'INSEE et doit voyager avec la
+ * géométrie.
+ */
+export interface InseeZone {
+  readonly type: 'Feature';
+  readonly properties: { readonly slug: string; readonly label: string };
+  readonly geometry: DistrictBoundary['geometry'];
+}
+
+export interface InseeZones {
+  readonly type: 'FeatureCollection';
+  readonly features: readonly InseeZone[];
+}
+
+/**
+ * LES ZONES SANS QUARTIER, dessinées sous leur nom INSEE.
+ *
+ * Elles remplissent la carte là où notre table de quartiers ne dit rien. Ce ne
+ * sont PAS des quartiers : elles ne se cochent pas dans les critères et ne
+ * nomment pas le quartier d'une annonce.
+ */
+export const INSEE_ZONES: InseeZones = ${JSON.stringify({
+  type: 'FeatureCollection',
+  features: zones,
+})} as InseeZones;
 `;
 
 // La configuration du dépôt, sinon `prettier --check` refuse le fichier engendré.
@@ -456,6 +516,7 @@ writeFileSync(OUT, await prettier.format(source, { ...options, parser: 'typescri
 console.log(
   `${String(features.length)} quartiers, ${String(reunis)} IRIS réunis, ${String(sommets)} sommets → ${OUT}`,
 );
+console.log(`${String(zones.length)} zones INSEE sans quartier, dessinées sous leur propre nom.`);
 console.log(
   `garde-fou : préfixe seul ${String(large.couverts.length)} quartiers / ${String(large.disputes.length)} IRIS disputés ;` +
     ` tout composant (appliqué) ${String(strict.couverts.length)} / ${String(strict.disputes.length)}`,

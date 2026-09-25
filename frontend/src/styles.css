@@ -163,6 +163,24 @@
 --------------------------------------------------------------------------- */
 
 @layer utilities {
+  /* UNE BARRE DE DÉFILEMENT QUI NE SE VOIT PAS, sur un rail qui se fait glisser.
+
+     Le carousel de l'accueil se parcourt au doigt ou à la molette, et la carte
+     suivante DÉPASSE du bord exprès pour dire qu'il y en a d'autres. La barre
+     n'apprenait donc rien, et sur un ordinateur elle traversait le bas des
+     cartes en permanence.
+
+     ELLE RESTE ATTEIGNABLE AU CLAVIER : masquer la barre ne retire ni le
+     défilement, ni le focus, ni les flèches — c'est une règle d'apparence. */
+  .rf-rail {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .rf-rail::-webkit-scrollbar {
+    display: none;
+  }
+
   @keyframes rf-rise {
     from {
       opacity: 0;

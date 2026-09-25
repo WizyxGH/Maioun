@@ -10,7 +10,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MapView, { readMapStyle } from './MapView.js';
 import { MOCK_LISTINGS } from '../api/mock-data.js';
-import { DISTRICT_BOUNDARIES } from '../district-boundaries.generated.js';
+import { DISTRICT_BOUNDARIES, INSEE_ZONES } from '../district-boundaries.generated.js';
 import type { ListingView } from '../types.js';
 
 /** Une annonce de démonstration, posée où on veut. */
@@ -287,9 +287,35 @@ describe('MapView — contours de quartiers', () => {
     await waitFor(() =>
       expect(container.querySelectorAll('.maioun-quartier-actif')).toHaveLength(1),
     );
-    // La liste ne propose que les quartiers dont le générateur a produit un
-    // contour, y compris ceux réunis depuis plusieurs IRIS.
-    expect(menu.querySelectorAll('option')).toHaveLength(DISTRICT_BOUNDARIES.features.length + 1);
+    // La liste propose les quartiers dont le générateur a produit un contour,
+    // y compris ceux réunis depuis plusieurs IRIS.
+    const quartiers = menu.querySelector('optgroup[label="Quartiers"]');
+    expect(quartiers?.querySelectorAll('option')).toHaveLength(DISTRICT_BOUNDARIES.features.length);
     expect(menu.querySelector('option[value="cimiez"]')).not.toBeNull();
+  });
+
+  /**
+   * LES ZONES SANS QUARTIER SONT NOMMÉES, TOUTES, ET SOUS LEUR PROPRE INTITULÉ.
+   *
+   * Près de la moitié de Nice n'avait aucun contour : notre table de quartiers
+   * vient de Wikipédia, la géométrie de l'INSEE, et les deux ne se recouvrent
+   * qu'en partie. Ces zones-là comblent le blanc — mais un contour sur une
+   * carte ne se lit qu'à la souris, et sans cette liste elles n'auraient de nom
+   * pour personne au clavier.
+   *
+   * L'INTITULÉ DU GROUPE DIT CE QU'ELLES SONT. Mêlées aux quartiers, elles
+   * feraient croire à des critères qu'on peut cocher — elles ne le sont pas.
+   */
+  it('nomme toutes les zones sans quartier, dans leur propre groupe', async () => {
+    await carte();
+    const menu = screen.getByLabelText('Délimiter un quartier') as HTMLSelectElement;
+    const zones = menu.querySelector('optgroup[label="Zones sans quartier (INSEE)"]');
+    expect(zones).not.toBeNull();
+    expect(zones?.querySelectorAll('option')).toHaveLength(INSEE_ZONES.features.length);
+    // Le nom vient de l'INSEE : aucune table à nous ne saurait le retrouver.
+    const premier = INSEE_ZONES.features[0]!;
+    expect(zones?.querySelector(`option[value="${premier.properties.slug}"]`)?.textContent).toBe(
+      premier.properties.label,
+    );
   });
 });
