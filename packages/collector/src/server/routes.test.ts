@@ -14,11 +14,11 @@ import {
   capListPhotos,
   etagMatches,
   listItemJson,
-  parseLiveFilters,
   RENT_FOR_BUDGET_SQL,
   route,
   rowToListing,
 } from './routes.js';
+import { parseLiveFilters } from './filters.js';
 
 const vueMoi = (row: Record<string, unknown>): Record<string, unknown> => rowToListing(row);
 

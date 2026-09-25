@@ -32,8 +32,6 @@ describe('criteriaChips', () => {
   it('montre tout ce qui écarte des annonces', () => {
     expect(labels(CRITERIA)).toEqual([
       '87 quartiers',
-      '250 – 700 €',
-      '≥ 20 m²',
       'Trajet ≤ 60 min',
       'Sans colocations',
       'Sans logements étudiants',
@@ -41,29 +39,29 @@ describe('criteriaChips', () => {
   });
 
   /**
-   * LE BUDGET EST REVENU ICI. Il appartenait aux filtres rapides, qui
-   * s'ouvraient sur les critères — 250–700 €, ≥ 20 m², écrits en dur pour tout
-   * le monde. Ces valeurs ont quitté le code ; le serveur, lui, applique
-   * toujours le budget enregistré d'un compte. Sans puce, ce filtre-là
-   * redevenait invisible.
+   * LE BUDGET, LA SURFACE ET LA COMMUNE N'ONT PAS DE PUCE — et la croix qu'ils
+   * ont portée un temps est la raison de ce test.
+   *
+   * Elle ne faisait rien. Le retrait s'écrivait bien en base, mais la clé
+   * absente était RECOMBLÉE par les valeurs du projet à la lecture suivante :
+   * la puce disparaissait de la barre, et la liste continuait d'écarter à
+   * 700 €. Rien en aval ne sait dire « aucun budget » — la collecte construit
+   * ses requêtes avec, le score s'y mesure, les alertes s'en servent.
    */
-  it('porte le budget et la surface du compte, que le serveur applique', () => {
-    const budget = criteriaChips(CRITERIA).find((chip) => chip.label === '250 – 700 €');
-    expect(budget?.patch).toEqual({ minPrice: undefined, maxPrice: undefined });
-    const surface = criteriaChips(CRITERIA).find((chip) => chip.label === '≥ 20 m²');
-    expect(surface?.patch).toEqual({ minArea: undefined, maxArea: undefined });
+  it('ne met pas de puce sur le périmètre : commune, budget, surface', () => {
+    for (const label of labels(CRITERIA)) expect(label).not.toMatch(/€|m²|[Nn]ice/);
   });
 
-  it('dit la borne réellement posée, et elle seule', () => {
-    expect(labels({ ...CRITERIA, minPrice: undefined })).toContain('≤ 700 €');
-    expect(labels({ ...CRITERIA, maxPrice: undefined })).toContain('≥ 250 €');
-    expect(labels({ ...CRITERIA, minArea: undefined, maxArea: 60 })).toContain('≤ 60 m²');
-  });
-
-  // Un compte qui n'a posé ni budget ni surface n'en voit pas la puce.
-  it('n’invente ni budget ni surface', () => {
-    const sans = { ...CRITERIA, minPrice: undefined, maxPrice: undefined, minArea: undefined };
-    for (const label of labels(sans)) expect(label).not.toMatch(/€|m²/);
+  it('les laisse donc intacts après « Effacer tout »', () => {
+    const efface = clearedCriteria(CRITERIA);
+    expect(efface.maxPrice).toBe(700);
+    expect(efface.minPrice).toBe(250);
+    expect(efface.minArea).toBe(20);
+    expect(efface.cities).toEqual(['nice']);
+    // Ce qui part, en revanche, part vraiment.
+    expect(efface.districts).toEqual([]);
+    expect(efface.excludeFlatShare).toBe(false);
+    expect(efface.maxCommuteMinutes).toBeUndefined();
   });
 
   it('ne dit rien des quartiers quand ils sont tous retenus', () => {
@@ -121,8 +119,6 @@ describe('criteriaChips', () => {
     ).toEqual([
       '87 quartiers',
       'Quartier connu exigé',
-      '250 – 700 €',
-      '≥ 20 m²',
       'Trajet ≤ 60 min',
       'Sans colocations',
       'Sans logements étudiants',
@@ -162,17 +158,6 @@ describe('clearedCriteria', () => {
     expect(cleared.availableBy).toBe('');
     expect(cleared.landlordFilter).toBe('all');
     expect(cleared.furnishedFilter).toBe('all');
-  });
-
-  it('garde le périmètre — la commune, et elle seule', () => {
-    // La commune n'est pas un filtre : sans elle il ne reste rien à chercher.
-    // Le budget, lui, porte désormais une puce — et une puce qui survivrait à
-    // « Effacer tout » serait l'exception qu'on a retirée aux quartiers.
-    const cleared = clearedCriteria(CRITERIA);
-    expect(cleared.cities).toEqual(['nice']);
-    expect(cleared.maxPrice).toBeUndefined();
-    expect(cleared.minPrice).toBeUndefined();
-    expect(cleared.minArea).toBeUndefined();
   });
 
   it('ne met jamais le plafond de trajet à zéro', () => {

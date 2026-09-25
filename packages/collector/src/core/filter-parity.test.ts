@@ -20,7 +20,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { withStoredCriteria } from '../config.js';
-import { parseLiveFilters } from '../server/routes.js';
+import { parseLiveFilters } from '../server/filters.js';
 import { traitConditions, type TraitFilters } from './trait-filters.js';
 import { MVP_CRITERIA } from '@maioun/shared';
 

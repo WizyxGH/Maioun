@@ -90,13 +90,15 @@ describe('les critères comptent dans la barre de filtres', () => {
     expect(screen.getByText('Sans colocations')).toBeInTheDocument();
     expect(screen.getByText('Sans logements étudiants')).toBeInTheDocument();
 
-    // SIX CRITÈRES, ET AUCUN FILTRE RAPIDE : ils s'ouvrent vides depuis que les
-    // valeurs d'une personne ont quitté le code. Le budget et la surface du
-    // COMPTE restent comptés — le serveur les applique — mais une seule fois.
+    // QUATRE CRITÈRES, ET AUCUN FILTRE RAPIDE : ils s'ouvrent vides depuis que
+    // les valeurs d'une personne ont quitté le code. Le budget et la surface du
+    // compte ne comptent pas — ils sont le PÉRIMÈTRE, comme la commune, et la
+    // croix qu'ils ont portée un temps ne retirait rien (voir
+    // `criteria-chips.ts`).
     const button = screen.getAllByRole('button', { name: 'Filtres' })[0]!;
-    expect(within(button).getByText('6')).toBeInTheDocument();
-    expect(screen.getAllByText(/250 – 700 €/)).toHaveLength(1);
-    expect(screen.getAllByText('≥ 20 m²')).toHaveLength(1);
+    expect(within(button).getByText('4')).toBeInTheDocument();
+    expect(screen.queryByText(/250 – 700 €/)).toBeNull();
+    expect(screen.queryByText('≥ 20 m²')).toBeNull();
   });
 
   it('tient TOUTES les puces sur une seule rangée qui défile', async () => {
@@ -106,7 +108,7 @@ describe('les critères comptent dans la barre de filtres', () => {
     // Elles se repliaient sur trois lignes à dix filtres posés, et repoussaient
     // la première annonce sous le pli d'un téléphone.
     const rail = screen.getByTestId('filter-chips');
-    for (const label of ['250 – 700 €', '≥ 20 m²', '87 quartiers', 'Trajet ≤ 60 min']) {
+    for (const label of ['87 quartiers', 'Trajet ≤ 60 min', 'Sans colocations']) {
       expect(within(rail).getByText(label), label).toBeInTheDocument();
     }
     expect(rail.className).toContain('overflow-x-auto');
@@ -183,11 +185,11 @@ describe('les critères comptent dans la barre de filtres', () => {
     expect(written.maxCommuteMinutes).toBeUndefined();
     // LE PÉRIMÈTRE RESTE — la commune, sans quoi il n'y a plus rien à chercher.
     expect(written.cities).toEqual(['nice']);
-    // LE BUDGET PART AVEC LE RESTE, depuis qu'il porte une puce : une puce qui
-    // ne s'efface pas avec « Effacer tout » est précisément l'exception qu'on
-    // a retirée aux quartiers. « Annuler » le rétablit d'un clic.
-    expect(written.maxPrice).toBeUndefined();
-    expect(written.minArea).toBeUndefined();
+    // LE BUDGET ET LA SURFACE RESTENT, avec la commune : ils sont le périmètre.
+    // Ils ont porté une puce un temps, et l'effacer n'effaçait rien — le
+    // serveur recomblait la clé absente à la lecture suivante.
+    expect(written.maxPrice).toBe(700);
+    expect(written.minArea).toBe(20);
     // La liste est rechargée : c'est le serveur qui filtre là-dessus.
     await waitFor(() => expect(state.listingCalls).toBeGreaterThan(before));
     // Et la barre dit la même chose que la liste : plus une puce.

@@ -17,18 +17,17 @@
  * Ce qui les retenait a été traité à la source : l'effacement se défait d'un
  * clic (« Annuler »), et « aucun plafond de trajet » s'enregistre vraiment.
  *
- * LE BUDGET ET LA SURFACE EN SONT, DEPUIS QUE LES FILTRES RAPIDES S'OUVRENT
- * VIDES. Ils s'ouvraient sur 250–700 € et ≥ 20 m² — les critères d'une
- * personne, écrits en dur —, et c'étaient eux qui portaient la puce. Ces
- * valeurs ont disparu du code ; le SERVEUR, lui, applique toujours le budget
- * enregistré d'un compte. Sans puce ici, ce filtre-là redevenait invisible :
- * exactement ce que cette barre existe pour empêcher.
+ * LE BUDGET, LA SURFACE ET LA COMMUNE N'EN SONT PAS : c'est le PÉRIMÈTRE de
+ * l'outil, pas un filtre qu'on retire. Ils y ont figuré un temps, avec une
+ * croix — et cette croix ne faisait rien. Leur retrait s'écrivait bien en base,
+ * mais la clé simplement absente était RECOMBLÉE par les valeurs du projet à la
+ * lecture suivante (`server/filters.ts`) : la puce disparaissait, la liste
+ * continuait d'écarter à 700 €. Rien en aval ne sait dire « aucun budget » — la
+ * collecte construit ses requêtes avec (`px1=` chez ParuVendu), le score s'y
+ * mesure, les alertes s'en servent.
  *
- * Aucun double compte à craindre : un filtre rapide POSÉ à la main porte sa
- * propre puce, et l'ouverture n'en pose plus aucun.
- *
- * LA COMMUNE NON PLUS : c'est le périmètre de l'outil, pas un filtre qu'on
- * retire — sans elle il ne resterait rien à chercher.
+ * Une croix qui ne fait rien est pire qu'une absence de croix. Ils se règlent
+ * donc là où ils ont un effet : le panneau des filtres.
  */
 
 import { NICE_DISTRICTS } from '@maioun/shared';
@@ -49,18 +48,6 @@ export interface CriteriaChip {
 function formatDay(iso: string): string {
   const [year, month, day] = iso.split('-');
   return day === undefined ? iso : `${day}/${month}/${year}`;
-}
-
-/** « 250 – 700 € », « ≤ 700 € », « ≥ 250 € ». */
-function priceRangeLabel(min: number | undefined, max: number | undefined): string {
-  if (min !== undefined && max !== undefined) return `${min} – ${max} €`;
-  return max !== undefined ? `≤ ${max} €` : `≥ ${min ?? 0} €`;
-}
-
-/** Même forme, en mètres carrés. */
-function areaRangeLabel(min: number | undefined, max: number | undefined): string {
-  if (min !== undefined && max !== undefined) return `${min} – ${max} m²`;
-  return max !== undefined ? `≤ ${max} m²` : `≥ ${min ?? 0} m²`;
 }
 
 /**
@@ -91,21 +78,6 @@ export function criteriaChips(criteria: FilterConfig | null): readonly CriteriaC
         patch: { includeUnknownDistrict: true },
       });
     }
-  }
-
-  // LE BUDGET ET LA SURFACE DU COMPTE. Le serveur les applique à la liste ; la
-  // barre doit donc les montrer, et les rendre retirables comme le reste.
-  if (criteria.maxPrice !== undefined || criteria.minPrice !== undefined) {
-    chips.push({
-      label: priceRangeLabel(criteria.minPrice, criteria.maxPrice),
-      patch: { minPrice: undefined, maxPrice: undefined },
-    });
-  }
-  if (criteria.minArea !== undefined || criteria.maxArea !== undefined) {
-    chips.push({
-      label: areaRangeLabel(criteria.minArea, criteria.maxArea),
-      patch: { minArea: undefined, maxArea: undefined },
-    });
   }
 
   // Les minutes sont celles qui sont stockées, dans le mode où la collecte a

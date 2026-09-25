@@ -163,8 +163,10 @@ for (const width of CHIP_WIDTHS) {
     await ouvrirRecherche(page);
     await expect(page.getByTestId('listing-card').first()).toBeVisible();
 
-    // DE QUOI CHARGER LA BARRE comme l'utilisateur la charge : le budget et la
-    // surface, les trois critères de collecte, un texte cherché, quatre types.
+    // DE QUOI CHARGER LA BARRE comme l'utilisateur la charge : les trois
+    // critères de collecte, un texte cherché, quatre types, et le budget et la
+    // surface POSÉS À LA MAIN. Ces deux-là sont des filtres rapides : ceux du
+    // COMPTE n'ont pas de puce, ils sont le périmètre (voir `criteria-chips.ts`).
     await page.getByLabel('Rechercher une annonce').fill('nice');
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /Filtres/ }).click();
@@ -172,6 +174,8 @@ for (const width of CHIP_WIDTHS) {
     for (const type of ['Appartement', 'Studio', 'Maison', 'Loft']) {
       await dialog.getByRole('button', { name: type, exact: true }).click();
     }
+    await dialog.getByLabel('Loyer maximum').fill('1500');
+    await dialog.getByLabel('au moins').fill('15');
     await dialog.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
 
     const rail = page.getByTestId('filter-chips');
