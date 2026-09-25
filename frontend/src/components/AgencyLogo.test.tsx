@@ -88,9 +88,20 @@ describe('sourceLogoUrl', () => {
     expect(sourceLogoUrl('tichadou')).toBe('https://tichadou.fr/favicon.ico');
   });
 
-  it('ne rend rien pour un portail : le même logo pour des dizaines d’agences', () => {
+  /**
+   * LE PORTAIL A DROIT À SA PROPRE MARQUE, ici : l'écran nomme LA SOURCE, et
+   * Studapart sur une annonce Studapart n'usurpe l'identité de personne. Ce
+   * qu'un portail n'a pas le droit de faire, c'est prêter son image à une
+   * agence — et cela reste interdit, dans `agencyLogoUrl`.
+   */
+  it('rend le logo d’un portail, qui est bien le sien', () => {
+    expect(sourceLogoUrl('studapart')).toBe('https://studapart.com/favicon.ico');
+  });
+
+  // Une source sans site — les alertes e-mail n'en sont pas un — n'a pas de
+  // logo à montrer, et on n'en invente pas (§17).
+  it('ne rend rien pour une source qui n’est pas un site', () => {
     expect(sourceLogoUrl('email-alerts')).toBeNull();
-    expect(sourceLogoUrl('123loger')).toBeNull();
   });
 
   it('ne rend rien pour une source inconnue', () => {

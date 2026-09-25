@@ -58,6 +58,31 @@ function parSonIdentifiant(
   return { logo: source.logo, domain: source.domain };
 }
 
+/**
+ * La source comme SITE, quel que soit son genre.
+ *
+ * Un portail n'a pas le droit de prêter son image à une agence — c'est la règle
+ * de `parSonIdentifiant`, et elle ne bouge pas. Mais quand l'écran nomme LA
+ * SOURCE, l'image du portail est la sienne : Studapart sur une annonce
+ * Studapart n'usurpe l'identité de personne.
+ *
+ * Reste la raison qui les avait exclus : « une file de pictogrammes
+ * identiques ». Elle visait l'icône NEUTRE de repli, servie à tous ceux qui
+ * n'ont pas de logo — pas leur marque, qui les distingue. `neutre` la supprime
+ * (voir `Image`), et seuls les portails qui servent vraiment une image
+ * s'affichent : quatre sur huit au relevé du 2026-09-25, les autres ne rendant
+ * ni icône ni 404 exploitable.
+ */
+function parSonSite(id: string): { readonly logo: string | null; readonly domain: string } | null {
+  const source = SOURCES[id];
+  if (source === undefined || source.domain === null) return null;
+  // TOUTES LES SOURCES N'ONT PAS DE SITE : les alertes e-mail déclarent
+  // « imap » pour domaine, et `https://imap/favicon.ico` n'est l'adresse de
+  // rien. Un point, au moins, sinon ce n'est pas un hôte.
+  if (!source.domain.includes('.')) return null;
+  return { logo: source.logo, domain: source.domain };
+}
+
 /** L'image d'une source, ou `null` si ce n'est pas le site propre d'une agence. */
 function adresseDuLogo(source: { readonly logo: string | null; readonly domain: string }): string {
   // L'ADRESSE DÉCLARÉE D'ABORD. Quarante-neuf agences sur cent quatre-vingt-neuf
@@ -80,7 +105,7 @@ export function agencyLogoUrl(name: string): string | null {
  * le rapprochement de noms — qui se tait, à raison, dès qu'un nom est disputé.
  */
 export function sourceLogoUrl(sourceId: string): string | null {
-  const source = parSonIdentifiant(sourceId);
+  const source = parSonSite(sourceId);
   return source === null ? null : adresseDuLogo(source);
 }
 
@@ -126,7 +151,7 @@ export function SourceLogo({
 }): React.JSX.Element | null {
   const url = sourceLogoUrl(sourceId);
   if (url === null && !neutre) return null;
-  return <Image url={url} title={name} className={className} />;
+  return <Image url={url} title={name} className={className} neutre={neutre} />;
 }
 
 /**
@@ -146,11 +171,19 @@ function Image({
   url,
   title,
   className,
+  neutre = true,
 }: {
   readonly url: string | null;
   readonly title: string;
   readonly className: string;
-}): React.JSX.Element {
+  /**
+   * `false` : rien du tout plutôt que l'icône neutre — y compris quand l'image
+   * ne charge pas. Sans ce dernier point, un portail qui ne sert pas de
+   * favicon rendait le pictogramme générique APRÈS coup, et la file d'icônes
+   * identiques revenait par la fenêtre.
+   */
+  readonly neutre?: boolean;
+}): React.JSX.Element | null {
   // Une image qui ne charge pas laisserait un carré vide, plus laid que
   // l'icône qu'elle remplace : on repasse à celle-ci.
   const [broken, setBroken] = useState(false);
@@ -173,6 +206,7 @@ function Image({
   }, [visible]);
 
   if (url === null || broken) {
+    if (!neutre) return null;
     return <Agency aria-hidden="true" className={`text-muted-foreground shrink-0 ${className}`} />;
   }
 
