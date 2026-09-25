@@ -211,6 +211,31 @@ pnpm serve:local                                # un terminal
 VITE_API_URL=http://localhost:8787 pnpm dev     # un autre
 ```
 
+**Servir ET tenir à jour, d'une seule commande.** `serve:local` montre une
+PHOTO : les annonces du dernier passage, qui vieillissent sans que rien ne les
+rafraîchisse. Une semaine sans base distante, c'est une semaine à consulter la
+veille.
+
+```bash
+pnpm local                      # sert, collecte, puis recollecte toutes les 30 min
+pnpm local -- --toutes 20       # autre cadence
+pnpm local -- --sans-collecte   # comme `serve:local`
+```
+
+Les deux ne se gênent pas : la base locale est en WAL, le serveur lit pendant
+que la collecte écrit — c'est la raison d'être de ce réglage.
+
+`MAIOUN_LOCAL=1` est IMPOSÉ aux deux processus : sans lui, un `.env` renseigné
+enverrait la collecte écrire dans Turso, depuis une commande qui dit « local ».
+`MAIOUN_LOCAL_DB` l'est aussi, sinon le serveur prendrait le miroir en priorité
+et l'on servirait une copie figée pendant que la collecte remplit un autre
+fichier.
+
+`MAIOUN_ALERTS` n'est ni posé ni retiré : la commande n'a pas à décider si les
+alertes partent, elle le DIT au démarrage. La cadence ne descend pas sous cinq
+minutes — une collecte complète dure ~9 min, en deçà on harcèlerait les sites
+pour une cadence mensongère. Une collecte qui échoue n'arrête pas le serveur.
+
 **Ce que le serveur local ne sait PAS faire.** Cinq routes appartiennent au
 Worker et n'ont pas d'équivalent ici, parce qu'elles demandent un secret ou un
 service extérieur : l'adresse e-mail du compte, l'adresse de transfert des

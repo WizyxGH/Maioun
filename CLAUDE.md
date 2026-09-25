@@ -84,6 +84,10 @@ pnpm serve:local                                # puis, dans un autre terminal
 VITE_API_URL=http://localhost:8787 pnpm dev
 ```
 
+`pnpm local` fait les deux à la fois : il sert ET recollecte (30 min par
+défaut), dans `data/local.db`. Il interroge de VRAIS sites — ne le lancez pas
+sans qu'on vous le demande.
+
 Et pour travailler ENTIÈREMENT hors de Turso — collecte comprise —,
 `MAIOUN_LOCAL=1` l'emporte sur le `.env` et vise `data/local.db`.
 
