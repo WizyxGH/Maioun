@@ -25,7 +25,17 @@
 import { NEAR_MATCH_MARGIN } from '@maioun/shared';
 import type { NotificationFrequency } from '@maioun/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArchiveRestore, ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
+import {
+  ArchiveRestore,
+  ArrowLeft,
+  Bell,
+  Clock,
+  Heart,
+  Mail,
+  Pencil,
+  TrendDown,
+  TriangleAlert,
+} from './icons.js';
 import type { IconComponent } from './icons.js';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -74,6 +84,18 @@ const KINDS: readonly KindInfo[] = [
     label: 'Nouvelles annonces',
     hint: 'Dès qu’un logement entre dans vos critères.',
     Icon: Bell,
+  },
+  {
+    key: 'priceDrops',
+    label: 'Baisses de loyer',
+    hint: 'Dès qu’un logement suivi ou dans vos critères voit son loyer baisser.',
+    Icon: TrendDown,
+  },
+  {
+    key: 'listingUpdates',
+    label: 'Modifications d’annonces',
+    hint: 'Changements de conditions, disponibilité ou nouvelles informations sur un logement.',
+    Icon: Pencil,
   },
   {
     key: 'nearMatches',

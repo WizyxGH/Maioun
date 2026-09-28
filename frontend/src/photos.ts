@@ -58,11 +58,16 @@ function pageIsSecure(): boolean {
  *
  * @param urls  URLs telles que la source les publie.
  */
+/** `true` si l'image est hébergée sur un CDN privé inaccessible directement (ex. Cloudinary private). */
+function isPrivateCdn(url: string): boolean {
+  return /^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/private\//i.test(url);
+}
+
 export function splitPhotos(urls: readonly string[]): PhotoSplit {
   // LE MÊME CLICHÉ NE PARAÎT QU'UNE FOIS, ici plutôt que chez chaque appelant :
   // c'est le seul passage obligé avant l'affichage, carrousel, vignette et vue
-  // plein écran compris.
-  const photos = uniquePhotos(urls);
+  // plein écran compris. On écarte aussi les URL de CDN privés vouées au 401.
+  const photos = uniquePhotos(urls).filter((url) => !isPrivateCdn(url));
   if (!pageIsSecure()) return { embeddable: photos, linkOnly: [] };
   const embeddable: string[] = [];
   const linkOnly: string[] = [];

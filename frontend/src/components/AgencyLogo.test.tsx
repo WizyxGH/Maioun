@@ -28,6 +28,13 @@ describe('agencyLogoUrl', () => {
     );
   });
 
+  it('ne demande pas les favicons connus en 404', () => {
+    expect(agencyLogoUrl('Immobilière GTI')).toBeNull();
+    expect(sourceLogoUrl('igti')).toBeNull();
+    expect(agencyLogoUrl('Méditerranée Immo')).toBeNull();
+    expect(sourceLogoUrl('mediterranee-immo')).toBeNull();
+  });
+
   /**
    * UN RELAIS NE PRÊTE PAS SON IMAGE. Bien'ici nomme 175 agences tierces, la
    * FNAIM 56, ParuVendu 37 (relevé du 2026-09-25) : coller la marque du portail

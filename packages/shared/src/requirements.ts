@@ -216,6 +216,33 @@ export function checkEligibility(
   }
 
   /**
+   * SOUS ASSURANCE LOYERS IMPAYÉS (GLI).
+   *
+   * Les critères des assureurs sont stricts et non négociables :
+   * - les étudiants ou alternants doivent obligatoirement présenter un garant ;
+   * - les périodes d'essai, CDD, intérim, stages ou recherches d'emploi ne sont
+   *   pas couverts par les polices d'assurance GLI standard.
+   */
+  if (requirements.insuredRent === true && profile.situation !== '') {
+    if (
+      (profile.situation === 'etudiant' || profile.situation === 'alternance') &&
+      profile.guarantors.length === 0
+    ) {
+      return {
+        verdict: 'situation',
+        reason: 'assurance loyers impayés (GLI) : garant exigé pour étudiant ou alternant',
+      };
+    }
+    const nonEligiblesGli = ['cdi-essai', 'cdd', 'interim', 'stage', 'recherche'];
+    if (nonEligiblesGli.includes(profile.situation)) {
+      return {
+        verdict: 'situation',
+        reason: 'l’assurance loyers impayés (GLI) exclut cette situation professionnelle',
+      };
+    }
+  }
+
+  /**
    * TOUTES LES GARANTIES DU DOSSIER REFUSÉES, ET RIEN D'AUTRE POUR TENIR.
    *
    * En dernier, parce qu'un revenu insuffisant est plus décisif. Et seulement
@@ -235,6 +262,18 @@ export function checkEligibility(
   }
 
   return { verdict: 'eligible', reason: null };
+}
+
+/**
+ * Abaisse la priorité d'action d'une annonce lorsque le dossier ne remplit pas
+ * les conditions exigées par l'annonce (GLI, revenus, situation ou garanties).
+ *
+ * Une annonce incompatible ne peut pas être prioritaire (« À contacter » ni « À voir ») :
+ * sa note est plafonnée à 35 et pénalisée de 25 points.
+ */
+export function priorityForEligibility(basePriority: number, verdict: EligibilityVerdict): number {
+  if (verdict === 'eligible' || verdict === 'unknown') return basePriority;
+  return Math.min(35, Math.max(0, basePriority - 25));
 }
 
 /** « 2,7 » et non « 2.7 » : un multiple s'écrit à la française. */

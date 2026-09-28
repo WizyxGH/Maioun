@@ -438,7 +438,7 @@ export function ProfileForm({
         </Button>
         {onClear !== undefined && (
           <Button type="button" variant="outline" onClick={onClear}>
-            Effacer de cet appareil
+            Effacer le profil
           </Button>
         )}
         <Button type="submit">Enregistrer</Button>

@@ -144,6 +144,10 @@ export interface ListingView {
   readonly goneNotifiedAt?: string | null;
   /** Date du rappel « vous n'avez pas encore candidaté », le cas échéant. */
   readonly remindedAt?: string | null;
+  /** Date de l'alerte « baisse de loyer », le cas échéant. */
+  readonly priceDropNotifiedAt?: string | null;
+  /** Date de l'alerte « annonce modifiée », le cas échéant. */
+  readonly updateNotifiedAt?: string | null;
   /**
    * `true` si la fiche vient de la LISTE, donc allégée : sans description ni
    * détail des scores, retirés en SQL parce qu'ils pèsent les quatre

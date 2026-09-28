@@ -20,6 +20,7 @@ import {
   buildDetailUrl,
   buildSearchUrl,
   isWithdrawnDraft,
+  WITHDRAWN_DRAFT,
   NICE_ZONE_ID,
   PAGE_SIZE,
   parseAdDetail,
@@ -57,10 +58,9 @@ export function fichesParPassage(mode: ScrapeContext['mode']): number {
 
 /**
  * Fiches de vérification par passage : les annonces que la liste portait au
- * passage précédent et ne porte plus. Une dizaine de départs par jour, donc
- * la marge est large.
+ * passage précédent et ne porte plus, complétées par les fiches connues en base.
  */
-const MAX_WITHDRAWN_CHECKS = 8;
+const MAX_WITHDRAWN_CHECKS = 30;
 
 export const BIENICI_DESCRIPTOR: SourceDescriptor = {
   id: 'bienici',
@@ -103,27 +103,15 @@ export const BIENICI_DESCRIPTOR: SourceDescriptor = {
 
 /**
  * Va DEMANDER au portail ce que sont devenues les annonces qui viennent de
- * quitter la liste.
- *
- * POURQUOI LA DEMANDE VAUT LE DÉTOUR. La recherche ne rend que ce qui est en
- * vente (`onTheMarket`) : une annonce retirée n'en disparaît pas autrement
- * qu'une annonce poussée en page suivante. Sans vérification, elle attend le
- * seuil d'absences avant de s'éteindre, et reste affichée entre-temps — c'est
- * ce qu'on nous a signalé, fiche Bien'ici barrée d'un « n'est plus disponible »
- * et toujours visible chez nous. La fiche JSON, elle, tranche en une requête.
- *
- * QUI VÉRIFIER : celles que les pages lues portaient LA FOIS PRÉCÉDENTE et ne
- * portent plus. Ce voisinage vaut mieux que l'inventaire complet de la base —
- * il ne contient que des départs du jour, là où les références connues traînent
- * des centaines d'annonces éteintes depuis longtemps. Celles déjà notées
- * retirées ne se revérifient jamais.
+ * quitter la liste ou qui sont connues comme actives en base.
  */
 async function checkVanished(
   context: ScrapeContext,
   previousRefs: ReadonlySet<string>,
   seen: ReadonlySet<string>,
 ): Promise<{ withdrawn: string[]; requestCount: number; pagesFetched: number }> {
-  const due = [...previousRefs]
+  const candidates = new Set([...previousRefs, ...context.knownRefs]);
+  const due = [...candidates]
     .filter((reference) => !seen.has(reference))
     .filter((reference) => !isWithdrawnDraft(context.detailMemory.get(reference)?.draft))
     .slice(0, MAX_WITHDRAWN_CHECKS);
@@ -150,9 +138,13 @@ async function checkVanished(
       if (draft !== null && isWithdrawnDraft(draft)) withdrawn.push(reference);
       learned.push({ sourceRef: reference, draft: draft ?? previous ?? REJECTED_DRAFT });
     } catch (error) {
-      // Une fiche injoignable ne prouve rien : l'annonce reste en l'état.
       const message = error instanceof Error ? error.message : String(error);
-      context.log('withdrawn.check_failed', { reference, error: message });
+      if (message.includes('404') || message.includes('410')) {
+        withdrawn.push(reference);
+        learned.push({ sourceRef: reference, draft: WITHDRAWN_DRAFT });
+      } else {
+        context.log('withdrawn.check_failed', { reference, error: message });
+      }
       if (message.includes('429')) break;
     }
   }

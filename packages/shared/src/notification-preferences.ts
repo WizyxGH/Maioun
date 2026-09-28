@@ -20,11 +20,30 @@
 
 /** Les familles d'alertes, dans l'ordre où l'écran les présente. */
 export type NotificationKind =
-  'newListings' | 'nearMatches' | 'reappeared' | 'applicationReminders' | 'favoriteGone' | 'email';
+  | 'newListings'
+  | 'priceDrops'
+  | 'listingUpdates'
+  | 'nearMatches'
+  | 'reappeared'
+  | 'applicationReminders'
+  | 'favoriteGone'
+  | 'email';
 
 export interface NotificationPreferences {
   /** Une annonce entre dans vos critères. C'est la raison d'être de l'outil. */
   readonly newListings: boolean;
+  /**
+   * Une annonce dont le loyer a baissé.
+   *
+   * Actif par défaut : une baisse de loyer est l'un des signaux les plus forts
+   * pour les locataires sur une annonce suivie ou correspondant aux critères.
+   */
+  readonly priceDrops: boolean;
+  /**
+   * Modifications d'informations sur une annonce suivie ou correspondant aux critères
+   * (disponibilité, charges, description...).
+   */
+  readonly listingUpdates: boolean;
   /**
    * Une annonce JUSTE à côté des critères. Chaque critère a sa propre marge
    * (`NEAR_MATCH_MARGINS`) : 5 % de budget, 5 % de surface, une pièce, cinq
@@ -159,6 +178,8 @@ export const NOTIFICATIONS_SENT_AT_SETTING = 'notificationsSentAt';
  */
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   newListings: true,
+  priceDrops: true,
+  listingUpdates: true,
   nearMatches: false,
   reappeared: false,
   applicationReminders: true,
@@ -192,6 +213,8 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
 
   return {
     newListings: read('newListings'),
+    priceDrops: read('priceDrops'),
+    listingUpdates: read('listingUpdates'),
     nearMatches: read('nearMatches'),
     applicationReminders: read('applicationReminders'),
     reappeared: read('reappeared'),

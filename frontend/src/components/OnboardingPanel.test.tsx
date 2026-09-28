@@ -39,9 +39,7 @@ describe('OnboardingPanel', () => {
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: /Commencer/ }));
 
-    expect(
-      screen.queryByRole('button', { name: /Effacer de cet appareil/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Effacer le profil/ })).not.toBeInTheDocument();
   });
 
   it('annonce sa progression aux trois étapes', async () => {

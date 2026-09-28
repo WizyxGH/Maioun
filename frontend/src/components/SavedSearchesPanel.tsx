@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   Check,
   Copy,
+  Mail,
   MapPin,
   Pencil,
   Play,
@@ -53,6 +54,8 @@ interface SavedSearchesPanelProps {
   readonly onApply: (search: SavedSearch) => void;
   readonly onDelete: (id: string) => void;
   readonly onRename: (id: string, name: string) => void;
+  /** Active ou désactive l'envoi auto de candidature par e-mail. */
+  readonly onToggleAutoContact?: (id: string, autoContact: boolean) => void;
   /**
    * Remplace les réglages de la recherche par ceux de l'écran, nom gardé.
    *
@@ -202,6 +205,7 @@ export function SavedSearchesPanel({
   onSaveCurrent,
   suggestion,
   available,
+  onToggleAutoContact,
 }: SavedSearchesPanelProps): React.JSX.Element {
   /** Les repères du compte ; le premier est celui d'où se comptent les trajets. */
   const [points, setPoints] = useState<readonly StoredReferencePoint[] | null>(null);
@@ -362,6 +366,24 @@ export function SavedSearchesPanel({
                               ? `Enregistrée ${formatAge(search.createdAt, nowMs)}`
                               : `Mise à jour ${formatAge(search.updatedAt, nowMs)}`}
                           </p>
+
+                          <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-xs">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Mail aria-hidden="true" className="size-3.5" />
+                              Candidater automatiquement par e-mail
+                            </span>
+                            <Button
+                              type="button"
+                              variant={search.autoContactEmail ? 'default' : 'outline'}
+                              size="sm"
+                              className="h-6 px-2 text-[0.75rem]"
+                              onClick={() =>
+                                onToggleAutoContact?.(search.id, !search.autoContactEmail)
+                              }
+                            >
+                              {search.autoContactEmail ? 'Actif' : 'Désactivé'}
+                            </Button>
+                          </div>
                         </>
                       )}
 

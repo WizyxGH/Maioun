@@ -34,7 +34,8 @@ describe('readViewState', () => {
 
   it('relit ce qu’elle a écrit, mode compris', () => {
     const sources = { mode: 'except' as const, ids: new Set(['locservice']) };
-    writeViewState({ ...DEFAULT_VIEW_STATE, sources });
+    writeViewState({ ...DEFAULT_VIEW_STATE, sources, compatibleProfileOnly: true });
     expect(readViewState().sources).toEqual(sources);
+    expect(readViewState().compatibleProfileOnly).toBe(true);
   });
 });

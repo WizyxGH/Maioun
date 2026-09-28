@@ -139,4 +139,57 @@ describe('filterListings', () => {
     };
     expect(filterListings([ancienne], { ...base, newOnly: true })).toHaveLength(1);
   });
+
+  describe('compatibleProfileOnly', () => {
+    const profilCDD = {
+      firstName: 'Lucie',
+      lastName: 'Martin',
+      email: 'lucie@test.invalid',
+      phone: '0600000000',
+      situation: 'cdd',
+      monthlyIncome: 1500,
+      incomeKind: 'net' as const,
+      guarantors: [],
+      moveInDate: null,
+    };
+
+    const annonceGliIncompatible = {
+      ...MOCK_LISTINGS[0]!,
+      id: 'incompatible-gli',
+      price: { ...MOCK_LISTINGS[0]!.price, value: 700 },
+      requirements: {
+        minIncome: null,
+        incomeMultiplier: 3,
+        insuredRent: true,
+        guarantees: [],
+        refusedGuarantees: [],
+        situations: ['cdi' as const],
+      },
+    };
+
+    const annonceSansExigence = {
+      ...MOCK_LISTINGS[0]!,
+      id: 'sans-exigence',
+      price: { ...MOCK_LISTINGS[0]!.price, value: 500 },
+      requirements: undefined,
+    };
+
+    it('écarte les annonces incompatibles lorsque compatibleProfileOnly est actif', () => {
+      const result = filterListings([annonceGliIncompatible, annonceSansExigence], {
+        ...base,
+        compatibleProfileOnly: true,
+        profile: profilCDD,
+      });
+      expect(result.map((l) => l.id)).toEqual(['sans-exigence']);
+    });
+
+    it('conserve toutes les annonces si compatibleProfileOnly est inactif', () => {
+      const result = filterListings([annonceGliIncompatible, annonceSansExigence], {
+        ...base,
+        compatibleProfileOnly: false,
+        profile: profilCDD,
+      });
+      expect(result).toHaveLength(2);
+    });
+  });
 });

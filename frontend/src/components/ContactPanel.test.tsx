@@ -187,13 +187,18 @@ describe('le courrier : l’adresse plutôt qu’un bouton', () => {
     expect(screen.getByTestId('agency-email')).toHaveTextContent('agence@example.invalid');
   });
 
-  it('n’offre plus de bouton « Ouvrir l’e-mail »', () => {
-    // `mailto:` ouvre un logiciel de courrier — souvent aucun, parfois le
-    // mauvais — et le message préparé était alors perdu. Le dossier est
-    // rempli : le message EST préparé, seul son bouton d'ouverture s'en va.
+  it('offre les boutons « Ouvrir l’e-mail » et « Ouvrir dans Gmail » pré-remplis', () => {
     renderPanel(parCourrier(), PROFIL);
-    expect(screen.queryByTestId('contact-action')).toBeNull();
-    expect(screen.queryByRole('link', { name: /Ouvrir l’e-mail/ })).toBeNull();
+    const action = screen.getByTestId('contact-action');
+    expect(action).toHaveAttribute(
+      'href',
+      expect.stringContaining('mailto:agence@example.invalid'),
+    );
+    expect(action).toHaveAttribute('href', expect.stringContaining('subject='));
+    expect(screen.getByTestId('contact-gmail-action')).toHaveAttribute(
+      'href',
+      expect.stringContaining('mail.google.com'),
+    );
   });
 
   it('garde le bouton quand le canal mène QUELQUE PART', () => {

@@ -25,6 +25,18 @@ import { Agency } from './icons.js';
 import { SOURCES } from '../sources.generated.js';
 import { agencySourceId } from '../agency-coverage.js';
 
+const SITES_SANS_FAVICON = new Set([
+  'immobilieregti.com',
+  'www.immobilieregti.com',
+  'mediterranee-immo.fr',
+  'www.mediterranee-immo.fr',
+]);
+
+function isSiteSansFavicon(domain: string): boolean {
+  const norm = domain.replace(/^www\./i, '').toLowerCase();
+  return SITES_SANS_FAVICON.has(norm) || SITES_SANS_FAVICON.has(domain.toLowerCase());
+}
+
 /**
  * La source dont on peut porter le logo et l'adresse sous ce nom, ou `null`.
  *
@@ -105,7 +117,11 @@ function parSonSite(id: string): { readonly logo: string | null; readonly domain
 }
 
 /** L'image d'une source, ou `null` si ce n'est pas le site propre d'une agence. */
-function adresseDuLogo(source: { readonly logo: string | null; readonly domain: string }): string {
+function adresseDuLogo(source: {
+  readonly logo: string | null;
+  readonly domain: string;
+}): string | null {
+  if (source.logo === null && isSiteSansFavicon(source.domain)) return null;
   // L'ADRESSE DÉCLARÉE D'ABORD. Quarante-neuf agences sur cent quatre-vingt-neuf
   // ne servent rien à /favicon.ico : elles pointaient vers une image
   // inexistante, et l'écran retombait sur l'icône neutre alors que leur logo

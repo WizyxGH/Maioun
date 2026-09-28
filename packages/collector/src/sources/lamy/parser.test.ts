@@ -74,15 +74,11 @@ describe('parseDetailPage', () => {
     expect(listing?.postalCodeText).toBe('06200');
     expect(listing?.extra?.['dpe']).toBe('E');
     expect(listing?.description).toContain('meublé');
-    expect(listing?.imageUrls).toHaveLength(2);
-    expect(listing?.imageUrls?.[0]).toContain('photo-1.jpg');
+    expect(listing?.imageUrls).toBeUndefined();
   });
 
-  it('prend la photo entière du diaporama, pas la vignette recadrée', () => {
-    // Le carrousel n'affiche qu'un bandeau 700×346 ; le lien porte le 1600 px.
-    expect(listing?.imageUrls?.[0]).toContain('/w_1600/');
-    // Une photo sans lien reste servie par sa vignette : mieux que rien.
-    expect(listing?.imageUrls?.[1]).toContain('/w_700/');
+  it('écarte les photos Cloudinary privées qui répondent 401 hors du site source', () => {
+    expect(listing?.imageUrls ?? []).toEqual([]);
   });
 
   it('lit la référence que la fiche publie, avec sa casse', () => {

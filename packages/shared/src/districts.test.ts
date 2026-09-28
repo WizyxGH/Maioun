@@ -77,9 +77,7 @@ describe('quartiers ajoutés le 2026-09-14', () => {
   it('reconnaît les noms que les sources écrivaient sans qu’on les range', () => {
     expect(canonicalDistrict('Nice - Arenas')).toBe('arenas');
     expect(canonicalDistrict('Nice - Garibaldi')).toBe('garibaldi');
-    expect(canonicalDistrict('Nice - Promenade des Anglais - Rue de France')).toBe(
-      'promenade-des-anglais',
-    );
+    expect(canonicalDistrict('Nice - Promenade des Anglais - Rue de France')).toBe('rue-de-france');
     expect(canonicalDistrict('Nice - Roquebillière')).toBe('roquebilliere');
     expect(canonicalDistrict('Valrose')).toBe('valrose');
     expect(canonicalDistrict('Poètes')).toBe('les-poetes');

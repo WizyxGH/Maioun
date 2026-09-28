@@ -184,6 +184,8 @@ export function rowToListing(row: Record<string, unknown>): Record<string, unkno
     notifiedAt: row['user_notified_at'] ?? null,
     goneNotifiedAt: row['gone_notified_at'] ?? null,
     remindedAt: row['reminded_at'] ?? null,
+    priceDropNotifiedAt: row['price_drop_notified_at'] ?? null,
+    updateNotifiedAt: row['update_notified_at'] ?? null,
     ...payload,
     ...personalScoring(row, payload, partial),
   };
@@ -347,6 +349,8 @@ function readerColumns(userId: string): string {
   us.notified_at AS user_notified_at,
   us.gone_notified_at AS gone_notified_at,
   us.reminded_at AS reminded_at,
+  us.price_drop_notified_at AS price_drop_notified_at,
+  us.update_notified_at AS update_notified_at,
   sc.distances AS user_distances`;
 }
 
@@ -535,6 +539,8 @@ export function listItemJson(row: Record<string, unknown>): string {
       `,"notifiedAt":${jsonValue(row['user_notified_at'])}` +
       `,"goneNotifiedAt":${jsonValue(row['gone_notified_at'])}` +
       `,"remindedAt":${jsonValue(row['reminded_at'])}` +
+      `,"priceDropNotifiedAt":${jsonValue(row['price_drop_notified_at'])}` +
+      `,"updateNotifiedAt":${jsonValue(row['update_notified_at'])}` +
       (body === '' ? '' : `,${body}`) +
       (scores === null ? '' : `,"scores":${scores}`) +
       `,"distances":${listDistancesJson(row)}}`,
@@ -1086,10 +1092,14 @@ async function listAlerts(db: Client, userId: string): Promise<unknown> {
           WHERE us.notified_at IS NOT NULL
              OR us.gone_notified_at IS NOT NULL
              OR us.reminded_at IS NOT NULL
+             OR us.price_drop_notified_at IS NOT NULL
+             OR us.update_notified_at IS NOT NULL
           ORDER BY MAX(
             COALESCE(us.notified_at, ''),
             COALESCE(us.gone_notified_at, ''),
-            COALESCE(us.reminded_at, '')
+            COALESCE(us.reminded_at, ''),
+            COALESCE(us.price_drop_notified_at, ''),
+            COALESCE(us.update_notified_at, '')
           ) DESC LIMIT ${ALERT_HISTORY_LIMIT}`,
     args: [userId, userId],
   });

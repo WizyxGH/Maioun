@@ -304,29 +304,12 @@ describe('MapView — contours de quartiers', () => {
     expect(menu.querySelector('option[value="cimiez"]')).not.toBeNull();
   });
 
-  /**
-   * LES ZONES SANS QUARTIER SONT NOMMÉES, TOUTES, ET SOUS LEUR PROPRE INTITULÉ.
-   *
-   * Près de la moitié de Nice n'avait aucun contour : notre table de quartiers
-   * vient de Wikipédia, la géométrie de l'INSEE, et les deux ne se recouvrent
-   * qu'en partie. Ces zones-là comblent le blanc — mais un contour sur une
-   * carte ne se lit qu'à la souris, et sans cette liste elles n'auraient de nom
-   * pour personne au clavier.
-   *
-   * L'INTITULÉ DU GROUPE DIT CE QU'ELLES SONT. Mêlées aux quartiers, elles
-   * feraient croire à des critères qu'on peut cocher — elles ne le sont pas.
-   */
-  it('nomme toutes les zones sans quartier, dans leur propre groupe', async () => {
+  it('n’ajoute pas de groupe vide quand les 41 quartiers officiels couvrent Nice', async () => {
     await carte();
     const menu = screen.getByLabelText('Délimiter un quartier') as HTMLSelectElement;
-    const zones = menu.querySelector('optgroup[label="Zones sans quartier (INSEE)"]');
-    expect(zones).not.toBeNull();
-    expect(zones?.querySelectorAll('option')).toHaveLength(INSEE_ZONES.features.length);
-    // Le nom vient de l'INSEE : aucune table à nous ne saurait le retrouver.
-    const premier = INSEE_ZONES.features[0]!;
-    expect(zones?.querySelector(`option[value="${premier.properties.slug}"]`)?.textContent).toBe(
-      premier.properties.label,
-    );
+    expect(DISTRICT_BOUNDARIES.features).toHaveLength(41);
+    expect(INSEE_ZONES.features).toEqual([]);
+    expect(menu.querySelector('optgroup[label="Zones sans quartier (INSEE)"]')).toBeNull();
   });
 });
 

@@ -22,7 +22,14 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { TenantProfile } from '@maioun/shared';
-import { awaitsContact, merged, MVP_CRITERIA, PRIORITY_HOT } from '@maioun/shared';
+import {
+  awaitsContact,
+  checkEligibility,
+  merged,
+  MVP_CRITERIA,
+  PRIORITY_HOT,
+  priorityForEligibility,
+} from '@maioun/shared';
 import type {
   FilterConfig,
   ListingView,
@@ -86,7 +93,7 @@ import {
   restrictsSources,
   type SourceSelection,
 } from './source-selection.js';
-import { ArrowLeft, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
+import { ArrowLeft, Flame, List, Map, ShieldCheck, SlidersHorizontal } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { SearchBox } from './components/SearchBox.js';
 import { AlertBell } from './components/AlertBell.js';
@@ -796,6 +803,77 @@ export function App(): React.JSX.Element {
   );
 }
 
+function avecPrioriteDuProfil(
+  listings: readonly ListingView[],
+  profile: TenantProfile | null,
+): readonly ListingView[] {
+  if (profile === null) return listings;
+  return listings.map((listing) => {
+    if (listing.requirements === undefined) return listing;
+    const { verdict, reason } = checkEligibility(
+      listing.requirements,
+      profile,
+      listing.price.value,
+    );
+    const nextPriority = priorityForEligibility(listing.actionPriority, verdict);
+    if (verdict === 'eligible' || verdict === 'unknown') {
+      return nextPriority === listing.actionPriority
+        ? listing
+        : { ...listing, actionPriority: nextPriority };
+    }
+
+    // Le dossier ne satisfait pas les exigences du bailleur (GLI, revenus, garanties, situation) :
+    // cela pénalise fortement les scores de correspondance et de probabilité de visite,
+    // avec justification explicite dans le détail des scores consultable sur la fiche.
+    const matchPenalty = 30;
+    const visitPenalty = 35;
+    const currentMatch = listing.scores.match.value;
+    const currentVisit = listing.scores.visitProbability.value;
+    const nextMatch = Math.max(0, currentMatch - matchPenalty);
+    const nextVisit = Math.min(25, Math.max(0, currentVisit - visitPenalty));
+
+    const matchReasons = [
+      ...listing.scores.match.reasons,
+      {
+        code: 'profile.incompatible',
+        label: `Profil non conforme : ${reason ?? 'exigences non remplies'}`,
+        delta: -matchPenalty,
+      },
+    ];
+
+    const visitReasons = [
+      ...listing.scores.visitProbability.reasons,
+      {
+        code: 'requirements.incompatible',
+        label: `Exigences du bailleur non remplies : ${reason ?? 'critères stricts'}`,
+        delta: -visitPenalty,
+      },
+    ];
+
+    const scores = {
+      ...listing.scores,
+      match: {
+        ...listing.scores.match,
+        value: nextMatch,
+        reasons: matchReasons,
+      },
+      visitProbability: {
+        ...listing.scores.visitProbability,
+        value: nextVisit,
+        reasons: visitReasons,
+      },
+    };
+
+    return {
+      ...listing,
+      actionPriority: nextPriority,
+      matchScore: nextMatch,
+      visitScore: nextVisit,
+      scores,
+    };
+  });
+}
+
 function AppView(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
@@ -876,6 +954,13 @@ function AppView(): React.JSX.Element {
    * et il ne doit pas se perdre en rouvrant l'onglet.
    */
   const [newOnly, setNewOnly] = useState(restored.newOnly);
+  /**
+   * « Profil compatible uniquement » : écarte les annonces ne respectant pas
+   * les conditions du locataire (GLI, revenus, situation ou garanties).
+   */
+  const [compatibleProfileOnly, setCompatibleProfileOnly] = useState(
+    restored.compatibleProfileOnly,
+  );
   /**
    * L'ADRESSE FAIT FOI sur la liste : `/favoris` ouvre les favoris, `/recherche`
    * tout le reste. Ailleurs — dans les paramètres, sur une fiche — c'est le
@@ -1179,6 +1264,7 @@ function AppView(): React.JSX.Element {
         showArchived,
         favoritesOnly,
         newOnly,
+        compatibleProfileOnly,
         displayMode,
       });
     }, 300);
@@ -1192,6 +1278,7 @@ function AppView(): React.JSX.Element {
     showArchived,
     favoritesOnly,
     newOnly,
+    compatibleProfileOnly,
     displayMode,
   ]);
   const unreadAlerts = useMemo(
@@ -1254,16 +1341,34 @@ function AppView(): React.JSX.Element {
    * maintenant, la bascule s'y voit, elle s'y applique.
    */
   const newOnlyApplies = newOnly;
+
+  // La compatibilité ajuste la priorité sans remplacer les données du serveur.
+  const evaluatedListings = useMemo(
+    () => avecPrioriteDuProfil(listings, profile),
+    [listings, profile],
+  );
+
   const filtered = useMemo(
     () =>
-      filterListings(listings, {
+      filterListings(evaluatedListings, {
         sources: sourceFilter,
         quick: quickFilters,
         search,
         hideUncertain,
         newOnly: newOnlyApplies,
+        compatibleProfileOnly,
+        profile,
       }),
-    [listings, sourceFilter, quickFilters, search, hideUncertain, newOnlyApplies],
+    [
+      evaluatedListings,
+      sourceFilter,
+      quickFilters,
+      search,
+      hideUncertain,
+      newOnlyApplies,
+      compatibleProfileOnly,
+      profile,
+    ],
   );
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
@@ -1702,7 +1807,8 @@ function AppView(): React.JSX.Element {
    * centaines de millisecondes, contre une page blanche définitive.
    */
   const selected =
-    listings.find((listing) => listing.id === selectedId && listing.partial !== true) ?? null;
+    evaluatedListings.find((listing) => listing.id === selectedId && listing.partial !== true) ??
+    null;
 
   // Le titre de l'onglet suit l'écran : c'est lui qu'annonce un lecteur d'écran.
   useDocumentMeta(route, selected);
@@ -1972,6 +2078,18 @@ function AppView(): React.JSX.Element {
       await saveSavedSearches(next);
     } catch {
       setError('La suppression n’a pas pu être enregistrée');
+    }
+  };
+
+  const toggleAutoContactSavedSearch = async (id: string, autoContact: boolean): Promise<void> => {
+    const next = savedSearches.map((saved) =>
+      saved.id === id ? { ...saved, autoContactEmail: autoContact } : saved,
+    );
+    setSavedSearches(next);
+    try {
+      await saveSavedSearches(next);
+    } catch {
+      setError('La mise à jour de l’envoi auto n’a pas pu être enregistrée');
     }
   };
 
@@ -2263,6 +2381,9 @@ function AppView(): React.JSX.Element {
             onUpdate={(id) => void updateSavedSearch(id)}
             onEdit={(saved) => void editSavedSearch(saved)}
             onSaveCurrent={(name) => void saveCurrentSearch(name)}
+            onToggleAutoContact={(id, autoContact) =>
+              void toggleAutoContactSavedSearch(id, autoContact)
+            }
             suggestion={suggestName(
               {
                 cities: [...MVP_CRITERIA.cities],
@@ -2413,7 +2534,7 @@ function AppView(): React.JSX.Element {
     quickFilters,
     sourcesRestricted: restrictsSources(sourceFilter),
     search,
-    toggles: [favoritesOnly, showArchived, hideUncertain, newOnly],
+    toggles: [favoritesOnly, showArchived, hideUncertain, newOnly, compatibleProfileOnly],
   });
 
   /**
@@ -2440,6 +2561,11 @@ function AppView(): React.JSX.Element {
       ['Annonces archivées', showArchived, () => setShowArchived(false)],
       ['Sans les annonces à vérifier', hideUncertain, () => setHideUncertain(false)],
       ['Pas encore vues', newOnly, () => setNewOnly(false)],
+      [
+        'Profil compatible uniquement',
+        compatibleProfileOnly,
+        () => setCompatibleProfileOnly(false),
+      ],
     ]),
   );
 
@@ -2457,6 +2583,7 @@ function AppView(): React.JSX.Element {
     setShowArchived(false);
     setHideUncertain(false);
     setNewOnly(false);
+    setCompatibleProfileOnly(false);
   };
 
   /** « Effacer tout » : les deux étages, du navigateur jusqu'au serveur. */
@@ -2558,6 +2685,20 @@ function AppView(): React.JSX.Element {
             ))}
           </Select>
 
+          {profile !== null && (
+            <Button
+              type="button"
+              variant={compatibleProfileOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCompatibleProfileOnly((v) => !v)}
+              className="gap-1.5 shrink-0"
+              title="Filtrer pour ne voir que les logements compatibles avec votre profil"
+            >
+              <ShieldCheck aria-hidden="true" className="size-4" />
+              <span className="hidden sm:inline">Profil compatible</span>
+            </Button>
+          )}
+
           {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
               1024 px les deux s'affichent côte à côte : il n'y a plus rien à
               choisir, et un bouton qui ne change rien est pire qu'absent. */}
@@ -2617,6 +2758,7 @@ function AppView(): React.JSX.Element {
             setSortFilterOpen(false);
           }}
           toggles={[
+            ['Profil compatible uniquement', compatibleProfileOnly, setCompatibleProfileOnly],
             ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
             // Dépouiller l'arrivage : ne garder que ce dont on n'a rien fait.
             ['Pas encore vues', newOnly, setNewOnly],

@@ -82,6 +82,8 @@ export interface SavedSearch {
   readonly criteria: FilterConfig;
   /** Ce qu'on REGARDE dans ce qui a été ramené. */
   readonly view: SavedView;
+  /** Active l'envoi auto du mail de candidature pour chaque nouvelle annonce correspondante. */
+  readonly autoContactEmail?: boolean;
 }
 
 /** `QuickFilterValues` → forme enregistrable. */

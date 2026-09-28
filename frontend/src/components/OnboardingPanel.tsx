@@ -123,8 +123,8 @@ export function OnboardingPanel({
             Votre profil locataire
           </h1>
           <p className="text-muted-foreground mt-1 mb-4 text-[0.9rem]">
-            Il sert à composer vos messages. Il reste dans votre navigateur et n’est jamais transmis
-            à une agence sans votre geste.
+            Il sert à composer vos messages et à vérifier la compatibilité avec les exigences des
+            annonces.
           </p>
           {/* Le formulaire porte déjà « Enregistrer » et « Annuler » : on ne
             double pas ses boutons, on ajoute seulement la sortie. */}

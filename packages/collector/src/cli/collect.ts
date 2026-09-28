@@ -60,6 +60,8 @@ import {
   reminderContentFor,
   reappearedContentFor,
   reopenedContentFor,
+  priceDropContentFor,
+  listingUpdateContentFor,
   sendListingAlerts,
   sendWebPush,
 } from '../notify/web-push.js';
@@ -380,6 +382,38 @@ async function notifyOne(deps: {
       new Date(systemClock.now()).toISOString(),
     );
     if (retourReport.sent > 0) sentAnything = true;
+  }
+
+  // BAISSES DE LOYER.
+  if (preferences.priceDrops) {
+    const dropped = await repository.priceDroppedListings(userId, criteria);
+    const dropReport = await sendListingAlerts(
+      { ...common, listings: dropped },
+      priceDropContentFor,
+    );
+    const dropMailed = await alsoByEmail(dropped, alertHeading('priceDrop', dropped.length));
+    await repository.markPriceDropNotified(
+      userId,
+      [...dropReport.notifiedIds, ...dropMailed],
+      new Date(systemClock.now()).toISOString(),
+    );
+    if (dropReport.sent > 0) sentAnything = true;
+  }
+
+  // MODIFICATIONS D'ANNONCES (disponibilité, surface, conditions...).
+  if (preferences.listingUpdates) {
+    const updated = await repository.updatedListings(userId, criteria);
+    const updateReport = await sendListingAlerts(
+      { ...common, listings: updated },
+      listingUpdateContentFor,
+    );
+    const updateMailed = await alsoByEmail(updated, alertHeading('listingUpdate', updated.length));
+    await repository.markUpdateNotified(
+      userId,
+      [...updateReport.notifiedIds, ...updateMailed],
+      new Date(systemClock.now()).toISOString(),
+    );
+    if (updateReport.sent > 0) sentAnything = true;
   }
 
   // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :

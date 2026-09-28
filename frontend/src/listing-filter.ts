@@ -8,6 +8,8 @@
  */
 
 import type { ListingView } from './types.js';
+import type { TenantProfile } from '@maioun/shared';
+import { checkEligibility } from '@maioun/shared';
 import { isUncertain } from './availability.js';
 import {
   hasAppliedQuickFilters,
@@ -38,6 +40,10 @@ export interface ListingFilter {
    * ce qu'on a déjà parcouru, quel que soit son âge.
    */
   readonly newOnly: boolean;
+  /** Ne garder que les annonces compatibles avec le profil locataire renseigné. */
+  readonly compatibleProfileOnly?: boolean;
+  /** Le profil locataire courant pour évaluer la compatibilité. */
+  readonly profile?: TenantProfile | null;
 }
 
 export function filterListings(
@@ -67,6 +73,19 @@ export function filterListings(
       !(filter.hideUncertain && isUncertain(listing)) &&
       // Ouverte une fois suffit à la retirer : le but est de ne plus revoir ce
       // qu'on a déjà parcouru, même sans avoir rien décidé ensuite.
-      !(filter.newOnly && listing.viewed === true),
+      !(filter.newOnly && listing.viewed === true) &&
+      !(
+        filter.compatibleProfileOnly === true &&
+        filter.profile != null &&
+        listing.requirements !== undefined &&
+        (() => {
+          const verdict = checkEligibility(
+            listing.requirements,
+            filter.profile,
+            listing.price.value,
+          ).verdict;
+          return verdict !== 'eligible' && verdict !== 'unknown';
+        })()
+      ),
   );
 }

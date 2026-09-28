@@ -5,9 +5,8 @@
  * l'écran Paramètres, alors qu'on les remplit une fois pour toutes. On voit
  * désormais ce qui est renseigné, ce qui manque, et l'on n'ouvre le formulaire
  * que pour y toucher.
- *
- * Ce que ce composant montre ne quitte jamais l'appareil : il lit ce que le
- * navigateur a stocké, rien d'autre (§26).
+ * Ce que ce composant montre sert à composer les candidatures et vérifier
+ * l'éligibilité aux exigences des annonces (§26).
  */
 
 import { MOVE_IN_ASAP, TENANT_SITUATIONS, type TenantProfile } from '@maioun/shared';
@@ -106,8 +105,8 @@ export function ProfileSummary({
           Profil locataire
         </h2>
         <p className="mt-1 text-[0.85rem] text-muted-foreground">
-          Renseigné une fois, il compose vos messages de candidature. Il reste sur cet appareil et
-          n’est jamais transmis.
+          Renseigné une fois, il compose vos messages de candidature et permet de vérifier la
+          compatibilité avec les exigences des annonces.
         </p>
         <Button className="mt-3" onClick={onEdit}>
           Renseigner mon profil
@@ -129,9 +128,6 @@ export function ProfileSummary({
           Modifier
         </Button>
       </div>
-      <p className="mt-1 text-[0.85rem] text-muted-foreground">
-        Reste sur cet appareil, jamais transmis.
-      </p>
 
       <SettingsGroup title="Vos informations" count={`${filled}/${rows.length}`}>
         {rows.map(({ key, Icon, label, value }) => (

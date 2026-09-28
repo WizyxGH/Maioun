@@ -15,9 +15,7 @@
  *
  * PHOTOS INAFFICHABLES AILLEURS. Le CDN (res.cloudinary.com, type `private`)
  * ne les sert qu'aux pages de lamy-immobilier.fr : sans ce référent il répond
- * 401 « ACL deny », quelle que soit l'adresse. Nous enregistrons donc les
- * adresses que la fiche publie, mais aucune ne s'affichera hors du site de
- * l'agence tant qu'un relais ne les rapatrie pas.
+ * 401 « ACL deny ». On ne publie donc pas ces URL privées dans les annonces.
  */
 
 import * as cheerio from 'cheerio';
@@ -86,7 +84,13 @@ function photos($: cheerio.CheerioAPI): string[] {
   $('img.estate__img').each((_i, el) => {
     const entiere = $(el).closest('a[data-fancybox]').attr('href');
     const src = (entiere ?? $(el).attr('src') ?? '').trim();
-    if (src.startsWith('https://') && !imageUrls.includes(src)) imageUrls.push(src);
+    if (
+      src.startsWith('https://') &&
+      !/^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/private\//i.test(src) &&
+      !imageUrls.includes(src)
+    ) {
+      imageUrls.push(src);
+    }
   });
   return imageUrls;
 }

@@ -15,7 +15,7 @@
 
 import type { ListingView } from './types.js';
 
-export type AlertKind = 'new' | 'nearMatch' | 'gone' | 'reminder';
+export type AlertKind = 'new' | 'nearMatch' | 'priceDrop' | 'update' | 'gone' | 'reminder';
 
 export interface AlertEvent {
   readonly kind: AlertKind;
@@ -27,6 +27,8 @@ export interface AlertEvent {
 export const ALERT_LABELS: Readonly<Record<AlertKind, string>> = {
   new: 'Nouvelle annonce',
   nearMatch: 'Proche de vos critères',
+  priceDrop: 'Baisse de loyer',
+  update: 'Annonce modifiée',
   gone: 'Favori plus disponible',
   reminder: 'Pas encore candidaté',
 };
@@ -50,6 +52,8 @@ export function alertEventOf(listing: ListingView): AlertEvent | null {
       kind: listing.matchesCriteria ? ('new' as const) : ('nearMatch' as const),
       at: listing.notifiedAt ?? '',
     },
+    { kind: 'priceDrop' as const, at: listing.priceDropNotifiedAt ?? '' },
+    { kind: 'update' as const, at: listing.updateNotifiedAt ?? '' },
     { kind: 'gone' as const, at: listing.goneNotifiedAt ?? '' },
     { kind: 'reminder' as const, at: listing.remindedAt ?? '' },
   ];

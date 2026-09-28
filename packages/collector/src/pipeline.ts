@@ -1454,7 +1454,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // Mesuré du 19 au 22 septembre : 62 fenêtres de quinze minutes sur 338 ont vu
   // naître une occurrence. Les 276 autres passent désormais par la fenêtre de
   // calme au lieu de relire tout le corpus.
-  const newListings = occurrenceReport.inserted > 0;
+  const newListings = occurrenceReport.inserted > 0 || withdrawn > 0;
   const regrouped = await shouldRegroup(repository, newListings, nowMs);
   if (!regrouped) {
     logger.info('pipeline.regroup_skipped', {

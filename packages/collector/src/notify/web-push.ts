@@ -240,6 +240,46 @@ export function reopenedContentFor(listing: NotifiableListing, siteUrl: string):
   };
 }
 
+export function priceDropContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: alertHeading('priceDrop', 1),
+    body: [
+      listing.title ?? 'Une annonce voit son loyer baisser',
+      summarize(listing),
+      location !== '' ? `📍 ${location}` : null,
+      listing.phone !== null ? `📞 ${listing.phone}` : null,
+    ]
+      .filter((line): line is string => line !== null && line !== '')
+      .join('\n'),
+    url: listingUrl(siteUrl, listing.id),
+    tag: `maioun-baisse-${listing.id}`,
+    ...imagePayload(listing.photoUrls[0]),
+    listingId: listing.id,
+    ...(listing.phone !== null ? { phone: listing.phone } : {}),
+  };
+}
+
+export function listingUpdateContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: alertHeading('listingUpdate', 1),
+    body: [
+      listing.title ?? 'Une annonce a été mise à jour',
+      summarize(listing),
+      location !== '' ? `📍 ${location}` : null,
+      listing.phone !== null ? `📞 ${listing.phone}` : null,
+    ]
+      .filter((line): line is string => line !== null && line !== '')
+      .join('\n'),
+    url: listingUrl(siteUrl, listing.id),
+    tag: `maioun-maj-${listing.id}`,
+    ...imagePayload(listing.photoUrls[0]),
+    listingId: listing.id,
+    ...(listing.phone !== null ? { phone: listing.phone } : {}),
+  };
+}
+
 /**
  * Un favori jamais contacté (§29).
  *

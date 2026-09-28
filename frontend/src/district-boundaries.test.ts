@@ -37,11 +37,11 @@ describe('contours de quartiers', () => {
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
-  it('réunit les IRIS lorsque la table de nommage l’autorise', () => {
-    expect(DISTRICT_BOUNDARIES.features.length).toBeLessThan(NICE_DISTRICTS.length);
+  it('dessine les 41 quartiers officiels de Nice', () => {
+    expect(DISTRICT_BOUNDARIES.features).toHaveLength(41);
     const couverts = new Set(DISTRICT_BOUNDARIES.features.map((f) => f.properties.slug));
-    // Cimiez est composé de plusieurs IRIS, réunis par le générateur à partir
-    // de la table de nommage des quartiers.
+    expect(couverts.size).toBe(41);
+    expect(couverts.size).toBeLessThan(NICE_DISTRICTS.length);
     expect(couverts.has('cimiez')).toBe(true);
     expect(couverts.has('mont-boron')).toBe(true);
   });
@@ -91,43 +91,9 @@ describe('contours de quartiers', () => {
   });
 });
 
-/**
- * LES ZONES SANS QUARTIER REMPLISSENT LA CARTE, ET RIEN DE PLUS.
- *
- * Notre table de quartiers vient de Wikipédia, la géométrie de l'INSEE : les
- * deux ne se recouvrent qu'en partie, et près de la moitié de Nice n'avait
- * aucun contour. Ces zones-là comblent le blanc sous leur nom INSEE — contour
- * officiel, nom officiel.
- *
- * MAIS ELLES NE DOIVENT JAMAIS DEVENIR DES QUARTIERS. Les laisser entrer dans
- * la table des contours rattacherait des annonces à un « quartier » qu'aucun
- * filtre ne connaît : la puce serait affichée, le critère introuvable, et la
- * liste écarterait des annonces sans pouvoir l'expliquer.
- */
-describe('zones INSEE sans quartier', () => {
-  it('remplit la carte là où nos quartiers ne disent rien', () => {
-    expect(INSEE_ZONES.features.length).toBeGreaterThan(50);
-  });
-
-  it('n’en est aucune un de nos quartiers', () => {
-    for (const zone of INSEE_ZONES.features) {
-      expect(districtBySlug(zone.properties.slug), zone.properties.slug).toBeUndefined();
-    }
-  });
-
-  it('ne recoupe aucun contour de quartier', () => {
-    const quartiers = new Set(DISTRICT_BOUNDARIES.features.map((f) => f.properties.slug));
-    for (const zone of INSEE_ZONES.features) {
-      expect(quartiers.has(zone.properties.slug), zone.properties.slug).toBe(false);
-    }
-  });
-
-  // Le nom vient de l'INSEE et voyage avec la géométrie : aucune table à nous
-  // ne saurait le retrouver depuis un slug.
-  it('porte son nom avec elle', () => {
-    for (const zone of INSEE_ZONES.features) {
-      expect(zone.properties.label.trim(), zone.properties.slug).not.toBe('');
-    }
+describe('couverture de la carte', () => {
+  it('n’ajoute aucune zone INSEE hors quartier aux 41 contours officiels', () => {
+    expect(INSEE_ZONES.features).toEqual([]);
   });
 });
 

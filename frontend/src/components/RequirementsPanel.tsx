@@ -119,9 +119,9 @@ export function RequirementsPanel({
       {bloque && reason !== null && (
         <Alert variant="warning" className="mt-3">
           <AlertDescription>
-            Votre profil ne remplit pas cette condition : {reason}. Cela n’empêche pas de candidater
-            — le bailleur peut faire une exception, et une candidature qu’on n’envoie pas est perdue
-            à coup sûr.
+            Votre profil ne remplit pas cette condition : {reason}. La priorité d’action de
+            l’annonce a été abaissée en conséquence. Cela n’empêche pas de tenter sa chance si le
+            bailleur étudie les exceptions.
           </AlertDescription>
         </Alert>
       )}

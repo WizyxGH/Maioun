@@ -1,62 +1,83 @@
 /**
- * Source : Arthurimmo — agence de Nice du réseau. Voir `parser.ts` et
- * `docs/sources-enquetes.md` pour l'étude.
+ * Source : Arthurimmo.com — réseau national d'experts immobiliers.
  *
- * UNE PAGE DE LISTE, PUIS UNE FICHE PAR ANNONCE. La liste ne porte rien
- * d'exploitable hormis les adresses des fiches ; tout le reste est sur
- * celles-ci. Sept locations relevées le 2026-09-09, donc huit requêtes pour
- * l'inventaire entier.
- *
- * Les fiches passent par la mémoire commune : une fiche lue n'est relue qu'au
- * bout d'une semaine, et le stock collecté quand seul l'en-tête était lu — sa
- * description coupée à 150 caractères — se complète de lui-même.
+ * Implantation à Nice (Arthurimmo Nice Transactions Nord et Est).
+ * Scraping HTML de la recherche location Nice et 10 km alentours.
  */
 
-import type { Scraper, SourceDescriptor } from '@maioun/shared';
+import type { Scraper, ScrapeContext, ScrapeResult, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { runListAndDetails } from '../shared/list-and-details.js';
-import { LIST_URL, linkOf, parseDetail, parseList } from './parser.js';
-
-/**
- * Fiches visitées par exécution.
- *
- * Le stock niçois tient en une dizaine de biens : une première collecte est
- * couverte d'un seul passage, et il n'en reste ensuite qu'une à chaque parution.
- */
-const MAX_DETAILS = 12;
+import { ARTHURIMMO_SEARCH_URL, parseList } from './parser.js';
 
 export const ARTHURIMMO_DESCRIPTOR: SourceDescriptor = {
   id: 'arthurimmo',
-  name: 'Arthurimmo.com Nice',
+  name: 'Arthurimmo.com',
   domain: 'arthurimmo.com',
-  kind: 'agencyNetwork',
+  kind: 'portal',
   method: 'html',
   priority: 2,
-  schedule: scheduleFor('agencyNetwork'),
-  budget: budgetFor('agencyNetwork', {
-    maxPagesPerRun: 1 + MAX_DETAILS,
-    delayBetweenRequestsMs: 3_000,
+  schedule: scheduleFor('portal'),
+  budget: budgetFor('portal', {
+    maxPagesPerRun: 4,
+    maxListingsPerRun: 50,
   }),
   enabled: true,
-  allowedPaths: ['/recherche,basic.htm', '/annonces/location/*'],
+  allowedPaths: ['/recherche,basic.htm*', '/annonces/location/*'],
   notes:
-    'robots.txt vérifié le 2026-09-14 : « User-agent: * » n’interdit rien. Le ' +
-    'fichier bloque nommément Claudebot, Bytespider et barkrowler — des robots ' +
-    'd’entraînement d’IA, pas un agent de recherche personnel qui s’annonce. ' +
-    'Seule la page de recherche liste les biens ; les chemins nus rendent zéro. ' +
-    'Loyer, surface et pièces viennent du titre social de chaque fiche, composé ' +
-    'par le site dans un ordre invariable ; la description entière, du bloc ' +
-    '« Détails de l’annonce » (l’en-tête la coupe).',
+    'Réseau d’agences Arthurimmo.com. Recherche location Nice + 10 km. ' +
+    'Extraction directe des fiches et visuels sur les cartes de recherche.',
 };
 
 export const arthurimmoScraper: Scraper = {
   descriptor: ARTHURIMMO_DESCRIPTOR,
-  run: (context) =>
-    runListAndDetails(context, {
-      sourceId: ARTHURIMMO_DESCRIPTOR.id,
-      listUrls: [LIST_URL],
-      parseList: (body) => parseList(body),
-      parseDetail: (html, listing) => parseDetail(html, linkOf(listing)),
-      maxDetails: MAX_DETAILS,
-    }),
+
+  async run(context: ScrapeContext): Promise<ScrapeResult> {
+    const warnings: string[] = [];
+    let requestCount = 0;
+    let pagesFetched = 0;
+
+    try {
+      const response = await context.fetch(ARTHURIMMO_SEARCH_URL, {
+        headers: {
+          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      });
+      requestCount += 1;
+
+      if (response.notModified) {
+        return {
+          sourceId: ARTHURIMMO_DESCRIPTOR.id,
+          listings: [],
+          requestCount,
+          pagesFetched,
+          stopReason: 'notModified',
+          warnings,
+        };
+      }
+
+      pagesFetched += 1;
+      const parsed = parseList(response.body);
+      warnings.push(...parsed.warnings);
+
+      return {
+        sourceId: ARTHURIMMO_DESCRIPTOR.id,
+        listings: parsed.listings,
+        requestCount,
+        pagesFetched,
+        stopReason: parsed.listings.length === 0 ? 'empty' : 'completed',
+        warnings,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`Échec Arthurimmo : ${message}`);
+      return {
+        sourceId: ARTHURIMMO_DESCRIPTOR.id,
+        listings: [],
+        requestCount,
+        pagesFetched,
+        stopReason: message.includes('429') ? 'rateLimited' : 'tooManyErrors',
+        warnings,
+      };
+    }
+  },
 };

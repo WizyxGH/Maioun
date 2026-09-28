@@ -10,9 +10,15 @@
  * et l'e-mail ne puissent plus se contredire sur le nom d'une même famille.
  */
 
-/** Les familles d'alerte, telles que la collecte les envoie. */
 export type AlertFamily =
-  'new' | 'reopened' | 'reappeared' | 'nearMatch' | 'favoriteGone' | 'reminder';
+  | 'new'
+  | 'reopened'
+  | 'reappeared'
+  | 'priceDrop'
+  | 'listingUpdate'
+  | 'nearMatch'
+  | 'favoriteGone'
+  | 'reminder';
 
 /** Singulier, puis pluriel. Un seul membre : le titre ne s'accorde pas. */
 const TITRES: Readonly<Record<AlertFamily, readonly [string] | readonly [string, string]>> = {
@@ -22,6 +28,8 @@ const TITRES: Readonly<Record<AlertFamily, readonly [string] | readonly [string,
   // tombe. Le titre dit le RETOUR, pas la nouveauté — l'annonce, elle, n'est
   // pas neuve, et la présenter ainsi ferait douter du reste.
   reappeared: ['De retour en ligne', 'De retour en ligne'],
+  priceDrop: ['Baisse de loyer', 'Baisses de loyer'],
+  listingUpdate: ['Annonce modifiée', 'Annonces modifiées'],
   nearMatch: ['Proche de vos critères', 'Proches de vos critères'],
   favoriteGone: ['💔 Un favori n’est plus disponible', '💔 Des favoris ne sont plus disponibles'],
   // Une phrase adressée au lecteur : elle ne compte pas les annonces.

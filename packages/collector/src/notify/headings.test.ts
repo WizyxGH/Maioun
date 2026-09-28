@@ -33,6 +33,10 @@ describe('le titre d’une alerte suit le nombre d’annonces', () => {
     expect(alertHeading('new', 2)).toBe('Nouvelles annonces');
     expect(alertHeading('reopened', 1)).toBe('Candidature rouverte');
     expect(alertHeading('reopened', 7)).toBe('Candidatures rouvertes');
+    expect(alertHeading('priceDrop', 1)).toBe('Baisse de loyer');
+    expect(alertHeading('priceDrop', 2)).toBe('Baisses de loyer');
+    expect(alertHeading('listingUpdate', 1)).toBe('Annonce modifiée');
+    expect(alertHeading('listingUpdate', 2)).toBe('Annonces modifiées');
     expect(alertHeading('nearMatch', 1)).toBe('Proche de vos critères');
     expect(alertHeading('nearMatch', 3)).toBe('Proches de vos critères');
     expect(alertHeading('favoriteGone', 1)).toContain('Un favori n’est plus disponible');

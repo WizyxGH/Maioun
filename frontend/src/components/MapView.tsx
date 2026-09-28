@@ -15,9 +15,9 @@
  *
  * LES CONTOURS DE QUARTIERS se chargent APRÈS la carte, par un `import()` à
  * part : ils viennent de l'IGN, font un morceau de 22 ko (6 ko compressés) et
- * n'ont aucune raison de retarder l'affichage des annonces. Trente-trois
- * quartiers sur quatre-vingt-huit en ont un — on ne dessine que les limites
- * publiées, jamais une limite reconstituée.
+ * n'ont aucune raison de retarder l'affichage des annonces. Les 41 quartiers
+ * officiels de Nice sont dessinés, réunis depuis les IRIS selon leur
+ * nomenclature officielle.
  *
  * Chargé PARESSEUSEMENT (React.lazy) : Leaflet ne pèse sur le bundle initial
  * que si la vue carte est ouverte (§65).
@@ -439,12 +439,12 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
    */
   const [pleinEcran, setPleinEcran] = useState(false);
   const [boundaries, setBoundaries] = useState<DistrictBoundaries | null>(null);
-  /** Les zones que l'INSEE nomme et que nos quartiers ignorent. */
+  /** Les éventuelles zones INSEE hors quartier. */
   const [inseeZones, setInseeZones] = useState<InseeZones | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
   // Le tracé de chaque quartier, pour le mettre en évidence sans le redessiner.
   const shapesRef = useRef(new Map<string, L.Polygon>());
-  /** Les zones sans quartier, à part : elles se cadrent, elles ne filtrent pas. */
+  /** Les zones hors quartier restent séparées des filtres. */
   const zoneShapesRef = useRef(new Map<string, L.Polygon>());
   // `onOpen` change à chaque rendu : une ref évite de reconstruire les marqueurs.
   const onOpenRef = useRef(onOpen);
@@ -468,7 +468,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
     [boundaries],
   );
 
-  /** Les zones sans quartier, nommées : la liste est le seul endroit qui le dit. */
+  /** Les éventuelles zones hors quartier, nommées à part. */
   const zoneOptions = useMemo(
     () => (inseeZones === null ? [] : inseeZoneOptions(inseeZones)),
     [inseeZones],
@@ -514,8 +514,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       },
       () => undefined,
     );
-    // Même fichier, donc aucune requête de plus : elles arrivent avec les
-    // contours et remplissent la carte là où nos quartiers ne disent rien.
+    // Même fichier, donc aucune requête de plus si le jeu en contient.
     void loadInseeZones().then(
       (data) => {
         if (monte) setInseeZones(data);
@@ -528,15 +527,8 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
   }, []);
 
   /**
-   * LES ZONES SANS QUARTIER, dessinées SOUS les contours.
-   *
-   * Près de la moitié de Nice restait blanche : notre table de quartiers et le
-   * découpage de l'INSEE ne se recouvrent qu'en partie. On les dessine sous
-   * leur nom INSEE — contour officiel, nom officiel, rien de deviné.
-   *
-   * Elles ne sont ni cliquables ni cochables : ce ne sont pas des quartiers.
-   * Leur seul rôle est que la carte ne soit pas trouée, et l'infobulle dit ce
-   * qu'elles sont.
+   * Les éventuelles zones hors quartier restent sous les contours officiels.
+   * Le jeu actuel des 41 quartiers n'en contient aucune.
    */
   useEffect(() => {
     const map = mapRef.current;
@@ -892,11 +884,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
                 </option>
               ))}
             </optgroup>
-            {/* LES ZONES SANS QUARTIER, TOUTES NOMMÉES. Un contour sur une carte
-              ne se lit qu'à la souris : sans cette liste, soixante-huit zones
-              n'auraient de nom que pour qui les survole, et aucun pour qui
-              navigue au clavier. L'intitulé du groupe dit ce qu'elles sont —
-              elles se cadrent, elles ne se cochent pas dans les critères. */}
+            {/* Les zones INSEE hors quartier sont séparées des filtres de quartier. */}
             {zoneOptions.length > 0 && (
               <optgroup label="Zones sans quartier (INSEE)">
                 {zoneOptions.map((option) => (

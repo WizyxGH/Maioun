@@ -96,6 +96,23 @@ describe('NotificationSettingsPanel', () => {
     expect(saveNotificationPreferences).toHaveBeenCalledWith({ ...STORED, nearMatches: true });
   });
 
+  it('permet de régler les alertes de baisses de loyer et modifications d’annonces', async () => {
+    render(<NotificationSettingsPanel onBack={vi.fn()} />);
+    await waitFor(() => expect(toggle('Baisses de loyer')).toHaveAttribute('aria-checked', 'true'));
+    expect(toggle('Modifications d’annonces')).toHaveAttribute('aria-checked', 'true');
+
+    await userEvent.click(toggle('Baisses de loyer'));
+    expect(saveNotificationPreferences).toHaveBeenCalledWith({ ...STORED, priceDrops: false });
+
+    await userEvent.click(toggle('Modifications d’annonces'));
+    await waitFor(() => expect(saveNotificationPreferences).toHaveBeenCalledTimes(2));
+    expect(saveNotificationPreferences).toHaveBeenLastCalledWith({
+      ...STORED,
+      priceDrops: false,
+      listingUpdates: false,
+    });
+  });
+
   it('enchaîne les écritures, la dernière portant tous les gestes', async () => {
     const first = deferred<undefined>();
     vi.mocked(saveNotificationPreferences).mockReturnValueOnce(first.promise);

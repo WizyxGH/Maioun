@@ -385,8 +385,20 @@ export function parseAdDetail(body: string): RawDraft | null {
   } catch {
     return null;
   }
-  // Seul un `false` explicite retire l'annonce : un champ absent ne dit rien.
-  if ((parsed as { status?: AdStatus } | null)?.status?.onTheMarket === false) {
+  const ad = parsed as {
+    status?: AdStatus & { isClosed?: boolean };
+    onTheMarket?: boolean;
+    isClosed?: boolean;
+    closed?: boolean;
+  } | null;
+  // Détection du retrait : statut marché à faux ou statut fermé
+  if (
+    ad?.status?.onTheMarket === false ||
+    ad?.onTheMarket === false ||
+    ad?.status?.isClosed === true ||
+    ad?.isClosed === true ||
+    ad?.closed === true
+  ) {
     return WITHDRAWN_DRAFT;
   }
 

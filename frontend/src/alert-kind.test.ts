@@ -42,6 +42,15 @@ describe('famille d’une alerte', () => {
     );
   });
 
+  it('reconnaît les alertes de baisse de loyer et de modification d’annonce', () => {
+    expect(alertEventOf(listing({ priceDropNotifiedAt: '2026-09-07T10:00:00.000Z' }))?.kind).toBe(
+      'priceDrop',
+    );
+    expect(alertEventOf(listing({ updateNotifiedAt: '2026-09-07T10:00:00.000Z' }))?.kind).toBe(
+      'update',
+    );
+  });
+
   it('retient l’événement le PLUS RÉCENT quand il y en a plusieurs', () => {
     // Signalée lundi, favorite disparue jeudi : c'est la disparition qu'on
     // vient chercher, et c'est elle qui date la ligne.
@@ -53,6 +62,16 @@ describe('famille d’une alerte', () => {
     );
     expect(event?.kind).toBe('gone');
     expect(event?.at).toBe('2026-09-04T10:00:00.000Z');
+
+    // Nouveauté le 1er, baisse le 5 : la baisse prime
+    const drop = alertEventOf(
+      listing({
+        notifiedAt: '2026-09-01T10:00:00.000Z',
+        priceDropNotifiedAt: '2026-09-05T10:00:00.000Z',
+      }),
+    );
+    expect(drop?.kind).toBe('priceDrop');
+    expect(drop?.at).toBe('2026-09-05T10:00:00.000Z');
   });
 
   it('ignore une date illisible plutôt que de la classer', () => {
@@ -62,6 +81,8 @@ describe('famille d’une alerte', () => {
   it('nomme chaque famille dans les mots de la notification reçue', () => {
     expect(ALERT_LABELS.new).toBe('Nouvelle annonce');
     expect(ALERT_LABELS.nearMatch).toBe('Proche de vos critères');
+    expect(ALERT_LABELS.priceDrop).toBe('Baisse de loyer');
+    expect(ALERT_LABELS.update).toBe('Annonce modifiée');
     expect(ALERT_LABELS.gone).toBe('Favori plus disponible');
     expect(ALERT_LABELS.reminder).toBe('Pas encore candidaté');
   });

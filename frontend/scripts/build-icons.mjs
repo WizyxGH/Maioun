@@ -85,6 +85,7 @@ const ICONS = {
   SlidersHorizontal: 'SlidersHorizontal',
   Sun: 'Sun',
   TrainFront: 'Train',
+  TrendDown: 'TrendDown',
   TriangleAlert: 'Warning',
   Trash2: 'Trash',
   Upload: 'UploadSimple',

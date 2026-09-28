@@ -153,14 +153,16 @@ function ContactDetails({
   onCalled,
   onWritten,
   onOpenSource,
+  subject,
+  message,
 }: {
   readonly listing: ListingView;
   readonly hasAnyContact: boolean;
-  /** Appelé au clic sur « Appeler » : le suivi passe à « contactée ». */
   readonly onCalled: () => void;
-  /** Idem au clic sur « Écrire ». */
   readonly onWritten: () => void;
   readonly onOpenSource?: (sourceId: string) => void;
+  readonly subject?: string;
+  readonly message?: string;
 }): React.JSX.Element {
   const { name, agencyName, phone, email, formUrl, reference, providedBy } = listing.contact;
   // La source qui a fourni ces coordonnées, à défaut la première occurrence.
@@ -308,17 +310,38 @@ function ContactDetails({
         en second parce que le téléphone obtient une visite plus vite. Le
         message préparé reste plus bas : ici on ouvre son courrier, vide. */}
       {email !== null && (
-        <a
-          href={`mailto:${email}`}
-          onClick={onWritten}
-          className={buttonVariants({
-            variant: 'outline',
-            className: 'mb-4 w-full gap-2 no-underline',
-          })}
-        >
-          <Mail aria-hidden="true" className="size-4" />
-          Écrire à {email}
-        </a>
+        <div className="mb-4 flex flex-col gap-1.5 sm:flex-row">
+          <a
+            href={
+              subject && message
+                ? `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
+                : `mailto:${email}`
+            }
+            onClick={onWritten}
+            className={buttonVariants({
+              variant: 'outline',
+              className: 'flex-1 gap-2 no-underline',
+            })}
+          >
+            <Mail aria-hidden="true" className="size-4" />
+            Écrire à {email}
+          </a>
+          {subject && message && (
+            <a
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={onWritten}
+              className={buttonVariants({
+                variant: 'outline',
+                className: 'gap-1.5 no-underline text-xs shrink-0',
+              })}
+              title="Ouvrir un brouillon pré-rempli dans Gmail"
+            >
+              Dans Gmail ↗
+            </a>
+          )}
+        </div>
       )}
 
       {/* Le péage, dit avant le clic (§17). Remplace le message générique
@@ -386,8 +409,8 @@ function MissingProfile({ onConfigure }: { readonly onConfigure: () => void }): 
   return (
     <div>
       <p className="mb-2">
-        Renseignez votre profil locataire pour générer un message. Il reste stocké uniquement sur
-        cet appareil et n’est jamais transmis.
+        Renseignez votre profil locataire pour générer un message et vérifier les exigences de
+        l’annonce.
       </p>
       <Button variant="outline" onClick={onConfigure}>
         Configurer mon profil
@@ -458,9 +481,11 @@ export function ContactPanel({
           if (awaitsContact(listing.tracking)) onRecorded('phone', '');
         }}
         onWritten={() => {
-          if (awaitsContact(listing.tracking)) onRecorded('email', '');
+          if (awaitsContact(listing.tracking)) onRecorded('email', message);
         }}
         onOpenSource={onOpenSource}
+        subject={subject}
+        message={message}
       />
 
       {profile === null ? (
@@ -506,6 +531,11 @@ export function ContactPanel({
             editing={editing}
             copied={copied}
             link={link}
+            gmailLink={
+              channel === 'email' && prepared != null && prepared.recipient !== null
+                ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(prepared.recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
+                : null
+            }
             openLabel={openLabel}
             channel={channel}
             onToggleEdit={() => setEditing((value) => !value)}
@@ -545,6 +575,7 @@ function MessageActions({
   editing,
   copied,
   link,
+  gmailLink,
   openLabel,
   channel,
   onToggleEdit,
@@ -554,6 +585,7 @@ function MessageActions({
   readonly editing: boolean;
   readonly copied: boolean;
   readonly link: string | null;
+  readonly gmailLink?: string | null;
   readonly openLabel: string;
   readonly channel: string;
   readonly onToggleEdit: () => void;
@@ -570,31 +602,35 @@ function MessageActions({
         {copied ? 'Copié' : 'Copier'}
       </Button>
 
-      {/* PAS DE BOUTON POUR LE COURRIER. `mailto:` ouvre un logiciel de
-        courrier — souvent aucun, parfois le mauvais — et le message était
-        alors perdu. On copie, et l'adresse est affichée au-dessus. Le
-        téléphone et le formulaire, eux, mènent quelque part. */}
-      {link !== null && channel !== 'email' && (
+      {link !== null && (
         <ButtonLink
-          // DEUX LIENS PEUVENT DIRE « Appeler » sur cette fiche : celui-ci, qui
-          // conclut le message préparé, et le bouton d'appel direct posé plus
-          // haut. Ils ne font pas la même chose ; un repère les distingue pour
-          // qui les cherche par leur intitulé.
           data-testid="contact-action"
           variant="outline"
           href={link}
           target={channel === 'form' ? '_blank' : undefined}
           rel="noreferrer noopener"
-          // Un formulaire web ne se pré-remplit pas : le message doit être
-          // collé à la main. On le met donc au presse-papiers AU MOMENT
-          // d'ouvrir, pour qu'il soit prêt quand le formulaire s'affiche —
-          // sinon il fallait penser à « Copier » d'abord, et revenir.
           onClick={() => {
-            if (channel === 'form') onCopy();
+            if (channel === 'form' || channel === 'email') onCopy();
             onSent();
           }}
         >
           {openLabel}
+        </ButtonLink>
+      )}
+
+      {gmailLink && (
+        <ButtonLink
+          data-testid="contact-gmail-action"
+          variant="outline"
+          href={gmailLink}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={() => {
+            onCopy();
+            onSent();
+          }}
+        >
+          Ouvrir dans Gmail ↗
         </ButtonLink>
       )}
     </div>

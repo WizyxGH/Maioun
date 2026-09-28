@@ -737,6 +737,12 @@ export interface Repository {
   /** Annonces revenues en ligne et pas encore signalées à ce compte. */
   reappearedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
   markReappearNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
+  /** Annonces avec baisse de loyer et pas encore signalées pour cette baisse à ce compte. */
+  priceDroppedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  markPriceDropNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
+  /** Annonces modifiées et pas encore signalées pour cette modification à ce compte. */
+  updatedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  markUpdateNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
   /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
    * lesquelles aucun brouillon n'a encore été créé (§22). Triées par priorité.
@@ -1136,6 +1142,17 @@ export function createRepository(db: Database): Repository {
         args: [sourceId],
       });
       const known = new Set(result.rows.map((row) => String(row['source_ref'])));
+
+      if (sourceId === 'bienici') {
+        const extra = await db.execute({
+          sql: "SELECT source_ref FROM occurrences WHERE source_id = 'email-alerts' AND source_ref LIKE 'bienici:%'",
+          args: [],
+        });
+        for (const row of extra.rows) {
+          const ref = String(row['source_ref']).replace(/^bienici:/, '');
+          if (ref) known.add(ref);
+        }
+      }
 
       /**
        * UNE FICHE SANS PHOTO N'EST PAS « CONNUE » : elle mérite une seconde
@@ -2141,12 +2158,26 @@ export function createRepository(db: Database): Repository {
 
     async markWithdrawn(sourceId, refs, inactiveAfter) {
       if (refs.length === 0) return 0;
-      const result = await db.execute({
-        sql: `UPDATE occurrences SET lifecycle = 'inactive', missing_runs = MAX(missing_runs, ?)
-              WHERE source_id = ? AND lifecycle != 'inactive'
-                AND source_ref IN (${refs.map(() => '?').join(',')})`,
-        args: [inactiveAfter, sourceId, ...refs],
-      });
+      const placeholders = refs.map(() => '?').join(',');
+      const emailRefs = refs.map((r) => `bienici:${r}`);
+      const emailPlaceholders = emailRefs.map(() => '?').join(',');
+
+      const sql =
+        sourceId === 'bienici'
+          ? `UPDATE occurrences SET lifecycle = 'inactive', missing_runs = MAX(missing_runs, ?)
+             WHERE ((source_id = ? AND source_ref IN (${placeholders}))
+                OR (source_id = 'email-alerts' AND source_ref IN (${emailPlaceholders})))
+               AND lifecycle != 'inactive'`
+          : `UPDATE occurrences SET lifecycle = 'inactive', missing_runs = MAX(missing_runs, ?)
+             WHERE source_id = ? AND lifecycle != 'inactive'
+               AND source_ref IN (${placeholders})`;
+
+      const args =
+        sourceId === 'bienici'
+          ? [inactiveAfter, sourceId, ...refs, ...emailRefs]
+          : [inactiveAfter, sourceId, ...refs];
+
+      const result = await db.execute({ sql, args });
       return result.rowsAffected;
     },
 
@@ -2669,6 +2700,76 @@ export function createRepository(db: Database): Repository {
     async markReappearNotified(userId, ids, nowIso) {
       if (ids.length === 0) return;
       await recordUserState(db, userId, ids, { reappear_notified_at: nowIso });
+    },
+
+    async priceDroppedListings(userId, traits = {}) {
+      const preferences = traitConditions(traits);
+      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const result = await db.execute({
+        sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
+                     listings.city, listings.postal_code, sc.action_priority, listings.payload
+              FROM listings
+              JOIN listing_user_score AS sc
+                ON sc.listing_id = listings.id AND sc.user_id = ?
+              LEFT JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              WHERE json_extract(listings.payload, '$.priceDropped') = 1
+                AND us.price_drop_notified_at IS NULL
+                AND (COALESCE(us.notified, 0) = 1 OR COALESCE(us.favorite, 0) = 1)
+                AND COALESCE(us.archived, 0) = 0
+                AND (sc.matches_criteria = 1 OR COALESCE(us.favorite, 0) = 1)
+                AND ${OPEN_TO_APPLICATIONS_SQL}
+                AND listings.lifecycle = 'active'
+                AND listings.rented = 0
+                ${extra}
+              ORDER BY sc.action_priority DESC`,
+        args: [userId, userId, ...preferences.args],
+      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async markPriceDropNotified(userId, ids, nowIso) {
+      if (ids.length === 0) return;
+      await recordUserState(db, userId, ids, { price_drop_notified_at: nowIso });
+    },
+
+    async updatedListings(userId, traits = {}) {
+      const preferences = traitConditions(traits);
+      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      const result = await db.execute({
+        sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
+                     listings.city, listings.postal_code, sc.action_priority, listings.payload
+              FROM listings
+              JOIN listing_user_score AS sc
+                ON sc.listing_id = listings.id AND sc.user_id = ?
+              LEFT JOIN listing_user_state AS us
+                ON us.listing_id = listings.id AND us.user_id = ?
+              WHERE us.update_notified_at IS NULL
+                AND (COALESCE(us.notified, 0) = 1 OR COALESCE(us.favorite, 0) = 1)
+                AND COALESCE(us.archived, 0) = 0
+                AND (sc.matches_criteria = 1 OR COALESCE(us.favorite, 0) = 1)
+                AND ${OPEN_TO_APPLICATIONS_SQL}
+                AND listings.lifecycle = 'active'
+                AND listings.rented = 0
+                AND listings.id IN (
+                  SELECT DISTINCT group_id FROM occurrences
+                  WHERE id IN (
+                    SELECT occurrence_id FROM listing_history
+                    WHERE change IN ('area', 'availability', 'multiple', 'price-rise')
+                      AND recorded_at >= ?
+                  )
+                )
+                ${extra}
+              ORDER BY sc.action_priority DESC`,
+        args: [userId, userId, since, ...preferences.args],
+      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async markUpdateNotified(userId, ids, nowIso) {
+      if (ids.length === 0) return;
+      await recordUserState(db, userId, ids, { update_notified_at: nowIso });
     },
 
     async markReminded(userId, ids) {

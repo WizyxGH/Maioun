@@ -31,7 +31,21 @@ describe('parseNotificationPreferences', () => {
     };
     // UNE CASE AJOUTÉE APRÈS COUP prend sa valeur par défaut, sans effacer les
     // autres : un réglage enregistré avant elle reste lisible tel quel.
-    expect(parseNotificationPreferences(stocke)).toEqual({ ...stocke, reappeared: false });
+    expect(parseNotificationPreferences(stocke)).toEqual({
+      ...stocke,
+      reappeared: false,
+      priceDrops: true,
+      listingUpdates: true,
+    });
+  });
+
+  it('active les baisses de loyer et modifications d’annonces par défaut', () => {
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.priceDrops).toBe(true);
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.listingUpdates).toBe(true);
+    expect(parseNotificationPreferences({}).priceDrops).toBe(true);
+    expect(parseNotificationPreferences({}).listingUpdates).toBe(true);
+    expect(parseNotificationPreferences({ priceDrops: false }).priceDrops).toBe(false);
+    expect(parseNotificationPreferences({ listingUpdates: false }).listingUpdates).toBe(false);
   });
 
   /**

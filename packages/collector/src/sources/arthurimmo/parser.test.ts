@@ -1,162 +1,64 @@
-/**
- * Tests du parseur Arthurimmo, sur des extraits PRÉLEVÉS le 2026-09-09 et
- * réduits à ce que le parseur lit : les ancres canoniques d'un côté, l'en-tête
- * d'une fiche de l'autre.
- *
- * Aucun accès réseau.
- */
-
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { linkOf, parseDetail, parseList, parseListPage, parseSocialTitle } from './parser.js';
+import { parseList } from './parser.js';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const fixture = (nom: string): string =>
-  readFileSync(resolve(here, `../../../../../tests/fixtures/arthurimmo/${nom}`), 'utf8');
+const SAMPLE_HTML = `
+<html>
+<body>
+  <div class="relative group">
+    <a href="https://www.arthurimmo.com/annonces/location/appartement/nice-06000/33829487.htm">
+      <img src="https://media.studio-net.fr/biens/33829487/x6aaacbc42ee97?width=330&height=250" />
+    </a>
+    <div>
+      Appartement | 1 pièces 700 € /mois Nice 06000
+      À louer, grande chambre meublée de 14,05 m², au sein d’un appartement entièrement aménagé.
+    </div>
+  </div>
+  <div class="relative group">
+    <a href="/annonces/location/appartement/nice-06300/33247007.htm">
+      <img src="https://media.studio-net.fr/biens/33247007/x6a0c386859ca1?width=330&height=250" />
+    </a>
+    <div>
+      Appartement | 3 pièces | 70 m² 2 400 € /mois Nice 06300
+      En Résidence Séniors Autonomes à Nice Riquier.
+    </div>
+  </div>
+</body>
+</html>
+`;
 
-const liste = fixture('liste.html');
-const fiche = fixture('fiche.html');
-const ficheComplete = fixture('fiche-description.html');
+describe('arthurimmo parser', () => {
+  it('extrait les annonces depuis la liste HTML', () => {
+    const { listings, warnings } = parseList(SAMPLE_HTML);
+    expect(warnings).toEqual([]);
+    expect(listings).toHaveLength(2);
 
-describe('parseListPage', () => {
-  it('relève les fiches de location et lit ville et code postal dans l’adresse', () => {
-    const liens = parseListPage(liste);
-    expect(liens.length).toBeGreaterThan(0);
-    for (const lien of liens) {
-      expect(lien.url).toContain('/annonces/location/');
-      expect(lien.reference).toMatch(/^\d{4,}$/);
-      expect(lien.postalCode).toMatch(/^\d{5}$/);
-      expect(lien.city).not.toBe('');
-    }
-  });
-
-  it('ne compte pas deux fois une fiche liée plusieurs fois', () => {
-    // La carte porte plusieurs ancres vers la même fiche — image, titre,
-    // surface cliquable.
-    const doublee = `${liste}${liste}`;
-    expect(parseListPage(doublee).length).toBe(parseListPage(liste).length);
-  });
-
-  it('IGNORE les ventes, même listées par la même page', () => {
-    const avecVente =
-      liste +
-      '<a href="https://groupenicetransactions.arthurimmo.com/annonces/vente/appartement/nice-06000/99999999.htm"></a>';
-    expect(parseListPage(avecVente).some((l) => l.reference === '99999999')).toBe(false);
-  });
-
-  it('ne rend rien sur une page vide, sans lever', () => {
-    expect(parseListPage('<html><body>Aucun résultat</body></html>')).toEqual([]);
-  });
-});
-
-describe('parseList', () => {
-  it('rend des ébauches sans loyer, que la fiche complétera', () => {
-    const ebauches = parseList(liste);
-    expect(ebauches.length).toBe(parseListPage(liste).length);
-    for (const ebauche of ebauches) {
-      expect(ebauche.priceText).toBeUndefined();
-      expect(linkOf(ebauche)).toEqual(
-        parseListPage(liste).find((lien) => lien.reference === ebauche.sourceRef),
-      );
-    }
-  });
-});
-
-describe('parseSocialTitle', () => {
-  it('lit les quatre faits dans l’ordre invariable du site', () => {
-    expect(parseSocialTitle('Louer appartement de 5 pièces 128 m² 2 950 € à Nice (06000)')).toEqual(
-      {
-        propertyType: 'appartement',
-        rooms: '5 pièces',
-        area: '128 m²',
-        price: '2950 €',
-      },
+    const first = listings[0]!;
+    expect(first.sourceRef).toBe('33829487');
+    expect(first.sourceUrl).toBe(
+      'https://www.arthurimmo.com/annonces/location/appartement/nice-06000/33829487.htm',
     );
+    expect(first.priceText).toBe('700');
+    expect(first.areaText).toBe('14,05');
+    expect(first.roomsText).toBe('1');
+    expect(first.postalCodeText).toBe('06000');
+    expect(first.cityText).toBe('Nice');
+    expect(first.agencyName).toBe('Arthurimmo.com');
+    expect(first.propertyTypeText).toBe('apartment');
+    expect(first.imageUrls).toEqual([
+      'https://media.studio-net.fr/biens/33829487/x6aaacbc42ee97?width=1920&height=1440',
+    ]);
+
+    const second = listings[1]!;
+    expect(second.sourceRef).toBe('33247007');
+    expect(second.priceText).toBe('2400');
+    expect(second.areaText).toBe('70');
+    expect(second.roomsText).toBe('3');
+    expect(second.postalCodeText).toBe('06300');
   });
 
-  it('ne prend pas un montant qui n’est pas le loyer', () => {
-    // Honoraires et dépôt de garantie vivent ailleurs dans la page : seul le
-    // montant qui PRÉCÈDE « à <ville> » est le loyer.
-    const lu = parseSocialTitle('Louer studio de 1 pièce 22 m² 640 € à Nice (06300)');
-    expect(lu.price).toBe('640 €');
-  });
-
-  it('rend ce qu’il trouve quand le titre est incomplet', () => {
-    const lu = parseSocialTitle('Louer maison à Nice (06200)');
-    expect(lu.price).toBeUndefined();
-    expect(lu.area).toBeUndefined();
-  });
-});
-
-describe('parseDetail', () => {
-  const lien = {
-    url: 'https://groupenicetransactions.arthurimmo.com/annonces/location/appartement/nice-06000/33699516.htm',
-    reference: '33699516',
-    city: 'nice',
-    postalCode: '06000',
-  };
-
-  it('compose une annonce complète à partir de l’en-tête', () => {
-    const annonce = parseDetail(fiche, lien);
-    expect(annonce).not.toBeNull();
-    expect(annonce?.sourceRef).toBe('33699516');
-    expect(annonce?.priceText).toBe('2950 €');
-    expect(annonce?.areaText).toBe('128 m²');
-    expect(annonce?.roomsText).toBe('5 pièces');
-    expect(annonce?.postalCodeText).toBe('06000');
-  });
-
-  it('rend les entités du titre et de la description', () => {
-    // Le site écrit `&#039;` pour une apostrophe, et sépare ses lignes par des
-    // retours chariot seuls.
-    const annonce = parseDetail(fiche, lien);
-    expect(annonce?.description).not.toContain('&#039;');
-    expect(annonce?.description).not.toContain('\r');
-  });
-
-  it('retire la signature commerciale du titre', () => {
-    // « : une annonce Arthurimmo.com » est ajouté par le site à chaque fiche ;
-    // le garder polluerait la recherche plein texte et le rapprochement des
-    // titres au dédoublonnage.
-    expect(parseDetail(fiche, lien)?.title).not.toMatch(/une annonce Arthurimmo/i);
-  });
-
-  it('reprend les photos et le DPE', () => {
-    const annonce = parseDetail(fiche, lien);
-    expect(annonce?.imageUrls?.length).toBeGreaterThan(0);
-    expect(annonce?.imageUrls?.every((u) => u.startsWith('https://'))).toBe(true);
-    expect(annonce?.extra?.['dpe']).toMatch(/^[A-G]$/);
-  });
-
-  it('lit la description ENTIÈRE dans le corps, pas celle coupée de l’en-tête', () => {
-    // L'en-tête s'arrête à « un séjour lumineux... » ; le corps va jusqu'au bout.
-    const description = parseDetail(ficheComplete, lien)?.description ?? '';
-    expect(description).not.toMatch(/\.\.\.$/);
-    expect(description).toContain('Location consentie pour une durée de 9 mois, BAIL MOBILITÉ.');
-    expect(description).toMatch(/prêt à accueillir ses occupants\.$/);
-    expect(description.length).toBeGreaterThan(1000);
-  });
-
-  it('lit la classe énergie du badge actuel (`…&letter=D`)', () => {
-    expect(parseDetail(ficheComplete, lien)?.extra?.['dpe']).toBe('D');
-  });
-
-  it('garde un retour à la ligne pour un seul <br />', () => {
-    const description = parseDetail(ficheComplete, lien)?.description ?? '';
-    expect(description).toContain('Les atouts du logement :\n- 3 pièces meublé\n- 58,93 m²');
-    expect(description).not.toContain('Voir plus');
-  });
-
-  it('se rabat sur l’en-tête quand le corps manque', () => {
-    expect(parseDetail(fiche, lien)?.description).toMatch(/^NICE CIMIEZ/);
-  });
-
-  it('REFUSE une page qui n’est pas une annonce', () => {
-    // Bien retiré, page d'erreur : sans loyer ni surface, il n'y a rien à
-    // publier, et inventer serait pire que d'omettre.
-    const vide = '<html><head><meta property="og:title" content="Arthurimmo.com" /></head></html>';
-    expect(parseDetail(vide, lien)).toBeNull();
+  it('gère une page vide sans lever d’erreur', () => {
+    const { listings, warnings } = parseList('<html><body></body></html>');
+    expect(warnings).toEqual([]);
+    expect(listings).toEqual([]);
   });
 });

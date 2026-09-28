@@ -35,6 +35,8 @@ export interface ViewState {
   readonly favoritesOnly: boolean;
   /** Ne montrer que les annonces dont on n'a rien fait (suivi « Nouvelle »). */
   readonly newOnly: boolean;
+  /** Ne montrer que les annonces compatibles avec le profil locataire renseigné. */
+  readonly compatibleProfileOnly: boolean;
   readonly displayMode: 'list' | 'map';
 }
 
@@ -47,6 +49,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   showArchived: false,
   favoritesOnly: false,
   newOnly: false,
+  compatibleProfileOnly: false,
   displayMode: 'list',
 };
 
@@ -71,6 +74,7 @@ interface StoredViewState {
   showArchived?: unknown;
   favoritesOnly?: unknown;
   newOnly?: unknown;
+  compatibleProfileOnly?: unknown;
   displayMode?: unknown;
 }
 
@@ -123,6 +127,7 @@ export function readViewState(): ViewState {
     showArchived: stored.showArchived === true,
     favoritesOnly: stored.favoritesOnly === true,
     newOnly: stored.newOnly === true,
+    compatibleProfileOnly: stored.compatibleProfileOnly === true,
     displayMode: stored.displayMode === 'map' ? 'map' : 'list',
   };
 }

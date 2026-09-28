@@ -10,7 +10,12 @@
 
 import { describe, expect, it } from 'vitest';
 import type { TenantProfile } from './message.js';
-import { NO_REQUIREMENTS, checkEligibility, type TenancyRequirements } from './requirements.js';
+import {
+  NO_REQUIREMENTS,
+  checkEligibility,
+  priorityForEligibility,
+  type TenancyRequirements,
+} from './requirements.js';
 
 const PROFILE: TenantProfile = {
   firstName: 'Jean',
@@ -99,9 +104,46 @@ describe('ce qu’on ne sait pas reste inconnu', () => {
     expect(checkEligibility(gli, sansRevenu, 900).verdict).toBe('eligible');
   });
 
-  it('la seule mention de l’assurance ne condamne personne', () => {
+  it('la seule mention de l’assurance ne condamne personne avec un profil CDI', () => {
     expect(checkEligibility(conditions({ insuredRent: true }), PROFILE, 900).verdict).toBe(
       'eligible',
     );
+  });
+
+  it('rejette les situations précaires sous GLI', () => {
+    const gli = conditions({ insuredRent: true });
+    const cdd = { ...PROFILE, situation: 'cdd' };
+    const essai = { ...PROFILE, situation: 'cdi-essai' };
+    expect(checkEligibility(gli, cdd, 900).verdict).toBe('situation');
+    expect(checkEligibility(gli, essai, 900).verdict).toBe('situation');
+  });
+
+  it('exige un garant pour un étudiant sous GLI', () => {
+    const gli = conditions({ insuredRent: true });
+    const etudiantSansGarant = { ...PROFILE, situation: 'etudiant', guarantors: [] };
+    const etudiantAvecGarant = {
+      ...PROFILE,
+      situation: 'etudiant',
+      guarantors: [{ kind: 'physical' as const }],
+    };
+    expect(checkEligibility(gli, etudiantSansGarant, 900).verdict).toBe('situation');
+    expect(checkEligibility(gli, etudiantAvecGarant, 900).verdict).toBe('eligible');
+  });
+});
+
+describe('priorityForEligibility', () => {
+  it('ne modifie pas le score si le dossier est éligible ou inconnu', () => {
+    expect(priorityForEligibility(80, 'eligible')).toBe(80);
+    expect(priorityForEligibility(80, 'unknown')).toBe(80);
+  });
+
+  it('abaisse et plafonne le score à 35 en cas de non-éligibilité', () => {
+    // Un score élevé (ex: 90) est plafonné à 35
+    expect(priorityForEligibility(90, 'income')).toBe(35);
+    expect(priorityForEligibility(70, 'situation')).toBe(35);
+    // Un score moyen (ex: 50) est déduit de 25
+    expect(priorityForEligibility(50, 'guarantee')).toBe(25);
+    // Un score faible ne descend pas sous 0
+    expect(priorityForEligibility(10, 'income')).toBe(0);
   });
 });
