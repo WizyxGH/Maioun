@@ -86,40 +86,19 @@ describe('carrousel des nouveautés', () => {
     ).toBeInTheDocument();
   });
 
-  // LE REPLI, ET SON ÉTIQUETTE. Montrer d'anciennes annonces sous le titre
-  // « Nouveautés » ferait appeler une agence pour un bien vu il y a trois
-  // semaines : le contenu change, le libellé aussi.
-  it('à défaut, montre les dernières annonces dans les critères, en le disant', () => {
+  it('affiche un message indiquant qu’il n’y a pas eu de nouveauté depuis la dernière visite', () => {
     render(
       <Accueil
         searchCount={3}
         nowMs={MAINTENANT}
-        seenAtMs={MAINTENANT}
+        seenAtMs={MAINTENANT - 2 * 60 * 60 * 1000}
         listings={[annonce('a1', { firstSeenAt: '2026-09-01T09:00:00Z' })]}
       />,
     );
+    expect(screen.getByText('Nouveautés')).toBeInTheDocument();
     expect(
-      screen.getByRole('list', { name: 'Dernières annonces dans vos critères' }),
+      screen.getByText(/Aucune nouveauté depuis votre dernière visite \(il y a 2 h\)/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/dernières annonces dans vos critères/i)).toBeInTheDocument();
-  });
-
-  it('ne met dans ce repli que ce qui EST dans les critères', () => {
-    render(
-      <Accueil
-        searchCount={0}
-        nowMs={MAINTENANT}
-        seenAtMs={MAINTENANT}
-        listings={[
-          annonce('hors', { firstSeenAt: '2026-09-01T09:00:00Z', matchesCriteria: false }),
-        ]}
-      />,
-    );
-    expect(screen.queryByRole('list', { name: /dernières annonces/i })).toBeNull();
-  });
-
-  it('garde un mot quand il n’y a vraiment rien à montrer', () => {
-    render(<Accueil searchCount={0} nowMs={MAINTENANT} seenAtMs={MAINTENANT} listings={[]} />);
-    expect(screen.getByText(/aucune annonce dans vos critères/i)).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: /Nouveautés/i })).toBeNull();
   });
 });

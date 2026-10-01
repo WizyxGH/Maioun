@@ -29,6 +29,7 @@ import {
   MVP_CRITERIA,
   PRIORITY_HOT,
   priorityForEligibility,
+  incomeEffortPenalty,
 } from '@maioun/shared';
 import type {
   FilterConfig,
@@ -93,7 +94,7 @@ import {
   restrictsSources,
   type SourceSelection,
 } from './source-selection.js';
-import { ArrowLeft, Flame, List, Map, ShieldCheck, SlidersHorizontal } from './components/icons.js';
+import { ArrowLeft, Flame, List, Map, SlidersHorizontal } from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { SearchBox } from './components/SearchBox.js';
 import { AlertBell } from './components/AlertBell.js';
@@ -817,9 +818,35 @@ function avecPrioriteDuProfil(
     );
     const nextPriority = priorityForEligibility(listing.actionPriority, verdict);
     if (verdict === 'eligible' || verdict === 'unknown') {
-      return nextPriority === listing.actionPriority
-        ? listing
-        : { ...listing, actionPriority: nextPriority };
+      const effort = incomeEffortPenalty(profile, listing.price.value);
+      if (effort.penalty === 0) {
+        return nextPriority === listing.actionPriority
+          ? listing
+          : { ...listing, actionPriority: nextPriority };
+      }
+      const adjustedPriority = Math.max(0, nextPriority - effort.penalty);
+      const adjustedMatch = Math.max(0, listing.scores.match.value - effort.penalty);
+      const matchReasons = [
+        ...listing.scores.match.reasons,
+        {
+          code: 'profile.income_effort',
+          label: effort.reason ?? 'Taux d’effort supérieur à 33 %',
+          delta: -effort.penalty,
+        },
+      ];
+      return {
+        ...listing,
+        actionPriority: adjustedPriority,
+        matchScore: adjustedMatch,
+        scores: {
+          ...listing.scores,
+          match: {
+            ...listing.scores.match,
+            value: adjustedMatch,
+            reasons: matchReasons,
+          },
+        },
+      };
     }
 
     // Le dossier ne satisfait pas les exigences du bailleur (GLI, revenus, garanties, situation) :
@@ -2684,20 +2711,6 @@ function AppView(): React.JSX.Element {
               </option>
             ))}
           </Select>
-
-          {profile !== null && (
-            <Button
-              type="button"
-              variant={compatibleProfileOnly ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCompatibleProfileOnly((v) => !v)}
-              className="gap-1.5 shrink-0"
-              title="Filtrer pour ne voir que les logements compatibles avec votre profil"
-            >
-              <ShieldCheck aria-hidden="true" className="size-4" />
-              <span className="hidden sm:inline">Profil compatible</span>
-            </Button>
-          )}
 
           {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
               1024 px les deux s'affichent côte à côte : il n'y a plus rien à

@@ -81,7 +81,14 @@ export async function migrate(
 
     logger.info('db.migration.apply', { version: migration.version, name: migration.name });
     for (const statement of splitStatements(migration.sql)) {
-      await db.execute(statement);
+      try {
+        await db.execute(statement);
+      } catch (err) {
+        if (/duplicate column name/i.test(String(err))) {
+          continue;
+        }
+        throw err;
+      }
     }
     await db.execute({
       sql: 'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)',

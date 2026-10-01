@@ -129,9 +129,16 @@ const SUSPICIOUS_PATTERNS: readonly { pattern: RegExp; label: string; points: nu
     // prépayé, cryptomonnaie. Zéro occurrence dans l'inventaire, donc zéro
     // risque de signaler à tort.
     pattern:
-      /\b(western union|moneygram|mandat cash|mandat postal|paypal ami|bitcoin|crypto monnaie|cryptomonnaie|usdt|carte pcs|coupon paysafe|ticket premium|neosurf)\b/,
+      /\b(western union|moneygram|mandat cash|mandat postal|paypal ami|bitcoin|crypto monnaie|cryptomonnaie|usdt|carte pcs|recharge pcs|coupon paysafe|ticket premium|neosurf|transcash|carte transcash|recharge transcash|toneo)\b/,
     label: 'Moyen de paiement inhabituel mentionné',
     points: 35,
+  },
+  {
+    // Contournement des messageries sécurisées des portails
+    pattern:
+      /\b(?:contact(?:ez)?[- ]moi|ecri(?:re|vez)[- ]moi|joindre)\b[^.]{0,50}\b(?:uniquement|directement)\b[^.]{0,30}\b(?:sur whatsapp|par whatsapp|sur telegram|par telegram)\b/,
+    label: 'Contact déporté hors plateforme (WhatsApp/Telegram imposé)',
+    points: 25,
   },
   {
     // IL FAUT UN SUJET À LA PREMIÈRE PERSONNE. Le mot « expatrié » seul parle

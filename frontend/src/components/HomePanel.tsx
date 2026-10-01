@@ -21,6 +21,7 @@
 import type { ListingView, SourceStateView } from '../types.js';
 import {
   awaitsContact,
+  formatElapsed,
   NICE_RENT_REFERENCE,
   PRIORITY_HOT,
   RENT_REFERENCE_SOURCE,
@@ -236,21 +237,6 @@ export function HomePanel({
         Date.parse(b.notifiedAt ?? b.firstSeenAt) - Date.parse(a.notifiedAt ?? a.firstSeenAt),
     );
 
-  /**
-   * À DÉFAUT DE NOUVEAUTÉ, LES DERNIÈRES ANNONCES DANS LES CRITÈRES.
-   *
-   * La section affichait sinon une carte morte — « rien de neuf » — qui
-   * occupait le haut de l'accueil sans rien apprendre. Les plus récentes de ce
-   * qui correspond valent mieux : ce sont elles qu'on irait chercher.
-   *
-   * L'ÉTIQUETTE CHANGE AVEC LE CONTENU. Montrer d'anciennes annonces sous le
-   * titre « Nouveautés » serait un mensonge, et le genre qui se paie : on
-   * appellerait une agence pour un bien vu il y a trois semaines.
-   */
-  const recentes = active
-    .filter((listing) => listing.matchesCriteria)
-    .sort((a, b) => Date.parse(b.firstSeenAt) - Date.parse(a.firstSeenAt));
-
   // À FAIRE : ce qui attend un geste. Une annonce « à contacter » n'a pas
   // encore été appelée ; un favori laissé en « nouvelle » non plus.
   const toCall = active.filter(
@@ -267,6 +253,8 @@ export function HomePanel({
     favoritesUntouched.length > 0 ||
     !profileComplete;
 
+  const timeAgo = seenAtMs > 0 ? formatElapsed(Math.max(0, (nowMs - seenAtMs) / 60_000)) : null;
+
   return (
     <div className="flex flex-col gap-6">
       {/* 1. CE QUI A BOUGÉ. En tête parce que c'est périssable : une annonce
@@ -280,33 +268,19 @@ export function HomePanel({
             </Button>
           )}
         </div>
-        {fresh.length > 0 && (
+        {fresh.length > 0 ? (
           <Carrousel
             listings={fresh.slice(0, 8)}
             nowMs={nowMs}
             onOpen={onOpenListing}
             etiquette="Nouveautés depuis votre dernier passage"
           />
-        )}
-        {fresh.length === 0 && recentes.length > 0 && (
-          <>
-            <p className="text-muted-foreground mb-2 text-[0.92rem]">
-              Rien de neuf depuis votre dernier passage. Voici les dernières annonces dans vos
-              critères.
-            </p>
-            <Carrousel
-              listings={recentes.slice(0, 8)}
-              nowMs={nowMs}
-              onOpen={onOpenListing}
-              etiquette="Dernières annonces dans vos critères"
-            />
-          </>
-        )}
-        {fresh.length === 0 && recentes.length === 0 && (
-          <Card className="text-muted-foreground text-[0.92rem]">
-            Rien de neuf depuis votre dernier passage, et aucune annonce dans vos critères pour le
-            moment. L’historique complet est dans les notifications.
-          </Card>
+        ) : (
+          <p className="text-muted-foreground text-[0.92rem]">
+            {timeAgo !== null
+              ? `Aucune nouveauté depuis votre dernière visite (${timeAgo}).`
+              : 'Aucune nouveauté pour le moment.'}
+          </p>
         )}
       </section>
 

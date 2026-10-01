@@ -104,11 +104,15 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
   // Les quatre actions restent à la main de l'utilisateur.
   await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copier' })).toBeVisible();
-  // PAS DE BOUTON POUR LE COURRIER : `mailto:` ouvre un logiciel de courrier —
-  // souvent aucun — et le message préparé se perdait. L'adresse, elle, est
-  // affichée dans les coordonnées, où elle se lit et se copie.
+  // Le lien n'envoie rien tant qu'on ne le déclenche pas ; il ouvre le client
+  // de courrier avec le message préparé.
   await expect(page.getByTestId('agency-email')).toBeVisible();
-  await expect(page.getByTestId('contact-action')).toBeHidden();
+  const contactAction = page.getByTestId('contact-action');
+  await expect(contactAction).toBeVisible();
+  await expect(contactAction).toHaveAttribute(
+    'href',
+    expect.stringContaining('mailto:contact@example.invalid'),
+  );
   // PLUS DE « J'ai envoyé » : ouvrir le message consigne la démarche, comme le
   // font « Appeler » et « Écrire ». Le demander une seconde fois obligeait à y
   // penser une fois la page quittée.

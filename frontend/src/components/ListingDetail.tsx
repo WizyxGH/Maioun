@@ -293,7 +293,7 @@ function RiskAlert({ listing }: { readonly listing: ListingView }): React.JSX.El
 
   return (
     <Alert variant="warning" className="mb-3">
-      <AlertTitle>Signaux d’alerte</AlertTitle>
+      <AlertTitle>Signaux d’alerte — Vigie automatique</AlertTitle>
       <AlertDescription>
         <ul>
           {observed.map((reason, index) => (
@@ -301,8 +301,8 @@ function RiskAlert({ listing }: { readonly listing: ListingView }): React.JSX.El
           ))}
         </ul>
         <p>
-          Aucun de ces constats ne prouve quoi que ce soit. Ils demandent une vérification avant
-          d’envoyer un dossier, et surtout avant tout versement.
+          Contrôle automatique Vigie. Aucun de ces constats ne prouve quoi que ce soit. Ils
+          demandent une vérification avant d’envoyer un dossier, et surtout avant tout versement.
         </p>
       </AlertDescription>
     </Alert>

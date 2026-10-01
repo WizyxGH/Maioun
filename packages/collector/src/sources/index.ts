@@ -237,6 +237,7 @@ import { cotOuestScraper } from './cot-ouest/index.js';
 import { immojeuneScraper } from './immojeune/index.js';
 import { morningcroissantScraper } from './morningcroissant/index.js';
 import { appartagerScraper } from './appartager/index.js';
+import { rentolaScraper } from './rentola/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -471,6 +472,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   morningcroissantScraper,
   appartagerScraper,
   immojeuneScraper,
+  rentolaScraper,
 ];
 
 // Laforêt sert de source de référence aux tests d'intégration, qui passent par

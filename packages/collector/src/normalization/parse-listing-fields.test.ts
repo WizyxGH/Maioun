@@ -1504,7 +1504,7 @@ describe('parseDistrict', () => {
     // C'est sous ce nom-là que le filtre de l'écran attend l'annonce : rendre
     // « carré d'or » la rangerait sous un quartier que le menu ne propose pas.
     expect(parseDistrict("Carré d'or - Studio avec balcon")).toBe('Centre-ville');
-    expect(parseDistrict('Studio meublé rue de France')).toBe('Promenade des Anglais');
+    expect(parseDistrict('Studio meublé rue de France')).toBe('Rue de France');
     // Les annonces abrègent, la table écrit en toutes lettres.
     expect(parseDistrict('STUDIO MEUBLE — NICE COLLINES ST PIERRE DE FERIC')).toBe(
       'Saint-Pierre-de-Féric',

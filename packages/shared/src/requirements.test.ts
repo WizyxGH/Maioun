@@ -14,6 +14,7 @@ import {
   NO_REQUIREMENTS,
   checkEligibility,
   priorityForEligibility,
+  incomeEffortPenalty,
   type TenancyRequirements,
 } from './requirements.js';
 
@@ -145,5 +146,45 @@ describe('priorityForEligibility', () => {
     expect(priorityForEligibility(50, 'guarantee')).toBe(25);
     // Un score faible ne descend pas sous 0
     expect(priorityForEligibility(10, 'income')).toBe(0);
+  });
+});
+
+describe('incomeEffortPenalty', () => {
+  it('ne pénalise pas si le revenu atteint ou dépasse 3× le loyer net', () => {
+    // 2400 € pour 800 € -> ratio 3.0
+    const profile = { ...PROFILE, monthlyIncome: 2400, incomeKind: 'net' as const };
+    expect(incomeEffortPenalty(profile, 800).penalty).toBe(0);
+    // 2400 € pour 700 € -> ratio 3.4
+    expect(incomeEffortPenalty(profile, 700).penalty).toBe(0);
+  });
+
+  it('applique un malus modéré (6 pts) quand le revenu est entre 2.5× et 3× le loyer', () => {
+    // 2400 € pour 900 € -> ratio 2.67
+    const profile = { ...PROFILE, monthlyIncome: 2400, incomeKind: 'net' as const };
+    const res = incomeEffortPenalty(profile, 900);
+    expect(res.penalty).toBe(6);
+    expect(res.reason).toContain('Revenus inférieurs à 3× le loyer');
+  });
+
+  it('applique un malus plus fort (14 pts) quand le revenu est entre 2× et 2.5× le loyer', () => {
+    // 2400 € pour 1100 € -> ratio 2.18
+    const profile = { ...PROFILE, monthlyIncome: 2400, incomeKind: 'net' as const };
+    const res = incomeEffortPenalty(profile, 1100);
+    expect(res.penalty).toBe(14);
+    expect(res.reason).toContain('Loyer élevé par rapport aux revenus');
+  });
+
+  it('applique un malus maximal (22 pts) quand le revenu est inférieur à 2× le loyer', () => {
+    // 2400 € pour 1400 € -> ratio 1.71
+    const profile = { ...PROFILE, monthlyIncome: 2400, incomeKind: 'net' as const };
+    const res = incomeEffortPenalty(profile, 1400);
+    expect(res.penalty).toBe(22);
+    expect(res.reason).toContain('Loyer disproportionné par rapport aux revenus');
+  });
+
+  it('ne pénalise pas sans revenu ou sans loyer', () => {
+    expect(incomeEffortPenalty(null, 900).penalty).toBe(0);
+    expect(incomeEffortPenalty({ ...PROFILE, monthlyIncome: null }, 900).penalty).toBe(0);
+    expect(incomeEffortPenalty(PROFILE, null).penalty).toBe(0);
   });
 });

@@ -123,9 +123,53 @@ const SITUATION_MAP: Readonly<Record<string, AcceptedSituation>> = {
  * usuel du secteur privé (÷ 1,23). C'est une approximation, et le verdict en
  * tient compte — voir `checkEligibility`.
  */
-function netMonthlyIncome(profile: TenantProfile): number | null {
+export function netMonthlyIncome(profile: TenantProfile): number | null {
   if (profile.monthlyIncome === null) return null;
   return profile.incomeKind === 'gross' ? profile.monthlyIncome / 1.23 : profile.monthlyIncome;
+}
+
+/**
+ * Évalue la tension budgétaire selon la règle tacite des 3× le loyer (taux d'effort ≤ 33 %).
+ *
+ * Sans critère formellement énoncé, une annonce ne s'exclut pas. Mais sur le
+ * marché réel, un loyer dépassant le tiers des revenus nets complique la
+ * sélection du dossier. Cette fonction mesure l'écart pour ajuster le scoring.
+ */
+export function incomeEffortPenalty(
+  profile: TenantProfile | null,
+  rent: number | null,
+): { readonly penalty: number; readonly reason: string | null; readonly ratio: number | null } {
+  if (profile === null || rent === null || rent <= 0) {
+    return { penalty: 0, reason: null, ratio: null };
+  }
+  const income = netMonthlyIncome(profile);
+  if (income === null || income <= 0) {
+    return { penalty: 0, reason: null, ratio: null };
+  }
+
+  const ratio = income / rent;
+  if (ratio >= 3.0) {
+    return { penalty: 0, reason: null, ratio };
+  }
+  if (ratio >= 2.5) {
+    return {
+      penalty: 6,
+      reason: `Revenus inférieurs à 3× le loyer (${ratio.toFixed(1).replace('.', ',')}× le loyer net)`,
+      ratio,
+    };
+  }
+  if (ratio >= 2.0) {
+    return {
+      penalty: 14,
+      reason: `Loyer élevé par rapport aux revenus (${Math.round((rent / income) * 100)} % du net, seuil 3× non atteint)`,
+      ratio,
+    };
+  }
+  return {
+    penalty: 22,
+    reason: `Loyer disproportionné par rapport aux revenus (${Math.round((rent / income) * 100)} % du net)`,
+    ratio,
+  };
 }
 
 /**
