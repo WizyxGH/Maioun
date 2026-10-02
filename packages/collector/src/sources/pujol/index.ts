@@ -31,6 +31,23 @@ import { niceListingUrls, parseDetail, referenceOf, SITEMAPS } from './parser.js
  */
 const MAX_DETAILS = 20;
 
+/**
+ * Fiches CONNUES relues par exécution, pour voir lesquelles se sont fermées.
+ *
+ * SANS CE RELU, UNE ANNONCE LOUÉE RESTE ACTIVE INDÉFINIMENT. Le bandeau
+ * « Location clôturée » n'apparaît qu'après la signature du bail : une fiche
+ * lue la veille est donc encore ouverte en base, et comme elle ne reparait plus
+ * dans les plans de site — il n'y a que les mêmes URL, dédupliquées —, plus
+ * rien ne la revisitait. Le bandeau était bien détecté, jamais relu.
+ *
+ * Les plus anciennes lectures d'abord, pour qu'un stock minuscule soit couvert
+ * entièrement en quelques passages.
+ */
+const MAX_RECHECKS = 4;
+
+/** Une fiche relue ne l'est pas avant un jour — le bail ne se signe pas en heure. */
+const RECHECK_AFTER_MS = 24 * 60 * 60 * 1000;
+
 export const PUJOL_DESCRIPTOR: SourceDescriptor = {
   id: 'pujol',
   name: 'Immobilière Pujol',
@@ -48,7 +65,7 @@ export const PUJOL_DESCRIPTOR: SourceDescriptor = {
   priority: 3,
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', {
-    maxPagesPerRun: SITEMAPS.length + MAX_DETAILS,
+    maxPagesPerRun: SITEMAPS.length + MAX_DETAILS + MAX_RECHECKS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
@@ -60,6 +77,67 @@ export const PUJOL_DESCRIPTOR: SourceDescriptor = {
     'comme louées. ATTENTION : le titre du site annonce « Marseille » sur des ' +
     'biens niçois ; la ville ne se lit jamais là, mais dans l’adresse de la fiche.',
 };
+
+/** Ce qu'une relecture a appris, et ce qu'elle a coûté. */
+interface RecheckReport {
+  readonly listings: readonly RawListing[];
+  readonly rentedRefs: readonly string[];
+  readonly requestCount: number;
+  readonly pagesFetched: number;
+  /** `true` si un 429 a interrompu la relecture. */
+  readonly rateLimited: boolean;
+}
+
+/**
+ * Relit quelques fiches CONNUES, les moins récemment lues d'abord.
+ *
+ * Une référence connue n'est plus visitée par le parcours normal : sans ce
+ * relu, une fiche passée en cours de location avant que le bandeau « Location
+ * clôturée » n'apparaisse y resterait active indéfiniment.
+ */
+async function recheckKnown(
+  context: ScrapeContext,
+  urls: ReadonlySet<string>,
+): Promise<RecheckReport> {
+  const listings: RawListing[] = [];
+  const rentedRefs: string[] = [];
+  const nowMs = Date.now();
+  const due = [...context.knownRefs]
+    .map((reference) => ({
+      url: [...urls].find((candidate) => referenceOf(candidate) === reference),
+      at: Date.parse(context.detailMemory.get(reference)?.fetchedAt ?? ''),
+    }))
+    .filter((entry) => entry.url !== undefined)
+    // Une mémoire absente ou illisible passe en premier : on ignore l'horodatage
+    // qu'on n'a pas plutôt que de ne jamais relire.
+    .filter((entry) => !Number.isFinite(entry.at) || nowMs - entry.at >= RECHECK_AFTER_MS)
+    .sort((a, b) => a.at - b.at);
+
+  let requestCount = 0;
+  let pagesFetched = 0;
+  for (const entry of due) {
+    if (listings.length >= MAX_RECHECKS || context.shouldStop()) break;
+    try {
+      const page = await context.fetch(entry.url as string);
+      requestCount += 1;
+      if (page.notModified) continue;
+      pagesFetched += 1;
+      const parsed = parseDetail(page.body, entry.url as string);
+      if (parsed === null) continue;
+      listings.push(parsed.listing);
+      // Ferme, elle devient une donnée de prix : le loyer réellement obtenu.
+      if (parsed.closed) rentedRefs.push(parsed.listing.sourceRef);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('recheck.failed', { url: entry.url, error: message });
+      if (message.includes('429')) {
+        return { listings, rentedRefs, requestCount, pagesFetched, rateLimited: true };
+      }
+    }
+  }
+
+  return { listings, rentedRefs, requestCount, pagesFetched, rateLimited: false };
+}
 
 export const pujolScraper: Scraper = {
   descriptor: PUJOL_DESCRIPTOR,
@@ -136,6 +214,15 @@ export const pujolScraper: Scraper = {
         }
       }
     }
+
+    // 3. Les fiches CONNUES, relues : c'est là, et nulle part ailleurs, qu'un
+    //    bandeau « Location clôturée » apparaît.
+    const relecture = await recheckKnown(context, urls);
+    listings.push(...relecture.listings);
+    rentedRefs.push(...relecture.rentedRefs);
+    requestCount += relecture.requestCount;
+    pagesFetched += relecture.pagesFetched;
+    if (relecture.rateLimited) stopReason = 'rateLimited';
 
     return {
       sourceId: PUJOL_DESCRIPTOR.id,

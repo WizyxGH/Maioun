@@ -47,11 +47,14 @@ const FRESH_HOURS = 48;
 interface HomePanelProps {
   readonly listings: readonly ListingView[];
   /**
-   * Nombre de résultats de la recherche où mène la tuile, filtres compris.
-   * Calculé par l'appelant avec le même filtre que la liste : recompter ici
-   * donnait un autre chiffre à chaque filtre ajouté.
+   * Nombre d'annonces DANS LES CRITÈRES DU COMPTE.
+   *
+   * Ni les filtres d'affichage ni la pagination ne doivent y entrer : la tuile
+   * annonce ce que le compte a trouvé, pas ce que ce navigateur achargé. C'est
+   * ce qui la faisait diverger d'un appareil à l'autre — 98 sur un téléphone,
+   * 115 sur un ordinateur, pour le même compte.
    */
-  readonly searchCount: number;
+  readonly criteriaCount: number;
   /** `true` tant que la première liste n'est pas arrivée : on ne montre pas de zéros. */
   readonly loading?: boolean;
   readonly sources: readonly SourceStateView[];
@@ -191,7 +194,7 @@ function ChoreRow({
 
 export function HomePanel({
   listings,
-  searchCount,
+  criteriaCount,
   loading = false,
   sources,
   savedSearches,
@@ -358,11 +361,12 @@ export function HomePanel({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {/* LE MÊME TOTAL QUE LA RECHERCHE où la tuile mène, filtres actifs
-            compris : 81 ici pour 76 résultats là-bas ne se retrouvait pas. */}
+            {/* LE COMPTE DU COMPTE, PAS CELUI DE LA LISTE : la tuile annonce ce
+            que la recherche TROUVE, pas ce que ce navigateur a en mémoire sous
+            ses filtres d'affichage. */}
             <StatTile
               label="dans vos critères"
-              value={searchCount}
+              value={criteriaCount}
               Icon={Search}
               onClick={onOpenSearch}
             />

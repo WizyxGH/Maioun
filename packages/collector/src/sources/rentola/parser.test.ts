@@ -219,3 +219,86 @@ describe('Rentola parser', () => {
     expect(normalized?.imageUrls).toHaveLength(2);
   });
 });
+
+/**
+ * LE REPLI HTML, jamais couvert jusque-là.
+ *
+ * Il ne sert que quand le site ne sert plus de JSON-LD — et il ne servait que
+ * dans ce cas, sur un chemin que rien n'éprouvait. Ces tests le tiennent ouvert.
+ */
+describe('le repli HTML, quand le site ne sert plus de JSON-LD', () => {
+  // Le conteneur NE CORRESPOND à aucun des sélecteurs de l'ancien repli
+  // (`article, li, [class*=card], [class*=listing]`) : c'est le gabarit pour
+  // lequel `closest` remontait jusqu'au document entier, et où chaque annonce
+  // héritait des photos, du prix et de la surface de toutes les autres.
+  const SANS_JSONLD = `<!DOCTYPE html><html><body>
+    <main class="results">
+      <div class="result-item">
+        <a href="/listings/studio-nice-23-m2-06100-700-mois-paaa11">
+          <h3>Studio 23 m² à Nice</h3>
+          <img src="https://rentola.fr/static/logo.svg" alt="Rentola">
+          <img src="/static/arrow-right.png" alt="suivant">
+          <img src="https://cdn.rentola.fr/photo1.jpg" alt="séjour">
+          <img data-src="https://cdn.rentola.fr/photo2.jpg" alt="cuisine">
+          <img src="https://rentola.fr/static/icon-heart.svg" alt="favori">
+          <p>700 € / mois · 23 m² · 1 pièce · 06100 Nice</p>
+        </a>
+      </div>
+      <div class="result-item">
+        <a href="/listings/t2-cannes-45-m2-06000-900-mois-pbbb22">
+          <h3>T2 à Cannes</h3>
+          <img src="https://cdn.rentola.fr/photo3.jpg" alt="séjour">
+          <p>900 € / mois · 45 m² · 2 pièces · 06000 Cannes</p>
+        </a>
+      </div>
+    </main>
+  </body></html>`;
+
+  it('lit les annonces même sans JSON-LD', () => {
+    const { listings } = parseSearchPage(SANS_JSONLD, 'https://rentola.fr/location/nice');
+    expect(listings.map((one) => one.sourceRef).sort()).toEqual(['paaa11', 'pbbb22']);
+  });
+
+  it('ne prend PAS les images de la page pour celles des biens', () => {
+    const { listings } = parseSearchPage(SANS_JSONLD, 'https://rentola.fr/location/nice');
+    const studio = listings.find((one) => one.sourceRef === 'paaa11');
+
+    // Le logo et la flèche du bandeau ne sont pas des photos d'appartement, et
+    // l'icône de favori n'en est pas une non plus.
+    expect(studio?.imageUrls).toEqual([
+      'https://cdn.rentola.fr/photo1.jpg',
+      'https://cdn.rentola.fr/photo2.jpg',
+    ]);
+  });
+
+  it('N’ATTRIBUE PAS à une annonce les photos de sa voisine', () => {
+    const { listings } = parseSearchPage(SANS_JSONLD, 'https://rentola.fr/location/nice');
+    const t2 = listings.find((one) => one.sourceRef === 'pbbb22');
+
+    // Ni le salon du studio, ni son prix, ni sa surface : le gabarit du site ne
+    // correspondait pas à `article, li, [class*=card]`, et la carte remontait
+    // jusqu'au conteneur commun aux deux annonces.
+    expect(t2?.imageUrls).toEqual(['https://cdn.rentola.fr/photo3.jpg']);
+    expect(t2?.priceText).not.toContain('700');
+    expect(t2?.areaText).not.toContain('23');
+  });
+
+  it('NE FABRIQUE PAS de code postal quand la carte n’en porte pas', () => {
+    const SANS_CP = SANS_JSONLD.replace(' · 06100 Nice', '');
+    const { listings } = parseSearchPage(SANS_CP, 'https://rentola.fr/location/nice');
+    const studio = listings.find((one) => one.sourceRef === 'paaa11');
+
+    // Écrit en dur avant : toute fiche sans code postal devenait du 06000, donc
+    // une annonce de Menton entrait à Nice.
+    expect(studio?.postalCodeText).toBeUndefined();
+  });
+
+  it('NE FABRIQUE PAS de code postal sur une fiche non plus', () => {
+    const SANS_CP_DETAIL = SAMPLE_DETAIL_HTML.replace(/\b06\d{3}\b/g, '');
+    const detail = parseDetailPage(
+      SANS_CP_DETAIL,
+      'https://rentola.fr/listings/location-appartement-nice-1-piece-23-m2-p05ad82',
+    );
+    expect(detail?.postalCodeText).toBeUndefined();
+  });
+});

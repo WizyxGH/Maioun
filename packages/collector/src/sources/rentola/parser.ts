@@ -121,6 +121,75 @@ function listingFromJsonLd(item: JsonLdRealEstate, fallbackUrl: string): RawList
   };
 }
 
+/**
+ * Images D'ILLUSTRATION, et non de biens.
+ *
+ * Le repli HTML ramassait toutes les images de la carte. Or une carte de site
+ * d'agrégateur sert d'abord ses propres images : logo, badge de exclusivity,
+ * flèche de pagination, icône de débit. Elles partaient en base comme photos du
+ * bien — ce que l'utilisateur voit alors comme « il manque des photos et il y
+ * en a de mauvaises ».
+ */
+function isIllustration(src: string): boolean {
+  return (
+    /avatar|icon|logo|sprite|placeholder|banner|badge|arrow|chevron|placeholder/i.test(src) ||
+    /\.(?:svg|gif)(?:\?|$)/i.test(src)
+  );
+}
+
+/**
+ * La carte la PLUS ÉTROITE qui porte encore le lien : la plus petite possible.
+ *
+ * Remonter trop loin avale les voisins — c'est ainsi qu'une annonce héritait des
+ * photos de la carte d'à côté. On s'arrête dès qu'un parent en contient deux.
+ */
+function cardOf($: cheerio.CheerioAPI, element: unknown) {
+  let node = $(element as never) as cheerio.Cheerio<never>;
+  for (let depth = 0; depth < 4; depth += 1) {
+    const parent = node.parent() as cheerio.Cheerio<never>;
+    if (parent.length === 0) break;
+    if (parent.find('a[href*="/listings/"]').length > 1) break;
+    node = parent;
+  }
+  return node;
+}
+
+/**
+ * Les photos du BIEN dans un morceau de page.
+ *
+ * @param card Un sélecteur, ou la carte à examiner.
+ */
+function imagesOf(
+  $: cheerio.CheerioAPI,
+  card: string | cheerio.Cheerio<never>,
+  pageUrl: string,
+): string[] {
+  const found: string[] = [];
+  const scope = typeof card === 'string' ? $(card) : card;
+  scope.find('img[src], img[data-src], source[srcset]').each((_index, image) => {
+    const el = $(image);
+    for (const attr of ['src', 'data-src', 'srcset']) {
+      const raw = el.attr(attr);
+      if (raw === undefined) continue;
+      for (const candidate of raw.split(',').map((part) => part.trim().split(' ')[0] ?? '')) {
+        const absolute = candidate.startsWith('http') ? candidate : safeUrl(candidate, pageUrl);
+        if (absolute === null || absolute === '' || isIllustration(absolute)) continue;
+        if (!found.includes(absolute)) found.push(absolute);
+      }
+    }
+  });
+  return found;
+}
+
+/** L'URL absolue d'une source relative, ou `null` si elle n'en est pas une. */
+function safeUrl(href: string, pageUrl: string): string | null {
+  try {
+    return new URL(href, pageUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const listings = new Map<string, RawListing>();
   const warnings: string[] = [];
@@ -159,11 +228,11 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     $('a[href*="/listings/"]').each((_index, element) => {
       const rawHref = $(element).attr('href');
       if (!rawHref) return;
-      const href = new URL(rawHref, pageUrl).toString();
-      const reference = listingReference(href);
+      const href = safeUrl(rawHref, pageUrl);
+      const reference = href === null ? null : listingReference(href);
       if (!reference || listings.has(reference)) return;
 
-      const card = $(element).closest('article, li, [class*="card"], [class*="listing"]');
+      const card = cardOf($, element);
       const text = cleanText(card.text());
       const title =
         cleanText(card.find('h2, h3, h4').first().text()) || cleanText($(element).text());
@@ -171,25 +240,22 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       const priceMatch = /(\d[\d\s.,]*)\s*€/i.exec(text);
       const areaMatch = /(\d[\d\s.,]*)\s*m(?:²|2)/i.exec(text);
       const roomsMatch = /(\d+)\s*(?:pi[èe]ce|chambre|p\b)/i.exec(text);
+      // Le code postal est écrit dans le texte de la carte ; on le cherche là,
+      // pas dans le titre, qui ne le porte pas toujours.
+      const postal = /\b(06\d{3})\b/.exec(text)?.[1];
 
-      const images = card
-        .find('img[src], img[data-src]')
-        .map((_, img) => $(img).attr('src') ?? $(img).attr('data-src') ?? '')
-        .get()
-        .filter(
-          (src) => src.startsWith('http') && !src.includes('avatar') && !src.includes('icon'),
-        );
+      const images = imagesOf($, card, pageUrl);
 
       listings.set(reference, {
         sourceRef: reference,
-        sourceUrl: href.replace(/[?#].*$/, ''),
+        sourceUrl: (href as string).replace(/[?#].*$/, ''),
         ...(title ? { title } : {}),
         ...(priceMatch?.[1] ? { priceText: `${priceMatch[1].replace(/\s/g, '')} € / mois` } : {}),
         ...(areaMatch?.[1] ? { areaText: `${areaMatch[1].replace(/\s/g, '')} m²` } : {}),
         ...(roomsMatch?.[1] ? { roomsText: roomsMatch[1] } : {}),
         propertyTypeText: 'Appartement',
         cityText: 'Nice',
-        postalCodeText: '06000',
+        ...(postal ? { postalCodeText: postal } : {}),
         ...(images.length > 0 ? { imageUrls: images } : {}),
         extra: { reference, aggregator: 'rentola' },
       });
@@ -246,11 +312,9 @@ export function parseDetailPage(html: string, pageUrl: string): RawListing | nul
   const priceMatch = /(\d[\d\s.,]*)\s*€/i.exec(bodyText);
   const areaMatch = /(\d[\d\s.,]*)\s*m(?:²|2)/i.exec(bodyText);
   const roomsMatch = /(\d+)\s*(?:pi[èe]ce|chambre|p\b)/i.exec(bodyText);
+  const postal = extractPostalCode(bodyText);
 
-  const images = $('img[src], img[data-src]')
-    .map((_, img) => $(img).attr('src') ?? $(img).attr('data-src') ?? '')
-    .get()
-    .filter((src) => src.startsWith('http') && !src.includes('avatar') && !src.includes('icon'));
+  const images = imagesOf($, 'body', pageUrl);
 
   return {
     sourceRef: reference,
@@ -262,7 +326,10 @@ export function parseDetailPage(html: string, pageUrl: string): RawListing | nul
     ...(roomsMatch?.[1] ? { roomsText: roomsMatch[1] } : {}),
     propertyTypeText: 'Appartement',
     cityText: 'Nice',
-    postalCodeText: '06000',
+    // ÉCRIT EN DUR AVANT, SUR TOUTE FICHE : une annonce de Cagnes ou de
+    // Menton entrait à Nice, au 06000, sans que rien ne le dise. Le repli ne
+    // vaut qu'à ce que la page porte (§17).
+    ...(postal ? { postalCodeText: postal } : {}),
     ...(images.length > 0 ? { imageUrls: images } : {}),
     extra: { reference, aggregator: 'rentola' },
   };

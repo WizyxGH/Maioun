@@ -1431,6 +1431,28 @@ function AppView(): React.JSX.Element {
     [ranked, grouped, urgent],
   );
 
+  // LE COMPTE DU COMPTE, et non celui de la liste affichée. La tuile d'accueil
+  // annonçait `filtered.length` : son chiffre dépendait des filtres conservés
+  // DANS CE NAVIGATEUR (localStorage) et des 50 premières fiches du chargement
+  // en deux temps. Le même compte affichait donc 98 sur un téléphone et 115 sur
+  // un ordinateur, sans qu'aucune annonce ait bougé.
+  //
+  // Aucun filtre d'affichage n'entre ici : ce sont les critères DU COMPTE, que
+  // le serveur a posés sur chaque fiche (`matches_criteria`). On exclut ce que la
+  // recherche n'affiche pas — archivée, louée, disparue — sur la règle de
+  // `fetchStats`, pour que la tuile et les statistiques disent le même chiffre.
+  const criteriaCount = useMemo(
+    () =>
+      listings.filter(
+        (listing) =>
+          listing.matchesCriteria &&
+          listing.archived !== true &&
+          listing.rented !== true &&
+          listing.lifecycle === 'active',
+      ).length,
+    [listings],
+  );
+
   /**
    * LE DERNIER CHARGEMENT LANCÉ FAIT FOI. Changer de tri pendant qu'une réponse
    * est en vol, ou revenir sur l'application au milieu du chargement en deux
@@ -2291,7 +2313,7 @@ function AppView(): React.JSX.Element {
         <Shell {...shell}>
           <HomePanel
             listings={listings}
-            searchCount={filtered.length}
+            criteriaCount={criteriaCount}
             loading={loading}
             sources={sources}
             savedSearches={savedSearches}
