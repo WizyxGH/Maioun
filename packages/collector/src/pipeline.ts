@@ -210,6 +210,8 @@ async function runSource(
   const { descriptor } = scraper;
   const logger = options.logger.child({ source: descriptor.id });
   const startedAt = new Date(options.clock.now()).toISOString();
+  /** Instant du départ de CETTE source : c'est elle qu'on borne, pas la phase. */
+  const startedMs = options.clock.now();
 
   const http = createHttpClient({
     budget: descriptor.budget,
@@ -252,7 +254,24 @@ async function runSource(
     credentials,
     memo,
     log: (event, fields) => logger.debug(event, fields),
-    shouldStop: () => requestsUsed >= descriptor.budget.maxPagesPerRun,
+    /**
+     * L'ARRÊT COMPTE LE TEMPS, PAS SEULEMENT LES REQUÊTES.
+     *
+     * Le budget de pages ne protégeait de rien contre un site lent : vingt
+     * requêtes sur un serveur qui met trente secondes à répondre sont vingt
+     * minutes, et le passage se voyait tuer par le workflow à vingt minutes —
+     * avec les annonces des deux cent autres sources déjà en mémoire. Relevé le
+     * 2026-09-29 : 22, 29 et 47 minutes, et un passage de quatorze heures
+     * (!) pendant le quota épuisé. Trois runs perdus de la sorte.
+     *
+     * Le temps imparti vient du budget de la phase, partagé avec les autres
+     * sources ; à défaut, de la même durée que lui. Une source qui dépasse son
+     * part s'arrête proprement, ce qui rend son inventaire incomplet — et le
+     * pipeline le saura, puisqu'il connaît maintenant `incomplete`.
+     */
+    shouldStop: () =>
+      requestsUsed >= descriptor.budget.maxPagesPerRun ||
+      options.clock.now() - startedMs >= (options.sourcePhaseBudgetMs ?? SOURCE_PHASE_BUDGET_MS),
   };
 
   try {

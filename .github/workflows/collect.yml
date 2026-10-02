@@ -84,8 +84,20 @@ jobs:
   collect:
     name: Cycle de collecte
     runs-on: ubuntu-latest
-    # Borne dure : une source qui traîne ne doit pas consommer le quota.
-    timeout-minutes: 20
+    # Borne dure, et CALIBRÉE SUR LE BUDGET INTERNE.
+    #
+    # Vingt minutes, c'était court : le budget de phase des sources vaut huit
+    # minutes, mais un groupe de sources déjà lancées continue pendant que la
+    # suivante s'arrête, et le regroupement, le scoring et le géocodage
+    # prenent encore plusieurs minutes derrière. Relevé du 2026-09-29 : des
+    # passages de 22, 29 et 47 minutes, tous tués ici — avec les annonces des
+    # deux cent autres sources déjà en mémoire et rien d'écrit.
+    #
+    # On garde une borne : c'est elle qui empêche un run de consommer le quota.
+    # Mais elle est au-dessus du travail réellement fait, pas en dessous.
+    # `shouldStop` borne désormais chaque source DANS LE TEMPS, donc une
+    # source lente n'atteint plus ce plafond : 35 minutes est une marge.
+    timeout-minutes: 35
     needs: garde
     if: ${{ needs.garde.outputs.collecter == 'true' }}
 

@@ -27,7 +27,7 @@ import { createRegistry } from '../core/registry.js';
 import { createLogger, narratorSink } from '../core/logger.js';
 import { systemClock } from '../core/clock.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
-import { runPipeline } from '../pipeline.js';
+import { runPipeline, type PipelineReport } from '../pipeline.js';
 import {
   collectorUserAgent,
   publicSiteUrl,
@@ -589,6 +589,96 @@ async function watchDormantCandidates(
   });
 }
 
+/**
+ * CE QUI VIENT APRÈS LA COLLECTE, ET QUI NE DOIT PAS LA FAIRE ÉCHOUER.
+ *
+ * Les alertes et la santé des sources sont des RAPPORTS : la base est déjà
+ * écrite quand ils partent. Les faire tomber, c'est jeter un passage entier —
+ * celui des deux cent sources qui venaient de répondre — pour un canal qui n'est
+ * qu'un moyen de prévenir quelqu'un. Relevé du 2026-09-29 : seize runs perdus
+ * sur un `TypeError: fetch failed` survenu après des sources qui, elles,
+ * répondaient.
+ *
+ * Chaque phase est donc isolée pour elle-même : l'une tombe, l'autre part.
+ */
+async function reportAfterCollection(deps: {
+  readonly repository: Repository;
+  readonly report: PipelineReport;
+  readonly vapid: VapidConfig | null;
+  readonly config: PublicConfig;
+  readonly criteria: SearchCriteria;
+  readonly logger: Logger;
+}): Promise<void> {
+  const { repository, report, vapid, config, criteria, logger } = deps;
+
+  if (vapid !== null) {
+    try {
+      await notifyAll({ repository, vapid, logger, config });
+    } catch (error) {
+      logger.warn('notify.failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  } else {
+    /**
+     * LE SILENCE SE DIT, il ne se devine pas.
+     *
+     * Le canal éteint ne laissait aucune trace : une tâche planifiée mal
+     * réglée a collecté deux heures et demie sans rien signaler, et c'est
+     * l'utilisateur qui s'en est aperçu. La ligne distingue les deux causes,
+     * parce qu'elles ne se corrigent pas au même endroit.
+     */
+    logger.warn('notify.disabled', {
+      reason: alertsAllowed() ? 'clés VAPID absentes' : `${ALERTS_SWITCH} non posé`,
+      newListings: report.written,
+    });
+  }
+
+  /**
+   * LES SOURCES QUI CASSENT, CONSIGNÉES — ET PLUS NOTIFIÉES.
+   *
+   * La surveillance reste entière : elle ajoute aux transitions ce que le
+   * cycle de vie savait déjà (inventaire effondré, page sans la moindre
+   * annonce), le silence anormal d'une source, la disparition d'un champ clé,
+   * et le réveil d'un candidat endormi. Tout cela va au journal, à la mémoire
+   * des alertes déjà vues, et à l'écran Sources.
+   *
+   * CE QUI PART, C'EST LA NOTIFICATION. Une panne de source est une affaire
+   * d'exploitation : elle n'a à faire vibrer le téléphone de personne qui
+   * cherche un logement que sur le même canal que « nouvelle annonce à 700 € ».
+   * Le canal des alertes ne sert plus qu'aux logements.
+   *
+   * LE SONDAGE DES CANDIDATS ENDORMIS RESTE ICI, et ce n'est pas un détail :
+   * c'est lui qui rouvre une source refusée dont le site a changé.
+   */
+  try {
+    await reportSourceHealth({
+      repository,
+      transitions: report.healthTransitions,
+      lifecycleSkips: report.lifecycleSkips,
+      logger,
+      nowMs: systemClock.now(),
+      extraAlerts: await watchDormantCandidates(repository, criteria, logger),
+    });
+  } catch (error) {
+    logger.warn('source.health_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne
+  // les effaçait. L'échec n'a aucune conséquence — on réessaiera au prochain
+  // passage (§69).
+  try {
+    const pruned = await repository.pruneLogs(systemClock.now());
+    if (pruned > 0) logger.info('db.pruned', { rows: pruned });
+  } catch (error) {
+    logger.debug('db.prune_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function main(): Promise<void> {
   // Charge la configuration privée locale (.env) avant toute lecture d'env.
   loadDotEnv();
@@ -734,66 +824,17 @@ async function main(): Promise<void> {
       });
     }
 
-    // §29 : alerte les nouvelles annonces par Web Push. Sans clés VAPID, le
-    // canal est silencieusement désactivé (le collecteur et la CI tournent
-    // sans). Les annonces parties sont marquées signalées dans la foulée :
-    // sans quoi les mêmes repartiraient à chaque collecte, et l'historique
-    // daté resterait vide.
-    const vapid = loadVapidConfig();
-    if (vapid !== null) {
-      await notifyAll({ repository, vapid, logger, config });
-    } else {
-      /**
-       * LE SILENCE SE DIT, il ne se devine pas.
-       *
-       * Le canal éteint ne laissait aucune trace : une tâche planifiée mal
-       * réglée a collecté deux heures et demie sans rien signaler, et c'est
-       * l'utilisateur qui s'en est aperçu. La ligne distingue les deux causes,
-       * parce qu'elles ne se corrigent pas au même endroit.
-       */
-      logger.warn('notify.disabled', {
-        reason: alertsAllowed() ? 'clés VAPID absentes' : `${ALERTS_SWITCH} non posé`,
-        newListings: report.written,
-      });
-    }
-
-    /**
-     * LES SOURCES QUI CASSENT, CONSIGNÉES — ET PLUS NOTIFIÉES.
-     *
-     * La surveillance reste entière : elle ajoute aux transitions ce que le
-     * cycle de vie savait déjà (inventaire effondré, page sans la moindre
-     * annonce), le silence anormal d'une source, la disparition d'un champ clé,
-     * et le réveil d'un candidat endormi. Tout cela va au journal, à la mémoire
-     * des alertes déjà vues, et à l'écran Sources.
-     *
-     * CE QUI PART, C'EST LA NOTIFICATION. Une panne de source est une affaire
-     * d'exploitation : elle n'a pas à faire vibrer le téléphone de quelqu'un
-     * qui cherche un logement, sur le même canal que « nouvelle annonce à
-     * 700 € ». Le canal des alertes ne sert plus qu'aux logements.
-     *
-     * LE SONDAGE DES CANDIDATS ENDORMIS RESTE ICI, et ce n'est pas un détail :
-     * c'est lui qui rouvre une source refusée dont le site a changé.
-     */
-    await reportSourceHealth({
+    // Les rapports partent APRÈS la collecte, isolés : voir
+    // `reportAfterCollection` — une alerte qui ne part pas ne doit pas
+    // faire tomber le passage qui l'a méritée.
+    await reportAfterCollection({
       repository,
-      transitions: report.healthTransitions,
-      lifecycleSkips: report.lifecycleSkips,
+      report,
+      vapid: loadVapidConfig(),
+      config,
+      criteria: config.criteria,
       logger,
-      nowMs: systemClock.now(),
-      extraAlerts: await watchDormantCandidates(repository, config.criteria, logger),
     });
-
-    // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne
-    // les effaçait. L'échec n'a aucune conséquence — on réessaiera au prochain
-    // passage (§69).
-    try {
-      const pruned = await repository.pruneLogs(systemClock.now());
-      if (pruned > 0) logger.info('db.pruned', { rows: pruned });
-    } catch (error) {
-      logger.debug('db.prune_failed', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
 
     // Il n'y a de nouvelles agences à repérer que s'il est arrivé du courrier.
     const mailRead = report.outcomes.find(
