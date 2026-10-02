@@ -254,12 +254,21 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       // une réponse POST n'est pas revalidable par ETag, §30).
       const etag = responseHeaders['etag'] ?? null;
       const lastModified = responseHeaders['last-modified'] ?? null;
+      // LE CACHE HTTP EST UNE MÉMOIRE, PAS UNE ÉCRITURE OBLIGATOIRE. Cette
+      // ligne est dans le chemin de CHAQUE GET réussi : une base qui refuse
+      // d'écrire — Turso saturée, quota, coupure réseau — faisait donc tomber le
+      // passage, alors que la réponse était déjà là, relue et exploitable. Le
+      // seul coût est de retélécharger la page au prochain run.
       if (method === 'GET' && conditional && (etag !== null || lastModified !== null)) {
-        await cache.set(url, {
-          etag,
-          lastModified,
-          fetchedAt: new Date(clock.now()).toISOString(),
-        });
+        await cache
+          .set(url, {
+            etag,
+            lastModified,
+            fetchedAt: new Date(clock.now()).toISOString(),
+          })
+          .catch(() => {
+            // Mémorisation impossible : on continue sans elle.
+          });
       }
 
       return {

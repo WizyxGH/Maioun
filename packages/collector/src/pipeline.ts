@@ -1231,7 +1231,17 @@ export async function regroupAndScore(
   // occurrences vivantes, donc les fiches dont la dernière vient de s'éteindre
   // ne figurent pas dans `scored` et gardent leur cycle de vie d'hier. Sans ce
   // passage, elles restent affichées indéfiniment.
-  const retired = await repository.retireDepartedListings();
+  //
+  // LES DEUX ÉTAPES D'APRÈS NE DOIVENT PAS ANNULER L'ÉCRITURE. Les fiches sont
+  // enregistrées ; une source qui s'éteint et le classement d'un compte sont
+  // recalculés au passage suivant, et une base pleine vaut mieux qu'un passage
+  // vide parce qu'un `DELETE` a échoué.
+  const retired = await repository.retireDepartedListings().catch((error: unknown) => {
+    logger.error('pipeline.retire_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  });
   if (retired > 0) logger.info('pipeline.listings_retired', { retired });
 
   await scoreForEachUser({
@@ -1242,6 +1252,10 @@ export async function regroupAndScore(
     nowMs,
     priceDroppedIds,
     reappearedIds,
+  }).catch((error: unknown) => {
+    logger.error('pipeline.user_score_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   });
 
   return { groups, comparisonCount, listingReport };

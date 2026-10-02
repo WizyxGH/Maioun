@@ -124,7 +124,11 @@ export function createTransitRouter(options: TransitRouterOptions): TransitRoute
         // prochain run) et on retombe sur l'estimation.
         return null;
       }
-      await options.cache.set(key, { minutes });
+      // Même règle que la géolocalisation : l'écriture du cache est en base et
+      // peut échouer sans que le trajet calculé disparaisse avec elle.
+      await options.cache.set(key, { minutes }).catch(() => {
+        // Le trajet est rendu sans être mémorisé.
+      });
       return minutes;
     },
   };

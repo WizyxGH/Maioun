@@ -243,7 +243,14 @@ export function createDpeLookup(options: DpeLookupOptions): DpeLookup {
         return null;
       }
 
-      await options.cache.set(key, { record, searchedAt: new Date(options.nowMs).toISOString() });
+      // Mémorisation hors du `try` ci-dessus, donc isolée à son tour : une écriture
+      // de cache en base qui échoue ne doit pas annuler le résultat qu'elle
+      // devait conserver. Ça coûte une requête au prochain run, rien de plus.
+      await options.cache
+        .set(key, { record, searchedAt: new Date(options.nowMs).toISOString() })
+        .catch(() => {
+          // Le DPE est rendu sans être mémorisé.
+        });
       return record;
     },
   };

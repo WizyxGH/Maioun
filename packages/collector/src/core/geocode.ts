@@ -422,14 +422,32 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
   // Une commune se résout une fois par run : quelques villes, autant d'appels.
   const cityCodes = new Map<string, string | null>();
 
+  /**
+   * Une interrogation à la BAN. ELLE NE LÈVE JAMAIS.
+   *
+   * La géolocalisation est un ENRICHISSEMENT : sans elle, l'annonce reste sans
+   * point sur la carte, ce qui est regrettable. Avec elle, une exception —
+   * réseau coupé, BAN saturée, réponse illisible — et c'est tout le passage qui
+   * meurt, après la collecte et le dédoublonnage déjà faits. Relevé du
+   * 2026-10-02 : vingt-cinq runs consécutifs perdus sur un `TypeError: fetch
+   * failed` survenu ici, entre « 3 661 fiches après dédoublonnage » et la
+   * première ligne de journal suivante. Le cache rend la suite gratuite, donc
+   * l'absence se rattrape au passage suivant.
+   */
   const search = async (params: Record<string, string>): Promise<readonly BanFeature[]> => {
     const url = `${BAN_ENDPOINT}?${new URLSearchParams({ ...params, limit: '8' }).toString()}`;
-    const response = await fetchImpl(url, {
-      headers: { 'User-Agent': options.userAgent, Accept: 'application/json' },
-    });
-    if (!response.ok) return [];
-    const data = (await response.json()) as { features?: readonly BanFeature[] };
-    return data.features ?? [];
+    try {
+      const response = await fetchImpl(url, {
+        headers: { 'User-Agent': options.userAgent, Accept: 'application/json' },
+      });
+      if (!response.ok) return [];
+      const data = (await response.json()) as { features?: readonly BanFeature[] };
+      return data.features ?? [];
+    } catch {
+      // Réseau indisponible ou réponse illisible : rien n'est trouvé, et surtout
+      // rien n'interrompt le reste du travail.
+      return [];
+    }
   };
 
   /**
@@ -520,13 +538,28 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
         return null;
       }
 
-      await options.cache.set(key, {
-        lat: coords?.latitude ?? null,
-        lon: coords?.longitude ?? null,
-        geocodedAt: new Date(options.nowMs).toISOString(),
-        label: placed.label,
-        postcode: placed.postcode,
-      });
+      // L'ÉCRITURE DU CACHE EST EN BASE, ET ELLE EST HORS DU `try` CI-DESSUS.
+      // C'est elle qui faisait tomber le passage : Turso répond par HTTP, donc
+      // une écriture qui expire là produit exactement le même
+      // `TypeError: fetch failed` qu'un réseau coupé, sans qu'on puisse les
+      // distinguer à la lecture du journal. Relevé du 2026-10-02 : le crash
+      // tombait toujours sur cette ligne de jalon — « NNNN fiche(s) après
+      // dédoublonnage » — et les vingt-cinq runs consécutifs ont disparu là.
+      //
+      // Un résultat non mémorisé coûte une requête au passage suivant, rien de
+      // plus : rien ne justifie de perdre les deux mille fiches déjà collectées.
+      await options.cache
+        .set(key, {
+          lat: coords?.latitude ?? null,
+          lon: coords?.longitude ?? null,
+          geocodedAt: new Date(options.nowMs).toISOString(),
+          label: placed.label,
+          postcode: placed.postcode,
+        })
+        .catch(() => {
+          // Mémorisation impossible : le point est rendu quand même, il ne sera
+          // simplement pas réutilisé.
+        });
       return coords === null ? null : { ...coords, ...placed };
     },
     async reverse(
@@ -566,13 +599,18 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
         return null;
       }
 
-      await options.cache.set(key, {
-        lat: latitude,
-        lon: longitude,
-        geocodedAt: new Date(options.nowMs).toISOString(),
-        label: found?.label ?? null,
-        postcode: found?.postcode ?? null,
-      });
+      // Même règle que le géocodage direct : hors du `try`, donc isolée à son tour.
+      await options.cache
+        .set(key, {
+          lat: latitude,
+          lon: longitude,
+          geocodedAt: new Date(options.nowMs).toISOString(),
+          label: found?.label ?? null,
+          postcode: found?.postcode ?? null,
+        })
+        .catch(() => {
+          // L'adresse est rendue sans être mémorisée.
+        });
       return found;
     },
   };

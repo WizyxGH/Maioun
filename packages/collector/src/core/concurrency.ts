@@ -74,7 +74,11 @@ export function memoizeStore<V>(store: {
     },
     async set(key, value) {
       seen.set(key, Promise.resolve(value));
-      await store.set(key, value);
+      // Même règle qu'ailleurs : la mémoire de ce passage suffit, et une écriture
+      // en base qui échoue ne doit pas faire perdre la valeur qu'on a déjà.
+      await store.set(key, value).catch(() => {
+        // Mémorisation impossible : la valeur reste valable pour ce run.
+      });
     },
   };
 }
