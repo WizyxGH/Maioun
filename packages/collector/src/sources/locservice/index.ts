@@ -118,6 +118,30 @@ export const LOCSERVICE_DESCRIPTOR: SourceDescriptor = {
     '`-pN.html`. Le contact passe par leur service payant : jamais extrait.',
 };
 
+/**
+ * Le motif d'arrêt, tel que le pipeline doit le comprendre.
+ *
+ * UN PASSAGE QUI S'EST ARRÊTÉ AVANT LE BOUT N'A PAS LU L'INVENTAIRE, et le
+ * dire `completed` le ferait passer pour une lecture complète — donc pour
+ * l'autorisation d'éteindre les annonces absentes.
+ *
+ * Relevé du 2026-09-25 : LocService s'est arrêté sur `knownTerritory` après seize
+ * pages au lieu de trente et une, `stopReason` est resté `completed`, et le
+ * pipeline a conclu « 47 annonces rendues pour 798 connues » — sans jamais rien
+ * éteindre. Soixante-et-onze fois, sur les deux sources les plus productives du
+ * projet. Century21 fait la conversion dès son `incomplete` (voir son `index.ts`) ;
+ * elle manquait ici.
+ */
+function finalStopReason(stopReason: StopReason, warnings: string[]): StopReason {
+  if (stopReason === 'knownTerritory' || stopReason === 'maxPages') {
+    warnings.push(
+      'Inventaire arrêté avant la dernière page : les absences ne sont pas concluantes.',
+    );
+    return 'incomplete';
+  }
+  return stopReason;
+}
+
 export const locserviceScraper: Scraper = {
   descriptor: LOCSERVICE_DESCRIPTOR,
 
@@ -235,7 +259,8 @@ export const locserviceScraper: Scraper = {
     // Fiches que le site dit absentes : éteintes dès ce passage.
     const { listings, withdrawnRefs } = withdrawnAfterEnrich(context, enriched, stopReason);
     const parties = new Set(withdrawnRefs);
-    const fullPass = fullPassDue && reachedEnd && !pageInconnue && stopReason === 'completed';
+    const stopReasonFinal = finalStopReason(stopReason, warnings);
+    const fullPass = fullPassDue && reachedEnd && !pageInconnue && stopReasonFinal === 'completed';
     context.log('list.parsed', {
       listings: listings.length,
       confirmed: confirmedRefs.length,
@@ -249,7 +274,7 @@ export const locserviceScraper: Scraper = {
       withdrawnRefs,
       requestCount,
       pagesFetched,
-      stopReason,
+      stopReason: stopReasonFinal,
       warnings,
       fullPass,
     };

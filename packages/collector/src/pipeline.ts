@@ -30,7 +30,7 @@ import type { Clock } from './core/clock.js';
 import type { Logger } from './core/logger.js';
 import { BlockedError, createHttpClient, RateLimitedError } from './core/http-client.js';
 import type { SourceRegistry } from './core/registry.js';
-import { planRun, vanishingSources } from './scheduler/scheduler.js';
+import { planRun, vanishingSources, type ScheduleDecision } from './scheduler/scheduler.js';
 import { createAgencySourceResolver } from './sources/agency-names.js';
 import { awaitedSources } from './sources/email-alerts/agency-refresh.js';
 import { EMAIL_ALERTS_DESCRIPTOR } from './sources/email-alerts/index.js';
@@ -643,6 +643,90 @@ export function loyerDisparu(listings: readonly RawListing[]): boolean {
   return listings.every((listing) => (listing.priceText ?? '').trim() === '');
 }
 
+/**
+ * Ce qu'on ÉCRIT après le passage d'une source : son état de santé, et la
+ * ligne du journal.
+ *
+ * ÉCRIRE N'EST PAS ISOLÉ ICI, et ça se voit : ces deux lignes s'exécutent
+ * dans la tâche que `runGrouped` fait tourner en parallèle, or `mapLimited` est
+ * un `Promise.all` — une écriture qui lève emporte le run ET les sources
+ * voisines, y compris celles qui venaient de répondre. Un 500 de Turso sur
+ * `saveSourceState` suffisait à jeter les annonces déjà collectées des deux cent
+ * autres sources. D'où les deux `catch`.
+ */
+async function persistSourceOutcome(args: {
+  readonly repository: Repository;
+  readonly logger: Logger;
+  readonly decision: ScheduleDecision;
+  readonly outcome: SourceOutcome;
+  readonly nextState: Partial<SourceRuntimeState>;
+  readonly base: SourceRuntimeState;
+  readonly startedMs: number;
+  readonly knownRefs: ReadonlySet<string>;
+  readonly finishedIso: string;
+  readonly healthTransitions: SourceHealthTransition[];
+}): Promise<void> {
+  const { repository, logger, decision, outcome, nextState, base, startedMs } = args;
+  const note = (event: string, error: unknown): void => {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(event, { sourceId: decision.sourceId, error: message });
+  };
+
+  // Un état de santé qu'on n'a pas pu écrire est perdu pour CE PASSAGE, pas pour
+  // le run : la source sera de nouveau évaluée au cycle suivant.
+  await repository
+    .saveSourceState(stateAfterRun(base, nextState, outcome, startedMs))
+    .catch((error) => note('source.state_failed', error));
+
+  // Transition d'état de santé : c'est le changement (et non l'état stable)
+  // qui mérite une alerte, pour ne pas répéter le même avertissement à chaque
+  // run tant qu'une source reste dégradée.
+  if (nextState.health !== undefined && nextState.health !== base.health) {
+    args.healthTransitions.push({
+      sourceId: decision.sourceId,
+      from: base.health,
+      to: nextState.health,
+      listingsFound: outcome.result?.listings.length ?? 0,
+      error: outcome.error,
+    });
+  }
+
+  // UN ÉCHEC S'ÉCRIT AUSSI. La ligne n'était posée que sur un passage réussi,
+  // alors que `result` est `null` sur TOUS les chemins d'échec : une source en
+  // échec n'apparaissait nulle part, et `errors` ne pouvait valoir que zéro. La
+  // table censée dire ce qui a échoué ne le pouvait pas — vérifié sur le
+  // miroir, 282 lignes et 282 zéros, y compris la seule source bloquée.
+  await repository
+    .recordRun({
+      id: randomUUID(),
+      sourceId: decision.sourceId,
+      startedAt: new Date(startedMs).toISOString(),
+      finishedAt: args.finishedIso,
+      requestCount: outcome.result?.requestCount ?? 0,
+      pagesFetched: outcome.result?.pagesFetched ?? 0,
+      listingsFound: outcome.result?.listings.length ?? 0,
+      listingsNew:
+        outcome.result?.listings.filter((l) => !args.knownRefs.has(l.sourceRef)).length ?? 0,
+      listingsUpdated: 0,
+      duplicates: 0,
+      errors: outcome.success ? 0 : 1,
+      // La santé atteinte EST le motif de l'échec : elle a été déduite de
+      // l'erreur par `runSource`, qui ne rend pas de motif d'arrêt distinct.
+      stopReason: outcome.result?.stopReason ?? nextState.health ?? 'blocked',
+      // Le motif de l'échec ne vit que là : c'est la seule trace qu'il laisse,
+      // puisque la source n'écrit ni annonces ni journal de page.
+      warnings: [
+        ...(outcome.result?.warnings ?? []),
+        ...(outcome.error === null ? [] : [`Échec de la source : ${outcome.error}`]),
+      ],
+    })
+    .catch((error) => {
+      // Celle-ci ne doit PAS remonter non plus : ce journal est justement ce
+      // qui dira qu'une écriture a échoué. La perdre aggraverait le défaut.
+      note('source.record_failed', error);
+    });
+}
+
 /** Exécute un cycle complet de collecte. */
 /**
  * Dit pourquoi il ne faut PAS conclure à l'absence, ou `null` si on le peut.
@@ -659,7 +743,7 @@ export function loyerDisparu(listings: readonly RawListing[]): boolean {
  * Un inventaire ne perd pas la moitié de ses annonces d'un passage à l'autre ;
  * un passage cassé, si.
  */
-async function missingWouldBeUnfounded(
+export async function missingWouldBeUnfounded(
   sourceId: string,
   seenCount: number,
   reason: StopReason | undefined,
@@ -670,7 +754,20 @@ async function missingWouldBeUnfounded(
   // Rien n'a été observé : aucune information sur ce qui existe encore.
   if (reason === undefined) return blind('aucun résultat');
   if (reason === 'notModified') return blind('page inchangée, rien de retéléchargé');
+  // UN PASSAGE ARRÊTÉ AVANT LE BOUT. `incomplete` est ce qu'une source déclare
+  // quand elle le sait ; `knownTerritory`, `maxPages` et `maxListings` sont des
+  // arrêts que le pipeline reçoit sans que personne n'ait prévu de les
+  // traduire. Pris pour une lecture complète, ils ouvrent droit d'éteindre les
+  // annonces absentes alors qu'on n'a lu qu'une fraction du stock — et l'erreur
+  // est MUETTE : la source produit, le passage est enregistré `completed`, et
+  // rien ne se passe. C'était le cas de LocService, 71 fois, sur les deux
+  // sources les plus productives du projet.
   if (reason === 'incomplete') return blind('inventaire lu en partie seulement');
+  if (reason === 'knownTerritory') {
+    return blind('arrêt sur du stock déjà connu, fin des pages non atteinte');
+  }
+  if (reason === 'maxPages') return blind('plafond de pages atteint, liste inachevée');
+  if (reason === 'maxListings') return blind('plafond d’annonces atteint, liste inachevée');
   if (reason === 'rateLimited' || reason === 'blocked' || reason === 'tooManyErrors') {
     return blind(`passage interrompu (${reason})`);
   }
@@ -1300,7 +1397,23 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
       const scraper = registry.get(decision.sourceId);
       if (scraper === undefined) return;
 
-      const knownRefs = await repository.knownRefs(decision.sourceId);
+      /**
+       * LECTURE ET ÉCRITURE, ISOLÉES PAR SOURCE.
+       *
+       * `runSource` ne lève jamais, mais ces lignes-là si — et `mapLimited` est
+       * un `Promise.all` : une seule qui lève emporte le run et toutes les
+       * sources voisines, y compris celles qui venaient de répondre. Un 500 de
+       * Turso sur l'écriture d'une source suffisait à jeter les annonces déjà
+       * collectées des deux cent autres.
+       *
+       * On note l'échec et on continue : une source absente d'un passage vaut
+       * mieux qu'un passage qui n'a rien produit du tout.
+       */
+      const knownRefs = await repository.knownRefs(decision.sourceId).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('source.known_refs_failed', { sourceId: decision.sourceId, error: message });
+        return new Set<string>();
+      });
       const previousState = entries.find(
         (entry) => entry.descriptor.id === decision.sourceId,
       )?.state;
@@ -1323,39 +1436,21 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
         withdrawnBySource.set(decision.sourceId, outcome.result.withdrawnRefs ?? []);
       }
 
+      // `loadSourceState` rend TOUJOURS un état (vide s'il n'a rien) : pas de
+      // repli à prévoir, et un échec de lecture remonterait comme il doit.
       const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
-      await repository.saveSourceState(stateAfterRun(base, nextState, outcome, startedMs));
-
-      // Transition d'état de santé : c'est le changement (et non l'état stable)
-      // qui mérite une alerte, pour ne pas répéter le même avertissement à chaque
-      // run tant qu'une source reste dégradée.
-      if (nextState.health !== undefined && nextState.health !== base.health) {
-        healthTransitions.push({
-          sourceId: decision.sourceId,
-          from: base.health,
-          to: nextState.health,
-          listingsFound: outcome.result?.listings.length ?? 0,
-          error: outcome.error,
-        });
-      }
-
-      if (outcome.result !== null) {
-        await repository.recordRun({
-          id: randomUUID(),
-          sourceId: decision.sourceId,
-          startedAt: new Date(startedMs).toISOString(),
-          finishedAt: new Date(clock.now()).toISOString(),
-          requestCount: outcome.result.requestCount,
-          pagesFetched: outcome.result.pagesFetched,
-          listingsFound: outcome.result.listings.length,
-          listingsNew: outcome.result.listings.filter((l) => !knownRefs.has(l.sourceRef)).length,
-          listingsUpdated: 0,
-          duplicates: 0,
-          errors: outcome.success ? 0 : 1,
-          stopReason: outcome.result.stopReason,
-          warnings: outcome.result.warnings,
-        });
-      }
+      await persistSourceOutcome({
+        repository,
+        logger,
+        decision,
+        outcome,
+        nextState,
+        base,
+        startedMs,
+        knownRefs,
+        finishedIso: new Date(clock.now()).toISOString(),
+        healthTransitions,
+      });
     },
   );
   if (notStarted.length > 0) {

@@ -171,6 +171,31 @@ export function apimoFurnished(criteria: ApimoCriteria): string | undefined {
   return undefined;
 }
 
+/**
+ * Date de disponibilité, telle que la fiche la publie.
+ *
+ * LE TROU NET DE LA FABRIQUE. `availableAtText` n'était écrit par aucune source
+ * Apimo : la date n'existait donc que si la phrase du texte la portait, et
+ * `resolveAvailability` (normalize.ts) retombait sur cette seule lecture. Sur
+ * une plateforme qui affiche la disponibilité dans SON PROPRE tableau de
+ * critères, la ligne existait — juste personne ne la lisait.
+ *
+ * La date brute est reprise telle quelle : `parseAvailableAt` sait lire « le
+ * 15/10 », « 15 octobre » et « immédiatement ». Rien n'est calculé ici, donc
+ * rien n'est inventé : une ligne absente reste absente.
+ */
+export function apimoAvailableAt(criteria: ApimoCriteria): string | undefined {
+  const value = criterion(criteria, [
+    /^disponible?/,
+    /^disponibilite/,
+    /^mise en location/,
+    /^date de disponibilite/,
+  ]);
+  // « Disponible » seul, sans date, n'apporte rien : ce n'est pas une date.
+  if (value === undefined || !/\d/.test(value)) return undefined;
+  return value;
+}
+
 /** « 1er » → `1`, « 3ème » → `3`, « Rez-de-chaussée » → `0`. */
 export function apimoFloor(criteria: ApimoCriteria): string | undefined {
   const value = criterion(criteria, [/^etage$/]);

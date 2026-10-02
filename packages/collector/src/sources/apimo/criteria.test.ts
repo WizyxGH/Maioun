@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { apimoMoney, type ApimoCriteria } from './criteria.js';
+import { apimoAvailableAt, apimoMoney, type ApimoCriteria } from './criteria.js';
 
 const mentions = (pairs: readonly (readonly [string, string])[]): ApimoCriteria => ({
   pairs,
@@ -44,5 +44,30 @@ describe('apimoMoney', () => {
   /** Un champ absent reste absent : pas de zéro inventé (§17). */
   it('ne rend rien quand la fiche ne publie aucun honoraire', () => {
     expect(apimoMoney(mentions([['Dépôt de garantie', '1 000 €']])).feesText).toBeUndefined();
+  });
+});
+
+describe('apimoAvailableAt', () => {
+  it('lit la date que la fiche publie', () => {
+    // La ligne existait sur la plateforme ; aucune source Apimo ne la lisait, et
+    // la date de disponibilité ne dépendait donc que d'une phrase de description
+    // qui ne l'écrit jamais.
+    expect(apimoAvailableAt(mentions([['Disponible le', '15/10/2026']]))).toBe('15/10/2026');
+  });
+
+  it('accepte les libellés que la plateforme emploie', () => {
+    for (const libelle of ['Disponibilité', 'Date de disponibilité', 'Mise en location']) {
+      expect(apimoAvailableAt(mentions([[libelle, '01/09/2026']]))).toBe('01/09/2026');
+    }
+  });
+
+  it('NE FABRIQUE PAS de date quand la fiche n’en publie aucune', () => {
+    expect(apimoAvailableAt(mentions([['Étage', '3']]))).toBeUndefined();
+    expect(apimoAvailableAt(mentions([]))).toBeUndefined();
+  });
+
+  it('ignore un « Disponible » seul, sans date', () => {
+    // Ce n'est pas une date : la garder ferait croire qu'on sait quand.
+    expect(apimoAvailableAt(mentions([['Disponible', 'immédiatement']]))).toBeUndefined();
   });
 });

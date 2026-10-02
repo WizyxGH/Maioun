@@ -28,6 +28,7 @@ import {
   type JsonLdNode,
 } from '../shared/json-ld.js';
 import {
+  apimoAvailableAt,
   apimoBedrooms,
   apimoDpe,
   apimoMoney,
@@ -554,6 +555,7 @@ export function parseApimoDetail(
     propertyTypeText: parsedUrl.typeSlug,
     ...apimoMoney(criteria),
     furnishedText: apimoFurnished(criteria),
+    availableAtText: apimoAvailableAt(criteria),
     ...apimoLocation(jsonLd, parsedUrl),
     agencyName: jsonLd?.agencyName ?? defaultAgencyName,
     phoneText: jsonLd?.agencyPhone,

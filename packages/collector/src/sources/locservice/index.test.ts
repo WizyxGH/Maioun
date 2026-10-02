@@ -97,15 +97,31 @@ describe('la fiche', () => {
 });
 
 describe('le passage ordinaire', () => {
-  it('s’arrête sur du déjà-vu et ne se dit pas complet', async () => {
+  it('NE SE DIT PAS complet quand il s’arrête sur du déjà-vu', async () => {
+    // L'arrêt sur du stock connu est VOLONTAIRE et sans danger pour les
+    // annonces : il ne conclude rien sur elles. Il n'a pas moins faut dire au
+    // pipeline qu'on n'a pas vu la fin de la liste — sinon il croit avoir lu
+    // l'inventaire et éteint les annonces des pages jamais ouvertes.
+    // Relevé le 2026-09-25 : 47 annonces rendues pour 798 connues, 71 fois de
+    // suite, sans qu'une seule ne soit éteinte ni que rien ne le signale.
     const { ctx } = contexte({
       pages: ['liste', 'liste'],
       known: ['700001', '700002', '700003'],
       lastFullPassAt: IL_Y_A_UNE_HEURE(),
     });
     const resultat = await locserviceScraper.run(ctx);
-    expect(resultat.stopReason).toBe('knownTerritory');
+    expect(resultat.stopReason).toBe('incomplete');
     expect(resultat.fullPass).toBe(false);
+  });
+
+  it('prévenir que les absences de ce passage ne concluent rien', async () => {
+    const { ctx } = contexte({
+      pages: ['liste', 'liste'],
+      known: ['700001', '700002', '700003'],
+      lastFullPassAt: IL_Y_A_UNE_HEURE(),
+    });
+    const resultat = await locserviceScraper.run(ctx);
+    expect(resultat.warnings.join(' ')).toMatch(/arrêté avant la dernière page/i);
   });
 
   it('visite les fiches des NOUVELLES d’abord, puis du stock jamais lu', async () => {
