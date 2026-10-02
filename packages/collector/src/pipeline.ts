@@ -1134,10 +1134,27 @@ export async function regroupAndScore(
   // Même fenêtre pour les retours en ligne : au-delà, la republication n'a plus
   // rien d'une occasion à saisir.
   const priceDropSince = new Date(nowMs - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const [priceDroppedIds, reappearedIds] = await Promise.all([
-    repository.recentPriceDropIds(priceDropSince),
-    repository.recentReappearedIds(priceDropSince),
-  ]);
+  // CES DEUX LECTURES SONT UN SIGNAL, PAS LE TRAVAIL. « Une baisse de loyer sur
+  // 14 jours » et « une annonce qui revient » n'enrichissent qu'une alerte ; les
+  // perdre coûte une occasion ratée au prochain passage, pas les 3 668 fiches
+  // déjà regroupées. Chacune est donc lue séparément et tolère l'échec — un
+  // `Promise.all` fait échouer les deux ensemble.
+  const priceDroppedIds = await repository
+    .recentPriceDropIds(priceDropSince)
+    .catch((error: unknown) => {
+      logger.error('pipeline.price_drop_read_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return new Set<string>();
+    });
+  const reappearedIds = await repository
+    .recentReappearedIds(priceDropSince)
+    .catch((error: unknown) => {
+      logger.error('pipeline.reappeared_read_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return new Set<string>();
+    });
 
   const merged = groups.map((group) => mergeGroup(group.occurrences));
 
@@ -1597,18 +1614,46 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   const { groups, comparisonCount, listingReport } = regrouped
     ? await regroupAndScore(options, nowMs)
     : { groups: [], comparisonCount: 0, listingReport: { inserted: 0, updated: 0, unchanged: 0 } };
-  if (regrouped) await repository.markRegrouped(new Date(nowMs).toISOString());
+  /**
+   * UNE ÉTAPE D'APRÈS LE REGROUPEMENT EST TOLÉRANTE.
+   *
+   * Après le regroupement, il ne reste que des écritures d'appoint : le repère du
+   * jour, la statistique, le marquage des biens loués. Aucune n'est nécessaire à
+   * ce qui précède. Elles sont journalisées puis oubliées, jamais remontées —
+   * libsql parle en HTTP, donc une base qui expire y produit le même
+   * `fetch failed` qu'un réseau coupé, indiscernable à la lecture du journal.
+   */
+  const tolerant = async (etape: string, action: () => Promise<number>): Promise<number> => {
+    try {
+      return await action();
+    } catch (error) {
+      logger.error('pipeline.final_step_failed', {
+        etape,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return 0;
+    }
+  };
+
+  if (regrouped) {
+    await tolerant('markRegrouped', () =>
+      repository.markRegrouped(new Date(nowMs).toISOString()).then(() => 1),
+    );
+  }
 
   // Instantané du jour : ces chiffres ne sont pas reconstituables après coup,
   // il faut les mesurer au moment où ils sont vrais (§33).
-  await repository.recordDailyStat(nowMs);
+  await tolerant('recordDailyStat', () => repository.recordDailyStat(nowMs).then(() => 1));
 
   // Biens signalés « déjà loués » : on les marque APRÈS l'écriture, pour que le
   // lien occurrence → fiche existe. Ils sortent de la liste active mais restent
   // en favori (grisés) et comptent dans les stats (§32, §33).
   let rentedMarked = 0;
   for (const [sourceId, refs] of rentedBySource) {
-    if (refs.length > 0) rentedMarked += await repository.markRented(sourceId, refs);
+    if (refs.length === 0) continue;
+    // Même règle : le marquage « loué » est une information de plus, pas le
+    // résultat du passage.
+    rentedMarked += await tolerant('markRented', () => repository.markRented(sourceId, refs));
   }
   if (rentedMarked > 0) logger.info('pipeline.rented_marked', { count: rentedMarked });
 
