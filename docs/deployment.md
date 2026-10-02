@@ -144,7 +144,7 @@ source : c'est là qu'on vérifie que tout tourne.
 ## Mise en ligne
 
 ```
-GitHub Actions (toutes les 15 min) → collecte 24/7 et notifications Web Push
+GitHub Actions (toutes les 20 min le jour, horaire la nuit) → collecte et alertes
         ↓ écrit                      (réveillée par le Worker, voir plus bas)
 Turso (SQLite cloud)          → base PRIVÉE, jeton jamais publié
         ↑ lit
@@ -458,6 +458,11 @@ Les Cron Triggers de Cloudflare tiennent l'heure et sont compris dans le plan
 gratuit. Le Worker ne collecte pas (il n'a ni Node ni le temps qu'il faudrait) :
 il demande à GitHub d'exécuter `collect.yml`, ce qui compte comme un
 déclenchement **manuel** et échappe donc à la file des `schedule`.
+
+La collecte reste toutes les vingt minutes, sauf de **1 h à 5 h, heure de
+Nice**, où le Worker ne la demande qu'une fois par heure. Le schedule GitHub
+de secours est ignoré sur cette plage pour ne pas doubler les passages ; les
+déclenchements manuels restent possibles.
 
 Un seul geste, une fois :
 

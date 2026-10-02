@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error — script Node en JavaScript, sans déclaration de types.
-import { aujourdhuiUtc, decision } from '../../scripts/pause-collecte.mjs';
+import { aujourdhuiUtc, decision, decisionNocturne } from '../../scripts/pause-collecte.mjs';
 
 const juger = decision as (
   jusquAu: string | undefined,
@@ -65,5 +65,23 @@ describe('aujourdhuiUtc', () => {
       new Date('2026-10-01T00:30:00Z'),
     );
     expect(rendu).toBe('2026-10-01');
+  });
+});
+
+describe('filet GitHub nocturne', () => {
+  it('saute les horaires planifiés entre 1 h et 5 h à Nice', () => {
+    const resultat = decisionNocturne('schedule', new Date('2026-10-01T23:14:00Z'));
+    expect(resultat.sauter).toBe(true);
+    expect(resultat.raison).toContain('une fois par heure');
+  });
+
+  it('laisse le schedule actif le jour', () => {
+    expect(decisionNocturne('schedule', new Date('2026-10-02T04:14:00Z')).sauter).toBe(false);
+  });
+
+  it('ne bloque pas un déclenchement manuel du Worker ou de l’utilisateur', () => {
+    expect(decisionNocturne('workflow_dispatch', new Date('2026-10-01T23:14:00Z')).sauter).toBe(
+      false,
+    );
   });
 });

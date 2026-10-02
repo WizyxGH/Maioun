@@ -10,6 +10,8 @@
  *
  * D'OÙ CETTE PAUSE, posée dans la variable de dépôt
  * `COLLECTE_EN_PAUSE_JUSQU_AU` : une date, et la collecte est sautée jusque-là.
+ * Le même garde vérifie aussi que le schedule GitHub ne double pas la cadence
+ * nocturne, assurée par le Worker.
  *
  * LA REPRISE EST AUTOMATIQUE, et c'est tout l'intérêt : la date arrivée, la
  * comparaison cesse d'être vraie et la collecte repart sans que personne n'ait
@@ -76,15 +78,38 @@ export function aujourdhuiUtc(maintenant = new Date()) {
   return maintenant.toISOString().slice(0, 10);
 }
 
+/**
+ * Le Worker assure le rythme nocturne ; le schedule GitHub reste le filet du
+ * jour et ne doit pas ajouter des collectes toutes les vingt minutes la nuit.
+ */
+export function decisionNocturne(typeEvenement, maintenant = new Date()) {
+  if (typeEvenement !== 'schedule') return { sauter: false, raison: '' };
+  const heure = Number(
+    new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Europe/Paris',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(maintenant)
+      .find((partie) => partie.type === 'hour')?.value,
+  );
+  if (heure < 1 || heure > 5) return { sauter: false, raison: '' };
+  return {
+    sauter: true,
+    raison:
+      'Filet GitHub ignoré entre 1 h et 5 h (heure de Nice) : le Worker collecte une fois par heure.',
+  };
+}
+
 // Exécution directe, dans le workflow : `node scripts/pause-collecte.mjs`.
 if (
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  const { collecter, raison } = decision(
-    process.env['COLLECTE_EN_PAUSE_JUSQU_AU'],
-    aujourdhuiUtc(),
-  );
+  const pause = decision(process.env['COLLECTE_EN_PAUSE_JUSQU_AU'], aujourdhuiUtc());
+  const nuit = decisionNocturne(process.env['GITHUB_EVENT_NAME'], new Date());
+  const collecter = pause.collecter && !nuit.sauter;
+  const raison = !pause.collecter ? pause.raison : nuit.sauter ? nuit.raison : pause.raison;
   console.log(raison);
   for (const [variable, ligne] of [
     ['GITHUB_OUTPUT', `collecter=${String(collecter)}`],

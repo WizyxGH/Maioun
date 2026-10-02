@@ -8,11 +8,11 @@ name: Collecte
 
 on:
   schedule:
-    # Toutes les 20 minutes, comme le Worker. Le scheduler interne filtre
-    # ensuite : une source dont l'intervalle n'est pas écoulé n'émet aucune
-    # requête. Plus de réveils ne chargent donc aucun site ; ils laissent passer
-    # à l'heure les sources dues — mais chacun relit la base pour dédoublonner,
-    # et c'est cette lecture-là qui a épuisé le quota Turso le 2026-09-24.
+    # Toutes les 20 minutes le jour, comme le Worker. La nuit, le Worker seul
+    # assure un passage par heure ; la garde saute ce filet GitHub. Le scheduler
+    # interne filtre ensuite : une source dont l'intervalle n'est pas écoulé
+    # n'émet aucune requête. Chaque réveil relit toutefois la base pour
+    # dédoublonner — et c'est cette lecture-là qui a épuisé le quota Turso.
     #
     # MINUTES DÉCALÉES, volontairement. GitHub ne garantit pas la ponctualité
     # des crons et écarte les réveils quand la file est chargée : sur `*/30`,
@@ -74,7 +74,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # Script Node sans dépendance : ni installation ni compilation, sinon la
-      # garde coûterait ce qu'elle fait économiser.
+      # garde coûterait ce qu'elle fait économiser. La nuit, le Worker est
+      # l'unique réveil ; le schedule GitHub ne doit pas doubler ses passages.
       - id: pause
         run: node scripts/pause-collecte.mjs
         env:

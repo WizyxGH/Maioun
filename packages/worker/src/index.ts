@@ -42,6 +42,7 @@ import {
 } from '@maioun/collector/notify/mailer';
 import { relayPhoto } from './photo-relay.js';
 import { triggerCollect } from './collect-trigger.js';
+import { collecteDue } from './collect-schedule.js';
 import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 import {
   changeEmail,
@@ -1129,7 +1130,11 @@ export default {
    * GitHub d'exécuter le workflow, ce qui compte comme un déclenchement manuel
    * et échappe donc à la file des `schedule`.
    */
-  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    if (!collecteDue(new Date(event.scheduledTime))) {
+      console.log('collecte nocturne différée : prochain passage à l’heure suivante');
+      return;
+    }
     const result = await triggerCollect(env);
     // Le journal du Worker est le seul endroit où cela se lit : `wrangler tail`
     // pour le suivre en direct.
