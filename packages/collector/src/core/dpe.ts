@@ -213,7 +213,8 @@ export function createDpeLookup(options: DpeLookupOptions): DpeLookup {
       }
 
       const key = dpeCacheKey(address, postalCode, area);
-      const cached = await options.cache.get(key);
+      // Lecture tolérante : une cache en base qui ne répond pas vaut absence.
+      const cached = await options.cache.get(key).catch(() => null);
       if (cached !== null) return cached.record;
 
       const url = new URL(ADEME_ENDPOINT);

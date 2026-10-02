@@ -58,6 +58,15 @@ export async function runGrouped<T>(
  *
  * Le pipeline lisait l'entrée pour décider s'il fallait un appel réseau, puis
  * le géocodeur la relisait : deux allers-retours par adresse.
+ *
+ * LA LECTURE ET L'ÉCRITURE NE LÈVENT JAMAIS. Ce cache est en base — Turso le
+ * plus souvent — et une base qui expire ou refuse une écriture produisait le
+ * `TypeError: fetch failed` qui a fait perdre vingt-cinq runs consécutifs le
+ * 2026-10-02. Le crash tombait toujours sur « NNNN fiche(s) après
+ * dédoublonnage », c'est-à-dire à la première lecture de ce cache.
+ *
+ * Une entrée absente ou illisible ne coûte qu'un appel réseau de plus, et la
+ * réponse est mise en cache pour les appels suivants du même passage.
  */
 export function memoizeStore<V>(store: {
   get(key: string): Promise<V | null>;
@@ -68,7 +77,9 @@ export function memoizeStore<V>(store: {
     get(key) {
       const known = seen.get(key);
       if (known !== undefined) return known;
-      const read = store.get(key);
+      // Un échec de lecture vaut absence : rien n'est mémorisé, donc le même
+      // passage retente — ce qui est le comportement voulu après une panne.
+      const read = store.get(key).catch(() => null);
       seen.set(key, read);
       return read;
     },

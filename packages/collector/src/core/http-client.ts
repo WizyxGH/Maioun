@@ -301,7 +301,11 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       // une réponse POST n'est pas revalidable ainsi (§30).
       const conditional = init?.conditional !== false;
       if (method === 'GET' && conditional) {
-        const cached = await cache.get(url);
+        // LE CACHE EST UNE OPTIMISATION. Une base qui ne répond pas ici ne doit
+        // pas empêcher la requête : on la fait sans en-tête de revalidation, et
+        // le site répond en 200 complet. La lecture est donc tolérante — sinon
+        // c'est la PREMIÈRE opération de chaque GET qui peut tuer le passage.
+        const cached = await cache.get(url).catch(() => null);
         if (cached?.etag) headers['if-none-match'] = cached.etag;
         if (cached?.lastModified) headers['if-modified-since'] = cached.lastModified;
       }

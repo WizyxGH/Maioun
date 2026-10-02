@@ -480,7 +480,8 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
       if (trimmed.length < 4) return null;
 
       const key = geocodeCacheKey(trimmed, city);
-      const cached = await options.cache.get(key);
+      // Lecture tolérante : une cache en base qui ne répond pas vaut absence.
+      const cached = await options.cache.get(key).catch(() => null);
       if (cached !== null) {
         // Résultat connu (succès ou échec mémorisé) : aucun appel réseau.
         return cached.lat !== null && cached.lon !== null
@@ -568,7 +569,8 @@ export function createGeocoder(options: GeocoderOptions): Geocoder {
       city: string | null = null,
     ): Promise<ReverseAddress | null> {
       const key = reverseCacheKey(latitude, longitude);
-      const cached = await options.cache.get(key);
+      // Lecture tolérante : une cache en base qui ne répond pas vaut absence.
+      const cached = await options.cache.get(key).catch(() => null);
       if (cached !== null) {
         // Échec mémorisé comme succès : dans les deux cas, rien à redemander.
         const { postcode, label } = cached;

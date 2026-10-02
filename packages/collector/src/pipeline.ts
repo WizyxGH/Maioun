@@ -800,7 +800,9 @@ export async function missingWouldBeUnfounded(
     };
   }
 
-  const known = await repository.activeOccurrenceCount(sourceId);
+  // Un compte lu de travers ne doit pas conclure à une chute : vaut zéro, donc
+  // aucune conclusion — ce qui est le repli prudent.
+  const known = await repository.activeOccurrenceCount(sourceId).catch(() => 0);
   if (known >= 10 && seenCount * 2 < known) {
     return {
       code: 'collapse',

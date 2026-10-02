@@ -102,7 +102,8 @@ export function createTransitRouter(options: TransitRouterOptions): TransitRoute
   return {
     async arrivalMinutes(from, to) {
       const key = cacheKey(from, to, options.arrivalTime);
-      const cached = await options.cache.get(key);
+      // Lecture tolérante : une cache en base qui ne répond pas vaut absence.
+      const cached = await options.cache.get(key).catch(() => null);
       if (cached !== null) return cached.minutes;
 
       // Navitia attend les coordonnées en `lon;lat`.
