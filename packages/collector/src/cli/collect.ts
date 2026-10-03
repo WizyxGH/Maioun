@@ -384,8 +384,13 @@ async function notifyOne(deps: {
     if (retourReport.sent > 0) sentAnything = true;
   }
 
-  // BAISSES DE LOYER.
-  if (preferences.priceDrops) {
+  // CE QUI A CHANGÉ SUR UNE ANNONCE : baisse de loyer, puis le reste.
+  //
+  // UN SEUL INTERRUPTEUR POUR LES DEUX. Les deux canaux sont de même nature — une
+  // annonce a changé — et se déclenchaient sur la même passe : il fallait
+  // maintenir deux réglages pour une seule question. Qui veut savoir qu'une
+  // annonce a baissé veut savoir qu'elle a changé.
+  if (preferences.listingChanges) {
     const dropped = await repository.priceDroppedListings(userId, criteria);
     const dropReport = await sendListingAlerts(
       { ...common, listings: dropped },
@@ -400,8 +405,8 @@ async function notifyOne(deps: {
     if (dropReport.sent > 0) sentAnything = true;
   }
 
-  // MODIFICATIONS D'ANNONCES (disponibilité, surface, conditions...).
-  if (preferences.listingUpdates) {
+  // Puis le reste des modifications (disponibilité, surface, conditions...).
+  {
     const updated = await repository.updatedListings(userId, criteria);
     const updateReport = await sendListingAlerts(
       { ...common, listings: updated },

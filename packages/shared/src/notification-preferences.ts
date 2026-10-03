@@ -18,11 +18,24 @@
  * collecteur vers le service de push, sans passer par la page.
  */
 
-/** Les familles d'alertes, dans l'ordre où l'écran les présente. */
+/**
+ * LES FAMILLES, dans l'ordre où l'écran les présente.
+ *
+ * `listingChanges` REGROUPE ce que deux interrupteurs séparés disaient : une
+ * baisse de loyer est une modification d'annonce, et les deux sonnaient pour la
+ * même fiche dans la même passe. Deux cases à cocher pour deux notifications
+ * de même nature, c'était une question sans réponse (« je coupe laquelle ? »)
+ * et deux réglages à maintenir.
+ *
+ * `priceDrops` et `listingUpdates` ne sont plus des familles, mais
+ * `parseNotificationPreferences` les LIT TOUJOURS : un enregistrement écrit
+ * avant la fusion porte ces deux clés, et sans ce repli les préférences de tous
+ * les comptes existants retomberaient sur les défauts. Elles sont donc absorbées
+ * dans `listingChanges` — voir cette fonction — et jamais réécrites (§69).
+ */
 export type NotificationKind =
   | 'newListings'
-  | 'priceDrops'
-  | 'listingUpdates'
+  | 'listingChanges'
   | 'nearMatches'
   | 'reappeared'
   | 'applicationReminders'
@@ -33,17 +46,17 @@ export interface NotificationPreferences {
   /** Une annonce entre dans vos critères. C'est la raison d'être de l'outil. */
   readonly newListings: boolean;
   /**
-   * Une annonce dont le loyer a baissé.
+   * CE QUI A CHANGÉ SUR UNE ANNONCE : baisse de loyer, disponibilité, charges,
+   * surface, nouvelle information.
    *
-   * Actif par défaut : une baisse de loyer est l'un des signaux les plus forts
-   * pour les locataires sur une annonce suivie ou correspondant aux critères.
+   * Actif par défaut. Une baisse de loyer est l'un des signaux les plus forts
+   * pour un locataire — et c'est une modification comme les autres : les deux
+   * antiguos interrupteurs ne servaient qu'à demander deux fois la même chose.
+   *
+   * Ne concerne que les annonces DANS LES CRITÈRES : une annonce mise de côté
+   * à la main ne se signale plus parce qu'on l'a aimée.
    */
-  readonly priceDrops: boolean;
-  /**
-   * Modifications d'informations sur une annonce suivie ou correspondant aux critères
-   * (disponibilité, charges, description...).
-   */
-  readonly listingUpdates: boolean;
+  readonly listingChanges: boolean;
   /**
    * Une annonce JUSTE à côté des critères. Chaque critère a sa propre marge
    * (`NEAR_MATCH_MARGINS`) : 5 % de budget, 5 % de surface, une pièce, cinq
@@ -178,8 +191,7 @@ export const NOTIFICATIONS_SENT_AT_SETTING = 'notificationsSentAt';
  */
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   newListings: true,
-  priceDrops: true,
-  listingUpdates: true,
+  listingChanges: true,
   nearMatches: false,
   reappeared: false,
   applicationReminders: true,
@@ -213,8 +225,27 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
 
   return {
     newListings: read('newListings'),
-    priceDrops: read('priceDrops'),
-    listingUpdates: read('listingUpdates'),
+    /**
+     * ANCIEN ENREGISTREMENT, DEUX CLÉS. Qui venait d'avant la fusion avait les
+     * deux : on les additionne. Un réglage éteint de l'un mais pas de l'autre
+     * reste donc allumé — ce qui est le cas le plus rare, et le plus sage : on
+     * ne rallume jamais par surprise ce que quelqu'un avait coupé, mais on ne
+     * coupe pas non plus ce qu'un seul des deux anciens boutons laissait actif.
+     *
+     * AUCUNE DES TROIS CLÉS PRÉSENTE : le défaut s'applique comme ailleurs. Sans
+     * ce cas, un enregistrement sans réglage de changement — donc tout
+     * enregistrement d'avant la fusion qui n'avait pas touché à ces deux cases —
+     * se retrouvait éteint, et les notifications de l'utilisateur se taisaient
+     * sans qu'il l'ait demandé.
+     */
+    listingChanges: (() => {
+      if (typeof stored['listingChanges'] === 'boolean') return stored['listingChanges'];
+      const anciens = ['priceDrops', 'listingUpdates'].filter(
+        (key) => typeof stored[key] === 'boolean',
+      );
+      if (anciens.length === 0) return DEFAULT_NOTIFICATION_PREFERENCES.listingChanges;
+      return anciens.some((key) => stored[key] === true);
+    })(),
     nearMatches: read('nearMatches'),
     applicationReminders: read('applicationReminders'),
     reappeared: read('reappeared'),

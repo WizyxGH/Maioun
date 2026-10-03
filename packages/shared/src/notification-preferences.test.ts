@@ -34,18 +34,39 @@ describe('parseNotificationPreferences', () => {
     expect(parseNotificationPreferences(stocke)).toEqual({
       ...stocke,
       reappeared: false,
-      priceDrops: true,
-      listingUpdates: true,
+      listingChanges: true,
     });
   });
 
-  it('active les baisses de loyer et modifications d’annonces par défaut', () => {
-    expect(DEFAULT_NOTIFICATION_PREFERENCES.priceDrops).toBe(true);
-    expect(DEFAULT_NOTIFICATION_PREFERENCES.listingUpdates).toBe(true);
-    expect(parseNotificationPreferences({}).priceDrops).toBe(true);
-    expect(parseNotificationPreferences({}).listingUpdates).toBe(true);
-    expect(parseNotificationPreferences({ priceDrops: false }).priceDrops).toBe(false);
-    expect(parseNotificationPreferences({ listingUpdates: false }).listingUpdates).toBe(false);
+  it('active les changements d’annonce par défaut', () => {
+    // Un seul interrupteur pour ce qui a changé sur une annonce : baisse de
+    // loyer, disponibilité, surface, charges. Deux cases pour une seule question
+    // ne se laissaient pas choisir.
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.listingChanges).toBe(true);
+    expect(parseNotificationPreferences({}).listingChanges).toBe(true);
+    expect(parseNotificationPreferences({ listingChanges: false }).listingChanges).toBe(false);
+  });
+
+  /**
+   * LES ENREGISTREMENTS D'AVANT LA FUSION SONT ABSORBÉS, jamais perdus.
+   *
+   * Qui avait éteint les deux anciens boutons doit le rester : ses préférences
+   * sont déjà en base, sur des comptes qui tournent depuis des semaines.
+   */
+  it('absorbe les deux anciennes clés, et les additionne', () => {
+    expect(
+      parseNotificationPreferences({ priceDrops: false, listingUpdates: false }),
+    ).toMatchObject({ listingChanges: false });
+    expect(parseNotificationPreferences({ priceDrops: true, listingUpdates: false })).toMatchObject(
+      { listingChanges: true },
+    );
+    expect(parseNotificationPreferences({ priceDrops: false, listingUpdates: true })).toMatchObject(
+      { listingChanges: true },
+    );
+    // La clé nouvelle prime : elle a été écrite après la fusion.
+    expect(parseNotificationPreferences({ listingChanges: false, priceDrops: true })).toMatchObject(
+      { listingChanges: false },
+    );
   });
 
   /**

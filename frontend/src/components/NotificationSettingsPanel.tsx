@@ -32,7 +32,6 @@ import {
   Clock,
   Heart,
   Mail,
-  Pencil,
   TrendDown,
   TriangleAlert,
 } from './icons.js';
@@ -86,16 +85,14 @@ const KINDS: readonly KindInfo[] = [
     Icon: Bell,
   },
   {
-    key: 'priceDrops',
-    label: 'Baisses de loyer',
-    hint: 'Dès qu’un logement suivi ou dans vos critères voit son loyer baisser.',
+    // UN SEUL RÉGLAGE POUR LES DEUX. « Baisses de loyer » et « Modifications
+    // d'annonces » annonçaient la même chose — une annonce a changé — et
+    // sonnaient dans la même passe : deux cases à cocher pour une seule
+    // question, dont il fallait choisir laquelle couper.
+    key: 'listingChanges',
+    label: 'Changements sur une annonce',
+    hint: 'Baisse de loyer, disponibilité, surface, charges : dès qu’une annonce de vos critères change.',
     Icon: TrendDown,
-  },
-  {
-    key: 'listingUpdates',
-    label: 'Modifications d’annonces',
-    hint: 'Changements de conditions, disponibilité ou nouvelles informations sur un logement.',
-    Icon: Pencil,
   },
   {
     key: 'nearMatches',

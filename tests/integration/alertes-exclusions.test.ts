@@ -155,4 +155,50 @@ describe('les alertes appliquent les mêmes exclusions que la liste', () => {
       expect(ids(await repository.goneFavorites(USER))).toEqual(['orpi:2']);
     });
   });
+
+  /**
+   * UNE BAISSE OU UNE MODIFICATION NE SE SIGNALE QUE DANS LES CRITÈRES.
+   *
+   * Les deux requêtes portaient `matches_criteria = 1 OU favori` : une annonce
+   * mise de côté à la main continuait donc de sonner — y compris quand elle était
+   * sortie du budget depuis. Le téléphone sonnait alors pour exactement ce que
+   * l'utilisateur venait d'exclure.
+   *
+   * « Un favori disparaît » garde sa dérogation : c'est l'inverse du cas, on
+   * veut savoir qu'un bien qu'on a choisi nous a été pris.
+   */
+  describe('les changements ne concernent que les annonces dans les critères', () => {
+    beforeEach(async () => {
+      // L'une dedans, l'autre au-dessus du plafond donc hors critères.
+      await enregistre([scored('orpi:3', { price: 650 }), scored('orpi:4', { price: 1500 })]);
+      await db.execute({
+        sql: `INSERT INTO listing_user_state (listing_id, user_id, favorite, notified, updated_at)
+              VALUES (?,?,1,1,?)`,
+        args: ['orpi:4', USER, new Date().toISOString()],
+      });
+      await db.execute({
+        sql: `UPDATE listings SET payload = json_set(payload, '$.priceDropped', 1) WHERE id = ?`,
+        args: ['orpi:4'],
+      });
+    });
+
+    it('ne signale PAS la baisse d’un favori hors critères', async () => {
+      expect(await repository.priceDroppedListings(USER, {})).toEqual([]);
+    });
+
+    it('signale la baisse d’une annonce dans les critères', async () => {
+      // Elle a déjà été notifiée à son apparition — c'est la condition du canal :
+      // on ne signale une baisse que d'une annonce qu'on connaît déjà.
+      await db.execute({
+        sql: `INSERT INTO listing_user_state (listing_id, user_id, notified, updated_at)
+              VALUES (?,?,1,?)`,
+        args: ['orpi:3', USER, new Date().toISOString()],
+      });
+      await db.execute({
+        sql: `UPDATE listings SET payload = json_set(payload, '$.priceDropped', 1) WHERE id = ?`,
+        args: ['orpi:3'],
+      });
+      expect(ids(await repository.priceDroppedListings(USER, {}))).toEqual(['orpi:3']);
+    });
+  });
 });

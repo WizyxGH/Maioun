@@ -2717,7 +2717,13 @@ export function createRepository(db: Database): Repository {
                 AND us.price_drop_notified_at IS NULL
                 AND (COALESCE(us.notified, 0) = 1 OR COALESCE(us.favorite, 0) = 1)
                 AND COALESCE(us.archived, 0) = 0
-                AND (sc.matches_criteria = 1 OR COALESCE(us.favorite, 0) = 1)
+                -- UNE BAISSE SE SIGNE SI L'ANNONCE EST DANS LES CRITÈRES, ET
+                -- RIEN D'AUTRE. La dérogation « ou favori » permettait de sonner
+                -- pour une annonce hors budget : on l'avait mise de côté à la
+                -- main, mais elle ne redevient pas éligible parce qu'on l'a
+                -- aimée. Un favori est un choix d'affichage, pas une extension
+                -- des critères — il reste visible et suivi, il ne se signale pas.
+                AND sc.matches_criteria = 1
                 AND ${OPEN_TO_APPLICATIONS_SQL}
                 AND listings.lifecycle = 'active'
                 AND listings.rented = 0
@@ -2748,7 +2754,12 @@ export function createRepository(db: Database): Repository {
               WHERE us.update_notified_at IS NULL
                 AND (COALESCE(us.notified, 0) = 1 OR COALESCE(us.favorite, 0) = 1)
                 AND COALESCE(us.archived, 0) = 0
-                AND (sc.matches_criteria = 1 OR COALESCE(us.favorite, 0) = 1)
+                -- MÊME RÈGLE QUE LA BAISSE : une modification ne se signale que
+                -- pour une annonce DANS LES CRITÈRES. Le « ou favori » des
+                -- deux côtés faisait sonner pour un bien hors budget dès lors
+                -- qu'on l'avait mis de côté — et l'utilisateur recevait alors la
+                -- notification qu'il venait d'exclure en changeant ses critères.
+                AND sc.matches_criteria = 1
                 AND ${OPEN_TO_APPLICATIONS_SQL}
                 AND listings.lifecycle = 'active'
                 AND listings.rented = 0

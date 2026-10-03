@@ -96,20 +96,22 @@ describe('NotificationSettingsPanel', () => {
     expect(saveNotificationPreferences).toHaveBeenCalledWith({ ...STORED, nearMatches: true });
   });
 
-  it('permet de régler les alertes de baisses de loyer et modifications d’annonces', async () => {
+  it('règle les changements sur une annonce en UN SEUL interrupteur', async () => {
     render(<NotificationSettingsPanel onBack={vi.fn()} />);
-    await waitFor(() => expect(toggle('Baisses de loyer')).toHaveAttribute('aria-checked', 'true'));
-    expect(toggle('Modifications d’annonces')).toHaveAttribute('aria-checked', 'true');
+    // Un seul réglage pour « baisse de loyer » et « modifications » : les deux
+    // annonçaient la même chose, et deux cases n donnaient pas de réponse à la
+    // question « laquelle je coupe ? ».
+    await waitFor(() =>
+      expect(toggle('Changements sur une annonce')).toHaveAttribute('aria-checked', 'true'),
+    );
+    // Les deux anciens interrupteurs ont disparu de l'écran.
+    expect(screen.queryByRole('switch', { name: 'Baisses de loyer' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: "Modifications d'annonces" })).toBeNull();
 
-    await userEvent.click(toggle('Baisses de loyer'));
-    expect(saveNotificationPreferences).toHaveBeenCalledWith({ ...STORED, priceDrops: false });
-
-    await userEvent.click(toggle('Modifications d’annonces'));
-    await waitFor(() => expect(saveNotificationPreferences).toHaveBeenCalledTimes(2));
-    expect(saveNotificationPreferences).toHaveBeenLastCalledWith({
+    await userEvent.click(toggle('Changements sur une annonce'));
+    expect(saveNotificationPreferences).toHaveBeenCalledWith({
       ...STORED,
-      priceDrops: false,
-      listingUpdates: false,
+      listingChanges: false,
     });
   });
 
