@@ -43,6 +43,8 @@ import {
   REFERENCE_POINTS_SETTING,
   SEARCH_CRITERIA_SETTING,
   parseNotificationPreferences,
+  parseNotificationSources,
+  NOTIFICATION_SOURCES_SETTING,
   canNotifyNow,
   NOTIFICATIONS_SENT_AT_SETTING,
 } from '@maioun/shared';
@@ -205,6 +207,21 @@ async function notifyOne(deps: {
   );
 
   /**
+   * LE FILTRE PAR SOURCE, ET LUI SEUL S'APPLIQUE AUX ALERTES.
+   *
+   * Cocher une source dans le menu de la liste ne pouvait cacher que les
+   * annonces à l'écran : l'alerte partait d'ici, vers le service de push, sans
+   * jamais passer par la page. On recevait donc la fiche qu'on venait d'exclure,
+   * et il n'y avait aucun réglage pour l'empêcher — il fallait laisser passer.
+   *
+   * Une liste figée n'aurait pas aidé non plus : elle se périmerait à chaque
+   * agence ajoutée, et « LocService » en suffixe suffit.
+   */
+  const sourceFilter = parseNotificationSources(
+    jsonOrNull(await repository.readSettingFor(userId, NOTIFICATION_SOURCES_SETTING)),
+  );
+
+  /**
    * LES MÊMES CRITÈRES QUE SA LISTE. Colocation, bail étudiant, bailleur,
    * ameublement, quartier et disponibilité ne sont plus figés dans le score —
    * ils se décochent, et décocher doit ramener les annonces. Les oublier ici
@@ -331,7 +348,7 @@ async function notifyOne(deps: {
     // téléphone, et les honoraires. Les deux fiches restent visibles sur le
     // site — seule la sonnerie en double disparaît (§29).
     const { listings: pending, echoes } = dropRedundantNotifications(
-      await repository.pendingNotifications(userId, 0, criteria),
+      await repository.pendingNotifications(userId, 0, criteria, sourceFilter),
       await repository.directListingSpecKeys(),
     );
     const report = await sendWebPush({ ...common, listings: pending });
@@ -347,7 +364,7 @@ async function notifyOne(deps: {
     // revenait dans la liste sans un mot. Les réouvertures d'abord, puis les
     // fermetures de ce passage, pour qu'une annonce ne ferme et rouvre pas au
     // même instant.
-    const reopened = await repository.reopenedApplications(userId, criteria);
+    const reopened = await repository.reopenedApplications(userId, criteria, sourceFilter);
     const reopenReport = await sendListingAlerts(
       { ...common, listings: reopened },
       reopenedContentFor,
@@ -369,7 +386,7 @@ async function notifyOne(deps: {
      * pas un phénomène marginal.
      */
     const revenues = preferences.reappeared
-      ? await repository.reappearedListings(userId, criteria)
+      ? await repository.reappearedListings(userId, criteria, sourceFilter)
       : [];
     const retourReport = await sendListingAlerts(
       { ...common, listings: revenues },
@@ -391,7 +408,7 @@ async function notifyOne(deps: {
   // maintenir deux réglages pour une seule question. Qui veut savoir qu'une
   // annonce a baissé veut savoir qu'elle a changé.
   if (preferences.listingChanges) {
-    const dropped = await repository.priceDroppedListings(userId, criteria);
+    const dropped = await repository.priceDroppedListings(userId, criteria, sourceFilter);
     const dropReport = await sendListingAlerts(
       { ...common, listings: dropped },
       priceDropContentFor,
@@ -407,7 +424,7 @@ async function notifyOne(deps: {
 
   // Puis le reste des modifications (disponibilité, surface, conditions...).
   {
-    const updated = await repository.updatedListings(userId, criteria);
+    const updated = await repository.updatedListings(userId, criteria, sourceFilter);
     const updateReport = await sendListingAlerts(
       { ...common, listings: updated },
       listingUpdateContentFor,
@@ -430,7 +447,12 @@ async function notifyOne(deps: {
   // et des locations étudiantes que la liste écarte — on sonnait pour ce qu'on
   // n'affiche pas.
   if (preferences.nearMatches) {
-    const near = await repository.nearMatches(userId, nearMatchCriteria(criteria), criteria);
+    const near = await repository.nearMatches(
+      userId,
+      nearMatchCriteria(criteria),
+      criteria,
+      sourceFilter,
+    );
     const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
       nearMatchContentFor(listing as NearMatch, url),
     );

@@ -44,9 +44,14 @@ const EXCLUSIONS = { excludeFlatShare: true, excludeStudent: true } as const;
  */
 function scored(
   id: string,
-  options: { readonly price: number; readonly title?: string; readonly flatShare?: boolean },
+  options: {
+    readonly price: number;
+    readonly title?: string;
+    readonly flatShare?: boolean;
+    readonly sourceId?: string;
+  },
 ): ScoredListing {
-  const occurrence = makeOccurrence({ id, sourceId: 'orpi' });
+  const occurrence = makeOccurrence({ id, sourceId: options.sourceId ?? 'orpi' });
   return scoreListing(
     makeAggregated({
       id,
@@ -199,6 +204,53 @@ describe('les alertes appliquent les mêmes exclusions que la liste', () => {
         args: ['orpi:3'],
       });
       expect(ids(await repository.priceDroppedListings(USER, {}))).toEqual(['orpi:3']);
+    });
+  });
+
+  /**
+   * LE FILTRE PAR SOURCE ÉCARTE AUSSI LES ALERTES.
+   *
+   * Cocher une source dans le menu de la liste ne pouvait cacher que les
+   * annonces à l'écran : l'alerte partait du serveur, vers le service de push,
+   * sans jamais passer par la page. Il n'y avait aucun réglage pour l'en
+   * empêcher.
+   *
+   * LA PREUVE EST DANS LA BASE, pas dans le code : une annonce de LocService
+   * que le compte a exclue ne doit rien produire, et une annonce d'Orpi doit
+   * toujours passer.
+   */
+  describe("le filtre par source s'applique aux alertes", () => {
+    const SANS_FILTRE = undefined;
+    const HORS_LOCSERVICE = { mode: 'except', ids: ['locservice'] } as const;
+
+    beforeEach(async () => {
+      await enregistre([
+        scored('orpi:9', { price: 650 }),
+        scored('locservice:9', { price: 640, sourceId: 'locservice' }),
+      ]);
+    });
+
+    it('signale les deux quand rien n’est exclu', async () => {
+      const annonces = await repository.pendingNotifications(USER, 0, EXCLUSIONS, SANS_FILTRE);
+      expect(ids(annonces)).toEqual(['locservice:9', 'orpi:9']);
+    });
+
+    it('ne signale pas la source exclue', async () => {
+      const annonces = await repository.pendingNotifications(USER, 0, EXCLUSIONS, HORS_LOCSERVICE);
+      expect(ids(annonces)).toEqual(['orpi:9']);
+    });
+
+    /**
+     * « SEULEMENT » EST L'AUTRE MOITIÉ DU GESTE, et elle doit rester
+     * vérifiable : une liste blanche qui n'écarte rien afficherait une liste
+     * entière et laisserait croire qu'elle est restreinte.
+     */
+    it('ne garde que les sources nommées en mode « seulement »', async () => {
+      const annonces = await repository.pendingNotifications(USER, 0, EXCLUSIONS, {
+        mode: 'only',
+        ids: ['locservice'],
+      });
+      expect(ids(annonces)).toEqual(['locservice:9']);
     });
   });
 });

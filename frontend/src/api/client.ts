@@ -24,6 +24,7 @@ import { archiveReasonOf } from '../availability.js';
 import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
+  NOTIFICATION_SOURCES_SETTING,
   CHANGELOG_SETTING,
   ALERTS_SEEN_SETTING,
   ONBOARDING_SETTING,
@@ -1156,6 +1157,40 @@ export async function saveNotificationPreferences(
   preferences: NotificationPreferences,
 ): Promise<void> {
   await writeSetting(NOTIFICATION_PREFERENCES_SETTING, preferences);
+}
+
+/**
+ * Le filtre par source, celui des ALERTES.
+ *
+ * DISTINCT DE CELUI DE LA LISTE, qui reste dans le navigateur : celui-là ne
+ * concerne que l'affichage, celui-ci décide de ce qui sonne. Les deux portent
+ * pourtant le même nom chez l'utilisateur — cocher « LocService » exclut
+ * LocService — alors qu'avant, seule la liste obéissait.
+ *
+ * `writeSetting` est tolérant aux erreurs : une écriture ratée ne doit pas
+ * casser la liste, qui vient de changer à l'écran. La notification, elle,
+ * repartira au prochain passage.
+ */
+export async function saveNotificationSources(selection: {
+  mode: 'only' | 'except';
+  ids: readonly string[];
+}): Promise<void> {
+  if (!settingsAvailable()) return;
+  // TOLÉRANT : la liste vient de changer à l'écran, et une écriture qui échoue
+  // ne doit pas faire retomber dessus. Le pire cas est connu — l'alerte
+  // repartira au prochain passage, sur la valeur d'avant.
+  await writeSetting(NOTIFICATION_SOURCES_SETTING, selection).catch(() => undefined);
+}
+
+/** Le filtre par source des alertes, tel qu'il est enregistré. */
+export async function fetchNotificationSources(): Promise<{
+  mode: 'only' | 'except';
+  ids: readonly string[];
+} | null> {
+  if (!settingsAvailable()) return null;
+  return readSetting<{ mode: 'only' | 'except'; ids: readonly string[] }>(
+    NOTIFICATION_SOURCES_SETTING,
+  );
 }
 
 /**

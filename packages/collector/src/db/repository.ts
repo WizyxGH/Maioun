@@ -23,6 +23,7 @@ import type {
   SourceRuntimeState,
 } from '@maioun/shared';
 import {
+  type NotificationSourceSelection,
   canonicalDistrict,
   CURRENT_USER,
   describeOvershoot,
@@ -30,6 +31,7 @@ import {
 } from '@maioun/shared';
 import {
   OPEN_TO_APPLICATIONS_SQL,
+  sourceCondition,
   traitConditions,
   type TraitFilters,
 } from '../core/trait-filters.js';
@@ -668,6 +670,7 @@ export interface Repository {
     userId: string,
     minPriority: number,
     traits?: TraitFilters,
+    sources?: NotificationSourceSelection,
   ): Promise<NotifiableListing[]>;
   /**
    * Clés `prix|surface|ville|pièces` des annonces actives issues UNIQUEMENT de
@@ -697,6 +700,7 @@ export interface Repository {
     userId: string,
     criteria: NearMatchCriteria,
     traits?: TraitFilters,
+    sources?: NotificationSourceSelection,
   ): Promise<NearMatch[]>;
 
   /**
@@ -732,16 +736,32 @@ export interface Repository {
    * sonnerait pour un logement que la liste ne montre plus.
    */
   noteClosedApplications(userId: string): Promise<void>;
-  reopenedApplications(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  reopenedApplications(
+    userId: string,
+    traits?: TraitFilters,
+    sources?: NotificationSourceSelection,
+  ): Promise<NotifiableListing[]>;
   markReopenNotified(userId: string, ids: readonly string[]): Promise<void>;
   /** Annonces revenues en ligne et pas encore signalées à ce compte. */
-  reappearedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  reappearedListings(
+    userId: string,
+    traits?: TraitFilters,
+    sources?: NotificationSourceSelection,
+  ): Promise<NotifiableListing[]>;
   markReappearNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
   /** Annonces avec baisse de loyer et pas encore signalées pour cette baisse à ce compte. */
-  priceDroppedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  priceDroppedListings(
+    userId: string,
+    traits?: TraitFilters,
+    sources?: NotificationSourceSelection,
+  ): Promise<NotifiableListing[]>;
   markPriceDropNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
   /** Annonces modifiées et pas encore signalées pour cette modification à ce compte. */
-  updatedListings(userId: string, traits?: TraitFilters): Promise<NotifiableListing[]>;
+  updatedListings(
+    userId: string,
+    traits?: TraitFilters,
+    sources?: NotificationSourceSelection,
+  ): Promise<NotifiableListing[]>;
   markUpdateNotified(userId: string, ids: readonly string[], nowIso: string): Promise<void>;
   /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
@@ -2351,9 +2371,11 @@ export function createRepository(db: Database): Repository {
       );
     },
 
-    async pendingNotifications(userId, minPriority, traits = {}) {
+    async pendingNotifications(userId, minPriority, traits = {}, sources) {
       const preferences = traitConditions(traits);
-      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const parSource = sourceCondition(sources);
+      const extra =
+        (preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '') + parSource.sql;
       const result = await db.execute({
         /**
          * TOUT CE QUI SE DÉCIDE ICI EST PERSONNEL, et rien ne l'était.
@@ -2387,7 +2409,7 @@ export function createRepository(db: Database): Repository {
                 AND COALESCE(sc.action_priority, 0) >= ?
                 ${extra}
               ORDER BY sc.action_priority DESC`,
-        args: [userId, userId, minPriority, ...preferences.args],
+        args: [userId, userId, minPriority, ...preferences.args, ...parSource.args],
       });
 
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
@@ -2439,7 +2461,7 @@ export function createRepository(db: Database): Repository {
       return result.reduce((total, one) => total + one.rowsAffected, 0);
     },
 
-    async nearMatches(userId, criteria, traits = {}) {
+    async nearMatches(userId, criteria, traits = {}, sources) {
       const cities = criteria.cities.filter((city) => city !== '');
       if (cities.length === 0) return [];
       // UNE MARGE PAR CRITÈRE, définie et justifiée dans `criteria.ts`.
@@ -2464,7 +2486,9 @@ export function createRepository(db: Database): Repository {
           ? { availableBy: bounds.availableBy }
           : {}),
       });
-      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const parSource = sourceCondition(sources);
+      const extra =
+        (preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '') + parSource.sql;
 
       /**
        * AU MOINS UN CRITÈRE DÉPASSÉ, sinon l'annonce est « proche » de rien et
@@ -2546,6 +2570,7 @@ export function createRepository(db: Database): Repository {
           ...withinArgs,
           ...beyondArgs,
           ...preferences.args,
+          ...parSource.args,
         ],
       });
 
@@ -2632,9 +2657,11 @@ export function createRepository(db: Database): Repository {
       });
     },
 
-    async reopenedApplications(userId, traits = {}) {
+    async reopenedApplications(userId, traits = {}, sources) {
       const preferences = traitConditions(traits);
-      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const parSource = sourceCondition(sources);
+      const extra =
+        (preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '') + parSource.sql;
       const result = await db.execute({
         sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
                      listings.city, listings.postal_code, sc.action_priority, listings.payload
@@ -2651,7 +2678,7 @@ export function createRepository(db: Database): Repository {
                 AND listings.rented = 0
                 ${extra}
               ORDER BY sc.action_priority DESC`,
-        args: [userId, userId, ...preferences.args],
+        args: [userId, userId, ...preferences.args, ...parSource.args],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },
@@ -2672,9 +2699,11 @@ export function createRepository(db: Database): Repository {
      * signalé l'annonce la première fois. Les confondre ferait taire le
      * retour, ou resonnerait l'arrivée.
      */
-    async reappearedListings(userId, traits = {}) {
+    async reappearedListings(userId, traits = {}, sources) {
       const preferences = traitConditions(traits);
-      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const parSource = sourceCondition(sources);
+      const extra =
+        (preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '') + parSource.sql;
       const result = await db.execute({
         sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
                      listings.city, listings.postal_code, sc.action_priority, listings.payload
@@ -2692,7 +2721,7 @@ export function createRepository(db: Database): Repository {
                 AND listings.rented = 0
                 ${extra}
               ORDER BY sc.action_priority DESC`,
-        args: [userId, userId, ...preferences.args],
+        args: [userId, userId, ...preferences.args, ...parSource.args],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },
@@ -2702,9 +2731,11 @@ export function createRepository(db: Database): Repository {
       await recordUserState(db, userId, ids, { reappear_notified_at: nowIso });
     },
 
-    async priceDroppedListings(userId, traits = {}) {
+    async priceDroppedListings(userId, traits = {}, sources) {
       const preferences = traitConditions(traits);
-      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const parSource = sourceCondition(sources);
+      const extra =
+        (preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '') + parSource.sql;
       const result = await db.execute({
         sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
                      listings.city, listings.postal_code, sc.action_priority, listings.payload
@@ -2729,7 +2760,7 @@ export function createRepository(db: Database): Repository {
                 AND listings.rented = 0
                 ${extra}
               ORDER BY sc.action_priority DESC`,
-        args: [userId, userId, ...preferences.args],
+        args: [userId, userId, ...preferences.args, ...parSource.args],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },
@@ -2739,9 +2770,11 @@ export function createRepository(db: Database): Repository {
       await recordUserState(db, userId, ids, { price_drop_notified_at: nowIso });
     },
 
-    async updatedListings(userId, traits = {}) {
+    async updatedListings(userId, traits = {}, sources) {
       const preferences = traitConditions(traits);
-      const extra = preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '';
+      const parSource = sourceCondition(sources);
+      const extra =
+        (preferences.sql.length > 0 ? `AND ${preferences.sql.join(' AND ')}` : '') + parSource.sql;
       const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
       const result = await db.execute({
         sql: `SELECT listings.id, listings.title, listings.price, listings.area, listings.rooms,
@@ -2773,7 +2806,7 @@ export function createRepository(db: Database): Repository {
                 )
                 ${extra}
               ORDER BY sc.action_priority DESC`,
-        args: [userId, userId, since, ...preferences.args],
+        args: [userId, userId, since, ...preferences.args, ...parSource.args],
       });
       return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },

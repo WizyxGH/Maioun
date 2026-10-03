@@ -63,6 +63,8 @@ import {
   fetchTenantProfile,
   saveTenantProfile,
   clearTenantProfile,
+  fetchNotificationSources,
+  saveNotificationSources,
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { districtAt, loadDistrictBoundaries } from './district-boundaries.js';
@@ -91,6 +93,7 @@ import {
 import {
   ALL_SOURCES,
   describeSourceSelection,
+  readSourceSelection,
   restrictsSources,
   type SourceSelection,
 } from './source-selection.js';
@@ -1011,6 +1014,34 @@ function AppView(): React.JSX.Element {
   // « toutes sauf celles-ci ». Une annonce passe si l'une de ses occurrences
   // vient d'une source retenue. Voir `source-selection.ts`.
   const [sourceFilter, setSourceFilter] = useState<SourceSelection>(restored.sources);
+
+  /**
+   * LE FILTRE PAR SOURCE PART AUSSI EN BASE — il ne vaut pas que pour l'écran.
+   *
+   * Il restait dans le navigateur : cocher une source cachait les annonces, et
+   * les alertes continuaient de partir. Il n'y avait aucun réglage pour l'en
+   * empêcher — il fallait laisser passer, ce qui est le pire comportement
+   * possible pour une case à cocher.
+   *
+   * Un effet plutôt qu'un point d'écriture : le filtre change par le menu de
+   * sources, par une recherche enregistrée, par « effacer tout ». Passer par
+   * chaque chemin serait trois endroits à maintenir et le troisième
+   * l'oublierait.
+   *
+   * LE PREMIER RENDEMENT N'ÉCRIT RIEN. `restored` vient du navigateur, qui peut
+   * être plus ancien que le serveur — un téléphone repartirait alors avec le
+   * filtre du téléphone en effaçant celui de l'ordinateur. Le premier
+   * va-et-vient : le serveur reste maître jusqu'à ce que l'utilisateur touche à
+   * quelque chose.
+   */
+  const [sourcesSynchronisees, markSourcesSynchronisees] = useState(false);
+  useEffect(() => {
+    if (!sourcesSynchronisees) {
+      markSourcesSynchronisees(true);
+      return;
+    }
+    void saveNotificationSources({ mode: sourceFilter.mode, ids: [...sourceFilter.ids] });
+  }, [sourceFilter, sourcesSynchronisees]);
   // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
   // liste déjà chargée, sans toucher aux critères de collecte (§66).
   const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(restored.quickFilters);
@@ -1682,6 +1713,31 @@ function AppView(): React.JSX.Element {
     }
     void fetchSources()
       .then((response) => setSources(response.sources))
+      .catch(() => undefined);
+  }, [currentUser]);
+
+  /**
+   * LE FILTRE PAR SOURCE EST RELU DEPUIS LA BASE, comme le profil.
+   *
+   * Mêmes trois cas : la base en a un, on le prend — et c'est le cas normal,
+   * puisque c'est là que le filtre décide des alertes ; elle n'en a pas, le
+   * navigateur garde la main et rien ne s'écrit ; il n'y a rien des deux, la
+   * liste affiche toutes les sources.
+   *
+   * On ne recopie pas le filtre du navigateur vers la base quand celle-ci ne sait
+   * rien : un téléphone qui n'a jamais enregistré ce réglage lui renverrait un
+   * filtre d'une autre occasion. Le serveur ne perd rien — il n'a jamais rien su.
+   *
+   * UN ÉCHOUEMENT NE VIDE RIEN, comme pour le profil : la liste garde le filtre
+   * qu'elle montrait. Les alertes, elles, repartiront sur la valeur du serveur.
+   */
+  useEffect(() => {
+    if (currentUser === undefined || currentUser === null) return;
+    void fetchNotificationSources()
+      .then((stored) => {
+        if (stored === null) return;
+        setSourceFilter(readSourceSelection(stored.ids, stored.mode));
+      })
       .catch(() => undefined);
   }, [currentUser]);
 

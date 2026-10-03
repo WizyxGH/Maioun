@@ -28,6 +28,8 @@
  * viderait la liste sur une information que les sources ne donnent pas.
  */
 
+import { sourceFilterSql, type NotificationSourceSelection } from '@maioun/shared';
+
 /** Les quatre préférences, telles qu'elles sont enregistrées. */
 export interface TraitFilters {
   readonly excludeFlatShare?: boolean;
@@ -57,6 +59,35 @@ export interface TraitFilters {
    * nommés. Absent = oui. Voir la règle du quartier plus bas.
    */
   readonly includeUnknownDistrict?: boolean;
+}
+
+/**
+ * LE FILTRE PAR SOURCE, PRÊT À ÊTRE JOINT.
+ *
+ * Il vit ici, et non dans chaque requête, pour la raison qui vaut pour le reste
+ * de ce fichier : la LISTE et les NOTIFICATIONS doivent dire la même chose. Un
+ * réglage appliqué à l'une et oublié à l'autre produit exactement le pire cas —
+ * une annonce invisible à l'écran dont le téléphone sonne quand même.
+ *
+ * Le SQL est déjà prêt à coller derrière un `AND`, et vide quand le compte
+ * n'a rien exclu : une requête qui n'a pas de filtre ne doit pas en payer le
+ * prix, ni subir le `NOT EXISTS` sur `occurrences` à chaque ligne.
+ *
+ * L'ESPACE DEVANT LE `AND` N'EST PAS COSMÉTIQUE. La condition d'à côté se
+ * termine par `= 0` — « exclure les colocations » rend `COALESCE(flat_share, 0)
+ * = 0` — et collée à la suivante elle donne `0AND`, que la base refuse. Le
+ * défaut n'apparaît qu'avec les deux filtres activeS en même temps : sans
+ * trait, le `AND` tombait sur un saut de ligne et rien ne se voyait.
+ */
+export function sourceCondition(sources?: NotificationSourceSelection): {
+  readonly sql: string;
+  readonly args: readonly string[];
+} {
+  if (sources === undefined) return { sql: '', args: [] };
+  const filtre = sourceFilterSql(sources);
+  return filtre.sql === ''
+    ? { sql: '', args: [] }
+    : { sql: ` AND ${filtre.sql}`, args: filtre.args };
 }
 
 export interface TraitConditions {
