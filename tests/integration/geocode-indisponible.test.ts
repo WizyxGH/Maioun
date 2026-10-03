@@ -79,7 +79,6 @@ async function setup(): Promise<{ db: Database; repository: Repository }> {
 
 describe('la BAN ne répond plus', () => {
   it('le géocodeur ne lève pas', async () => {
-    const { repository } = await setup();
     const geocoder = createGeocoder({
       cache: cacheVide,
       nowMs: NOW,

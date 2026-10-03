@@ -22,11 +22,17 @@ const inputVariants = cva(FIELD_BASE, {
  * `size` est omis des attributs HTML : sur un `input` c'est une largeur en
  * caractères, et l'intersecter avec nos variantes donnerait `never`. La largeur
  * se règle en classe.
+ *
+ * `ref` fait partie des props : sans lui, impossible de mettre le curseur dans
+ * un champ depuis l'extérieur — le double-clic sur la barre de recherche, par
+ * exemple. React le transmet sans `forwardRef` depuis la 19.
  */
 interface InputProps
   extends
     Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
-    VariantProps<typeof inputVariants> {}
+    VariantProps<typeof inputVariants> {
+  readonly ref?: React.Ref<HTMLInputElement>;
+}
 
 export function Input({ className, size, ...props }: InputProps): React.JSX.Element {
   return <input className={cn(inputVariants({ size }), className)} {...props} />;

@@ -592,6 +592,13 @@ function MessageActions({
   readonly onCopy: () => void;
   readonly onSent: () => void;
 }): React.JSX.Element {
+  const lienEnvoi: { href: string; libelle: string; externe: boolean } | null =
+    gmailLink !== undefined && gmailLink !== null
+      ? { href: gmailLink, libelle: 'Ouvrir dans Gmail ↗', externe: true }
+      : link !== null
+        ? { href: link, libelle: openLabel, externe: channel === 'form' }
+        : null;
+
   return (
     <div className="mt-2.5 flex flex-wrap gap-2">
       <Button variant="outline" onClick={onToggleEdit}>
@@ -602,35 +609,29 @@ function MessageActions({
         {copied ? 'Copié' : 'Copier'}
       </Button>
 
-      {link !== null && (
+      {/*
+        UN SEUL BOUTON D'ENVOI, pas deux qui font la même chose. Le lien
+        « mailto: » et le lien Gmail aboutissent tous deux à un brouillon
+        prérempli : deux boutons côte à côte donnaient le choix d'un client que
+        rien ne distingue, et il fallait choisir avant d'avoir lu le message.
+
+        Gmail passe devant quand il existe — c'est un vrai brouillon, avec pièce
+        jointe et historique. Sinon on garde le lien du canal, qui peut être un
+        formulaire d'agence : là, aucun client de messagerie ne conviendrait.
+      */}
+      {lienEnvoi !== null && (
         <ButtonLink
           data-testid="contact-action"
           variant="outline"
-          href={link}
-          target={channel === 'form' ? '_blank' : undefined}
-          rel="noreferrer noopener"
-          onClick={() => {
-            if (channel === 'form' || channel === 'email') onCopy();
-            onSent();
-          }}
-        >
-          {openLabel}
-        </ButtonLink>
-      )}
-
-      {gmailLink && (
-        <ButtonLink
-          data-testid="contact-gmail-action"
-          variant="outline"
-          href={gmailLink}
-          target="_blank"
+          href={lienEnvoi.href}
+          target={lienEnvoi.externe ? '_blank' : undefined}
           rel="noreferrer noopener"
           onClick={() => {
             onCopy();
             onSent();
           }}
         >
-          Ouvrir dans Gmail ↗
+          {lienEnvoi.libelle}
         </ButtonLink>
       )}
     </div>

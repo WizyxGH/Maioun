@@ -199,11 +199,23 @@ function mapApimoJsonLd(property: JsonLdNode, agent: JsonLdNode | undefined): Js
 /**
  * Décode le graphe JSON-LD d'une fiche. `null` si aucun bien. On cherche le
  * nœud qui porte le bien (pas l'Organization ni le Product SEO générique).
+ *
+ * `realestatelisting` EST DANS LA LISTE, et son absence coûtait TOUTES les photos
+ * de quatre agences. La plateforme a changé le `@type` du nœud bien : il
+ * vaut `RealEstateListing` là où il valait `apartment`/`house`. Le parseur ne
+ * reconnaissait plus rien, rendait `null`, et l'ensemble du JSON-LD était perdu —
+ * photos comprises. Relevé du 2026-10-03 sur les pages vivantes : Beaumont,
+ * Étude Lotte et Immobilier 2 Nice publient 3 à 6 images dans le JSON-LD, et le
+ * parseur en gardait ZÉRO. Oréa, jusqu'à 15.
+ *
+ * Les anciens noms restent acceptés : rien ne garantit que la plateforme ne
+ * les réemploiera pas sur d'autres gabarits.
  */
 function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
   const nodes = collectJsonLdNodes($);
   const property =
-    findJsonLdNode(nodes, ['apartment', 'house', 'residence']) ?? productProperty(nodes);
+    findJsonLdNode(nodes, ['realestatelisting', 'apartment', 'house', 'residence']) ??
+    productProperty(nodes);
   if (property === undefined) return null;
   return mapApimoJsonLd(property, findJsonLdNode(nodes, ['realestateagent']));
 }

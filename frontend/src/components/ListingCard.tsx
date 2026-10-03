@@ -31,7 +31,6 @@ import {
   rentAllIn,
   scoreBand,
   SHORT_TERM_LEASE_FEATURE,
-  STUDENT_HOUSING_FEATURE,
 } from '@maioun/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
@@ -221,12 +220,12 @@ function StatusBadges({
       {listing.features?.includes(SHORT_TERM_LEASE_FEATURE) === true && (
         <Badge variant="warning">Bail 9 mois</Badge>
       )}
-      {/* Réservé aux étudiants : condition d'ACCÈS, pas argument de vente.
-        Le badge ne s'affiche que sur les formes qui engagent la durée ou
-        l'éligibilité — jamais sur un « idéal étudiant » (§17). */}
-      {listing.features?.includes(STUDENT_HOUSING_FEATURE) === true && (
-        <Badge variant="warning">Réservé aux étudiants</Badge>
-      )}
+      {/* PLUS DE BADGE « RÉSERVÉ AUX ÉTUDIANTS » ICI. Une condition d'accès ne
+        se répète pas sur chaque carte quand le filtre qui l'écarte est actif
+        par défaut : l'annonce était déjà hors de la liste, et le badge
+        n'apparaissait que pour qui avait décoché le filtre — donc précisément
+        là où l'information ne lui apprenait rien. La ligne « bail étudiant »
+        de la fiche, elle, dit pourquoi elle était là (§17). */}
     </>
   );
 }

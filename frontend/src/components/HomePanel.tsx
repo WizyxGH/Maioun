@@ -21,7 +21,6 @@
 import type { ListingView, SourceStateView } from '../types.js';
 import {
   awaitsContact,
-  formatElapsed,
   NICE_RENT_REFERENCE,
   PRIORITY_HOT,
   RENT_REFERENCE_SOURCE,
@@ -192,6 +191,32 @@ function ChoreRow({
   );
 }
 
+/**
+ * Le message d'absence de nouveauté.
+ *
+ * « Aucune nouveauté depuis votre dernière visite (il y a 6 h) » se lisait
+ * comme une promesse — il n'y en a pas eu depuis 6 h — alors que la section
+ * vide signifie seulement : rien n'est arrivé APRÈS la dernière visite. Les
+ * annonces des deux derniers jours y sont déjà : le texte mentait donc dès
+ * qu'une annonce était arrivée avant la visite et après la fenêtre.
+ *
+ * On dit ce qui est vrai, et on propose la seule chose utile quand il reste des
+ * annonces fraîches mais déjà vues.
+ */
+function noFreshMessage(nowMs: number, seenAtMs: number, recentCount: number): string {
+  const depuis = Math.max(0, Math.round((nowMs - seenAtMs) / 60000));
+  const ilYA =
+    depuis >= 120
+      ? `il y a ${Math.round(depuis / 60)} h`
+      : depuis >= 2
+        ? `il y a ${depuis} min`
+        : 'à l’instant';
+  if (recentCount > 0) {
+    return `Rien de nouveau depuis votre dernière visite (${ilYA}), mais ${recentCount} annonce${recentCount > 1 ? 's' : ''} ${recentCount > 1 ? 'sont' : 'est'} arrivée${recentCount > 1 ? 's' : ''} depuis.`;
+  }
+  return `Aucune nouveauté depuis votre dernière visite (${ilYA}).`;
+}
+
 export function HomePanel({
   listings,
   criteriaCount,
@@ -239,6 +264,12 @@ export function HomePanel({
       (a, b) =>
         Date.parse(b.notifiedAt ?? b.firstSeenAt) - Date.parse(a.notifiedAt ?? a.firstSeenAt),
     );
+  // Les annonces de la fenêtre de deux jours, vues ou non : c'est ce qui
+  // permet au message de ne pas laisser croire que le gisement est vide.
+  const recentSince = nowMs - FRESH_HOURS * 60 * 60 * 1000;
+  const recentCount = active.filter(
+    (listing) => Date.parse(listing.firstSeenAt) >= recentSince,
+  ).length;
 
   // À FAIRE : ce qui attend un geste. Une annonce « à contacter » n'a pas
   // encore été appelée ; un favori laissé en « nouvelle » non plus.
@@ -255,8 +286,6 @@ export function HomePanel({
     awaitingReply.length > 0 ||
     favoritesUntouched.length > 0 ||
     !profileComplete;
-
-  const timeAgo = seenAtMs > 0 ? formatElapsed(Math.max(0, (nowMs - seenAtMs) / 60_000)) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -280,8 +309,8 @@ export function HomePanel({
           />
         ) : (
           <p className="text-muted-foreground text-[0.92rem]">
-            {timeAgo !== null
-              ? `Aucune nouveauté depuis votre dernière visite (${timeAgo}).`
+            {seenAtMs > 0
+              ? noFreshMessage(nowMs, seenAtMs, recentCount)
               : 'Aucune nouveauté pour le moment.'}
           </p>
         )}

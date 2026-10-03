@@ -31,6 +31,60 @@ const RESIDENTIAL_URL = 'https://exemple.fr/fr/propriete/location+appartement+ni
 const COMMERCE_URL =
   'https://exemple.fr/fr/propriete/location+commerce+nice+local-atelier+84747869';
 
+/**
+ * LE `@type` A CHANGÉ, et le parseur ne suivait pas.
+ *
+ * La plateforme Apimo/Cello publie aujourd'hui `RealEstateListing` là où elle
+ * publiait `Apartment`. Le nœud n'était plus reconnu, tout le JSON-LD était
+ * perdu — et avec lui les photos. Relevé du 2026-10-03 sur les pages vivantes :
+ * Beaumont, Étude Lotte et Immobilier 2 Nice gardaient ZÉRO image sur une fiche
+ * qui en publie trois à six.
+ */
+function ficheReelEstateListing(): string {
+  return `<!DOCTYPE html><html><head>
+    <script type="application/ld+json">${JSON.stringify({
+      '@graph': [
+        { '@type': 'RealEstateAgent', name: 'Agence' },
+        {
+          '@type': 'RealEstateListing',
+          name: 'Beau T2',
+          numberOfRooms: 2,
+          floorSize: { value: 30 },
+          offers: { price: 650 },
+          address: { addressLocality: 'Nice', postalCode: '06000' },
+          image: [
+            'https://cdn.exemple.fr/photo1.jpg',
+            'https://cdn.exemple.fr/photo2.jpg',
+            'https://cdn.exemple.fr/photo3.jpg',
+            'https://cdn.exemple.fr/photo4.jpg',
+          ],
+        },
+      ],
+    })}</script></head><body></body></html>`;
+}
+
+describe('le `@type` de la plateforme', () => {
+  it('lit un nœud `RealEstateListing` comme avant `Apartment`', () => {
+    // SANS ce `@type` accepté, la fiche rend `listing: null` : tout le JSON-LD
+    // est perdu — le prix, la surface, et les photos.
+    const { listing } = parseDetailPage(ficheReelEstateListing(), RESIDENTIAL_URL, AGENCY);
+    expect(listing).not.toBeNull();
+    expect(listing?.priceText).toContain('650');
+    expect(listing?.areaText).toContain('30');
+  });
+
+  it('en garde TOUTES les photos, pas zéro', () => {
+    const { listing } = parseDetailPage(ficheReelEstateListing(), RESIDENTIAL_URL, AGENCY);
+    // C'est le gain de la correction : quatre photos publiées, quatre gardées.
+    expect(listing?.imageUrls).toEqual([
+      'https://cdn.exemple.fr/photo1.jpg',
+      'https://cdn.exemple.fr/photo2.jpg',
+      'https://cdn.exemple.fr/photo3.jpg',
+      'https://cdn.exemple.fr/photo4.jpg',
+    ]);
+  });
+});
+
 describe('parseDetailPage — garde-fous (§3, §17)', () => {
   it('garde une location résidentielle disponible', () => {
     const { listing } = parseDetailPage(residentialHtml(), RESIDENTIAL_URL, AGENCY);

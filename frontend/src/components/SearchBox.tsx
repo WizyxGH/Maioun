@@ -38,6 +38,8 @@ export function SearchBox({
   /** Entrée surlignée au clavier. `-1` = aucune, la saisie fait foi. */
   const [active, setActive] = useState(-1);
   const box = useRef<HTMLDivElement>(null);
+  /** Le champ lui-même : le double-clic sur la barre doit y mettre le curseur. */
+  const input = useRef<HTMLInputElement>(null);
   const listId = useId();
 
   const suggestions = open ? suggestSearch(listings, value) : [];
@@ -88,8 +90,14 @@ export function SearchBox({
   };
 
   return (
-    <div ref={box} className="relative min-w-0 flex-1">
+    // LE DOUBLE-CLIC SUR LA BARRE MET LE CURSEUR DANS LE CHAMP. Sans cela il
+    // ne se passait rien, alors que c'est le geste attendu d'une barre de
+    // recherche — et sur un champ déjà rempli, un seul clic ne révèle pas
+    // complètement le texte. Le premier clic ouvre les suggestions, le second
+    // place le curseur entre les caractères.
+    <div ref={box} className="relative min-w-0 flex-1" onDoubleClick={() => input.current?.focus()}>
       <Input
+        ref={input}
         type="search"
         value={value}
         onChange={(event) => {
