@@ -23,19 +23,15 @@ import {
   settingsAvailable,
   type StoredReferencePoint,
 } from '../api/client.js';
-import { REFERENCE_TRAVEL_MODES, type ReferenceTravelMode } from '@maioun/shared';
+import {
+  REFERENCE_TRAVEL_MODES,
+  TRAVEL_MODE_LABELS,
+  type ReferenceTravelMode,
+} from '@maioun/shared';
 import { Button } from '@/components/ui/button.js';
 import { Select } from '@/components/ui/select.js';
 import { Input } from '@/components/ui/input.js';
 import { Alert, AlertDescription } from '@/components/ui/alert.js';
-
-const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
-  walking: 'à pied',
-  cycling: 'à vélo',
-  transit: 'en bus ou tram',
-  train: 'en train (TER)',
-  driving: 'en voiture',
-};
 
 /** Ce qu'on propose quand la liste est vide : les deux repères habituels. */
 const SUGGESTED: readonly StoredReferencePoint[] = [
@@ -153,7 +149,7 @@ export function ReferencePointsSection(): React.JSX.Element | null {
                 >
                   {REFERENCE_TRAVEL_MODES.map((mode) => (
                     <option key={mode} value={mode}>
-                      {MODE_LABELS[mode]}
+                      {TRAVEL_MODE_LABELS[mode]}
                     </option>
                   ))}
                 </Select>

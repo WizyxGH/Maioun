@@ -50,6 +50,21 @@ export const REFERENCE_TRAVEL_MODES: readonly ReferenceTravelMode[] = [
 ];
 
 /**
+ * Les modes, dits comme on les dit — « à pied », et non « walking ».
+ *
+ * « En transports en commun », et pas « en bus ou tram » : le calcul retient
+ * aussi le train, et l'intitulé ne doit pas en promettre moins. `train` garde
+ * le même libellé, pour un repère enregistré du temps où c'était un choix.
+ */
+export const TRAVEL_MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
+  walking: 'à pied',
+  cycling: 'à vélo',
+  transit: 'en transports en commun',
+  train: 'en transports en commun',
+  driving: 'en voiture',
+};
+
+/**
  * Le mode tel qu'on le traite aujourd'hui.
  *
  * UN POINT DE REPÈRE ENREGISTRÉ « EN TRAIN » NE DISPARAÎT PAS et ne change pas

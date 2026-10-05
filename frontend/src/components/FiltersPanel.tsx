@@ -36,23 +36,11 @@ import {
   districtBySlug,
   normalizeTravelMode,
   REFERENCE_TRAVEL_MODES,
+  TRAVEL_MODE_LABELS,
   type ReferenceTravelMode,
 } from '@maioun/shared';
 import { Select } from '@/components/ui/select.js';
 
-/**
- * Les modes, dits comme on les dit — « à pied », et non « walking ».
- *
- * `train` n'est plus proposé : bus, tram et TER sont un seul choix. L'intitulé
- * reste pour un critère enregistré du temps où c'en était un.
- */
-const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
-  walking: 'à pied',
-  cycling: 'à vélo',
-  transit: 'en transports en commun',
-  train: 'en transports en commun',
-  driving: 'en voiture',
-};
 import { PanelSkeleton } from './Skeletons.js';
 import { MultiSelect } from '@/components/ui/multi-select.js';
 import { PillButton } from './QuickFilters.js';
@@ -317,7 +305,7 @@ export function FiltersPanel({
             >
               {REFERENCE_TRAVEL_MODES.map((mode) => (
                 <option key={mode} value={mode}>
-                  {MODE_LABELS[mode]}
+                  {TRAVEL_MODE_LABELS[mode]}
                 </option>
               ))}
             </Select>

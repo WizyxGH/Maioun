@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  TRAVEL_MODE_LABELS,
   convertEstimatedDuration,
   estimateTravelMinutes,
   parseReferencePoints,
@@ -117,5 +118,13 @@ describe('convertEstimatedDuration', () => {
     expect(convertEstimatedDuration(50, 'train', 'walking')).toBe(
       convertEstimatedDuration(50, 'transit', 'walking'),
     );
+  });
+});
+
+describe('TRAVEL_MODE_LABELS', () => {
+  it('dit « transports en commun » : le calcul compte aussi le train', () => {
+    expect(TRAVEL_MODE_LABELS.transit).toBe('en transports en commun');
+    // Un repère enregistré « en train » se lit de la même façon.
+    expect(TRAVEL_MODE_LABELS.train).toBe(TRAVEL_MODE_LABELS.transit);
   });
 });
