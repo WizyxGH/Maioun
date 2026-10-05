@@ -302,7 +302,7 @@ export function ProfileForm({
             type="url"
             inputMode="url"
             value={profile.dossierFacileUrl ?? ''}
-            placeholder="https://www.dossierfacile.logement.gouv.fr/file/…"
+            placeholder="https://locataire.dossierfacile.logement.gouv.fr/file/…"
             onChange={(event) => update('dossierFacileUrl', event.target.value)}
           />
           {dossierProbleme && (

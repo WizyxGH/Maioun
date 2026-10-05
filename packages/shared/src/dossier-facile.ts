@@ -21,25 +21,50 @@
 const OFFICIAL_HOST = 'dossierfacile.logement.gouv.fr';
 
 /**
+ * L'alias que le service redirige vers le domaine officiel, sous-domaine et
+ * chemin compris (`locataire.dossierfacile.fr/file/…` → `locataire.
+ * dossierfacile.logement.gouv.fr/file/…`, vérifié le 2026-10-05).
+ */
+const ALIAS_HOST = 'dossierfacile.fr';
+
+/** Le domaine exact, ou un de ses sous-domaines — pas un domaine qui le prolonge. */
+function sous(host: string, domaine: string): boolean {
+  // `endsWith` seul laisserait passer « dossierfacile.logement.gouv.fr.pirate.fr ».
+  return host === domaine || host.endsWith(`.${domaine}`);
+}
+
+/**
  * L'adresse si c'est bien un lien DossierFacile officiel, `null` sinon.
  *
- * Rend l'adresse NORMALISÉE — espaces retirés — pour que la comparaison et
- * l'affichage portent sur la même chose.
+ * Rend l'adresse NORMALISÉE, et c'est elle qui part dans les messages : en
+ * HTTPS, sur le domaine officiel, sans les espaces d'un copier-coller.
+ *
+ * LES BONNES ADRESSES PASSENT TOUTES. On refusait l'alias `dossierfacile.fr`
+ * que le service distribue, un lien collé sans `https://`, ou écrit en
+ * `http://` : autant de vrais dossiers déclarés « pas une adresse
+ * DossierFacile ». Le domaine reste la seule porte, et c'est lui qui protège
+ * de l'hameçonnage ; le schéma, lui, est réécrit.
  */
 export function dossierFacileLink(value: string | null | undefined): string | null {
   const trimmed = (value ?? '').trim();
   if (trimmed === '') return null;
   let parsed: URL;
   try {
-    parsed = new URL(trimmed);
+    parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
   } catch {
     return null;
   }
-  if (parsed.protocol !== 'https:') return null;
-  const host = parsed.hostname.toLowerCase();
-  // `endsWith` seul laisserait passer « dossierfacile.logement.gouv.fr.pirate.fr » :
-  // il faut le domaine exact, ou un de ses sous-domaines.
-  if (host !== OFFICIAL_HOST && !host.endsWith(`.${OFFICIAL_HOST}`)) return null;
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+  if (parsed.username !== '' || parsed.password !== '' || parsed.port !== '') return null;
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
+  if (sous(host, OFFICIAL_HOST)) {
+    parsed.hostname = host;
+  } else if (sous(host, ALIAS_HOST)) {
+    parsed.hostname = `${host.slice(0, -ALIAS_HOST.length)}${OFFICIAL_HOST}`;
+  } else {
+    return null;
+  }
+  parsed.protocol = 'https:';
   return parsed.toString();
 }
 

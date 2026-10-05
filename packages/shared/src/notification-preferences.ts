@@ -51,7 +51,7 @@ export interface NotificationPreferences {
    *
    * Actif par défaut. Une baisse de loyer est l'un des signaux les plus forts
    * pour un locataire — et c'est une modification comme les autres : les deux
-   * antiguos interrupteurs ne servaient qu'à demander deux fois la même chose.
+   * anciens interrupteurs ne servaient qu'à demander deux fois la même chose.
    *
    * Ne concerne que les annonces DANS LES CRITÈRES : une annonce mise de côté
    * à la main ne se signale plus parce qu'on l'a aimée.
