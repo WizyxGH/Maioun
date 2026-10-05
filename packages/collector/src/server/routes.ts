@@ -1580,6 +1580,37 @@ async function handleConfigRoute(
 }
 
 /** Ressource `listings` : collection, élément et sous-ressource `contact`. */
+/**
+ * LES IDENTIFIANTS D'UNE RECHERCHE, ET RIEN D'AUTRE.
+ *
+ * La tuile d'accueil annonce le nombre d'annonces que ramène l'UNION des
+ * recherches enregistrées. Additionner leurs totaux compterait deux fois ce qui
+ * se recoupe — et deux recherches qui se chevauchent se recoupent presque
+ * toujours, puisqu'elles visent la même ville. Il faut les identifiants, pour
+ * les dédoublonner côté client, et rien d'autre : une liste complète d'annonces
+ * pour trois nombres à l'écran serait un luxe coûteux.
+ *
+ * MÊME REQUÊTE QUE `/api/listings`, donc les mêmes règles : un compte lit ses
+ * propres critères, un visiteur ceux qu'on lui passe. Le stock niçois tient en
+ * quelques centaines de lignes ; la borne reste la même que celle de la liste,
+ * pour ne pas promettre un compte que l'identifiant ne pourrait pas porter.
+ */
+async function listListingIds(
+  db: Client,
+  url: URL,
+  filters: LiveFilters | undefined,
+  anonymous: boolean,
+  userId: string,
+): Promise<Set<string>> {
+  const query = buildListQuery(url, filters, anonymous);
+  const result = await db.execute({
+    sql: `SELECT listings.id FROM listings ${USER_STATE_JOIN} ${query.filter}
+          ORDER BY ${query.orderBy} LIMIT 500`,
+    args: [userId, userId, ...query.filterArgs],
+  });
+  return new Set(result.rows.map((row) => String((row as Record<string, unknown>)['id'])));
+}
+
 async function handleListingsRoute(
   db: Client,
   method: string,
@@ -1590,6 +1621,22 @@ async function handleListingsRoute(
   cors: Record<string, string>,
   userId: string,
 ): Promise<Response> {
+  /**
+   * `/api/listings/ids` — les identifiants seuls, pour l'union des recherches.
+   *
+   * Traité AVANT la collection : sinon `ids` serait pris pour un identifiant
+   * d'annonce, et la route répondrait « annonce introuvable » à une demande
+   * parfaitement légitime.
+   */
+  if (action === 'ids' && id === undefined && method === 'GET') {
+    const anonymous = userId === ANONYMOUS_USER;
+    const shared = anonymous ? sharedCriteria(url) : undefined;
+    if (shared === null) return json({ error: 'Critères illisibles' }, cors, 400);
+    const filters = anonymous ? shared : await liveFilters(db, userId);
+    const ids = await listListingIds(db, url, filters, anonymous, userId);
+    return json({ ids: [...ids] }, cors);
+  }
+
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
     const anonymous = userId === ANONYMOUS_USER;

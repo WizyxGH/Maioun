@@ -344,6 +344,29 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
 }
 
 /**
+ * Les identifiants qu'une recherche ramène, et rien d'autre.
+ *
+ * Pour l'union des recherches enregistrées : additionner leurs totaux
+ * compterait deux fois ce qui se recoupe, et deux recherches qui visent la même
+ * ville se recoupent presque toujours. Passer par les identifiants, c'est la
+ * seule façon de compter juste.
+ *
+ * Le serveur plafonne à 500 comme la liste. Au-delà, l'union serait comptée
+ * plus bas que la vérité — le même mensonge qu'un compteur tronqué, et c'est
+ * pourquoi la tuile dira qu'elle ignore les recherches qui dépassent.
+ */
+export async function fetchListingIds(criteria: FilterConfig): Promise<readonly string[]> {
+  if (DEMO) {
+    const { MOCK_LISTINGS: stock } = await demoData();
+    return stock.map((listing) => listing.id);
+  }
+  if (API_URL === '') return [];
+  const params = new URLSearchParams({ criteria: JSON.stringify(criteria), limit: '500' });
+  const response = await request<{ ids: string[] }>(`/api/listings/ids?${params.toString()}`);
+  return response.ids;
+}
+
+/**
  * UNE fiche, entière.
  *
  * La liste n'en transporte qu'une version allégée — sans description, sans

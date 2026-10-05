@@ -54,6 +54,15 @@ interface HomePanelProps {
    * 115 sur un ordinateur, pour le même compte.
    */
   readonly criteriaCount: number;
+  /**
+   * `true` quand le compte affiché est en dessous de la vérité : une recherche
+   * dépasse le plafond du serveur, ou l'une d'elles n'a pas répondu.
+   *
+   * ON LE DIT PLUTÔT QUE DE LAISSER CROIRE. Un compteur faux en bas ne se voit
+   * pas — il fait simplement décider qu'il n'y a rien à voir, et c'est
+   * précisément la faute qu'un compteur doit éviter.
+   */
+  readonly criteriaCountApproximatif?: boolean;
   /** `true` tant que la première liste n'est pas arrivée : on ne montre pas de zéros. */
   readonly loading?: boolean;
   readonly sources: readonly SourceStateView[];
@@ -80,19 +89,28 @@ function StatTile({
   Icon,
   onClick,
   accent = false,
+  hint,
 }: {
   readonly label: string;
   readonly value: number;
   readonly Icon: typeof Heart;
   readonly onClick: () => void;
   readonly accent?: boolean;
+  /**
+   * Ce que le chiffre ne dit pas de lui-même — ici qu'il est un plancher.
+   *
+   * Va dans le nom accessible comme dans le texte : un lecteur d'écran qui
+   * annoncerait « 180 dans vos critères » sans le doute文章的 fait autant de
+   * tort qu'un écran qui l'affiche.
+   */
+  readonly hint?: string;
 }): React.JSX.Element {
   // Nommé : l'aller-retour vers la liste ne redéroule pas les mêmes chiffres.
   const affiche = useCountUp(value, `accueil:${label}`);
   return (
     <ItemButton
       onClick={onClick}
-      aria-label={`${value} ${label}`}
+      aria-label={hint === undefined ? `${value} ${label}` : `${value} ${label}, ${hint}`}
       className={cn('flex-col items-start gap-0.5', accent && 'border-hot')}
     >
       <Icon
@@ -108,6 +126,11 @@ function StatTile({
       <span aria-hidden="true" className="text-muted-foreground text-[0.8rem] leading-tight">
         {label}
       </span>
+      {hint !== undefined && (
+        <span aria-hidden="true" className="text-muted-foreground text-[0.7rem] leading-tight">
+          {hint}
+        </span>
+      )}
     </ItemButton>
   );
 }
@@ -220,6 +243,7 @@ function noFreshMessage(nowMs: number, seenAtMs: number, recentCount: number): s
 export function HomePanel({
   listings,
   criteriaCount,
+  criteriaCountApproximatif = false,
   loading = false,
   sources,
   savedSearches,
@@ -398,6 +422,9 @@ export function HomePanel({
               value={criteriaCount}
               Icon={Search}
               onClick={onOpenSearch}
+              {...(criteriaCountApproximatif
+                ? { hint: 'au moins — une recherche dépasse le plafond' }
+                : {})}
             />
             <StatTile
               label="à contacter"

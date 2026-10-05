@@ -252,9 +252,37 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     name: 'Manda',
     origin: 'https://www.manda.fr',
     reason: 'robots',
-    checkedOn: '2026-09-16',
-    refusal: 'robots.txt interdit /location-immobiliere?* et son flux .json',
-    wakesIf: 'la recherche de locations n’est plus interdite',
+    checkedOn: '2026-10-03',
+    // RELU LE 2026-10-03. La fiche initiale ne citait que les deux règles
+    // visibles et laissait de côté la plus large des trois, qui suffit à elle
+    // seule à interdire la source. Relevé intégral :
+    //
+    //   Disallow: /agences/manda-ex-campion-immobilier
+    //   Disallow: /gestion-locative/colocation
+    //   Disallow: /gestion-locative-moderne
+    //   Disallow: /visite/*
+    //   Disallow: /location-immobiliere?*
+    //   Disallow: /location-immobiliere.json
+    //   Disallow: /hyper-local-seo/zone-data.json?*
+    //   Disallow: /hyper-local-seo/map-data.json?*
+    //   Disallow: /vite/assets/*
+    //   Disallow: ?
+    //
+    // LA DERNIÈRE LIGNE EST CELLE QUI COMPTE : « Disallow: ? » ferme TOUT ce qui
+    // porte un point d'interrogation — donc la liste des locations, quel que soit
+    // le jeu de filtres. Aucune URL de liste n'est lisible, et une liste sans
+    // paramètres n'en dit rien sur le reste du site : on ne peut pas en déduire
+    // que les fiches unitaires seraient autorisées.
+    //
+    // ET IL N'Y A RIEN À COLLECTER : le sitemap ne contient que des
+    // PAGES D'AGENCE ET DE RUE (nice-06000, avenue-feric, rue-massena) — des
+    // estimations de loyer par secteur — et des pages de marché. Aucune annonce
+    // locative à l'unité, donc rien à dédoublonner. Les deux motifs sont
+    // indépendants : même robots.txt ouvert, il n'y aurait rien à collecter.
+    refusal:
+      'robots.txt : « Disallow: ? » ferme toute liste de locations, plus /location-immobiliere?* et son flux .json ; et le sitemap ne publie que des pages d’agence et de rue, aucune annonce à l’unité',
+    wakesIf:
+      'la ligne « Disallow: ? » disparaît ET le site publie des annonces de location à l’unité dans le périmètre',
     probe: { kind: 'robots', path: '/location-immobiliere?page=1' },
   },
   {

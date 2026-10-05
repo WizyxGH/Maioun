@@ -63,6 +63,7 @@ import {
   fetchTenantProfile,
   saveTenantProfile,
   clearTenantProfile,
+  fetchListingIds,
   fetchNotificationSources,
   saveNotificationSources,
 } from './api/client.js';
@@ -1462,27 +1463,79 @@ function AppView(): React.JSX.Element {
     [ranked, grouped, urgent],
   );
 
-  // LE COMPTE DU COMPTE, et non celui de la liste affichée. La tuile d'accueil
-  // annonçait `filtered.length` : son chiffre dépendait des filtres conservés
-  // DANS CE NAVIGATEUR (localStorage) et des 50 premières fiches du chargement
-  // en deux temps. Le même compte affichait donc 98 sur un téléphone et 115 sur
-  // un ordinateur, sans qu'aucune annonce ait bougé.
-  //
-  // Aucun filtre d'affichage n'entre ici : ce sont les critères DU COMPTE, que
-  // le serveur a posés sur chaque fiche (`matches_criteria`). On exclut ce que la
-  // recherche n'affiche pas — archivée, louée, disparue — sur la règle de
-  // `fetchStats`, pour que la tuile et les statistiques disent le même chiffre.
-  const criteriaCount = useMemo(
-    () =>
-      listings.filter(
-        (listing) =>
-          listing.matchesCriteria &&
-          listing.archived !== true &&
-          listing.rented !== true &&
-          listing.lifecycle === 'active',
-      ).length,
-    [listings],
-  );
+  /**
+   * LE COMPTE DE L'UNION DES RECHERCHES ENREGISTRÉES.
+   *
+   * LA TUILE DISAIT 180 ET LA RECHERCHE 78, sans qu'aucune annonce ait bougé.
+   * Deux causes, aucune n'étant une faute de l'utilisateur : la tuile comptait
+   * les critères du COMPTE, la recherche comptait `filtered.length` — la liste
+   * APRÈS les filtres d'affichage, conservés d'un appareil à l'autre. Le même
+   * mot, deux définitions, et les filtres qui changeaient entre le téléphone et
+   * l'ordinateur.
+   *
+   * LES DEUX NOMMENT AUJOURD'HUI LA MÊME CHOSE : l'union de ce que ramènent
+   * toutes les recherches enregistrées. Un compte n'appartient pas à une
+   * recherche — c'est ce que dit l'union, et ce que la tuile signifiait déjà.
+   * Additionner les totaux aurait compté deux fois les annonces communes à
+   * plusieurs recherches, ce qui arrive dès qu'il y en a deux sur la même
+   * ville : on passe donc par les IDENTIFIANTS, dédoublonnés.
+   *
+   * SANS RECHERCHE ENREGISTRÉE, l'union EST le compte du compte : les critères
+   * que le serveur a posés sur chaque fiche, viasans les archivées, les louées,
+   * et celles qui ne sont plus actives. C'est le chiffre que la tuile
+   * annonçait déjà, et il reste juste.
+   *
+   * LE PLAFOND EST DIT, JAMAIS TENU POUR UN VRAI. Le serveur s'arrête à 500
+   * identifiants comme la liste ; une recherche qui dépasse ce nombre verrait
+   * son total sous-compté. Plutôt que de laisser croire, on affiche le nombre
+   * qu'on sait et on le signale.
+   */
+  const [unionIds, setUnionIds] = useState<ReadonlySet<string> | null>(null);
+  const [unionTronquee, setUnionTronquee] = useState(false);
+
+  useEffect(() => {
+    if (currentUser === undefined) return;
+    // Le visiteur n'a pas de recherches enregistrées : le compte du compte suffit.
+    if (currentUser === null || savedSearches.length === 0) {
+      setUnionIds(null);
+      setUnionTronquee(false);
+      return;
+    }
+    let annule = false;
+    void Promise.all(
+      savedSearches.map((saved) => fetchListingIds(saved.criteria).catch(() => null)),
+    ).then((reponses) => {
+      if (annule) return;
+      const fusion = new Set<string>();
+      let tronquee = false;
+      for (const reponse of reponses) {
+        // Un refus n'est pas un zéro : le compte afficherait moins que ce qu'il
+        // sait. On garde l'union partielle et on le signale.
+        if (reponse === null) {
+          tronquee = true;
+          continue;
+        }
+        if (reponse.length >= 500) tronquee = true;
+        for (const id of reponse) fusion.add(id);
+      }
+      setUnionIds(fusion);
+      setUnionTronquee(tronquee);
+    });
+    return () => {
+      annule = true;
+    };
+  }, [currentUser, savedSearches]);
+
+  const criteriaCount = useMemo(() => {
+    if (unionIds !== null) return unionIds.size;
+    return listings.filter(
+      (listing) =>
+        listing.matchesCriteria &&
+        listing.archived !== true &&
+        listing.rented !== true &&
+        listing.lifecycle === 'active',
+    ).length;
+  }, [unionIds, listings]);
 
   /**
    * LE DERNIER CHARGEMENT LANCÉ FAIT FOI. Changer de tri pendant qu'une réponse
@@ -2370,6 +2423,7 @@ function AppView(): React.JSX.Element {
           <HomePanel
             listings={listings}
             criteriaCount={criteriaCount}
+            criteriaCountApproximatif={unionTronquee}
             loading={loading}
             sources={sources}
             savedSearches={savedSearches}
@@ -2824,7 +2878,14 @@ function AppView(): React.JSX.Element {
             vérifier reste précisée, sans être retranchée. */}
           {!loading && (
             <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
-              {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+              {/* LE MEME CHIFFRE QUE LA TUILE, ET POUR LA MEME RAISON : sans
+                recherche enregistrée, l'union des recherches EST le compte du
+                compte. Avant, cette ligne comptait `filtered.length` — la liste
+                après les filtres d'affichage — et la tuile comptait les critères
+                du compte : 180 d'un côté, 78 de l'autre, pour les mêmes
+                annonces. Les filtres de cet appareil changeaient le chiffre, ce
+                qui est la pire des deux raisons. */}
+              {criteriaCount} résultat{criteriaCount > 1 ? 's' : ''}
               {uncertainCount > 0 && (
                 <span className="font-normal"> · {uncertainCount} à vérifier</span>
               )}

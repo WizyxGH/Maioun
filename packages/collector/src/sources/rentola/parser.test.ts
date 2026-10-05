@@ -302,3 +302,52 @@ describe('le repli HTML, quand le site ne sert plus de JSON-LD', () => {
     expect(detail?.postalCodeText).toBeUndefined();
   });
 });
+
+/**
+ * LE CHEMIN JSON-LD RESPECTE LA MÊME RÈGLE QUE LE REPLI HTML.
+ *
+ * Le garde sur les images d'illustration n'existait que d'un côté : une annonce
+ * dont la carte publie un bloc JSON passait son logo et son « pas de bien » en
+ * photos du logement. Le repli HTML, lui, les écartait — si bien qu'une règle
+ * appliquée à moitié avait l'air de fonctionner.
+ *
+ * Relevé sur 314 fiches du miroir local : 2 logos et 2 images par défaut.
+ */
+describe('les images du chemin JSON-LD sont filtrées comme celles du HTML', () => {
+  const html = `<html><body>
+    <script type="application/ld+json">
+      ${JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SearchResultsPage',
+        mainEntity: {
+          '@type': 'ItemList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              url: 'https://rentola.fr/listings/parking-a-louer-nice-pc3257f',
+              item: {
+                '@type': 'RealEstateListing',
+                name: 'Parking à louer',
+                url: 'https://rentola.fr/listings/parking-a-louer-nice-pc3257f',
+                image: [
+                  'https://griguer-immobilier.com/wp-content/uploads/2022/10/Gabarit-PARKING-LogoColor-FondBlanc-Small.png',
+                  'https://gtiorpi.staticlbi.com/original/images/no_bien.jpg',
+                  'https://cdn.example.com/photos/façade-principale.jpg',
+                ],
+              },
+            },
+          ],
+        },
+      })}
+    </script>
+  </body></html>`;
+
+  it('écarte le logo et l’image par défaut, garde la vraie photo', () => {
+    const page = parseSearchPage(html, 'https://rentola.fr/recherche');
+    expect(page.listings).toHaveLength(1);
+    expect(page.listings[0]?.imageUrls).toEqual([
+      'https://cdn.example.com/photos/façade-principale.jpg',
+    ]);
+  });
+});

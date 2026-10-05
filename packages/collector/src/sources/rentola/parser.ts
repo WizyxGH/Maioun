@@ -75,14 +75,11 @@ function listingFromJsonLd(item: JsonLdRealEstate, fallbackUrl: string): RawList
   const floorSize = itemOffered?.floorSize;
   const bedrooms = itemOffered?.numberOfBedrooms?.value;
 
-  const images: string[] = [];
-  if (Array.isArray(item.image)) {
-    for (const img of item.image) {
-      if (typeof img === 'string' && img.startsWith('http')) images.push(img);
-    }
-  } else if (typeof item.image === 'string' && item.image.startsWith('http')) {
-    images.push(item.image);
-  }
+  // LE MÊME GARDE QUE LE REPLI HTML. Ce chemin reprenait toutes les URL telles
+  // quelles : une annonce dont la source publie un JSON-LD passait ses logos et
+  // ses images « pas de bien » en photos du logement. Deux chemins, une seule
+  // règle — sinon elle n'est appliquée qu'à moitié, sans que rien le dise.
+  const images = keepPhotos(Array.isArray(item.image) ? item.image : [item.image]);
 
   const rawTitle = item.name ? cleanText(item.name) : undefined;
   const street = address?.streetAddress ? cleanText(address.streetAddress) : undefined;
@@ -138,6 +135,29 @@ function isIllustration(src: string): boolean {
 }
 
 /**
+ * Les URL qui sont vraiment des PHOTOS, dans l'ordre et sans doublon.
+ *
+ * Les deux chemins — le JSON de la carte et le repli HTML — passent par ici. Un
+ * garde ne vaut que s'il couvre tout : appliqué au seul repli, il laissait
+ * passer tout ce qui venait de l'autre, et l'utilisateur voyait un logo en guise
+ * de photo sans qu'aucun journal ne le dise.
+ *
+ * `no_bien` et ses voisins sont les images par défaut des portails : une photo
+ * « bien introuvable » n'est pas une photo, et le relais de photos ne peut
+ * pas la remplacer.
+ */
+function keepPhotos(candidates: readonly unknown[]): string[] {
+  const found: string[] = [];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string' || !candidate.startsWith('http')) continue;
+    if (isIllustration(candidate)) continue;
+    if (/\bno[_-]?(bien|image|photo|visuel)|picture-?placeholder/i.test(candidate)) continue;
+    if (!found.includes(candidate)) found.push(candidate);
+  }
+  return found;
+}
+
+/**
  * La carte la PLUS ÉTROITE qui porte encore le lien : la plus petite possible.
  *
  * Remonter trop loin avale les voisins — c'est ainsi qu'une annonce héritait des
@@ -164,7 +184,7 @@ function imagesOf(
   card: string | cheerio.Cheerio<never>,
   pageUrl: string,
 ): string[] {
-  const found: string[] = [];
+  const candidates: string[] = [];
   const scope = typeof card === 'string' ? $(card) : card;
   scope.find('img[src], img[data-src], source[srcset]').each((_index, image) => {
     const el = $(image);
@@ -173,12 +193,12 @@ function imagesOf(
       if (raw === undefined) continue;
       for (const candidate of raw.split(',').map((part) => part.trim().split(' ')[0] ?? '')) {
         const absolute = candidate.startsWith('http') ? candidate : safeUrl(candidate, pageUrl);
-        if (absolute === null || absolute === '' || isIllustration(absolute)) continue;
-        if (!found.includes(absolute)) found.push(absolute);
+        if (absolute !== null && absolute !== '') candidates.push(absolute);
       }
     }
   });
-  return found;
+  // Même garde que le chemin JSON : une image relative a d'abord été rendue absolue.
+  return keepPhotos(candidates);
 }
 
 /** L'URL absolue d'une source relative, ou `null` si elle n'en est pas une. */

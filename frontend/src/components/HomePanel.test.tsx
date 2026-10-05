@@ -131,3 +131,35 @@ describe('carrousel des nouveautés', () => {
     expect(screen.queryByRole('list', { name: /Nouveautés/i })).toBeNull();
   });
 });
+
+/**
+ * UNE SEULE RECHERCHE : LE COMPTE VIENT DU SERVEUR.
+ *
+ * La tuile ne doit plus dépendre des filtres d'affichage — c'est ce qui la
+ * faisait dire 180 à l'accueil et 78 à la recherche pour les mêmes annonces,
+ * selon l'appareil.
+ */
+describe('la tuile des critères', () => {
+  it("porte le compte de l'union, et signale le plafond", async () => {
+    render(<Accueil criteriaCount={42} criteriaCountApproximatif />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /dans vos critères/ })).toBeDefined(),
+    );
+    // Le doute va dans le nom accessible, pas seulement à l'écran : un lecteur
+    // qui annoncerait « 42 dans vos critères » ferait autant de tort qu'un écran.
+    expect(
+      screen.getByRole('button', {
+        name: '42 dans vos critères, au moins — une recherche dépasse le plafond',
+      }),
+    ).toBeDefined();
+    expect(screen.getByText('au moins — une recherche dépasse le plafond')).toBeDefined();
+  });
+
+  it('ne signale rien quand le compte est exact', async () => {
+    render(<Accueil criteriaCount={42} />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '42 dans vos critères' })).toBeDefined(),
+    );
+    expect(screen.queryByText(/au moins/)).toBeNull();
+  });
+});
