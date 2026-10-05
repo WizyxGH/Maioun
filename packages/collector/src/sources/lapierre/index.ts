@@ -12,5 +12,6 @@ export const lapierreScraper = makeHektorScraper({
   id: 'lapierre',
   name: 'Anne-Sophie Lapierre Immobilier',
   domain: 'lapierre-immobilier.com',
+  logo: 'https://www.lapierre-immobilier.com/images/favicon.png',
   listUrls: ['https://www.lapierre-immobilier.com/location/1'],
 });

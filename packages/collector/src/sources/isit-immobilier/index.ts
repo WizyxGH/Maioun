@@ -13,6 +13,7 @@ export const isitImmobilierScraper = makeApimoScraper({
   id: 'isit-immobilier',
   name: 'ISIT Immobilier',
   domain: 'isitimmo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3726/media/97e7038b1a7bc3c48e202e8089c35fd2.jpeg',
   agencyContact: {
     phone: '04 93 16 80 62', // secret-scan-ignore
     email: 'info@isitimmo.com', // secret-scan-ignore

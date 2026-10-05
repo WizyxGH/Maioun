@@ -22,6 +22,7 @@ const CONFIG = {
   id: 'cot-ouest',
   name: "Cot'Ouest Immobilier",
   siteUrl: 'https://www.cotouest-immobilier.com',
+  logo: 'https://medias.twimmopro.com/sitemanager/69875c06deadd7086509b8e5',
   maxDetails: 6,
   agencyContact: {
     phone: '04 92 09 77 20', // secret-scan-ignore

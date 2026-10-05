@@ -22,6 +22,7 @@ export const dragoScraper = makeIcsScraper({
   id: 'drago',
   name: 'Cabinet Drago',
   domain: 'cabinet-drago.com',
+  logo: 'https://www.cabinet-drago.com/favicon.ico',
   agencyContact: { address: { street: '29 rue Pastorelli', postalCode: '06000', city: 'Nice' } },
   listUrl: 'https://www.cabinet-drago.com/location?transac=location',
 });

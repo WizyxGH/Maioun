@@ -17,16 +17,15 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseListPage, saysNoResults } from './parser.js';
 import { stopReasonFromError } from '../shared/stop-reason.js';
+import { identiteAgence, type IdentiteAgence } from '../shared/agency-identity.js';
 
-export interface IcsConfig {
+export interface IcsConfig extends IdentiteAgence {
   readonly id: string;
   readonly name: string;
   readonly domain: string;
   /** Page de résultats filtrée sur la location. */
   readonly listUrl: string;
   readonly priority?: number;
-  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
-  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export function makeIcsDescriptor(config: IcsConfig): SourceDescriptor {
@@ -41,7 +40,7 @@ export function makeIcsDescriptor(config: IcsConfig): SourceDescriptor {
     budget: budgetFor('localAgency', { maxPagesPerRun: 1, maxListingsPerRun: 40 }),
     enabled: true,
     allowedPaths: ['/location*'],
-    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
+    ...identiteAgence(config),
     notes:
       'Plateforme ICS (ics.fr), adaptateur générique (§47). La page de liste ' +
       'sérialise ses annonces dans un `var properties = [...]` : une requête ' +

@@ -39,6 +39,7 @@ import { ContactPanel } from './ContactPanel.js';
 import { RequirementsPanel } from './RequirementsPanel.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { splitPhotos } from '../photos.js';
+import { safeHref } from '../safe-url.js';
 import { readableDescription } from '../description-text.js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.js';
 import { Badge } from '@/components/ui/badge.js';
@@ -414,10 +415,13 @@ const classeOu = (etiquette: ListingView['dpe']): string =>
 function Photos({
   urls,
   videoUrl,
+  occurrences,
 }: {
   readonly urls: readonly string[];
   /** La visite en vidéo, en tête du carrousel — voir `PhotoCarousel`. */
   readonly videoUrl?: string;
+  /** Les annonces chez les sources : seul endroit où voir des photos qu'elles réservent. */
+  readonly occurrences: ListingView['occurrences'];
 }): React.JSX.Element | null {
   const photos = splitPhotos(urls);
   if (photos.embeddable.length > 0 || videoUrl !== undefined) {
@@ -434,8 +438,50 @@ function Photos({
       </div>
     );
   }
-  if (photos.linkOnly.length === 0) return null;
-  return <LinkOnlyPhotos urls={photos.linkOnly.slice(0, 12)} />;
+  if (photos.linkOnly.length > 0) return <LinkOnlyPhotos urls={photos.linkOnly.slice(0, 12)} />;
+  if (photos.reservedToSource > 0) {
+    return <PhotosAtSource count={photos.reservedToSource} sourceUrl={occurrences[0]?.sourceUrl} />;
+  }
+  return null;
+}
+
+/**
+ * DES PHOTOS EXISTENT, ET ON LE DIT. La source les réserve à son site : on ne
+ * peut ni les montrer ni les ouvrir, mais une fiche muette laissait croire à
+ * une annonce sans photo.
+ */
+function PhotosAtSource({
+  count,
+  sourceUrl,
+}: {
+  readonly count: number;
+  readonly sourceUrl: string | undefined;
+}): React.JSX.Element {
+  const lien = sourceUrl === undefined ? null : safeHref(sourceUrl);
+  return (
+    <div
+      className="bg-muted/60 mb-3 rounded-xl border border-dashed p-3"
+      data-testid="photos-at-source"
+    >
+      <p className="text-muted-foreground flex items-center gap-2 text-[0.85rem]">
+        <ImageOff aria-hidden="true" className="size-4 shrink-0" />
+        <span>
+          {count} photo{count > 1 ? 's' : ''} — la source ne les laisse voir que sur son propre
+          site.{' '}
+          {lien !== null && (
+            <a
+              href={lien}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary underline"
+            >
+              Les voir sur l’annonce d’origine
+            </a>
+          )}
+        </span>
+      </p>
+    </div>
+  );
 }
 
 function LinkOnlyPhotos({ urls }: { readonly urls: readonly string[] }): React.JSX.Element {
@@ -599,6 +645,7 @@ export function ListingDetail({
       <Photos
         urls={listing.imageUrls}
         {...(listing.videoUrl != null ? { videoUrl: listing.videoUrl } : {})}
+        occurrences={listing.occurrences}
       />
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>

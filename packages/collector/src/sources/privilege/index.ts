@@ -9,5 +9,6 @@ export const privilegeScraper = makeApimoListScraper({
   id: 'privilege',
   name: 'Agence Privilège',
   domain: 'agenceprivilege.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/803/media/edd34909fa67936a92ba460a5d2bf92a.png',
   listUrls: ['https://www.agenceprivilege.com/fr/locations'],
 });

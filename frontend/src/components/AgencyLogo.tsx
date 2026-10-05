@@ -25,12 +25,12 @@ import { Agency } from './icons.js';
 import { SOURCES } from '../sources.generated.js';
 import { agencySourceId } from '../agency-coverage.js';
 
-const SITES_SANS_FAVICON = new Set([
-  'immobilieregti.com',
-  'www.immobilieregti.com',
-  'mediterranee-immo.fr',
-  'www.mediterranee-immo.fr',
-]);
+/**
+ * Sites dont `/favicon.ico` n'est PAS le leur et qui ne déclarent aucune autre
+ * icône : on y préfère l'icône neutre. Cabinet Cordier et Immo Idéal sont sur
+ * Apimo, qui y sert la même icône pour toutes ses agences.
+ */
+const SITES_SANS_FAVICON = new Set(['cabinetcordier.com', 'immo-ideal.fr']);
 
 function isSiteSansFavicon(domain: string): boolean {
   const norm = domain.replace(/^www\./i, '').toLowerCase();

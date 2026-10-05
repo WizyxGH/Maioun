@@ -14,6 +14,7 @@ export const rivieraAngelsScraper = makeHektorScraper({
   id: 'riviera-angels',
   name: 'Riviera Angels Immobilier',
   domain: 'riviera-angels.com',
+  logo: 'https://www.riviera-angels.com/images/favicon.png',
   agencyContact: {
     phone: '04 93 16 00 63', // secret-scan-ignore
     email: 'info@riviera-angels.com', // secret-scan-ignore

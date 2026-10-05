@@ -17,6 +17,7 @@ export const FRENCH_RIVIERA_STUDIOS_DESCRIPTOR: SourceDescriptor = {
   id: 'french-riviera-studios',
   name: 'French Riviera Studios',
   domain: 'studios-nice.com',
+  logo: 'https://studios-nice.com/wp-content/uploads/2017/04/logo-studio-nice.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

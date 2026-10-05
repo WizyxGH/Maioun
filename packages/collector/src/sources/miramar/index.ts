@@ -18,6 +18,7 @@ export const MIRAMAR_DESCRIPTOR: SourceDescriptor = {
   id: 'miramar',
   name: AGENCY_NAME,
   domain: 'miramarimmo.com',
+  logo: 'https://miramarimmo.com/wp-content/uploads/2025/11/cropped-faviconMiramra-180x180.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

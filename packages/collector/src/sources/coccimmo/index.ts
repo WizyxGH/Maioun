@@ -13,6 +13,7 @@ export const coccimmoScraper = makeApimoListScraper({
   id: 'coccimmo',
   name: 'Coccimmo',
   domain: 'coccimmo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3431/media/3223c52c626127a7187226c08e46c4cb.png',
   agencyContact: {
     phone: '06 86 93 72 48', // secret-scan-ignore
     email: 'info@coccimmo.com', // secret-scan-ignore

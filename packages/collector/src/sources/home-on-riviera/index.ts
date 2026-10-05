@@ -14,6 +14,7 @@ export const homeOnRivieraScraper = makeApimoScraper({
   id: 'home-on-riviera',
   name: 'Home on Riviera',
   domain: 'homeonriviera.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3391/media/f8d2efeea6975534a520dbaf9db60fcc.jpeg',
   sitemapUrl: 'https://homeonriviera.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {

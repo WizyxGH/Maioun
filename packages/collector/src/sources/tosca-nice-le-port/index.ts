@@ -14,6 +14,7 @@ export const toscaNiceLePortScraper = makeApimoScraper({
   id: 'tosca-nice-le-port',
   name: 'Agence Tosca Nice le Port',
   domain: 'agencetosca.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/1689/media/a42e1905b0289066132566cf389cdaf5.png',
   sitemapUrl: 'https://www.agencetosca.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {

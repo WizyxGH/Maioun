@@ -13,6 +13,7 @@ export const agence5PromenadeScraper = makeApimoListScraper({
   id: 'agence-5-promenade',
   name: 'Agence 5 Promenade',
   domain: '5promenade.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/445/media/d4cd26018d86f7b26d672bb565d97e5a.png',
   agencyContact: {
     phone: '04 93 82 93 82', // secret-scan-ignore
     email: 'contact@5promenade.com', // secret-scan-ignore

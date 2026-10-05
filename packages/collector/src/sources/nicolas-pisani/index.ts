@@ -23,6 +23,7 @@ export const NICOLAS_PISANI_DESCRIPTOR: SourceDescriptor = {
   id: 'nicolas-pisani',
   name: AGENCY_NAME,
   domain: 'nicolaspisani.com',
+  logo: 'https://www.nicolaspisani.com/specific_images/favicon.ico',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

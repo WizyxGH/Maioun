@@ -12,6 +12,7 @@ export const immo3PointsScraper = makeHektorScraper({
   id: 'immo-3-points',
   name: 'Immo 3 Points',
   domain: 'immo3points.fr',
+  logo: 'https://www.immo3points.fr/images/favicon.png',
   agencyContact: {
     phone: '09 88 43 74 61', // secret-scan-ignore
     email: 'i3p@immo3points.com', // secret-scan-ignore

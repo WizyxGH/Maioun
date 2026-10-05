@@ -14,6 +14,7 @@ export const agenceRivieraScraper = makeApimoScraper({
   id: 'agence-riviera',
   name: 'Agence Riviera Real Estate',
   domain: 'agenceriviera.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3520/media/873522a5a86508cd4d104389ac514fcb.png',
   agencyContact: { address: { street: '12 rue Cassini', postalCode: '06300', city: 'Nice' } },
   sitemapUrl: 'https://agenceriviera.com/sitemap.xml',
   listUrls: ['https://agenceriviera.com/fr/locations'],

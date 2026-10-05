@@ -15,5 +15,6 @@ export const angImmobilierScraper = makeHektorScraper({
   id: 'ang-immobilier',
   name: 'ANG Immobilier',
   domain: 'agence-nice-gambetta.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Haku-v2/5040/media/afc9709b16ea85ec9bacf1456e98ea22.png',
   listUrls: ['https://www.agence-nice-gambetta.fr/location/1'],
 });

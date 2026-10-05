@@ -14,6 +14,7 @@ export const vizcayaScraper = makeApimoScraper({
   id: 'vizcaya',
   name: 'Vizcaya Immobilier',
   domain: 'vizcaya.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Mira-v2/4721/media/3cc1639c0669a1e6c7b54191409f0de2.png',
   agencyContact: { address: { street: '4 quai Papacino', postalCode: '06300', city: 'Nice' } },
   sitemapUrl: 'https://vizcaya.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,

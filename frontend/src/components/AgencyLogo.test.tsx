@@ -10,7 +10,17 @@ import { AgencyLogo, agencyAddress, agencyLogoUrl, sourceLogoUrl } from './Agenc
 
 describe('agencyLogoUrl', () => {
   it('rend le favicon d’une agence qu’on collecte directement', () => {
-    expect(agencyLogoUrl('CL IMMO')).toBe('https://climmo.com/favicon.ico');
+    expect(agencyLogoUrl('Carletta Immobilier')).toBe('https://carletta.fr/favicon.ico');
+  });
+
+  /**
+   * SUR APIMO, /favicon.ico EST L'ICÔNE DE LA PLATEFORME, la même pour toutes
+   * les agences : 79 d'entre elles s'affichaient sous ce logo commun. C'est
+   * l'icône que le site de l'agence déclare qui compte.
+   */
+  it('ne rend pas l’icône commune d’une plateforme', () => {
+    expect(agencyLogoUrl('CL IMMO')).not.toBe('https://climmo.com/favicon.ico');
+    expect(agencyLogoUrl('CL IMMO')).toMatch(/^https:\/\/.+\/media\//);
   });
 
   /**
@@ -29,10 +39,9 @@ describe('agencyLogoUrl', () => {
   });
 
   it('ne demande pas les favicons connus en 404', () => {
-    expect(agencyLogoUrl('Immobilière GTI')).toBeNull();
-    expect(sourceLogoUrl('igti')).toBeNull();
-    expect(agencyLogoUrl('Méditerranée Immo')).toBeNull();
-    expect(sourceLogoUrl('mediterranee-immo')).toBeNull();
+    // Sur Apimo, sans icône propre : /favicon.ico y serait celle de la plateforme.
+    expect(sourceLogoUrl('cabinet-cordier')).toBeNull();
+    expect(agencyLogoUrl('Cabinet Cordier')).toBeNull();
   });
 
   /**
@@ -85,8 +94,11 @@ describe('agencyLogoUrl', () => {
 
 describe('AgencyLogo', () => {
   it('affiche l’image du site de l’agence', () => {
-    render(<AgencyLogo name="CL Immo" />);
-    expect(screen.getByTitle('CL Immo')).toHaveAttribute('src', 'https://climmo.com/favicon.ico');
+    render(<AgencyLogo name="Carletta Immobilier" />);
+    expect(screen.getByTitle('Carletta Immobilier')).toHaveAttribute(
+      'src',
+      'https://carletta.fr/favicon.ico',
+    );
   });
 
   it('retombe sur l’icône neutre sans site connu', () => {

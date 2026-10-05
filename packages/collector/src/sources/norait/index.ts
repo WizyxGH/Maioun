@@ -13,6 +13,7 @@ export const noraitScraper = makeApimoListScraper({
   id: 'norait',
   name: 'Norait Immobilier',
   domain: 'norait-immobilier.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/1033/media/c6ec75c40128c8bf78ddcd682e4d8c15.png',
   agencyContact: {
     phone: '04 93 81 07 35', // secret-scan-ignore
     address: { street: '20 rue Verdi', postalCode: '06000', city: 'Nice' },

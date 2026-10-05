@@ -16,6 +16,7 @@ export const bepScraper = makeApimoScraper({
   id: 'bep',
   name: 'BEP Logement',
   domain: 'bep-logement.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/3796/media/088c6098eacde9385effdd6f1c897bad.png',
   /**
    * LES PORTAILS LA REBAPTISENT, et l'annuaire en faisait trois agences :
    * Bien'ici écrit « BEP NICE » (48 annonces), ParuVendu « BEP LOGEMENT » (44)

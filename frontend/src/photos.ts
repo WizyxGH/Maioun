@@ -46,6 +46,13 @@ export interface PhotoSplit {
    * ouvrables dans un onglet.
    */
   readonly linkOnly: readonly string[];
+  /**
+   * Photos que la source réserve à son propre site : son CDN ne les sert qu'à
+   * une page venue de chez elle (Lamy, Cloudinary « private » : 401 ailleurs,
+   * onglet direct compris). Ni affichables ni ouvrables — seulement COMPTÉES,
+   * pour dire qu'elles existent et où les voir.
+   */
+  readonly reservedToSource: number;
 }
 
 /** `true` si la page courante est servie en https (donc contenu mixte bloqué). */
@@ -54,21 +61,28 @@ function pageIsSecure(): boolean {
 }
 
 /**
- * Répartit les photos d'une annonce.
+ * `true` si l'image est sur un CDN qui la réserve au site de la source.
  *
- * @param urls  URLs telles que la source les publie.
+ * On ne s'y fait pas passer pour la source (en-tête `Referer` d'emprunt) :
+ * c'est une protection qu'elle a posée, et on ne la contourne pas.
  */
-/** `true` si l'image est hébergée sur un CDN privé inaccessible directement (ex. Cloudinary private). */
 function isPrivateCdn(url: string): boolean {
   return /^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/private\//i.test(url);
 }
 
+/**
+ * Répartit les photos d'une annonce.
+ *
+ * @param urls  URLs telles que la source les publie.
+ */
 export function splitPhotos(urls: readonly string[]): PhotoSplit {
   // LE MÊME CLICHÉ NE PARAÎT QU'UNE FOIS, ici plutôt que chez chaque appelant :
   // c'est le seul passage obligé avant l'affichage, carrousel, vignette et vue
-  // plein écran compris. On écarte aussi les URL de CDN privés vouées au 401.
-  const photos = uniquePhotos(urls).filter((url) => !isPrivateCdn(url));
-  if (!pageIsSecure()) return { embeddable: photos, linkOnly: [] };
+  // plein écran compris.
+  const uniques = uniquePhotos(urls);
+  const photos = uniques.filter((url) => !isPrivateCdn(url));
+  const reservedToSource = uniques.length - photos.length;
+  if (!pageIsSecure()) return { embeddable: photos, linkOnly: [], reservedToSource };
   const embeddable: string[] = [];
   const linkOnly: string[] = [];
   for (const url of photos) {
@@ -82,7 +96,7 @@ export function splitPhotos(urls: readonly string[]): PhotoSplit {
     if (relayed === null) linkOnly.push(url);
     else embeddable.push(relayed);
   }
-  return { embeddable, linkOnly };
+  return { embeddable, linkOnly, reservedToSource };
 }
 
 /**

@@ -12,6 +12,7 @@ export const solissimmoScraper = makeApimoListScraper({
   id: 'solissimmo',
   name: 'Solissimmo',
   domain: 'solissimmo.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Altera/2059/media/c9818b2edc2c310cab0402119efa883c.png',
   agencyContact: {
     phone: '04 93 88 40 22', // secret-scan-ignore
     email: 'solissimmo@yahoo.fr', // secret-scan-ignore

@@ -14,6 +14,7 @@ export const cabinetCentralGestionScraper = makeApimoScraper({
   id: 'cabinet-central-gestion',
   name: 'Cabinet Central Gestion',
   domain: 'immobilier-cabinetcentral.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia-v2/3317/media/13c55735ef6710138eb8927df198789a.jpeg',
   sitemapUrl: 'https://immobilier-cabinetcentral.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://immobilier-cabinetcentral.fr/fr/locations'],

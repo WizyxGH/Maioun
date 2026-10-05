@@ -486,3 +486,49 @@ describe('parseDetailPage — toutes les coordonnées affichées', () => {
     expect(listing).not.toHaveProperty('phoneIsDirect');
   });
 });
+
+/**
+ * LE BIEN RANGÉ DANS `about`. Gabarit relevé le 2026-10-05 chez Oréa : le nœud
+ * `RealEstateListing` porte l'annonce, et le logement — adresse, coordonnées,
+ * pièces, surface — vit dans un nœud imbriqué que le parseur ignorait.
+ */
+describe('parseDetailPage — le bien imbriqué dans `about`', () => {
+  const html = `<!DOCTYPE html><html><head>
+    <script type="application/ld+json">${JSON.stringify({
+      '@graph': [
+        { '@type': 'RealEstateAgent', name: 'Agence' },
+        {
+          '@type': 'RealEstateListing',
+          name: 'Studio cosy',
+          description: 'Studio meublé.',
+          image: ['https://cdn.exemple.fr/photo1.jpg'],
+          offers: { '@type': 'Offer', price: 670 },
+          about: {
+            '@type': 'Apartment',
+            numberOfRooms: 1,
+            floorSize: { value: 27.05 },
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: '15 impasse Fictive nice',
+              addressLocality: 'Nice',
+              postalCode: '06000',
+            },
+            geo: { '@type': 'GeoCoordinates', latitude: 43.71354, longitude: 7.26031 },
+          },
+        },
+      ],
+    })}</script></head><body></body></html>`;
+
+  it('lit l’adresse, la position, les pièces et la surface du bien', () => {
+    const { listing } = parseDetailPage(html, RESIDENTIAL_URL, AGENCY);
+    expect(listing?.addressText).toContain('15 impasse Fictive');
+    expect(listing?.postalCodeText).toBe('06000');
+    expect(listing?.latitude).toBe(43.71354);
+    expect(listing?.longitude).toBe(7.26031);
+    expect(listing?.roomsText).toContain('1');
+    expect(listing?.areaText).toContain('27');
+    // L'annonce garde ce qu'elle dit elle-même.
+    expect(listing?.title).toBe('Studio cosy');
+    expect(listing?.imageUrls).toEqual(['https://cdn.exemple.fr/photo1.jpg']);
+  });
+});

@@ -32,6 +32,7 @@ export const BORNE_DELAUNAY_DESCRIPTOR: SourceDescriptor = {
   id: 'borne-delaunay',
   name: 'Borne & Delaunay',
   domain: 'borne-delaunay.com',
+  logo: 'https://www.borne-delaunay.com/assets/favicons/favicon-37ada3d02e975cf35351d56695e46cb3f22ebf749f4993a8ca09034ad0d1e1cc.ico',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

@@ -14,6 +14,7 @@ export const personalimmoScraper = makeApimoScraper({
   id: 'personalimmo',
   name: 'Personal Immo',
   domain: 'personalimmo.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/2839/media/34b55a6c2edd556f155ae47397c8b38b.png',
   sitemapUrl: 'https://personalimmo.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://personalimmo.fr/fr/locations'],

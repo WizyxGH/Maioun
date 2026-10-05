@@ -28,6 +28,7 @@ export const VOTRE_AGENCE_IMMO_DESCRIPTOR: SourceDescriptor = {
   id: 'votre-agence-immo',
   name: 'Votre Agence Immo',
   domain: 'votre-agence-immo.fr',
+  logo: 'https://votre-agence-immo.fr/wp-content/themes/votreagenceimmo/img/icons/touch.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

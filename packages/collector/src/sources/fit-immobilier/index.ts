@@ -14,6 +14,7 @@ export const fitImmobilierScraper = makeApimoScraper({
   id: 'fit-immobilier',
   name: 'FIT Immobilier',
   domain: 'fit-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/1705/media/08c2945d04867f779be1e9fa35c57836.png',
   agencyContact: {
     address: { street: '1 avenue de la Lanterne', postalCode: '06200', city: 'Nice' },
   },

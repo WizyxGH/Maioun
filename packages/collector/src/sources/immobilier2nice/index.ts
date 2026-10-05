@@ -15,6 +15,7 @@ export const immobilier2niceScraper = makeApimoScraper({
   id: 'immobilier2nice',
   name: 'Immobilier 2 Nice',
   domain: 'immobilier2nice.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3397/media/01e84a442ef9682a4d5d8e0cfde98d10.jpeg',
   agencyContact: {
     address: { street: '1 boulevard Auguste Raynaud', postalCode: '06100', city: 'Nice' },
   },

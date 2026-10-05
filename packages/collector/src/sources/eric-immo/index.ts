@@ -15,6 +15,7 @@ export const ericImmoScraper = makeApimoScraper({
   id: 'eric-immo',
   name: 'Eric Immo',
   domain: 'eric-immo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/2188/media/8bda59c5229a4092676925d9f68f5212.jpeg',
   sitemapUrl: 'https://www.eric-immo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://www.eric-immo.com/fr/locations'],

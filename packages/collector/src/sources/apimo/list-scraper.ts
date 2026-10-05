@@ -16,11 +16,12 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { parseLocationLinks, type LocationLink } from './location-links.js';
 import { isCommercialSlug, parseApimoDetail } from './parser.js';
+import { identiteAgence, type IdentiteAgence } from '../shared/agency-identity.js';
 
 /** Bandeau « Aucun produit ne correspond… » d'une liste réellement vide. */
 const NO_RESULTS = /class="[^"]*\bno-results\b/;
 
-export interface ApimoListConfig {
+export interface ApimoListConfig extends IdentiteAgence {
   readonly id: string;
   readonly name: string;
   readonly domain: string;
@@ -29,8 +30,6 @@ export interface ApimoListConfig {
   readonly notes?: string;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
-  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
-  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export function makeApimoListDescriptor(config: ApimoListConfig): SourceDescriptor {
@@ -54,7 +53,7 @@ export function makeApimoListDescriptor(config: ApimoListConfig): SourceDescript
       ...new Set(config.listUrls.map((url) => `${new URL(url).pathname}*`)),
       '/fr/propri*',
     ],
-    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
+    ...identiteAgence(config),
     notes:
       config.notes ??
       'Apimo ANCIEN schéma (/fr/propriété/{id}, sitemap non filtrable). robots.txt ' +

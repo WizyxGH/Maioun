@@ -14,6 +14,7 @@ export const laPetiteMaisonScraper = makeApimoScraper({
   id: 'la-petite-maison',
   name: 'La Petite Maison',
   domain: 'la-petitemaison.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/2562/media/f964696a35f2fea3d8da7de3ec4aa3b8.png',
   sitemapUrl: 'https://la-petitemaison.fr/sitemap.xml',
   listUrls: ['https://la-petitemaison.fr/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,

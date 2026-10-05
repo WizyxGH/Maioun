@@ -18,6 +18,7 @@ export const BARBERA_GESTION_DESCRIPTOR: SourceDescriptor = {
   id: 'barbera-gestion',
   name: 'Barbera Gestion & Patrimoine',
   domain: 'barbera-gestion.com',
+  logo: 'https://www.barbera-gestion.com/theme/img/favicon.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

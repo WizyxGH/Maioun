@@ -9,8 +9,9 @@ import type { Scraper, SourceDescriptor } from '@maioun/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { runListAndDetails } from '../shared/list-and-details.js';
 import { LIST_PATH, parseTwimmoDetail, parseTwimmoList } from './parser.js';
+import { identiteAgence, type IdentiteAgence } from '../shared/agency-identity.js';
 
-export interface TwimmoConfig {
+export interface TwimmoConfig extends IdentiteAgence {
   readonly id: string;
   readonly name: string;
   /** Origine du site (`https://www.mk-immo.fr`) ; liste et domaine s'en déduisent. */
@@ -18,8 +19,6 @@ export interface TwimmoConfig {
   readonly priority?: number;
   readonly maxDetails?: number;
   readonly notes?: string;
-  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
-  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 export const twimmoListUrl = (config: TwimmoConfig): string =>
@@ -38,7 +37,7 @@ export function makeTwimmoDescriptor(config: TwimmoConfig): SourceDescriptor {
     budget: budgetFor('localAgency', { maxPagesPerRun: 1 + maxDetails }),
     enabled: true,
     allowedPaths: [LIST_PATH, '/*.html'],
-    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
+    ...identiteAgence(config),
     notes:
       config.notes ??
       `Site Twimmo, rendu serveur. Liste ${LIST_PATH} (une page), fiches ` +

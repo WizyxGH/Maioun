@@ -17,6 +17,7 @@ export const GRIGUER_DESCRIPTOR: SourceDescriptor = {
   id: 'griguer',
   name: 'Cabinet Griguer',
   domain: 'griguer-immobilier.com',
+  logo: 'https://griguer-immobilier.com/wp-content/uploads/2019/03/logo-griguer-noir.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

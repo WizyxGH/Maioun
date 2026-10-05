@@ -20,6 +20,7 @@ export const aequalisScraper: Scraper = makeTwimmoScraper({
   id: 'aequalis',
   name: 'Aequalis Immobilier',
   siteUrl: 'https://www.aequalis-immobilier.com',
+  logo: 'https://medias.twimmopro.com/sitemanager/6487339c4ce3873608008354',
   notes:
     'Site Twimmo, rendu serveur. robots.txt vérifié le 2026-09-22 : aucun ' +
     'groupe « User-agent: * », seulement des aspirateurs nommés. Sitemap sans ' +

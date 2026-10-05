@@ -24,6 +24,7 @@ export const MIRABELLO_DESCRIPTOR: SourceDescriptor = {
   id: 'mirabello',
   name: 'Mirabello Immobilier',
   domain: 'mirabello-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/1119/media/9b83801aef3ae2f9e99960813b8a2de4.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

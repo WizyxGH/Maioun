@@ -15,6 +15,7 @@ export const bbiiScraper: Scraper = makeTwimmoScraper({
   id: 'bbii',
   name: 'BBii',
   siteUrl: 'https://www.bbii.fr',
+  logo: 'https://medias.twimmopro.com/sitemanager/5a9695104ce387066300834d',
   notes:
     'Site Twimmo, rendu serveur. robots.txt vérifié le 2026-09-15 : aucune ' +
     'règle pour notre robot. Liste /toutes-locations.html (une page, vide au ' +

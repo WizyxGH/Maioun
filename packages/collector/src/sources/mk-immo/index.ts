@@ -14,6 +14,7 @@ export const mkImmoScraper: Scraper = makeTwimmoScraper({
   id: 'mk-immo',
   name: 'MK Immo',
   siteUrl: 'https://www.mk-immo.fr',
+  logo: 'https://medias.twimmopro.com/sitemanager/698f56917f8f97acb6049d42',
   notes:
     'Site Twimmo, rendu serveur. robots.txt vérifié le 2026-09-14 : aucune ' +
     'règle. Liste /toutes-locations.html (une page), fiches …-{réf}.html dont ' +

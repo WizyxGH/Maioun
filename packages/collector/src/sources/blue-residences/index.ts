@@ -15,6 +15,7 @@ export const blueResidencesScraper = makeApimoScraper({
   id: 'blue-residences',
   name: 'Blue Résidences',
   domain: 'blue-residences.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3024/media/5775ec396d3a7402aee4e12c40121759.png',
   agencyContact: {
     phone: '04 93 79 28 71', // secret-scan-ignore
     address: { street: '4 boulevard de Cimiez', postalCode: '06000', city: 'Nice' },

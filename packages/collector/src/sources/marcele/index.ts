@@ -16,6 +16,7 @@ export const marceleScraper = makeApimoScraper({
   id: 'marcele',
   name: 'Marcele Immobilier',
   domain: 'ballestri-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/3461/media/cc89eba61f1bda47326f16ea54960ca4.jpeg',
   agencyContact: {
     address: { street: '2 avenue Georges Clemenceau', postalCode: '06000', city: 'Nice' },
   },

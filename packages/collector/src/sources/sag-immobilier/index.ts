@@ -13,5 +13,6 @@ export const sagImmobilierScraper = makeHektorScraper({
   id: 'sag-immobilier',
   name: 'SAG Immobilier',
   domain: 'sag-immobilier.com',
+  logo: 'https://www.sag-immobilier.com/images/favicon.png',
   listUrls: ['https://www.sag-immobilier.com/location/1'],
 });

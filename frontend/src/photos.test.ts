@@ -55,12 +55,16 @@ describe('splitPhotos', () => {
     // Prétendre le contraire produirait une image qui ne charge jamais.
     state.apiUrl = '';
     servedOver('https:');
-    expect(splitPhotos(urls)).toEqual({ embeddable: [sure], linkOnly: [claire] });
+    expect(splitPhotos(urls)).toEqual({
+      embeddable: [sure],
+      linkOnly: [claire],
+      reservedToSource: 0,
+    });
   });
 
   it('sur une page http, tout s’affiche — le relais est inutile', () => {
     servedOver('http:');
-    expect(splitPhotos(urls)).toEqual({ embeddable: urls, linkOnly: [] });
+    expect(splitPhotos(urls)).toEqual({ embeddable: urls, linkOnly: [], reservedToSource: 0 });
   });
 
   it('ne perd aucune photo au passage', () => {
@@ -77,5 +81,24 @@ describe('splitPhotos', () => {
     const [relayed] = splitPhotos([avecQuery]).embeddable;
     expect(relayed).toContain(encodeURIComponent(avecQuery));
     expect(relayed).not.toContain('&taille=');
+  });
+});
+
+/**
+ * LES PHOTOS QUE LA SOURCE RÉSERVE À SON SITE (Lamy : Cloudinary « private »,
+ * 401 hors de lamy-immobilier.fr). On ne les montre pas, mais on les COMPTE :
+ * la fiche les retirait en silence et l'annonce paraissait sans photo.
+ */
+describe('splitPhotos — photos réservées à la source', () => {
+  const privee = 'https://res.cloudinary.com/agence/image/private/w_1600/dossier/a.jpg';
+  const autre = 'https://res.cloudinary.com/agence/image/private/w_1600/dossier/b.jpg';
+
+  it('les écarte de l’affichage et les compte', () => {
+    servedOver('https:');
+    expect(splitPhotos([privee, autre])).toEqual({
+      embeddable: [],
+      linkOnly: [],
+      reservedToSource: 2,
+    });
   });
 });

@@ -14,6 +14,7 @@ export const groupeFochScraper = makeApimoScraper({
   id: 'groupe-foch',
   name: 'Foch Immobilier',
   domain: 'groupe-foch.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3077/media/1e51e8d919dd2e739bdf23b53be3afb2.png',
   sitemapUrl: 'https://groupe-foch.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://groupe-foch.com/fr/louer'],

@@ -14,6 +14,7 @@ export const sambroniScraper = makeApimoScraper({
   id: 'sambroni',
   name: 'Sambroni Immobilier',
   domain: 'agencesambroni.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Mira-v2/4723/media/d5d3d1044e9885f2b2144d9d52d3abc6.png',
   agencyContact: {
     address: { street: '186 avenue de Pessicart', postalCode: '06100', city: 'Nice' },
   },

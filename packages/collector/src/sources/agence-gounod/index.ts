@@ -16,6 +16,7 @@ export const agenceGounodScraper = makeApimoScraper({
   id: 'agence-gounod',
   name: 'Agence Gounod',
   domain: 'agencegounod.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3348/media/b3eb020e01921a1a037a4e43cd4793d6.jpeg',
   agencyContact: { address: { street: '19 rue Gounod', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://agencegounod.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,

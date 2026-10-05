@@ -14,6 +14,7 @@ export const laPerouseScraper = makeApimoScraper({
   id: 'la-perouse',
   name: 'La Pérouse Immobilier',
   domain: 'laperouse-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/2399/media/766bb68166a5aadf03762b9ce260f89e.png',
   agencyContact: {
     phone: '04 93 85 77 30', // secret-scan-ignore
     address: { street: '17 rue Alfred Mortier', postalCode: '06000', city: 'Nice' },

@@ -14,6 +14,7 @@ export const maisonKScraper = makeApimoScraper({
   id: 'maison-k',
   name: 'Maison K Immobilier',
   domain: 'maisonk-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3806/media/a6bdeae23eef4210b0b5054fce2d7721.png',
   sitemapUrl: 'https://maisonk-immobilier.com/sitemap.xml',
   listUrls: ['https://maisonk-immobilier.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,

@@ -16,6 +16,7 @@ export const acropolisImmoScraper = makeApimoScraper({
   id: 'acropolis-immo',
   name: 'Acropolis Immobilier',
   domain: 'acropolisimmo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Haku-v2/4050/media/194b024190aaae0b22b1df755c90b24f.png',
   agencyContact: { address: { street: '47 rue Arson', postalCode: '06300', city: 'Nice' } },
   sitemapUrl: 'https://acropolisimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,

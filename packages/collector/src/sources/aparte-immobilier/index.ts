@@ -14,6 +14,7 @@ export const aparteImmobilierScraper = makeApimoScraper({
   id: 'aparte-immobilier',
   name: 'Aparté Immobilier',
   domain: 'aparte-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Bento/4932/media/da9878917f127ea3f721bdef372a1b1f.png',
   sitemapUrl: 'https://aparte-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {

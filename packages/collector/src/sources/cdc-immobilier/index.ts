@@ -31,6 +31,7 @@ export const CDC_IMMOBILIER_DESCRIPTOR: SourceDescriptor = {
   id: 'cdc-immobilier',
   name: CDC_IMMOBILIER.agencyName,
   domain: 'cdcimmobilier.com',
+  logo: 'https://www.cdcimmobilier.com/favicon.ico',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

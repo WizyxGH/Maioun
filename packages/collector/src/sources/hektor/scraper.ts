@@ -21,13 +21,12 @@ import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { isFreshMemory } from '../shared/enrich.js';
 import { withdrawnRefsFrom, type GoneDetail } from '../shared/withdrawn.js';
 import { parseDetailPage, parseListPage, type ParsedHektorUrl } from './parser.js';
+import { identiteAgence, type IdentiteAgence } from '../shared/agency-identity.js';
 
-export interface HektorConfig {
+export interface HektorConfig extends IdentiteAgence {
   readonly id: string;
   readonly name: string;
   readonly domain: string;
-  /** Icone de l agence quand elle n est pas a /favicon.ico (voir SourceDescriptor). */
-  readonly logo?: string;
   /**
    * Points d'entrée des listes de location, en adresses absolues.
    *
@@ -39,8 +38,6 @@ export interface HektorConfig {
   readonly priority?: number;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
-  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
-  readonly agencyContact?: SourceDescriptor['agencyContact'];
 }
 
 /**
@@ -93,8 +90,7 @@ export function makeHektorDescriptor(config: HektorConfig): SourceDescriptor {
     id: config.id,
     name: config.name,
     domain: config.domain,
-    ...(config.logo !== undefined ? { logo: config.logo } : {}),
-    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
+    ...identiteAgence(config),
     kind: 'localAgency',
     method: 'html',
     priority: config.priority ?? 2,

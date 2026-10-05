@@ -15,6 +15,7 @@ export const climmoScraper = makeApimoScraper({
   id: 'climmo',
   name: 'CL Immo Gestion',
   domain: 'climmo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/4839/media/ad25e3f8185a5476d50d986669d8b89a.png',
   sitemapUrl: 'https://climmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://climmo.com/fr/location'],

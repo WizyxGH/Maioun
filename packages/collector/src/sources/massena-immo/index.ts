@@ -15,6 +15,7 @@ export const massenaImmoScraper = makeApimoScraper({
   id: 'massena-immo',
   name: 'Masséna Immobilier',
   domain: 'massena-immo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3620/media/6e98366ef367546b36d867b32fdabb35.jpeg',
   agencyContact: {
     address: { street: '12 avenue Félix Faure', postalCode: '06000', city: 'Nice' },
   },

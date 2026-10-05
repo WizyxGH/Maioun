@@ -14,6 +14,7 @@ export const josephGarnierScraper = makeApimoScraper({
   id: 'joseph-garnier',
   name: 'Joseph Garnier Real Estate',
   domain: 'josephgarnier.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Haku-v2/1900/media/e585caef42fc2be6caa6b9ece5c6b976.png',
   agencyContact: {
     address: { street: '6 boulevard Joseph Garnier', postalCode: '06000', city: 'Nice' },
   },

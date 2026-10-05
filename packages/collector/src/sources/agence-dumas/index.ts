@@ -19,6 +19,7 @@ export const AGENCE_DUMAS_DESCRIPTOR: SourceDescriptor = {
   id: 'agence-dumas',
   name: 'Agence Dumas',
   domain: 'agencedumas.fr',
+  logo: 'https://www.agencedumas.fr/wp-content/uploads/2025/07/cropped-Artboard-1-180x180.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

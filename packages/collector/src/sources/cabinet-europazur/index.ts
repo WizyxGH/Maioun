@@ -15,6 +15,7 @@ export const cabinetEuropazurScraper = makeApimoListScraper({
   id: 'cabinet-europazur',
   name: 'Cabinet Europazur',
   domain: 'europazur.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/2352/media/4e405ec68e32aa92418d0ae33d513cb0.webp',
   agencyContact: {
     phone: '04 92 02 50 00', // secret-scan-ignore
     email: 'contact@europazur.fr', // secret-scan-ignore

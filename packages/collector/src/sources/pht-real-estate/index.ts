@@ -15,6 +15,7 @@ export const phtRealEstateScraper = makeApimoScraper({
   id: 'pht-real-estate',
   name: 'PHT Real Estate',
   domain: 'phtrealestate.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Mira/3973/media/c756cab8153d65a43930a052e3a22522.png',
   agencyContact: { address: { street: '15 rue Biscarra', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://phtrealestate.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,

@@ -20,6 +20,7 @@ export const BARNES_DESCRIPTOR: SourceDescriptor = {
   id: 'barnes',
   name: 'BARNES',
   domain: 'barnes-international.com',
+  logo: 'https://www.barnes-international.com/accommodation/21/favicon.png',
   kind: 'agencyNetwork',
   method: 'html',
   priority: 3,

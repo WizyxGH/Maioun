@@ -15,6 +15,7 @@ export const domiNiceImmobilierScraper = makeHektorScraper({
   id: 'domi-nice-immobilier',
   name: 'Domi Nice Immobilier',
   domain: 'dominiceimmobilier.com',
+  logo: 'https://www.dominiceimmobilier.com/images/favicon.png',
   agencyContact: {
     address: { street: '24 rue Gioffredo', postalCode: '06000', city: 'Nice' },
   },

@@ -19,6 +19,7 @@ export const PROCIVIS_DESCRIPTOR: SourceDescriptor = {
   id: 'procivis',
   name: 'Immo de France Côte d’Azur',
   domain: 'procivis.fr',
+  logo: 'https://www.procivis.fr/assets/favicon-cd40c9e7.png',
   kind: 'agencyNetwork',
   method: 'html',
   priority: 2,

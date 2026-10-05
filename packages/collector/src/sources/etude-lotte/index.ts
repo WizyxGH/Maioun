@@ -23,6 +23,7 @@ export const etudeLotteScraper = makeApimoScraper({
   id: 'etude-lotte',
   name: 'Étude Lotte',
   domain: 'etudelotte.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia-v2/3489/media/5dabfe9cae641b28decf64b955ab9b2e.jpeg',
   // Pied de page du 2026-09-15 : téléphone public, aucune adresse e-mail.
   agencyContact: {
     phone: '04 92 10 10 25', // secret-scan-ignore

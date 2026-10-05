@@ -27,5 +27,6 @@ export const igtiScraper = makeHektorScraper({
   id: 'igti',
   name: 'Immobilière GTI',
   domain: 'immobilieregti.com',
+  logo: 'https://www.immobilieregti.com/images/favicon.png',
   listUrls: ['https://www.immobilieregti.com/a-louer/1'],
 });

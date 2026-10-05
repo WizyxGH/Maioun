@@ -14,6 +14,7 @@ export const transactimoScraper = makeApimoScraper({
   id: 'transactimo',
   name: 'Transactimo',
   domain: 'transactimo-nice.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Haku-v2/4147/media/d4cef05e44c2cd39271ddbd7e4785079.png',
   sitemapUrl: 'https://transactimo-nice.com/sitemap.xml',
   listUrls: ['https://transactimo-nice.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,

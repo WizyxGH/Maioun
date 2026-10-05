@@ -242,7 +242,22 @@ function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
     findJsonLdNode(nodes, ['realestatelisting', 'apartment', 'house', 'residence']) ??
     productProperty(nodes);
   if (property === undefined) return null;
-  return mapApimoJsonLd(property, findJsonLdNode(nodes, ['realestateagent']));
+  return mapApimoJsonLd(avecLeBien(property), findJsonLdNode(nodes, ['realestateagent']));
+}
+
+/**
+ * LE BIEN EST DANS `about`, sous le nouveau schéma. Le nœud `RealEstateListing`
+ * porte l'annonce — titre, texte, photos, offre — et range le logement dans un
+ * nœud imbriqué : adresse, coordonnées, pièces, surface. On ne lisait que le
+ * premier, et chaque fiche à ce schéma perdait sa rue et son point GPS (Oréa,
+ * relevé du 2026-10-05 : « 15 impasse parmentier », publié et ignoré).
+ *
+ * Ce que l'annonce dit elle-même l'emporte ; le bien comble ce qu'elle tait.
+ */
+function avecLeBien(property: JsonLdNode): JsonLdNode {
+  const bien = property['about'];
+  if (bien === null || typeof bien !== 'object' || Array.isArray(bien)) return property;
+  return { ...(bien as JsonLdNode), ...property };
 }
 
 /**

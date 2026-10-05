@@ -19,6 +19,7 @@ export const akorimmoScraper = makeApimoScraper({
   id: 'akorimmo',
   name: 'AKOR Immo',
   domain: 'akorimmo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Marui/2825/media/95455d047f076e6236b3213070b1ac21.png',
   sitemapUrl: 'https://akorimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

@@ -15,6 +15,7 @@ export const laFirmeScraper = makeApimoScraper({
   id: 'la-firme',
   name: 'La Firme',
   domain: 'proazurdagasso.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Bento/4826/media/b71d64404ce83e62d9f3b92e2f770205.png',
   agencyContact: { address: { street: '12 rue Gioffredo', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://proazurdagasso.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,

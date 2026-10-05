@@ -18,6 +18,7 @@ export const MOSS_IMMOBILIER_DESCRIPTOR: SourceDescriptor = {
   id: 'moss-immobilier',
   name: 'Moss Immobilier',
   domain: 'mossimmobilier.com',
+  logo: 'https://mossimmobilier.com/wp-content/uploads/2025/12/cropped-cropped-petit-logo-moss-immobilier-180x180.webp',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

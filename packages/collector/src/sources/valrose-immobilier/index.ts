@@ -15,6 +15,7 @@ export const valroseImmobilierScraper = makeApimoScraper({
   id: 'valrose-immobilier',
   name: 'Valrose Immobilier',
   domain: 'valrose-immo.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/2235/media/12814af4ee3e53a48172d89910cd2737.png',
   sitemapUrl: 'https://valrose-immo.fr/sitemap.xml',
   listUrls: ['https://valrose-immo.fr/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,

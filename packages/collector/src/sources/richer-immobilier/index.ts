@@ -17,6 +17,7 @@ export const RICHER_IMMOBILIER_DESCRIPTOR: SourceDescriptor = {
   id: 'richer-immobilier',
   name: AGENCY_NAME,
   domain: 'richerimmobilier.com',
+  logo: 'https://www.richerimmobilier.com/wp-content/uploads/2021/04/cropped-favicon-richerimmo-180x180.jpg',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

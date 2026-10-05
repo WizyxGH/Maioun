@@ -17,6 +17,7 @@ export const immo3000Scraper = makeApimoScraper({
   id: 'immo3000',
   name: 'Immo 3000',
   domain: 'immo3000.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/4391/media/992bc9165e9f2db525987f1660ace316.png',
   sitemapUrl: 'https://immo3000.com/sitemap.xml',
   listUrls: ['https://immo3000.com/fr/locations'],
   citySlugs: NICE_AREA_SLUGS,

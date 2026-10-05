@@ -16,6 +16,7 @@ export const mediterraneeImmoScraper = makeHektorScraper({
   id: 'mediterranee-immo',
   name: 'Méditerranée Immo',
   domain: 'mediterranee-immo.fr',
+  logo: 'https://www.mediterranee-immo.fr/images/favicon.png',
   agencyContact: {
     phone: '06 72 81 84 23', // secret-scan-ignore
     email: 'mediterranee_immo@orange.fr', // secret-scan-ignore

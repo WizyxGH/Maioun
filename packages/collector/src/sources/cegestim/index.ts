@@ -11,6 +11,7 @@ export const cegestimScraper = makeApimoListScraper({
   id: 'cegestim',
   name: 'Cegestim',
   domain: 'cegestim.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/625/media/2ea9d0a96eb79288d324f84f7aef625a.png',
   agencyContact: {
     phone: '04 92 47 88 10', // secret-scan-ignore
     email: 'location@cegestim.fr', // secret-scan-ignore

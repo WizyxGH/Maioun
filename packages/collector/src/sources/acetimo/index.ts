@@ -14,6 +14,7 @@ export const acetimoScraper = makeApimoScraper({
   id: 'acetimo',
   name: 'Acetimo',
   domain: 'acetimo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/3952/media/95f0170b4d603ca3392ac3b5c458a775.png',
   sitemapUrl: 'https://acetimo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   agencyContact: {

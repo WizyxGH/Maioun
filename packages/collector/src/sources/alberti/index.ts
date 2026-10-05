@@ -15,6 +15,7 @@ export const albertiScraper = makeApimoScraper({
   id: 'alberti',
   name: 'Alberti Immobilier',
   domain: 'agencealbertinice.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/3986/media/5d2b1b7eb9ec0af2bf05663c8ccb3257.png',
   sitemapUrl: 'https://agencealbertinice.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://www.agencealbertinice.com/fr/locations'],

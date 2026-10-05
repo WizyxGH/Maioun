@@ -14,6 +14,7 @@ export const dgimmoScraper = makeApimoScraper({
   id: 'dgimmo',
   name: 'DG Immo',
   domain: 'dgimmo.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/3937/media/7428249984622746dc6603480b3ad4dd.png',
   sitemapUrl: 'https://dgimmo.fr/sitemap.xml',
   listUrls: ['https://dgimmo.fr/fr/location'],
   citySlugs: NICE_AREA_SLUGS,

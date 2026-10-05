@@ -12,5 +12,6 @@ export const postillonScraper = makeApimoListScraper({
   id: 'postillon',
   name: 'Postillon Immobilier',
   domain: 'postillon-immobilier.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/548/media/e94bb992d5c019c1b244169bdce7e7f6.jpeg',
   listUrls: ['https://www.postillon-immobilier.fr/fr/locations'],
 });

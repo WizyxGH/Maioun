@@ -17,6 +17,7 @@ export const KAPERA_DESCRIPTOR: SourceDescriptor = {
   id: 'kapera',
   name: 'Kapera Immobilier',
   domain: 'kapera-immobilier.com',
+  logo: 'https://kapera-immobilier.com/wp-content/uploads/2025/11/cropped-favicon-kapera-e1763558177530-180x180.png',
   kind: 'localAgency',
   method: 'html',
   priority: 2,

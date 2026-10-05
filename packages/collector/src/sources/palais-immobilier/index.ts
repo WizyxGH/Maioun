@@ -20,6 +20,7 @@ export const palaisImmobilierScraper = makeApimoScraper({
   id: 'palais-immobilier',
   name: 'Palais Immobilier',
   domain: 'palaisimmobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/1929/media/d8685ce4a87bf1396cb1a6eb5f720ffb.jpeg',
   sitemapUrl: 'https://palaisimmobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   // SA PAGE PORTE TROIS ANNONCES QUE SON SITEMAP IGNORE (86776606, 86819657,

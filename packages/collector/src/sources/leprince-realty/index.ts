@@ -14,6 +14,7 @@ export const leprinceRealtyScraper = makeApimoScraper({
   id: 'leprince-realty',
   name: 'leprince realty',
   domain: 'leprincerealty.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/4246/media/bb174d6a430b2ebeaf6430c6cfa2e3b2.webp',
   sitemapUrl: 'https://leprincerealty.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });

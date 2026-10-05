@@ -15,6 +15,7 @@ export const abylaBosseScraper = makeApimoScraper({
   id: 'abyla-bosse',
   name: 'Abyla Bosse',
   domain: 'immobiliere-abc.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/2358/media/23981807d6f0268256b02a17c4dfc272.png',
   agencyContact: {
     phone: '04 93 82 37 46', // secret-scan-ignore
     email: 'commercial@abylabosse.com', // secret-scan-ignore

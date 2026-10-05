@@ -32,6 +32,7 @@ export const LODGIS_DESCRIPTOR: SourceDescriptor = {
   id: 'lodgis',
   name: 'Lodgis',
   domain: 'lodgis.com',
+  logo: 'https://www.lodgis.com/rsrc/blue/favicon.ico?v=1765270423',
   kind: 'agencyNetwork',
   method: 'html',
   // Même priorité que les autres sources d'agences (2). En 3, elle était

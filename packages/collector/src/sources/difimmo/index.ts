@@ -14,6 +14,7 @@ export const difimmoScraper = makeApimoScraper({
   id: 'difimmo',
   name: 'Diffusion Immobilière',
   domain: 'difimmo.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone-v2/4240/media/20b538e888cebe8dc8131bf493630b33.png',
   sitemapUrl: 'https://difimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://difimmo.com/fr/locations'],

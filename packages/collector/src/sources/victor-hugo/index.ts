@@ -19,6 +19,7 @@ export const victorHugoScraper = makeApimoScraper({
   id: 'victor-hugo',
   name: 'Immobilière Victor Hugo',
   domain: 'immobilierevictorhugo.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/1329/media/870f0958a98b6cfe0d2609d2fe970d6d.png',
   agencyContact: {
     address: { street: '15 boulevard Victor Hugo', postalCode: '06000', city: 'Nice' },
   },

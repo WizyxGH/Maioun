@@ -15,6 +15,7 @@ export const bomarcheScraper = makeApimoScraper({
   id: 'bomarche',
   name: 'BôMarché by Lambda Immobilier',
   domain: 'bomarche.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Stax/3961/media/7a05d1272a1418383e7731ac6251a037.png',
   agencyContact: {
     address: { street: '14 avenue Borriglione', postalCode: '06000', city: 'Nice' },
   },

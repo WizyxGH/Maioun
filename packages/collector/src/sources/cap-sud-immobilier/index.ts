@@ -15,6 +15,7 @@ export const capSudImmobilierScraper = makeApimoListScraper({
   id: 'cap-sud-immobilier',
   name: 'Cap Sud Immobilier',
   domain: 'capsud-immobilier.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Stax/2152/media/c90aa99a4122c183040b30a7ebe0af5e.png',
   agencyContact: {
     phone: '04 93 18 99 34', // secret-scan-ignore
     email: 'capsud.nice@hotmail.com', // secret-scan-ignore

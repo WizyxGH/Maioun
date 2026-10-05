@@ -13,6 +13,7 @@ export const elitimoScraper: Scraper = makeTwimmoScraper({
   id: 'elitimo',
   name: 'Elitimo',
   siteUrl: 'https://www.elitimo.com',
+  logo: 'https://medias.twimmopro.com/sitemanager/6973ae990155e634b20ac4e0',
   agencyContact: {
     phone: '04 93 87 28 33', // secret-scan-ignore
     email: 'contact@elitimo.com', // secret-scan-ignore

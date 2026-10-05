@@ -16,6 +16,7 @@ export const nicePremiumScraper = makeApimoScraper({
   id: 'nice-premium',
   name: 'Nice Premium Immobilier',
   domain: 'nice-premium-immobilier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Cello/2767/media/d372d915d8ebfe5ac050132e4125c7b0.png',
   agencyContact: { address: { street: '21 rue Michel-Ange', postalCode: '06100', city: 'Nice' } },
   sitemapUrl: 'https://nice-premium-immobilier.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,

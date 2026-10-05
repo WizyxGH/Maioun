@@ -18,6 +18,7 @@ export const immoJbfScraper = makeApimoScraper({
   id: 'immo-jbf',
   name: 'Immo JBF',
   domain: 'immo-jbf.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Haku/912/media/b88ae62a592b5e4b6c0aceeec4b3607a.jpeg',
   sitemapUrl: 'https://immo-jbf.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://immo-jbf.com/fr/locations'],

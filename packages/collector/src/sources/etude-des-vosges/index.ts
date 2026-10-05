@@ -14,6 +14,7 @@ export const etudeDesVosgesScraper = makeApimoScraper({
   id: 'etude-des-vosges',
   name: 'Étude des Vosges',
   domain: 'etudedesvosges.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia-v2/3780/media/d368ba414eb252e9434fc40d28f4bf5f.jpeg',
   sitemapUrl: 'https://www.etudedesvosges.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://www.etudedesvosges.fr/fr/locations'],

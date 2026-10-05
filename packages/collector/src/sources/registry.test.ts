@@ -103,10 +103,25 @@ describe('ALL_SCRAPERS', () => {
     }
   });
 
+  /**
+   * LE LOGO EST CELUI DE L'AGENCE : sur son site, ou sur le CDN de la
+   * plateforme qui l'héberge, et jamais le même que celui d'une autre.
+   *
+   * Apimo et Twimmo servent les images de leurs sites depuis leur propre CDN,
+   * un dossier par site : c'est l'icône que la page de l'agence déclare. Un
+   * autre hôte serait le logo d'un tiers. Deux sources au même logo, c'est une
+   * icône commune — ce que 79 agences Apimo affichaient avant de déclarer le
+   * leur.
+   */
   it('pointe le logo d’une agence sur son propre site', () => {
+    const CDN_DE_PLATEFORME = new Set(['d36vnx92dgl2c5.cloudfront.net', 'medias.twimmopro.com']);
+    const vus = new Map<string, string>();
     for (const d of descriptors) {
       if (d.logo === undefined || d.domain === undefined) continue;
-      expect(new URL(d.logo).hostname.replace(/^www\./, ''), d.id).toBe(d.domain);
+      const hote = new URL(d.logo).hostname.replace(/^www\./, '');
+      if (!CDN_DE_PLATEFORME.has(hote)) expect(hote, d.id).toBe(d.domain);
+      expect(vus.get(d.logo), `${d.id} partage son logo`).toBeUndefined();
+      vus.set(d.logo, d.id);
     }
   });
 });

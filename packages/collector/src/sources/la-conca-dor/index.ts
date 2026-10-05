@@ -14,6 +14,7 @@ export const laConcaDorScraper = makeApimoScraper({
   id: 'la-conca-dor',
   name: 'La Conca d’Or',
   domain: 'laconcador.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia-v2/3959/media/67a059b1de2ab49cbf93c9a4af10b11e.png',
   agencyContact: {
     address: { street: '466 boulevard Léon Sauvan', postalCode: '06690', city: 'Tourrette-Levens' },
   },

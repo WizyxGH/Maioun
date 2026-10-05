@@ -24,6 +24,7 @@ export const petrovaScraper = makeApimoScraper({
   id: 'petrova',
   name: 'Petrova Investissement Immobilier',
   domain: 'petrovainvestissement.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/1908/media/0fe7c39fcba07adfc73ffca8b8fcf836.png',
   agencyContact: {
     address: { street: '5 bis quai Rauba Capeu', postalCode: '06300', city: 'Nice' },
   },

@@ -33,8 +33,9 @@ import {
   parseSitemapIndex,
   type SitemapEntry,
 } from './parser.js';
+import { identiteAgence, type IdentiteAgence } from '../shared/agency-identity.js';
 
-export interface ApimoConfig {
+export interface ApimoConfig extends IdentiteAgence {
   readonly id: string;
   readonly name: string;
   readonly domain: string;
@@ -67,8 +68,6 @@ export interface ApimoConfig {
    * operator`). BEP Logement double son site public d'un bulletin abonnés.
    */
   readonly operator?: string;
-  /** Coordonnées publiques de l'agence (adresse de vitrine, ligne générale). */
-  readonly agencyContact?: SourceDescriptor['agencyContact'];
   /** Les autres noms sous lesquels les portails publient cette agence. */
   readonly alsoKnownAs?: readonly string[];
 }
@@ -91,7 +90,7 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     }),
     enabled: true,
     ...(config.operator !== undefined ? { operator: config.operator } : {}),
-    ...(config.agencyContact !== undefined ? { agencyContact: config.agencyContact } : {}),
+    ...identiteAgence(config),
     ...(config.alsoKnownAs !== undefined ? { alsoKnownAs: config.alsoKnownAs } : {}),
     /**
      * Les pages de liste EN FONT PARTIE, et il fallait le dire : ce champ

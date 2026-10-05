@@ -14,6 +14,7 @@ export const dazurScraper = makeApimoScraper({
   id: 'dazur',
   name: "D'Azur Immobilier",
   domain: 'dazur.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3634/media/2b978259236608afead93885b9c806c1.png',
   sitemapUrl: 'https://dazur.fr/sitemap.xml',
   listUrls: ['https://dazur.fr/fr/location'],
   // Les communes écartées le sont par héritage de la liste recopiée, sans

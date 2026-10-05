@@ -39,6 +39,7 @@ export const LAMY_DESCRIPTOR: SourceDescriptor = {
   id: 'lamy',
   name: 'Lamy Immobilier',
   domain: 'lamy-immobilier.fr',
+  logo: 'https://www.lamy-immobilier.fr/assets/build/images/favicon/apple-touch-icon.7031a2e5.png',
   kind: 'agencyNetwork',
   method: 'sitemap',
   priority: 2,

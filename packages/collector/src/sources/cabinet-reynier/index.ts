@@ -14,6 +14,7 @@ export const cabinetReynierScraper = makeApimoListScraper({
   id: 'cabinet-reynier',
   name: 'Cabinet Reynier',
   domain: 'cabinet-reynier.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Zenia/774/media/23db7352da390575aa22fbce081758ec.png',
   agencyContact: {
     address: { street: '78 boulevard Napoléon III', postalCode: '06200', city: 'Nice' },
   },

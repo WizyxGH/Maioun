@@ -15,6 +15,7 @@ export const agenceVictoireScraper = makeApimoScraper({
   id: 'agence-victoire',
   name: 'Agence de la Victoire',
   domain: 'agence-victoire-nice.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3308/media/8cf0875ff6203406c7aafb3b48aee96d.png',
   sitemapUrl: 'https://agence-victoire-nice.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://agence-victoire-nice.com/fr/locations'],

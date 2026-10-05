@@ -16,6 +16,7 @@ export const fiveStarsScraper = makeApimoScraper({
   id: 'five-stars',
   name: '5 Stars Holiday House',
   domain: 'fivestarsholidayhouserealestate.com',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/3784/media/60b71498b249d0d63222dc5adf12b7ca.png',
   agencyContact: { address: { street: '40 rue de la Buffa', postalCode: '06000', city: 'Nice' } },
   sitemapUrl: 'https://fivestarsholidayhouserealestate.com/sitemap.xml',
   listUrls: ['https://fivestarsholidayhouserealestate.com/fr/locations'],

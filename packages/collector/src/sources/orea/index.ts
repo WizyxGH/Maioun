@@ -19,6 +19,7 @@ export const oreaScraper = makeApimoScraper({
   id: 'orea',
   name: 'Oréa Immobilier',
   domain: 'orea-immobilier.fr',
+  logo: 'https://d36vnx92dgl2c5.cloudfront.net/prod/Elone/1517/media/9b04900077fdd4c400d9bdc514997912.png',
   sitemapUrl: 'https://www.orea-immobilier.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
   listUrls: ['https://www.orea-immobilier.fr/fr/locations'],
