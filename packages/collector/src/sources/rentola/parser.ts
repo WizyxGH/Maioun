@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@maioun/shared';
 import { cleanText } from '../../normalization/text.js';
+import { namesAStreet } from '../../normalization/parse-listing-fields.js';
 
 const LISTING_URL = /^https?:\/\/(?:www\.)?rentola\.fr\/listings\/.*?-([a-z0-9]+)\/?(?:[?#].*)?$/i;
 
@@ -85,6 +86,15 @@ function listingFromJsonLd(item: JsonLdRealEstate, fallbackUrl: string): RawList
   const street = address?.streetAddress ? cleanText(address.streetAddress) : undefined;
   const postalCode = address?.postalCode ?? extractPostalCode(street);
   const city = address?.addressLocality ? cleanText(address.addressLocality) : 'Nice';
+  /**
+   * UNE VILLE GÉOCODÉE N'EST PAS UNE ADRESSE. Rentola publie « Nice, Maritime
+   * Alps, France », « 06000 Nice, France » ou « Nice-Ville, Parvis de la Gare »
+   * avec le point que son géocodeur en tire : 118 logements au même point du
+   * centre-ville, 22 à la gare (relevé du 2026-10-05). Afficher l'un ou
+   * l'autre plaçait une punaise et un temps de trajet faux. Sans voie nommée,
+   * on ne garde ni l'adresse ni la position.
+   */
+  const placee = street !== undefined && namesAStreet(street);
 
   const isFurnished =
     (item.description && /meubl[ée]|\bfurnished\b/i.test(item.description)) ||
@@ -102,11 +112,11 @@ function listingFromJsonLd(item: JsonLdRealEstate, fallbackUrl: string): RawList
       : {}),
     propertyTypeText: itemOffered?.['@type'] === 'House' ? 'Maison' : 'Appartement',
     furnishedText: isFurnished ? 'Meublé' : undefined,
-    ...(street ? { addressText: street } : {}),
+    ...(placee ? { addressText: street } : {}),
     cityText: city,
     ...(postalCode ? { postalCodeText: postalCode } : {}),
-    ...(geo?.latitude !== undefined ? { latitude: geo.latitude } : {}),
-    ...(geo?.longitude !== undefined ? { longitude: geo.longitude } : {}),
+    ...(placee && geo?.latitude !== undefined ? { latitude: geo.latitude } : {}),
+    ...(placee && geo?.longitude !== undefined ? { longitude: geo.longitude } : {}),
     ...(images.length > 0 ? { imageUrls: images } : {}),
     ...(offers?.validFrom || item.datePosted
       ? { publishedAt: offers?.validFrom ?? item.datePosted }

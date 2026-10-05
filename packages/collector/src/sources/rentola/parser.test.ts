@@ -351,3 +351,60 @@ describe('les images du chemin JSON-LD sont filtrées comme celles du HTML', () 
     ]);
   });
 });
+
+/**
+ * UNE VILLE GÉOCODÉE N'EST PAS UNE ADRESSE. Rentola publie « 06000 Nice,
+ * France » ou « Nice-Ville, Parvis de la Gare » avec le point que son
+ * géocodeur en tire : 118 logements au même point du centre, 22 à la gare
+ * (relevé du 2026-10-05). On ne garde ni l'adresse ni la position.
+ */
+describe('parseSearchPage — adresse et position de Rentola', () => {
+  const page = (streetAddress: string): string =>
+    `<script type="application/ld+json">${JSON.stringify({
+      '@type': 'SearchResultsPage',
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            url: 'https://rentola.fr/listings/studio-nice-p0a0b0c',
+            item: {
+              '@type': 'RealEstateListing',
+              name: 'Studio Nice',
+              url: 'https://rentola.fr/listings/studio-nice-p0a0b0c',
+              offers: {
+                '@type': 'Offer',
+                price: 600,
+                itemOffered: {
+                  '@type': 'Apartment',
+                  address: { '@type': 'PostalAddress', streetAddress, addressLocality: 'Nice' },
+                  geo: { '@type': 'GeoCoordinates', latitude: 43.7049, longitude: 7.2617 },
+                },
+              },
+            },
+          },
+        ],
+      },
+    })}</script>`;
+
+  it.each([
+    'Nice, Maritime Alps, France',
+    '06000 Nice, France',
+    'Nice-Ville, Parvis de la Gare, 06000 Nice, France',
+  ])('écarte « %s » et son point', (adresse) => {
+    const [listing] = parseSearchPage(page(adresse), 'https://rentola.fr/location/nice').listings;
+    expect(listing).toBeDefined();
+    expect(listing).not.toHaveProperty('addressText');
+    expect(listing).not.toHaveProperty('latitude');
+    expect(listing).not.toHaveProperty('longitude');
+  });
+
+  it('garde une vraie rue, et sa position', () => {
+    const [listing] = parseSearchPage(
+      page('12 Rue Fictive, 06000 Nice, France'),
+      'https://rentola.fr/location/nice',
+    ).listings;
+    expect(listing?.addressText).toContain('12 Rue Fictive');
+    expect(listing?.latitude).toBe(43.7049);
+  });
+});

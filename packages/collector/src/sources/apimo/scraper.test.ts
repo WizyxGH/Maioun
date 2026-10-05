@@ -52,6 +52,8 @@ interface ContexteOptions {
   readonly retirees?: readonly string[];
   /** Date de dernière lecture, par référence. */
   readonly lues?: Readonly<Record<string, string>>;
+  /** Reçoit les références notées dans la mémoire des fiches. */
+  readonly notees?: string[];
 }
 
 function contexte(options: ContexteOptions): {
@@ -82,7 +84,10 @@ function contexte(options: ContexteOptions): {
         const fetchedAt = options.lues?.[reference];
         return fetchedAt === undefined ? null : { draft: {}, fetchedAt };
       },
-      save: () => Promise.resolve(),
+      save: (entries) => {
+        options.notees?.push(...entries.map((entry) => entry.sourceRef));
+        return Promise.resolve();
+      },
     },
     pageRefs: { get: () => Promise.resolve(null), set: () => Promise.resolve() },
     log: () => undefined,
@@ -163,6 +168,34 @@ describe('makeApimoScraper — fiches connues relues', () => {
     expect(fetched).not.toContain(ficheUrl('830010'));
   });
 
+  /**
+   * UNE ENTRÉE MORTE DU SITEMAP NE BLOQUE PLUS LA RELECTURE. Immo JBF garde
+   * des centaines de fiches retirées à son sitemap : redemandées à chaque
+   * passage, elles prenaient tout le budget, et la fiche connue retirée
+   * n'était jamais relue — elle restait « en ligne », son lien en 404.
+   */
+  it('ne redemande pas une entrée lue cette semaine sans rien donner', async () => {
+    const { context, fetched } = contexte({
+      references: ['840001', '820001'],
+      connues: ['820001'],
+      lues: { '840001': new Date(Date.now() - 86_400_000).toISOString() },
+    });
+    await scraper.run(context);
+    expect(fetched).toEqual([SITEMAP, ficheUrl('820001')]);
+  });
+
+  it('note les nouvelles qui n’ont rien donné, pas celles qui ont donné une annonce', async () => {
+    const notees: string[] = [];
+    const { context } = contexte({
+      references: ['840001', '840002'],
+      connues: [],
+      retirees: ['840001'],
+      notees,
+    });
+    await scraper.run(context);
+    expect(notees).toEqual(['840001']);
+  });
+
   it('relit sans en-tête conditionnel : un 304 n’apprendrait rien', async () => {
     const { context } = contexte({ references: ['820001'], connues: ['820001'] });
     const espion = vi.spyOn(context, 'fetch');
@@ -197,17 +230,31 @@ describe('makeApimoScraper — la page de liste complète le sitemap', () => {
       .map((ref) => `<a href="${ORIGIN}/fr/propriete/location+appartement+nice+${ref}">voir</a>`)
       .join('')}</body></html>`;
 
-  function contexteAvecListe(sitemapRefs: readonly string[], pageRefs: readonly string[]) {
+  function contexteAvecListe(
+    sitemapRefs: readonly string[],
+    pageRefs: readonly string[],
+    suivantes: readonly (readonly string[])[] = [],
+  ) {
     const fetched: string[] = [];
+    // La page N renvoie vers la N+1 tant qu'il en reste une.
+    const pages = [pageRefs, ...suivantes];
+    const pageN = (numero: number): string =>
+      pageDeListe(pages[numero - 1] ?? []).replace(
+        '</body>',
+        numero < pages.length
+          ? `<a href="/fr/locations?page=${numero + 1}">suivante</a></body>`
+          : '</body>',
+      );
     const context: ScrapeContext = {
       ...contexte({ references: sitemapRefs, connues: [] }).context,
       fetch: (url): Promise<FetchResult> => {
         fetched.push(url);
+        const numero = Number(new URL(url).searchParams.get('page') ?? '1');
         const body =
           url === SITEMAP
             ? sitemap(sitemapRefs)
-            : url === LISTE
-              ? pageDeListe(pageRefs)
+            : url.startsWith(LISTE)
+              ? pageN(numero)
               : fiche(url.split('+').at(-1) ?? '');
         return Promise.resolve({ status: 200, body, headers: {}, notModified: false });
       },
@@ -250,6 +297,57 @@ describe('makeApimoScraper — la page de liste complète le sitemap', () => {
     const { context } = contexteAvecListe([], ['222222']);
     const result = await scraperAvecListe.run(context);
     expect(result.warnings.some((one) => one.includes('Sitemap sans aucune location'))).toBe(true);
+  });
+
+  /**
+   * LA PAGE 2 AUSSI. Palais Immobilier range seize locations sur deux pages,
+   * et le sitemap date de 2024 celles de la seconde : on ne les voyait jamais.
+   */
+  it('suit la pagination que la page publie', async () => {
+    const { context, fetched } = contexteAvecListe([], ['111111'], [['222222']]);
+    const result = await scraperAvecListe.run(context);
+    expect(result.listings.map((one) => one.sourceRef).sort()).toEqual(['111111', '222222']);
+    expect(fetched).toContain(`${LISTE}?page=2`);
+    // Pas de page 3 demandée : la page 2 n'y renvoie pas.
+    expect(fetched).not.toContain(`${LISTE}?page=3`);
+  });
+
+  /**
+   * LA PAGE FAIT FOI SUR LA DATE DU SITEMAP. Palais Immobilier date de 2024 au
+   * sitemap une annonce que sa page affiche aujourd'hui : la règle d'âge
+   * l'écartait.
+   */
+  it('lit une fiche de la page que le sitemap date de plus d’un an', async () => {
+    const { context } = contexteAvecListe([], ['111111']);
+    const vieux = `<?xml version="1.0"?><urlset><url><loc>${ficheUrl('111111')}</loc><lastmod>2024-06-03</lastmod></url></urlset>`;
+    const fetchDOrigine = context.fetch;
+    const result = await scraperAvecListe.run({
+      ...context,
+      fetch: (url, options) =>
+        url === SITEMAP
+          ? Promise.resolve({ status: 200, body: vieux, headers: {}, notModified: false })
+          : fetchDOrigine(url, options),
+    });
+    expect(result.listings.map((one) => one.sourceRef)).toEqual(['111111']);
+  });
+
+  /**
+   * ELLE PASSE DEVANT LES ENTRÉES DU SITEMAP. Gestion Cassini garde des
+   * dizaines de fiches mortes au sitemap ; ses deux studios affichés passaient
+   * derrière, et le budget s'épuisait avant eux.
+   */
+  it('sert d’abord les fiches de la page, avant celles du seul sitemap', async () => {
+    const sitemapRefs = Array.from({ length: 12 }, (_, rang) => String(900_000 + rang));
+    const { context, fetched } = contexteAvecListe(sitemapRefs, ['222222']);
+    await scraperAvecListe.run(context);
+    const fiches = fetched.filter((url) => url.includes('/propriete/'));
+    expect(fiches[0]).toBe(`${ORIGIN}/fr/propriete/location+appartement+nice+222222`);
+  });
+
+  it('ne devine pas une page 2 que le site ne publie pas', async () => {
+    const { context, fetched } = contexteAvecListe(['111111'], ['222222']);
+    await scraperAvecListe.run(context);
+    expect(fetched.some((url) => url.includes('page='))).toBe(false);
   });
 
   it('ne compte pas deux fois une fiche vue des deux côtés', async () => {

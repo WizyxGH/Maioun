@@ -51,6 +51,7 @@ import type { AggregatedListing } from '@maioun/shared';
 import type { Repository, UpsertReport } from './db/repository.js';
 import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 import { withStoredCriteria } from './config.js';
+import { withoutDefaultPositions } from './normalization/default-positions.js';
 import { resolveReferencePoints } from './core/reference-points.js';
 import { mapLimited, memoizeStore, runGrouped } from './core/concurrency.js';
 import { createRobotsGate, type RobotsGate } from './core/robots.js';
@@ -1108,7 +1109,11 @@ export async function regroupAndScore(
 ): Promise<RegroupReport> {
   const { repository, logger, config } = options;
 
-  const corpus = withAgencyContacts(await repository.allActiveOccurrences(), options.registry);
+  // Les points qu'une source pose sur huit logements ne situent aucun d'eux :
+  // retirés avant de regrouper, de géocoder et de mesurer les trajets.
+  const corpus = withoutDefaultPositions(
+    withAgencyContacts(await repository.allActiveOccurrences(), options.registry),
+  );
   // CONSTRUIT UNE FOIS, PAS PAR PAIRE : le dédoublonnage compare des dizaines
   // de milliers de paires, et ce résolveur indexe les 216 sources à chaque
   // création.

@@ -35,6 +35,12 @@ import {
 } from './parser.js';
 import { identiteAgence, type IdentiteAgence } from '../shared/agency-identity.js';
 
+/**
+ * Au-delà, une page de liste ne se suit plus : c'est une boucle, pas un stock.
+ * Palais Immobilier, la plus grosse agence, tient en deux pages de douze.
+ */
+const PAGES_DE_LISTE_MAX = 6;
+
 export interface ApimoConfig extends IdentiteAgence {
   readonly id: string;
   readonly name: string;
@@ -83,9 +89,9 @@ export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
     priority: config.priority ?? 2,
     schedule: scheduleFor('localAgency'),
     budget: budgetFor('localAgency', {
-      // Une page de plus par page de liste déclarée : sans cela, le plafond
+      // Les pages de liste et leurs suivantes : sans elles dans le plafond, il
       // couperait le passage avant les fiches.
-      maxPagesPerRun: 2 + (config.listUrls?.length ?? 0) + maxBackfill,
+      maxPagesPerRun: 2 + (config.listUrls?.length ?? 0) * PAGES_DE_LISTE_MAX + maxBackfill,
       maxListingsPerRun: maxBackfill,
     }),
     enabled: true,
@@ -132,6 +138,51 @@ const RELECTURES_PAR_PASSAGE = 1;
 const RELECTURES_PAR_PASSAGE_BACKFILL = 5;
 
 /**
+ * Une page de liste ET SES SUIVANTES (`?page=2`, `?page=3`…).
+ *
+ * On ne lisait que la première. Palais Immobilier range seize locations sur
+ * deux pages, et le sitemap date de 2024 celles de la seconde : écartées par
+ * l'âge d'un côté, jamais vues de l'autre. Le F2 meublé de Saint-Pierre-de-Féric
+ * n'arrivait ainsi que par un lien envoyé à la main.
+ *
+ * La page suivante n'est demandée QUE si la page courante y renvoie : on ne
+ * devine pas une pagination, on suit celle que le site publie. `null` si la
+ * première page n'a pas changé depuis le passage précédent.
+ */
+async function lireToutesLesPages(
+  context: ScrapeContext,
+  listUrl: string,
+  compter: (n: { requests: number; pages: number }) => void,
+): Promise<ReturnType<typeof parseLocationLinks> | null> {
+  const liens: ReturnType<typeof parseLocationLinks>[number][] = [];
+  const vues = new Set<string>();
+  for (let numero = 1; numero <= PAGES_DE_LISTE_MAX; numero += 1) {
+    const url = numero === 1 ? listUrl : pageNumero(listUrl, numero);
+    const page = await context.fetch(url);
+    compter({ requests: 1, pages: 0 });
+    if (page.notModified) return numero === 1 ? null : liens;
+    compter({ requests: 0, pages: 1 });
+    const nouveaux = parseLocationLinks(page.body, url).filter((lien) => !vues.has(lien.reference));
+    for (const lien of nouveaux) vues.add(lien.reference);
+    liens.push(...nouveaux);
+    if (nouveaux.length === 0 || !renvoieVers(page.body, numero + 1)) break;
+  }
+  return liens;
+}
+
+/** L'adresse de la page N d'une liste. */
+function pageNumero(listUrl: string, numero: number): string {
+  const url = new URL(listUrl);
+  url.searchParams.set('page', String(numero));
+  return url.href;
+}
+
+/** La page publie-t-elle un lien vers la page N ? */
+function renvoieVers(html: string, numero: number): boolean {
+  return new RegExp(`href="[^"]*[?&](?:amp;)?page=${numero}(?:[&"])`).test(html);
+}
+
+/**
  * Les fiches vues sur les pages de liste, ajoutées à celles du sitemap.
  *
  * Extrait de `run`, qui dépassait la complexité tolérée : la boucle a sa
@@ -146,16 +197,28 @@ async function ajouterLesPagesDeListe(
 ): Promise<SitemapEntry[]> {
   for (const listUrl of config.listUrls ?? []) {
     try {
-      const page = await context.fetch(listUrl);
-      compter({ requests: 1, pages: 0 });
-      if (page.notModified) continue;
-      compter({ requests: 0, pages: 1 });
-      const connues = new Set(entries.map((one) => one.url.reference));
-      const surLaPage = parseLocationLinks(page.body, listUrl);
+      const surLaPage = await lireToutesLesPages(context, listUrl, compter);
+      if (surLaPage === null) continue;
+      /**
+       * VUE SUR LA PAGE, DONC EN LIGNE AUJOURD'HUI — et datée comme telle.
+       *
+       * Sans date, elle passait en DERNIER au tri, derrière les entrées mortes
+       * du sitemap qui épuisaient le budget : deux studios de Gestion Cassini
+       * affichés sur sa page n'étaient jamais lus. Et quand le sitemap la
+       * portait aussi, il imposait sa date — 2024 chez Palais Immobilier —, et
+       * la règle d'âge écartait une annonce que la page montrait.
+       */
+      const aujourdhui = new Date().toISOString().slice(0, 10);
+      const rangs = new Map(entries.map((one, rang) => [one.url.reference, rang]));
       const rattrapees: string[] = [];
       for (const link of surLaPage) {
-        if (connues.has(link.reference)) continue;
+        const rang = rangs.get(link.reference);
+        if (rang !== undefined) {
+          entries[rang] = { ...entries[rang]!, lastmod: aujourdhui };
+          continue;
+        }
         rattrapees.push(link.reference);
+        rangs.set(link.reference, entries.length);
         entries.push({
           url: {
             transaction: 'location',
@@ -164,7 +227,7 @@ async function ajouterLesPagesDeListe(
             reference: link.reference,
             canonicalUrl: link.canonicalUrl,
           },
-          lastmod: null,
+          lastmod: aujourdhui,
         });
       }
 
@@ -286,8 +349,8 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
        * vingt annonces bien vivantes. Chacune des deux vues est incomplète,
        * dans l'autre sens : leur union est la seule lecture honnête.
        *
-       * SANS `lastmod`, donc jamais écartée par l'âge : une entrée vue sur la
-       * page est en ligne aujourd'hui, par construction.
+       * DATÉE DU JOUR, donc jamais écartée par l'âge et lue en premier : une
+       * entrée vue sur la page est en ligne aujourd'hui, par construction.
        */
       entries = await ajouterLesPagesDeListe(context, config, entries, warnings, (n) => {
         requestCount += n.requests;
@@ -323,8 +386,23 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
         };
       }
       const connues = targeted.filter((entry) => context.isKnown(entry.url.reference));
+      /**
+       * UNE ENTRÉE MORTE NE SE REDEMANDE PAS À CHAQUE PASSAGE.
+       *
+       * Une fiche du sitemap qui répond 404 n'entre jamais en base : elle
+       * restait « nouvelle » et on la redemandait à chaque passage. Le sitemap
+       * d'Immo JBF en garde des centaines (relevé du 2026-10-05) : elles
+       * mangeaient tout le budget de pages, et la relecture des fiches connues
+       * — qui seule dénonce un retrait — ne passait jamais. Un parking retiré
+       * restait ainsi « en ligne », son lien en 404.
+       *
+       * Lue sans rien donner, elle attend donc une semaine, comme une fiche
+       * connue relue.
+       */
+      const nowMs = Date.now();
       const candidates = targeted
         .filter((entry) => !context.isKnown(entry.url.reference))
+        .filter((entry) => !isFreshMemory(context.detailMemory.get(entry.url.reference), nowMs))
         .sort((a, b) => (b.lastmod ?? '').localeCompare(a.lastmod ?? ''));
 
       const maxDetails = context.mode === 'backfill' ? maxBackfill : maxLive;
@@ -373,10 +451,14 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
       pagesFetched += passages.reduce((total, passage) => total + passage.pagesFetched, 0);
       stopReason = nouvelles.stopReason ?? relues.stopReason ?? 'completed';
 
-      await noterLectures(
-        context,
-        passages.flatMap((passage) => passage.lues),
-      );
+      // Des nouvelles, on ne note que celles qui n'ont RIEN donné : une fiche
+      // lue mais perdue avant l'écriture en base doit être retentée au passage
+      // suivant, pas dans une semaine.
+      const donnees = new Set(nouvelles.listings.map((listing) => listing.sourceRef));
+      await noterLectures(context, [
+        ...nouvelles.lues.filter((reference) => !donnees.has(reference)),
+        ...relues.lues,
+      ]);
 
       // Fiches dont la page dit qu'elle n'est plus servie, sous les garde-fous
       // de `shared/withdrawn.ts` : une salve dénoncerait un gabarit changé, pas

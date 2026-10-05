@@ -1369,6 +1369,20 @@ const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+${STREET_NAME_CHAR}{2,45
 const STARTS_WITH_KIND = new RegExp(`^(?:${STREET_KINDS})\\b`, 'i');
 
 /**
+ * L'adresse nomme-t-elle une VOIE — « 12 rue Trachel », « avenue Borriglione » —
+ * et non une ville, un code postal ou un lieu (« 06000 Nice, France »,
+ * « Nice-Ville, Parvis de la Gare ») ?
+ *
+ * C'est ce qui sépare une adresse du GÉOCODAGE d'une localité : un portail qui
+ * ne connaît que la ville la géocode quand même, et publie le point obtenu
+ * comme s'il désignait le logement.
+ */
+export function namesAStreet(address: string): boolean {
+  const tete = address.trim();
+  return NUMBERED_STREET.test(tete) || STARTS_WITH_KIND.test(tete);
+}
+
+/**
  * CE QUE VAUT UNE ADRESSE, en trois marches.
  *
  * Deux adresses désignent souvent le même bien sans se valoir : la source

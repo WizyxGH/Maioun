@@ -29,5 +29,6 @@ describe('logos des sources Apimo', () => {
       .filter(({ dossier, code }) => !/^\s*logo: '/m.test(code) && !SANS_ICONE_PROPRE.has(dossier))
       .map(({ dossier }) => dossier);
     expect(oublis).toEqual([]);
-  });
+    // Deux cents fichiers lus : sous charge, le délai par défaut ne suffit pas.
+  }, 30_000);
 });
