@@ -140,26 +140,32 @@ describe('carrousel des nouveautés', () => {
  * selon l'appareil.
  */
 describe('la tuile des critères', () => {
-  it("porte le compte de l'union, et signale le plafond", async () => {
-    render(<Accueil criteriaCount={42} criteriaCountApproximatif />);
+  /**
+   * LE SIGNE « + » DIT QUE LE CHIFFRE EST UN PLANCHER, SANS PARLER DE PLAFOND.
+   *
+   * Une recherche enregistrée qui dépasse ce que le serveur renvoie est
+   * tronquée : le compte s'arrête là où nos identifiants s'arrêtent. « 500+ »
+   * le dit. L'ancienne formulation — « au moins — une recherche dépasse le
+   * plafond » — expliquait un mécanisme que personne ne voit, et supposait
+   * qu'on sache pourquoi le chiffre était faux, ce qu'on ne sait pas toujours :
+   * un refus réseau produit le même signal qu'un dépassement.
+   */
+  it('ajoute « + » quand le compte est un plancher', async () => {
+    render(<Accueil criteriaCount={500} criteriaCountApproximatif />);
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /dans vos critères/ })).toBeDefined(),
+      expect(screen.getByRole('button', { name: '500+ dans vos critères' })).toBeDefined(),
     );
-    // Le doute va dans le nom accessible, pas seulement à l'écran : un lecteur
-    // qui annoncerait « 42 dans vos critères » ferait autant de tort qu'un écran.
-    expect(
-      screen.getByRole('button', {
-        name: '42 dans vos critères, au moins — une recherche dépasse le plafond',
-      }),
-    ).toBeDefined();
-    expect(screen.getByText('au moins — une recherche dépasse le plafond')).toBeDefined();
+    // Le signe est VISIBLE, pas seulement dans le nom accessible.
+    expect(screen.getByRole('button', { name: '500+ dans vos critères' }).textContent).toContain(
+      '+',
+    );
   });
 
-  it('ne signale rien quand le compte est exact', async () => {
+  it('ne signe pas un compte exact', async () => {
     render(<Accueil criteriaCount={42} />);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '42 dans vos critères' })).toBeDefined(),
     );
-    expect(screen.queryByText(/au moins/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /\+/ })).toBeNull();
   });
 });

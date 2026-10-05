@@ -524,6 +524,37 @@ function isRemovedListing(
   return servesAnotherPage($, reference) || (jsonLd === null && priceText === undefined);
 }
 
+/**
+ * LES NUMÉROS ET ADRESSES QUE LA FICHE AFFICHE, au-delà du JSON-LD.
+ *
+ * Le JSON-LD ne nomme que l'agence : son standard, son adresse générale. La
+ * page, elle, présente aussi le conseiller du bien — ligne directe, portable,
+ * adresse nominative — dans le bloc `module-user`, et l'agence qui gère dans
+ * `module-agency` (DG Immo, Palais Immobilier). Ce sont souvent les numéros qui
+ * répondent.
+ *
+ * On lit le TEXTE du lien, pas son `href` : Apimo y masque les chiffres
+ * (`tel:+336****9626`), alors que le texte affiché est complet.
+ */
+function coordonneesAffichees($: cheerio.CheerioAPI): {
+  otherPhonesText?: string[];
+  otherEmailsText?: string[];
+} {
+  const blocs = $('.module-user, .module-agency');
+  const lire = (selecteur: string): string[] =>
+    blocs
+      .find(selecteur)
+      .toArray()
+      .map((lien) => $(lien).text().trim())
+      .filter((texte) => texte !== '');
+  const telephones = lire('.phone a, .mobile a');
+  const courriels = lire('.email a');
+  return {
+    ...(telephones.length > 0 ? { otherPhonesText: telephones } : {}),
+    ...(courriels.length > 0 ? { otherEmailsText: courriels } : {}),
+  };
+}
+
 export function parseDetailPage(
   html: string,
   pageUrl: string,
@@ -593,6 +624,7 @@ export function parseApimoDetail(
     agencyName: jsonLd?.agencyName ?? defaultAgencyName,
     phoneText: jsonLd?.agencyPhone,
     emailText: jsonLd?.agencyEmail,
+    ...coordonneesAffichees($),
     contactFormUrl: parsedUrl.canonicalUrl,
     publishedAtText,
     imageUrls:

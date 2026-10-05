@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { ApplicationStatus, NormalizedListing } from '@maioun/shared';
 import { EMPTY_CONTACT } from '@maioun/shared';
 import { occurrenceHash } from '../db/repository.js';
-import { mergeApplicationStatus, mergeGroup, mergeLifecycle } from './merge.js';
+import { mergeApplicationStatus, mergeContacts, mergeGroup, mergeLifecycle } from './merge.js';
 
 const BASE_TIME = '2026-09-14T12:00:00.000Z';
 
@@ -294,5 +294,53 @@ describe('adresse la plus précise', () => {
       { ...occurrence('seloger:1'), address: '12 rue Inventée' },
     ]);
     expect(merged.address.value).toBe('12 rue Fictive');
+  });
+});
+
+/**
+ * PLUSIEURS NUMÉROS POUR UNE ANNONCE : aucun ne se perd à la fusion.
+ *
+ * La fiche n'en gardait qu'un — le premier venu —, et la ligne directe du
+ * conseiller, publiée par l'agence elle-même, disparaissait derrière le
+ * standard relayé par un portail.
+ */
+describe('mergeContacts — coordonnées multiples', () => {
+  function avec(id: string, contact: Partial<NormalizedListing['contact']>): NormalizedListing {
+    return { ...occurrence(id), contact: { ...EMPTY_CONTACT, ...contact } };
+  }
+
+  it('garde le premier principal et range tout le reste, sans doublon', () => {
+    const fusion = mergeContacts([
+      avec('bienici:1', { phone: '+33400000040', email: 'agence@example.invalid' }),
+      avec('dgimmo:1', {
+        phone: '+33400000040',
+        otherPhones: ['+33600000041'],
+        email: 'agence@example.invalid',
+        otherEmails: ['conseiller@example.invalid'],
+      }),
+      avec('autre:1', { phone: '+33600000042' }),
+    ]);
+    expect(fusion.phone).toBe('+33400000040');
+    expect(fusion.otherPhones).toEqual(['+33600000041', '+33600000042']);
+    expect(fusion.email).toBe('agence@example.invalid');
+    expect(fusion.otherEmails).toEqual(['conseiller@example.invalid']);
+  });
+
+  it("n'ajoute aucune liste quand il n'y a qu'un numéro", () => {
+    const fusion = mergeContacts([
+      avec('a:1', { phone: '+33400000040' }),
+      avec('b:1', { phone: '+33400000040' }),
+    ]);
+    expect(fusion).not.toHaveProperty('otherPhones');
+    expect(fusion).not.toHaveProperty('otherEmails');
+  });
+
+  it("change l'empreinte de l'occurrence quand un numéro secondaire apparaît", () => {
+    const sans = avec('dgimmo:1', { phone: '+33400000040' });
+    const avecPortable = avec('dgimmo:1', {
+      phone: '+33400000040',
+      otherPhones: ['+33600000041'],
+    });
+    expect(occurrenceHash(avecPortable)).not.toBe(occurrenceHash(sans));
   });
 });

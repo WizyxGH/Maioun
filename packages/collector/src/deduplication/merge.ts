@@ -22,7 +22,12 @@ import type {
   Sourced,
   TenancyRequirements,
 } from '@maioun/shared';
-import { hasRequirements, NO_REQUIREMENTS, ONE_SHOT_SOURCES } from '@maioun/shared';
+import {
+  hasRequirements,
+  NO_REQUIREMENTS,
+  ONE_SHOT_SOURCES,
+  rangerCoordonnees,
+} from '@maioun/shared';
 import { addressGrade } from '../normalization/parse-listing-fields.js';
 import { parseRequirements } from '../normalization/parse-requirements.js';
 
@@ -211,6 +216,10 @@ export function mergeContacts(occurrences: readonly NormalizedListing[]): Contac
   let formUrl: string | null = null;
   let reference: string | null = null;
   let kind: Contact['kind'] = 'unknown';
+  // Tout ce que les sources publient, dans leur ordre : le principal de l'une
+  // peut être l'« autre » d'une seconde, et aucun numéro ne doit se perdre.
+  const telephones: (string | null)[] = [];
+  const courriels: (string | null)[] = [];
 
   for (const occurrence of occurrences) {
     const contact = occurrence.contact;
@@ -222,9 +231,24 @@ export function mergeContacts(occurrences: readonly NormalizedListing[]): Contac
     reference ??= contact.reference;
     if (kind === 'unknown' && contact.kind !== 'unknown') kind = contact.kind;
     for (const source of contact.providedBy) providedBy.add(source);
+    telephones.push(contact.phone, ...(contact.otherPhones ?? []));
+    courriels.push(contact.email, ...(contact.otherEmails ?? []));
   }
 
-  return { name, agencyName, phone, email, formUrl, reference, kind, providedBy: [...providedBy] };
+  const tel = rangerCoordonnees(phone, telephones);
+  const mel = rangerCoordonnees(email, courriels);
+  return {
+    name,
+    agencyName,
+    phone: tel.principal,
+    email: mel.principal,
+    ...(tel.autres !== undefined ? { otherPhones: tel.autres } : {}),
+    ...(mel.autres !== undefined ? { otherEmails: mel.autres } : {}),
+    formUrl,
+    reference,
+    kind,
+    providedBy: [...providedBy],
+  };
 }
 
 /**

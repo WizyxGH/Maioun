@@ -17,6 +17,7 @@ import type {
 } from '@maioun/shared';
 import {
   EMPTY_CONTACT,
+  rangerCoordonnees,
   rentExcludingCharges,
   SHORT_TERM_LEASE_FEATURE,
   STUDENT_HOUSING_FEATURE,
@@ -187,8 +188,16 @@ function inferLandlordKind(raw: RawListing, sourceLandlord?: LandlordKind): Land
 
 /** Construit les coordonnées à partir des champs bruts (§21). */
 function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKind): Contact {
-  const phone = parsePhone(raw.phoneText);
-  const email = parseEmail(raw.emailText);
+  const telephones = rangerCoordonnees(
+    parsePhone(raw.phoneText),
+    (raw.otherPhonesText ?? []).map(parsePhone),
+  );
+  const courriels = rangerCoordonnees(
+    parseEmail(raw.emailText),
+    (raw.otherEmailsText ?? []).map(parseEmail),
+  );
+  const phone = telephones.principal;
+  const email = courriels.principal;
   const agencyName = toNull(raw.agencyName);
   const name = toNull(raw.contactName);
   const formUrl = toNull(raw.contactFormUrl);
@@ -216,6 +225,8 @@ function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKi
     agencyName,
     phone,
     email,
+    ...(telephones.autres !== undefined ? { otherPhones: telephones.autres } : {}),
+    ...(courriels.autres !== undefined ? { otherEmails: courriels.autres } : {}),
     formUrl,
     reference,
     kind: inferLandlordKind(raw, landlord),

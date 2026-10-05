@@ -89,7 +89,7 @@ function StatTile({
   Icon,
   onClick,
   accent = false,
-  hint,
+  suffixe,
 }: {
   readonly label: string;
   readonly value: number;
@@ -97,20 +97,25 @@ function StatTile({
   readonly onClick: () => void;
   readonly accent?: boolean;
   /**
-   * Ce que le chiffre ne dit pas de lui-même — ici qu'il est un plancher.
+   * `+` : le chiffre est un PLANCHER, pas une mesure.
    *
-   * Va dans le nom accessible comme dans le texte : un lecteur d'écran qui
-   * annoncerait « 180 dans vos critères » sans le doute文章的 fait autant de
-   * tort qu'un écran qui l'affiche.
+   * Une recherche enregistrée qui dépasse le plafond du serveur est tronquée :
+   * le compte s'arrête là où nos identifiants s'arrêtent. Écrire « 180+ » le
+   * dit sans parler de plafond — un mot que personne ne voudrait lire sur une
+   * tuile, et qui n'explique rien de ce qui se passe.
+   *
+   * LE SIGNE VA DANS LE NOM ACCESSIBLE. « 180+ dans vos critères » se lit, et se
+   * fait entendre ; « 180 dans vos critères » serait faux sans que rien ne le
+   * dise.
    */
-  readonly hint?: string;
+  readonly suffixe?: string;
 }): React.JSX.Element {
   // Nommé : l'aller-retour vers la liste ne redéroule pas les mêmes chiffres.
   const affiche = useCountUp(value, `accueil:${label}`);
   return (
     <ItemButton
       onClick={onClick}
-      aria-label={hint === undefined ? `${value} ${label}` : `${value} ${label}, ${hint}`}
+      aria-label={`${value}${suffixe ?? ''} ${label}`}
       className={cn('flex-col items-start gap-0.5', accent && 'border-hot')}
     >
       <Icon
@@ -122,15 +127,11 @@ function StatTile({
         image de l'animation. */}
       <span aria-hidden="true" className="text-xl leading-tight font-bold tabular-nums">
         {affiche}
+        {suffixe}
       </span>
       <span aria-hidden="true" className="text-muted-foreground text-[0.8rem] leading-tight">
         {label}
       </span>
-      {hint !== undefined && (
-        <span aria-hidden="true" className="text-muted-foreground text-[0.7rem] leading-tight">
-          {hint}
-        </span>
-      )}
     </ItemButton>
   );
 }
@@ -422,9 +423,7 @@ export function HomePanel({
               value={criteriaCount}
               Icon={Search}
               onClick={onOpenSearch}
-              {...(criteriaCountApproximatif
-                ? { hint: 'au moins — une recherche dépasse le plafond' }
-                : {})}
+              {...(criteriaCountApproximatif ? { suffixe: '+' } : {})}
             />
             <StatTile
               label="à contacter"

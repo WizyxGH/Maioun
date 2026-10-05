@@ -258,8 +258,19 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.publishedAt,
     listing.availableAt,
     listing.imageUrls,
+    ...autresCoordonnees(listing.contact),
   ]);
   return createHash('sha256').update(material).digest('hex').slice(0, 32);
+}
+
+/**
+ * Les numéros et adresses secondaires s'affichent : ils entrent donc dans les
+ * empreintes. Omis quand il n'y en a pas, pour ne réécrire que les fiches qui
+ * en gagnent.
+ */
+function autresCoordonnees(contact: NormalizedListing['contact']): string[] {
+  const autres = [...(contact.otherPhones ?? []), ...(contact.otherEmails ?? [])];
+  return autres.length > 0 ? [`autres:${autres.join(',')}`] : [];
 }
 
 /** Empreinte d'une fiche agrégée et scorée. */
@@ -341,6 +352,7 @@ export function listingHash(listing: ScoredListing): string {
     canonicalDistrict(listing.district.value),
     listing.availableAt.value,
     listing.contact.phone,
+    ...autresCoordonnees(listing.contact),
     // Coordonnées : sans elles dans le hash, une fiche enfin géocodée ne serait
     // jamais réécrite → absente de la vue carte (§ 30 vs perte de données).
     listing.latitude.value,

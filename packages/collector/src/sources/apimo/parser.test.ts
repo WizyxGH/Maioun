@@ -436,3 +436,45 @@ describe('les URL de fiche a reference masquee', () => {
     expect(a?.reference).toBe(b?.reference);
   });
 });
+
+/**
+ * LE CONSEILLER ET L'AGENCE, PAS SEULEMENT LE JSON-LD.
+ *
+ * Gabarit relevé le 2026-10-05 sur DG Immo et Palais Immobilier : la fiche
+ * affiche la ligne directe, le portable et l'adresse du conseiller, puis le
+ * standard de l'agence. Le JSON-LD n'en portait qu'un, et la fiche n'en
+ * montrait qu'un. Le `href` masque les chiffres ; le texte est complet.
+ */
+describe('parseDetailPage — toutes les coordonnées affichées', () => {
+  const blocs = `
+    <div class="module module-1 user-template-1 module-user"><ul class="listing"><li>
+      <h3>Conseiller <em>Gérant</em></h3>
+      <span class="phone"><a href="tel:+334****0040">+33 4 00 00 00 40</a></span>
+      <span class="mobile"><a href="tel:+336****0041">+33 6 00 00 00 41</a></span>
+      <span class="email"><a href="mailto:conseiller@example.invalid">conseiller@example.invalid</a></span>
+    </li></ul></div>
+    <div class="module module-2 agency-template-1 module-agency simple">
+      <span class="phone"><a href="tel:+33-400000040">+33 4 00 00 00 40</a></span>
+      <span class="email"><a href="mailto:agence@example.invalid">agence@example.invalid</a></span>
+    </div>`;
+
+  it('relève chaque numéro et chaque adresse, avec le texte et non le lien masqué', () => {
+    const { listing } = parseDetailPage(residentialHtml(blocs), RESIDENTIAL_URL, AGENCY);
+    expect(listing?.otherPhonesText).toEqual([
+      '+33 4 00 00 00 40',
+      '+33 6 00 00 00 41',
+      '+33 4 00 00 00 40',
+    ]);
+    expect(listing?.otherEmailsText).toEqual([
+      'conseiller@example.invalid',
+      'agence@example.invalid',
+    ]);
+  });
+
+  it('ne dit rien quand la page ne publie aucun bloc', () => {
+    const { listing } = parseDetailPage(residentialHtml(), RESIDENTIAL_URL, AGENCY);
+    expect(listing).not.toBeNull();
+    expect(listing).not.toHaveProperty('otherPhonesText');
+    expect(listing).not.toHaveProperty('otherEmailsText');
+  });
+});

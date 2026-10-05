@@ -23,6 +23,13 @@ export interface Contact {
   /** Numéro au format E.164 lorsque la normalisation aboutit. */
   readonly phone: Maybe<string>;
   readonly email: Maybe<string>;
+  /**
+   * Les AUTRES numéros et adresses publiés pour l'annonce : ligne directe et
+   * portable du conseiller, à côté du standard de l'agence. Absents quand il
+   * n'y en a pas — jamais une liste vide, jamais une copie du principal.
+   */
+  readonly otherPhones?: readonly string[];
+  readonly otherEmails?: readonly string[];
   /** URL du formulaire de contact, à privilégier quand la source le prévoit. */
   readonly formUrl: Maybe<string>;
   /** Référence interne de l'annonce chez l'agence — signal fort de doublon (§14). */
@@ -30,6 +37,28 @@ export interface Contact {
   readonly kind: LandlordKind;
   /** Sources ayant contribué à ces coordonnées. */
   readonly providedBy: readonly SourceId[];
+}
+
+/**
+ * Range des coordonnées en un PRINCIPAL et ses AUTRES : doublons retirés, ordre
+ * gardé, le principal jamais répété parmi les autres.
+ *
+ * Sans principal, le premier autre le devient : une page qui ne publie que la
+ * ligne de son conseiller a bel et bien un numéro, et c'est celui qu'on appelle.
+ */
+export function rangerCoordonnees(
+  principal: string | null,
+  candidats: readonly (string | null | undefined)[],
+): { readonly principal: string | null; readonly autres?: readonly string[] } {
+  const vus = new Set<string>();
+  const ordre: string[] = [];
+  for (const valeur of [principal, ...candidats]) {
+    if (valeur === null || valeur === undefined || vus.has(valeur)) continue;
+    vus.add(valeur);
+    ordre.push(valeur);
+  }
+  const [premier = null, ...autres] = ordre;
+  return autres.length > 0 ? { principal: premier, autres } : { principal: premier };
 }
 
 /** Contact vide — utilisé quand une source ne publie aucune coordonnée. */

@@ -182,6 +182,9 @@ export interface RawListing {
   readonly contactName?: string;
   readonly phoneText?: string;
   readonly emailText?: string;
+  /** Numéros et adresses publiés EN PLUS du principal (conseiller, portable). */
+  readonly otherPhonesText?: readonly string[];
+  readonly otherEmailsText?: readonly string[];
   readonly contactFormUrl?: string;
 
   readonly publishedAtText?: string;

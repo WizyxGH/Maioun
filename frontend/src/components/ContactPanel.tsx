@@ -165,6 +165,10 @@ function ContactDetails({
   readonly message?: string;
 }): React.JSX.Element {
   const { name, agencyName, phone, email, formUrl, reference, providedBy } = listing.contact;
+  const autresTelephones = listing.contact.otherPhones ?? [];
+  const courriels = [email, ...(listing.contact.otherEmails ?? [])].filter(
+    (valeur): valeur is string => valeur !== null && valeur.trim() !== '',
+  );
   // La source qui a fourni ces coordonnées, à défaut la première occurrence.
   const contactSource = providedBy[0] ?? listing.occurrences[0]?.sourceId ?? null;
   const openSource =
@@ -231,11 +235,17 @@ function ContactDetails({
           bouton « Ouvrir l'e-mail » la portait, caché derrière un lien
           `mailto:` qui ouvre un logiciel de courrier que tout le monde n'a
           pas. Le bouton est retiré ; l'adresse, elle, se lit et se copie. */}
-        {email !== null && email.trim() !== '' && (
+        {/* Toutes les adresses publiées, une par ligne : celle du conseiller
+          répond souvent plus vite que la boîte générale de l'agence. */}
+        {courriels.length > 0 && (
           <>
-            <dt className="text-muted-foreground">E-mail</dt>
-            <dd data-testid="agency-email" className="break-all select-all">
-              {email}
+            <dt className="text-muted-foreground">{courriels.length > 1 ? 'E-mails' : 'E-mail'}</dt>
+            <dd data-testid="agency-email" className="break-all">
+              {courriels.map((courriel) => (
+                <span key={courriel} className="block select-all">
+                  {courriel}
+                </span>
+              ))}
             </dd>
           </>
         )}
@@ -303,6 +313,27 @@ function ContactDetails({
           <PhoneCall aria-hidden="true" className="size-4" />
           Appeler {formatPhone(phone)}
         </a>
+      )}
+      {/* Les autres lignes publiées — directe, portable du conseiller — en
+        second rang : le standard reste le geste principal. */}
+      {autresTelephones.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5" data-testid="other-phones">
+          {autresTelephones.map((autre) => (
+            <a
+              key={autre}
+              href={telHref(autre)}
+              onClick={onCalled}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'sm',
+                className: 'flex-1 gap-2 no-underline',
+              })}
+            >
+              <PhoneCall aria-hidden="true" className="size-4" />
+              {formatPhone(autre)}
+            </a>
+          ))}
+        </div>
       )}
 
       {/* ÉCRIRE EST UN GESTE AUSSI, et il était une adresse écrite en petit dans

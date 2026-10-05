@@ -242,3 +242,34 @@ describe('le dossier vérifié remplace la liste des pièces', () => {
     expect(screen.queryByText(/Dossier vérifié, joint au message/)).toBeNull();
   });
 });
+
+describe('plusieurs numéros et adresses', () => {
+  it('propose chaque ligne et liste chaque adresse', () => {
+    const onRecorded = vi.fn();
+    render(
+      <ContactPanel
+        listing={{
+          ...base,
+          tracking: 'new',
+          contact: {
+            ...base.contact,
+            phone: '+33400000040',
+            otherPhones: ['+33600000041'],
+            email: 'agence@example.invalid',
+            otherEmails: ['conseiller@example.invalid'],
+          },
+        }}
+        profile={null}
+        onRecorded={onRecorded}
+        onConfigureProfile={vi.fn()}
+      />,
+    );
+    const autre = screen.getByRole('link', { name: /06 00 00 00 41/ });
+    expect(autre).toHaveAttribute('href', expect.stringContaining('+33600000041'));
+    const adresses = screen.getByTestId('agency-email');
+    expect(adresses).toHaveTextContent('agence@example.invalid');
+    expect(adresses).toHaveTextContent('conseiller@example.invalid');
+    fireEvent.click(autre);
+    expect(onRecorded).toHaveBeenCalledWith('phone', '');
+  });
+});

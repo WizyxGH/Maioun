@@ -953,3 +953,26 @@ describe('rederiveFromText — la commune reprise dans le titre', () => {
     expect(rederiveFromText(enBase({ city: 'nice', address: 'déjà propre' }))).toBeNull();
   });
 });
+
+describe('normalizeListing — numéros et adresses en plus du principal', () => {
+  it('normalise les autres, retire la copie du principal', () => {
+    const n = normalizeListing(
+      raw({
+        phoneText: '+33 4 00 00 00 40',
+        otherPhonesText: ['+33 4 00 00 00 40', '06 00 00 00 41'],
+        emailText: 'agence@example.invalid',
+        otherEmailsText: ['conseiller@example.invalid'],
+      }),
+      OPTIONS,
+    );
+    expect(n?.contact.phone).toBe('+33400000040');
+    expect(n?.contact.otherPhones).toEqual(['+33600000041']);
+    expect(n?.contact.otherEmails).toEqual(['conseiller@example.invalid']);
+  });
+
+  it('fait du premier autre le principal quand la source ne nomme que son conseiller', () => {
+    const n = normalizeListing(raw({ otherPhonesText: ['06 00 00 00 41'] }), OPTIONS);
+    expect(n?.contact.phone).toBe('+33600000041');
+    expect(n?.contact).not.toHaveProperty('otherPhones');
+  });
+});
