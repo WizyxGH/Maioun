@@ -35,6 +35,11 @@ export const RENTOLA_DESCRIPTOR: SourceDescriptor = {
   id: 'rentola',
   name: 'Rentola',
   domain: 'rentola.fr',
+  // LE VRAI LOGO, et non /favicon.ico. Rentola déclare deux icônes : un favicon
+  // de 16×16 pixels — illisible sur une carte — et ce SVG de 64×64, que son
+  // site pointe lui-même dans ses balises `<link>`. Un logo qu'on devine au lieu
+  // de le lire en vaut à peine plus qu'une icône.
+  logo: 'https://rentola.fr/theme/logo/logo-default.svg',
   kind: 'portal',
   publishesOwnListings: false,
   method: 'html',

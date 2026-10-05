@@ -40,20 +40,23 @@ const entries = [...ALL_SCRAPERS]
     // différentes (§17).
     const ownSite = descriptor.kind === 'localAgency' && domain !== '';
     /**
-     * LE LOGO SUIT CEUX QUI ONT LE DROIT DE LE PRÊTER, et ils sont trois : une
-     * agence locale, un RÉSEAU dont les franchises portent l'enseigne, et un
-     * portail qui publie EN PROPRE. C'est la règle d'`AgencyLogo`, et elle était
-     * écrite ici plus étroitement — le logo déclaré par ImmoJeune n'arrivait
-     * jamais jusqu'à l'écran, laissé à `null` par ce seul filtre.
+     * LE LOGO DÉCLARÉ EST TOUJOURS TRANSPORTÉ, quel que soit le genre de la
+     * source. C'est `AgencyLogo` — et lui seul — qui décide si une image a le
+     * droit d'être portée SOUS LE NOM D'UNE AGENCE : un portail n'a pas ce
+     * droit, car sa marque irait sur l'annonce d'autrui.
      *
-     * Un RELAIS n'y a pas droit : sa marque irait sur l'annonce d'autrui.
+     * ICI, sur la carte d'annonce, c'est la source qui est nommée — Rentola
+     * affiche SON logo sur SES annonces, ce qui ne usurpe personne. Filtrer à
+     * ce stade effaçait le logo de tout portail de la carte, alors que la règle
+     * qu'on voulait protéger ne jouait pas dans ce cadre : le portail ne se
+     * déguise pas en agence, il se présente comme lui-même.
+     *
+     * Le genre de la source décide donc de l'ATTRIBUTION, pas de l'affichage
+     * d'elle-même. Rentola déclarait un logo que rien ne lisait : son
+     * `favicon.ico` est d'ailleurs une image VIDE (200, zéro octet), et la
+     * carte tombait sur du vide — le pire rendu.
      */
-    const peutPreterSonImage =
-      domain !== '' &&
-      (descriptor.kind === 'localAgency' ||
-        descriptor.kind === 'agencyNetwork' ||
-        descriptor.publishesOwnListings === true);
-    const logo = peutPreterSonImage ? (descriptor.logo ?? null) : null;
+    const logo = descriptor.logo ?? null;
     // Une source qui FAIT PAYER la mise en relation doit le dire à l'écran,
     // avant le clic. C'est un fait sur la source, il vient donc d'elle.
     const paidContact = descriptor.paidContact === true;
