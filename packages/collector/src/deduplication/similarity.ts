@@ -105,14 +105,36 @@ export function jaccard(a: readonly string[], b: readonly string[]): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-/** Même surface, ou l'une est l'entier de l'autre (« 22 m² » d'un digest, « 22,81 m² »). */
+/**
+ * Le nombre de décimales d'une surface : 0, 1 ou 2.
+ *
+ * Même tolérance que `hasDecimals`, au dixième : `26.2` se range parfois en
+ * `26.199999999999999`.
+ */
+function precision(area: number): 0 | 1 | 2 {
+  if (!hasDecimals(area)) return 0;
+  return Math.abs(area * 10 - Math.round(area * 10)) > 0.04 ? 2 : 1;
+}
+
+/**
+ * Même surface, ou l'une est l'autre écrite MOINS PRÉCISÉMENT : « 22 m² » d'un
+ * digest pour « 22,81 m² », et « 26,2 m² » d'une alerte SeLoger pour
+ * « 26,15 m² » — le même portail arrondit au dixième dans un modèle d'e-mail et
+ * pas dans l'autre. Le studio du boulevard Carlone paraissait deux fois.
+ *
+ * Arrondi ou troncature, selon le portail : les deux sont admis.
+ */
 function sameArea(a: number, b: number): boolean {
   if (sameToTheCentimetre(a, b)) return true;
-  const wholeOf = (whole: number, precise: number): boolean =>
-    !hasDecimals(whole) &&
-    (Math.floor(precise + 0.005) === Math.round(whole) ||
-      Math.round(precise) === Math.round(whole));
-  return wholeOf(a, b) || wholeOf(b, a);
+  const [grossiere, precise] = precision(a) <= precision(b) ? [a, b] : [b, a];
+  const chiffres = precision(grossiere);
+  if (chiffres === precision(precise)) return false;
+  const facteur = 10 ** chiffres;
+  const cible = Math.round(grossiere * facteur);
+  return (
+    Math.round(precise * facteur + 1e-6) === cible ||
+    Math.floor(precise * facteur + 0.005) === cible
+  );
 }
 
 /**

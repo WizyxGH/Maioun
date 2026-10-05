@@ -343,6 +343,52 @@ describe('au sein d’une source, le même bien porte les mêmes chiffres', () =
     expect(similarity(digest, { ...digest, id: 'e:2', area: 22.81 }).blocker).toBeNull();
   });
 
+  /**
+   * LE DIXIÈME AUSSI. SeLoger écrit « 26,2 m² » dans un modèle d'alerte et
+   * « 26,15 m² » dans l'autre, pour le même studio du boulevard Carlone
+   * (relevé du 2026-10-05) : la fiche paraissait deux fois.
+   */
+  it('accepte le dixième d’une surface au centième (« 26,2 » / « 26,15 »)', () => {
+    const alerte = listing({ id: 'e:1', sourceId: 'e', area: 26.15, price: 700 });
+    expect(similarity(alerte, { ...alerte, id: 'e:2', area: 26.2 }).blocker).toBeNull();
+    // Troncature plutôt qu'arrondi : « 26,1 ».
+    expect(similarity(alerte, { ...alerte, id: 'e:3', area: 26.1 }).blocker).toBeNull();
+  });
+
+  it('sépare encore deux surfaces de même précision, ou qu’aucun arrondi ne relie', () => {
+    const alerte = listing({ id: 'e:1', sourceId: 'e', area: 26.15, price: 700 });
+    expect(similarity(alerte, { ...alerte, id: 'e:2', area: 26.3 }).blocker).toContain(
+      'même source',
+    );
+    expect(similarity(alerte, { ...alerte, id: 'e:3', area: 26.18 }).blocker).toContain(
+      'même source',
+    );
+  });
+
+  it('réunit les deux alertes du studio Carlone avec sa fiche Bien’ici', () => {
+    const photo =
+      'https://cdnihddipa.cloudimg.io/9/8/f/e/98fe7071-b388-4ea4-8a5e-b3d2c7eebbb9.jpg?ci_seal=0c72&h=370&w=500';
+    const commun = { price: 700, rooms: 1, postalCode: '06200', district: 'Madeleine' };
+    const bienici = listing({
+      id: 'bienici:apimo-7089817',
+      sourceId: 'bienici',
+      title: 'F1 vide / MADELEINE',
+      area: 26.15,
+      address: '54 Boulevard Carlone',
+      ...commun,
+    });
+    const alerte = listing({
+      id: 'email-alerts:seloger:26-15-700-06200',
+      sourceId: 'email-alerts',
+      area: 26.15,
+      imageUrls: [photo],
+      ...commun,
+    });
+    const arrondie = { ...alerte, id: 'email-alerts:seloger:26-2-700-06200', area: 26.2 };
+    const { groups } = dedupe([bienici, alerte, arrondie]);
+    expect(groups).toHaveLength(1);
+  });
+
   it('ne les réunit pas non plus par une troisième source', () => {
     // Chacun ressemble assez au relais pour fusionner avec lui : l'union-find,
     // transitif, réunissait les deux studios par son intermédiaire.
