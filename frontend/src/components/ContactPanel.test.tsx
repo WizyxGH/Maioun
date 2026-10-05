@@ -187,7 +187,15 @@ describe('le courrier : l’adresse plutôt qu’un bouton', () => {
     expect(screen.getByTestId('agency-email')).toHaveTextContent('agence@example.invalid');
   });
 
-  it('offre les boutons « Ouvrir l’e-mail » et « Ouvrir dans Gmail » pré-remplis', () => {
+  /**
+   * UN SEUL BOUTON D'ENVOI, ET CELUI DU CANAL.
+   *
+   * Le lien `mailto:` et un lien Gmail menaient au même brouillon prérempli :
+   * deux boutons côte à côte, dont le second imposait un client de messagerie à
+   * quelqu'un qui n'en a peut-être pas. Le second a été retiré — ce test fixe
+   * qu'il ne revient pas sous une autre forme.
+   */
+  it('n’offre qu’un bouton d’envoi, et ne cite aucun client de messagerie', () => {
     renderPanel(parCourrier(), PROFIL);
     const action = screen.getByTestId('contact-action');
     expect(action).toHaveAttribute(
@@ -195,10 +203,8 @@ describe('le courrier : l’adresse plutôt qu’un bouton', () => {
       expect.stringContaining('mailto:agence@example.invalid'),
     );
     expect(action).toHaveAttribute('href', expect.stringContaining('subject='));
-    expect(screen.getByTestId('contact-gmail-action')).toHaveAttribute(
-      'href',
-      expect.stringContaining('mail.google.com'),
-    );
+    expect(screen.queryByTestId('contact-gmail-action')).toBeNull();
+    expect(document.body.innerHTML).not.toContain('mail.google.com');
   });
 
   it('garde le bouton quand le canal mène QUELQUE PART', () => {

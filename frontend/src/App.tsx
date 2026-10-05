@@ -2878,14 +2878,18 @@ function AppView(): React.JSX.Element {
             vérifier reste précisée, sans être retranchée. */}
           {!loading && (
             <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
-              {/* LE MEME CHIFFRE QUE LA TUILE, ET POUR LA MEME RAISON : sans
-                recherche enregistrée, l'union des recherches EST le compte du
-                compte. Avant, cette ligne comptait `filtered.length` — la liste
-                après les filtres d'affichage — et la tuile comptait les critères
-                du compte : 180 d'un côté, 78 de l'autre, pour les mêmes
-                annonces. Les filtres de cet appareil changeaient le chiffre, ce
-                qui est la pire des deux raisons. */}
-              {criteriaCount} résultat{criteriaCount > 1 ? 's' : ''}
+              {/* LE NOMBRE DE CARTES RÉELLEMENT AFFICHÉES, et lui seul.
+                Cette barre annonce ce qu'on voit sous elle : un compteur qui
+                dirait autre chose ferait seeker dans le vide.
+
+                IL NE SUIT DONC NI LA TUILE, NI `criteriaCount` — l'union des
+                recherches enregistrées, qui parle du compte et non de l'écran.
+                On s'en Servait ici : une recherche enregistrée dont l'union
+                tombait à zéro affichait « 0 résultat » au-dessus d'une liste
+                pleine. Deux questions différentes, deux nombres différents, et
+                chacun juste à sa place : la tuile dit ce que le compte contient,
+                cette barre dit ce que l'écran montre. */}
+              {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
               {uncertainCount > 0 && (
                 <span className="font-normal"> · {uncertainCount} à vérifier</span>
               )}

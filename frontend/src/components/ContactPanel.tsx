@@ -326,21 +326,6 @@ function ContactDetails({
             <Mail aria-hidden="true" className="size-4" />
             Écrire à {email}
           </a>
-          {subject && message && (
-            <a
-              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`}
-              target="_blank"
-              rel="noreferrer noopener"
-              onClick={onWritten}
-              className={buttonVariants({
-                variant: 'outline',
-                className: 'gap-1.5 no-underline text-xs shrink-0',
-              })}
-              title="Ouvrir un brouillon pré-rempli dans Gmail"
-            >
-              Dans Gmail ↗
-            </a>
-          )}
         </div>
       )}
 
@@ -531,11 +516,6 @@ export function ContactPanel({
             editing={editing}
             copied={copied}
             link={link}
-            gmailLink={
-              channel === 'email' && prepared != null && prepared.recipient !== null
-                ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(prepared.recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
-                : null
-            }
             openLabel={openLabel}
             channel={channel}
             onToggleEdit={() => setEditing((value) => !value)}
@@ -575,7 +555,6 @@ function MessageActions({
   editing,
   copied,
   link,
-  gmailLink,
   openLabel,
   channel,
   onToggleEdit,
@@ -585,7 +564,6 @@ function MessageActions({
   readonly editing: boolean;
   readonly copied: boolean;
   readonly link: string | null;
-  readonly gmailLink?: string | null;
   readonly openLabel: string;
   readonly channel: string;
   readonly onToggleEdit: () => void;
@@ -593,11 +571,7 @@ function MessageActions({
   readonly onSent: () => void;
 }): React.JSX.Element {
   const lienEnvoi: { href: string; libelle: string; externe: boolean } | null =
-    gmailLink !== undefined && gmailLink !== null
-      ? { href: gmailLink, libelle: 'Ouvrir dans Gmail ↗', externe: true }
-      : link !== null
-        ? { href: link, libelle: openLabel, externe: channel === 'form' }
-        : null;
+    link !== null ? { href: link, libelle: openLabel, externe: channel === 'form' } : null;
 
   return (
     <div className="mt-2.5 flex flex-wrap gap-2">
@@ -610,14 +584,14 @@ function MessageActions({
       </Button>
 
       {/*
-        UN SEUL BOUTON D'ENVOI, pas deux qui font la même chose. Le lien
-        « mailto: » et le lien Gmail aboutissent tous deux à un brouillon
-        prérempli : deux boutons côte à côte donnaient le choix d'un client que
-        rien ne distingue, et il fallait choisir avant d'avoir lu le message.
+        UN SEUL BOUTON D'ENVOI, et celui DU CANAL.
 
-        Gmail passe devant quand il existe — c'est un vrai brouillon, avec pièce
-        jointe et historique. Sinon on garde le lien du canal, qui peut être un
-        formulaire d'agence : là, aucun client de messagerie ne conviendrait.
+        Le lien « mailto: » et un lien Gmail aboutissaient tous deux au même
+        brouillon prérempli : deux boutons côte à côte pour un choix que rien ne
+        distinguait, et il fallait trancher avant d'avoir lu le message. Ils ont
+        été fusionnés, puis le second retiré : un bouton qui désigne le canal de
+        l'annonce — formulaire d'agence compris — ne peut pas se tromper de
+        client de messagerie.
       */}
       {lienEnvoi !== null && (
         <ButtonLink
