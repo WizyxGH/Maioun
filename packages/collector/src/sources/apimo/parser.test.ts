@@ -458,17 +458,24 @@ describe('parseDetailPage — toutes les coordonnées affichées', () => {
       <span class="email"><a href="mailto:agence@example.invalid">agence@example.invalid</a></span>
     </div>`;
 
-  it('relève chaque numéro et chaque adresse, avec le texte et non le lien masqué', () => {
+  it('appelle d’abord la ligne du conseiller, puis le standard de l’agence', () => {
     const { listing } = parseDetailPage(residentialHtml(blocs), RESIDENTIAL_URL, AGENCY);
-    expect(listing?.otherPhonesText).toEqual([
-      '+33 4 00 00 00 40',
-      '+33 6 00 00 00 41',
-      '+33 4 00 00 00 40',
-    ]);
-    expect(listing?.otherEmailsText).toEqual([
-      'conseiller@example.invalid',
-      'agence@example.invalid',
-    ]);
+    // Le portable n'est pas une ligne de l'agence : il est propre à l'annonce.
+    expect(listing?.phoneText).toBe('+33 6 00 00 00 41');
+    expect(listing?.phoneIsDirect).toBe(true);
+    expect(listing?.otherPhonesText).toContain('+33 4 00 00 00 40');
+    expect(listing?.emailText).toBe('conseiller@example.invalid');
+    expect(listing?.emailIsDirect).toBe(true);
+    expect(listing?.otherEmailsText).toContain('agence@example.invalid');
+  });
+
+  it('garde le standard quand le conseiller ne publie que lui', () => {
+    const repete = `
+      <div class="module-user"><span class="phone"><a>+33 4 00 00 00 40</a></span></div>
+      <div class="module-agency"><span class="phone"><a>04 00 00 00 40</a></span></div>`;
+    const { listing } = parseDetailPage(residentialHtml(repete), RESIDENTIAL_URL, AGENCY);
+    expect(listing?.phoneText).toBe('04 00 00 00 40');
+    expect(listing).not.toHaveProperty('phoneIsDirect');
   });
 
   it('ne dit rien quand la page ne publie aucun bloc', () => {
@@ -476,5 +483,6 @@ describe('parseDetailPage — toutes les coordonnées affichées', () => {
     expect(listing).not.toBeNull();
     expect(listing).not.toHaveProperty('otherPhonesText');
     expect(listing).not.toHaveProperty('otherEmailsText');
+    expect(listing).not.toHaveProperty('phoneIsDirect');
   });
 });

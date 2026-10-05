@@ -18,7 +18,11 @@ import * as cheerio from 'cheerio';
 import { sitemapIndexUrls, sitemapUrls } from '../shared/sitemap.js';
 import { formatCommune, type RawListing } from '@maioun/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
-import { parsePropertyType } from '../../normalization/parse-listing-fields.js';
+import {
+  parseEmail,
+  parsePhone,
+  parsePropertyType,
+} from '../../normalization/parse-listing-fields.js';
 import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 import {
@@ -525,33 +529,74 @@ function isRemovedListing(
 }
 
 /**
- * LES NUMÉROS ET ADRESSES QUE LA FICHE AFFICHE, au-delà du JSON-LD.
+ * LES NUMÉROS ET ADRESSES QUE LA FICHE AFFICHE, au-delà du JSON-LD — et
+ * celui qu'on appelle en premier.
  *
  * Le JSON-LD ne nomme que l'agence : son standard, son adresse générale. La
- * page, elle, présente aussi le conseiller du bien — ligne directe, portable,
- * adresse nominative — dans le bloc `module-user`, et l'agence qui gère dans
- * `module-agency` (DG Immo, Palais Immobilier). Ce sont souvent les numéros qui
- * répondent.
+ * page présente aussi le conseiller du bien dans le bloc `module-user` —
+ * portable, adresse nominative — et l'agence dans `module-agency` (relevé sur
+ * DG Immo et Palais Immobilier).
  *
- * On lit le TEXTE du lien, pas son `href` : Apimo y masque les chiffres
- * (`tel:+336****9626`), alors que le texte affiché est complet.
+ * LA LIGNE PROPRE À L'ANNONCE PASSE DEVANT LE STANDARD. Une ligne du conseiller
+ * qui n'est pas aussi celle de l'agence joint directement la personne qui gère
+ * le bien ; le standard renvoie vers elle, quand il répond. Le bloc du conseiller
+ * répète souvent le standard : on le reconnaît en comparant les numéros
+ * normalisés, et il reste parmi les autres.
  */
-function coordonneesAffichees($: cheerio.CheerioAPI): {
-  otherPhonesText?: string[];
-  otherEmailsText?: string[];
-} {
-  const blocs = $('.module-user, .module-agency');
-  const lire = (selecteur: string): string[] =>
-    blocs
+function coordonneesApimo(
+  $: cheerio.CheerioAPI,
+  jsonLd: JsonLdData | null,
+): Pick<
+  RawListing,
+  | 'phoneText'
+  | 'emailText'
+  | 'phoneIsDirect'
+  | 'emailIsDirect'
+  | 'otherPhonesText'
+  | 'otherEmailsText'
+> {
+  const lire = (bloc: string, selecteur: string): string[] =>
+    $(bloc)
       .find(selecteur)
       .toArray()
       .map((lien) => $(lien).text().trim())
       .filter((texte) => texte !== '');
-  const telephones = lire('.phone a, .mobile a');
-  const courriels = lire('.email a');
+
+  const ranger = (
+    general: readonly (string | undefined)[],
+    conseiller: readonly string[],
+    cle: (texte: string) => string | null,
+  ): { principal?: string; direct: boolean; autres: string[] } => {
+    const generales = new Set(general.map((texte) => (texte ? cle(texte) : null)));
+    const propre = conseiller.find((texte) => !generales.has(cle(texte)));
+    const tous = [...conseiller, ...general].filter(
+      (texte): texte is string => texte !== undefined && texte !== propre,
+    );
+    const principal = propre ?? general.find((texte) => texte !== undefined);
+    return {
+      ...(principal !== undefined ? { principal } : {}),
+      direct: propre !== undefined,
+      autres: tous.filter((texte) => texte !== principal),
+    };
+  };
+
+  const tel = ranger(
+    [jsonLd?.agencyPhone, ...lire('.module-agency', '.phone a, .mobile a')],
+    lire('.module-user', '.phone a, .mobile a'),
+    parsePhone,
+  );
+  const mel = ranger(
+    [jsonLd?.agencyEmail, ...lire('.module-agency', '.email a')],
+    lire('.module-user', '.email a'),
+    parseEmail,
+  );
   return {
-    ...(telephones.length > 0 ? { otherPhonesText: telephones } : {}),
-    ...(courriels.length > 0 ? { otherEmailsText: courriels } : {}),
+    ...(tel.principal !== undefined ? { phoneText: tel.principal } : {}),
+    ...(mel.principal !== undefined ? { emailText: mel.principal } : {}),
+    ...(tel.direct ? { phoneIsDirect: true } : {}),
+    ...(mel.direct ? { emailIsDirect: true } : {}),
+    ...(tel.autres.length > 0 ? { otherPhonesText: tel.autres } : {}),
+    ...(mel.autres.length > 0 ? { otherEmailsText: mel.autres } : {}),
   };
 }
 
@@ -622,9 +667,7 @@ export function parseApimoDetail(
     availableAtText: apimoAvailableAt(criteria),
     ...apimoLocation(jsonLd, parsedUrl),
     agencyName: jsonLd?.agencyName ?? defaultAgencyName,
-    phoneText: jsonLd?.agencyPhone,
-    emailText: jsonLd?.agencyEmail,
-    ...coordonneesAffichees($),
+    ...coordonneesApimo($, jsonLd),
     contactFormUrl: parsedUrl.canonicalUrl,
     publishedAtText,
     imageUrls:

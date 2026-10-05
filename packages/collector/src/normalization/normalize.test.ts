@@ -971,8 +971,18 @@ describe('normalizeListing — numéros et adresses en plus du principal', () =>
   });
 
   it('fait du premier autre le principal quand la source ne nomme que son conseiller', () => {
-    const n = normalizeListing(raw({ otherPhonesText: ['06 00 00 00 41'] }), OPTIONS);
+    const n = normalizeListing(
+      raw({ phoneIsDirect: true, otherPhonesText: ['06 00 00 00 41'] }),
+      OPTIONS,
+    );
     expect(n?.contact.phone).toBe('+33600000041');
     expect(n?.contact).not.toHaveProperty('otherPhones');
+    // Promu faute de mieux : rien ne dit qu'il est propre à l'annonce.
+    expect(n?.contact).not.toHaveProperty('phoneIsDirect');
+  });
+
+  it('garde la marque « propre à l’annonce » posée par la source', () => {
+    const n = normalizeListing(raw({ phoneText: '06 00 00 00 41', phoneIsDirect: true }), OPTIONS);
+    expect(n?.contact.phoneIsDirect).toBe(true);
   });
 });

@@ -235,8 +235,13 @@ export function mergeContacts(occurrences: readonly NormalizedListing[]): Contac
     courriels.push(contact.email, ...(contact.otherEmails ?? []));
   }
 
-  const tel = rangerCoordonnees(phone, telephones);
-  const mel = rangerCoordonnees(email, courriels);
+  // LA LIGNE PROPRE À L'ANNONCE PASSE DEVANT LE STANDARD, quelle que soit la
+  // source qui arrive en premier : un portail relaie le standard de l'agence,
+  // le site de l'agence nomme le conseiller qui gère le bien.
+  const telDirect = occurrences.find((o) => o.contact.phoneIsDirect === true)?.contact.phone;
+  const melDirect = occurrences.find((o) => o.contact.emailIsDirect === true)?.contact.email;
+  const tel = rangerCoordonnees(telDirect ?? phone, telephones);
+  const mel = rangerCoordonnees(melDirect ?? email, courriels);
   return {
     name,
     agencyName,
@@ -244,6 +249,8 @@ export function mergeContacts(occurrences: readonly NormalizedListing[]): Contac
     email: mel.principal,
     ...(tel.autres !== undefined ? { otherPhones: tel.autres } : {}),
     ...(mel.autres !== undefined ? { otherEmails: mel.autres } : {}),
+    ...(telDirect != null ? { phoneIsDirect: true as const } : {}),
+    ...(melDirect != null ? { emailIsDirect: true as const } : {}),
     formUrl,
     reference,
     kind,

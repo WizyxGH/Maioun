@@ -188,14 +188,10 @@ function inferLandlordKind(raw: RawListing, sourceLandlord?: LandlordKind): Land
 
 /** Construit les coordonnées à partir des champs bruts (§21). */
 function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKind): Contact {
-  const telephones = rangerCoordonnees(
-    parsePhone(raw.phoneText),
-    (raw.otherPhonesText ?? []).map(parsePhone),
-  );
-  const courriels = rangerCoordonnees(
-    parseEmail(raw.emailText),
-    (raw.otherEmailsText ?? []).map(parseEmail),
-  );
+  const principalTel = parsePhone(raw.phoneText);
+  const principalMel = parseEmail(raw.emailText);
+  const telephones = rangerCoordonnees(principalTel, (raw.otherPhonesText ?? []).map(parsePhone));
+  const courriels = rangerCoordonnees(principalMel, (raw.otherEmailsText ?? []).map(parseEmail));
   const phone = telephones.principal;
   const email = courriels.principal;
   const agencyName = toNull(raw.agencyName);
@@ -227,6 +223,14 @@ function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKi
     email,
     ...(telephones.autres !== undefined ? { otherPhones: telephones.autres } : {}),
     ...(courriels.autres !== undefined ? { otherEmails: courriels.autres } : {}),
+    // « Direct » ne vaut que pour le numéro que la source a désigné comme tel,
+    // pas pour un « autre » promu faute de principal.
+    ...(raw.phoneIsDirect === true && principalTel !== null
+      ? { phoneIsDirect: true as const }
+      : {}),
+    ...(raw.emailIsDirect === true && principalMel !== null
+      ? { emailIsDirect: true as const }
+      : {}),
     formUrl,
     reference,
     kind: inferLandlordKind(raw, landlord),

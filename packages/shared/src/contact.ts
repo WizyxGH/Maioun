@@ -30,6 +30,12 @@ export interface Contact {
    */
   readonly otherPhones?: readonly string[];
   readonly otherEmails?: readonly string[];
+  /**
+   * Le principal est propre à l'annonce (ligne du conseiller), pas le standard
+   * de l'agence. À la fusion, il passe devant le standard relayé par un portail.
+   */
+  readonly phoneIsDirect?: true;
+  readonly emailIsDirect?: true;
   /** URL du formulaire de contact, à privilégier quand la source le prévoit. */
   readonly formUrl: Maybe<string>;
   /** Référence interne de l'annonce chez l'agence — signal fort de doublon (§14). */

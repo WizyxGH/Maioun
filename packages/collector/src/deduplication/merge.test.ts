@@ -326,6 +326,24 @@ describe('mergeContacts — coordonnées multiples', () => {
     expect(fusion.otherEmails).toEqual(['conseiller@example.invalid']);
   });
 
+  it('fait passer la ligne propre à l’annonce devant le standard relayé par un portail', () => {
+    const fusion = mergeContacts([
+      avec('bienici:1', { phone: '+33400000040', email: 'agence@example.invalid' }),
+      avec('dgimmo:1', {
+        phone: '+33600000041',
+        phoneIsDirect: true,
+        otherPhones: ['+33400000040'],
+        email: 'conseiller@example.invalid',
+        emailIsDirect: true,
+      }),
+    ]);
+    expect(fusion.phone).toBe('+33600000041');
+    expect(fusion.otherPhones).toEqual(['+33400000040']);
+    expect(fusion.email).toBe('conseiller@example.invalid');
+    expect(fusion.otherEmails).toEqual(['agence@example.invalid']);
+    expect(fusion.phoneIsDirect).toBe(true);
+  });
+
   it("n'ajoute aucune liste quand il n'y a qu'un numéro", () => {
     const fusion = mergeContacts([
       avec('a:1', { phone: '+33400000040' }),

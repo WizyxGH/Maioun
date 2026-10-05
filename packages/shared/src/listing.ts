@@ -182,6 +182,12 @@ export interface RawListing {
   readonly contactName?: string;
   readonly phoneText?: string;
   readonly emailText?: string;
+  /**
+   * `true` quand `phoneText` / `emailText` est propre à l'annonce — la ligne du
+   * conseiller qui la gère — et non le standard de l'agence.
+   */
+  readonly phoneIsDirect?: boolean;
+  readonly emailIsDirect?: boolean;
   /** Numéros et adresses publiés EN PLUS du principal (conseiller, portable). */
   readonly otherPhonesText?: readonly string[];
   readonly otherEmailsText?: readonly string[];
