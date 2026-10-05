@@ -40,14 +40,34 @@ import {
 } from './criteria.js';
 
 /**
- * Formes d'une URL de fiche, tout domaine Apimo confondu :
- * `/fr/propriete/{transaction}+{type}+{ville}+{slug…}+{référence}`, ou « à
- * barres » `/fr/propriete/{transaction}/{type}/{ville}/{slug}/{référence}`.
+ * LA RÉFÉRENCE PEUT ÊTRE MASQUÉE, ET C'EST DEVENU LA NORME.
+ *
+ * La plateforme a changé ce qu'elle met dans le dernier segment : ce sont
+ * désormais des références partly masquées, `874****7826`, là où elle mettait
+ * un nombre. Les deux motifs exigeaient `\d{6,}`, donc AUCUNE de ces URLs
+ * n'était reconnue : la source lisait ses onze pages, n'en extrayait rien, et
+ * le passage s'achevait en « completed ». Deux agences Apimo relevées ainsi
+ * (Immo 3000, Étude des Vosges) — le pire des symptômes, parce que rien ne
+ * dit qu'un échec s'est produit.
+ *
+ * `\d{2,4}\*+\d{2,4}` accepte le masque sans prétendre que les chiffres
+ * qui le suivent forment la référence : ce qui suit l'astérisque n'est PAS
+ * l'annonce, et s'en servir ferait fusionner deux biens sur une collision. On ne
+ * garde donc que ce qui précède la première asterisk — les trois ou quatre
+ * premiers chiffres — comme clé de rapprochement.
  */
 const LISTING_URL_PATTERNS = [
+  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{2,4}\*+\d{2,4})\/?$/i,
   /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{6,})\/?$/i,
+  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\/([^/+]+)\/([^/+]+)\/(?:[^/]+\/)?(\d{2,4}\*+\d{2,4})\/?$/i,
   /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\/([^/+]+)\/([^/+]+)\/(?:[^/]+\/)?(\d{6,})\/?$/i,
 ];
+
+/** La clé AVANT le masque — les chiffres qui la précèdent, rien de plus. */
+function referenceDe(reference: string): string {
+  const i = reference.indexOf('*');
+  return i === -1 ? reference : reference.slice(0, i);
+}
 
 export interface ParsedListingUrl {
   readonly transaction: 'location' | 'vente';
@@ -79,7 +99,7 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
     transaction: transaction.toLowerCase() as 'location' | 'vente',
     typeSlug: typeSlug.toLowerCase(),
     citySlug: citySlug.toLowerCase(),
-    reference,
+    reference: referenceDe(reference),
     canonicalUrl: trimmed.replace(/[?#].*$/, ''),
   };
 }

@@ -383,3 +383,56 @@ describe('parseDetailPage — bien décrit en Product', () => {
     expect(listing?.phoneText).toBeUndefined();
   });
 });
+
+/**
+ * LA RÉFÉRENCE EST MASQUÉE SUR LA PLATEFORME, ET LES DEUX ANCIENS MOTIFS NE
+ * LA VOYAIENT PAS.
+ *
+ * Les listes Apimo servent désormais des URL finissant par `874****7826`. Les
+ * motifs exigeaient `\\d{6,}`, donc rien n'était reconnu : la source lisait ses
+ * onze pages, n'en extrayait aucune, et le passage s'achevait en « completed ».
+ * Deux agences relevées ainsi — Immo 3000, Étude des Vosges.
+ */
+describe('les URL de fiche a reference masquee', () => {
+  it('reconnait la forme a + et garde la cle avant le masque', () => {
+    const parsed = parseListingUrl(
+      'https://immo3000.com/fr/propriete/location+appartement+nice+studio-vide-a-louer-proche-de-la-fac-de-lettres+874****7826',
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed?.transaction).toBe('location');
+    expect(parsed?.citySlug).toBe('nice');
+    // On ne garde QUE ce qui precede l'asterisque : les chiffres qui suivent
+    // ne sont pas l'identifiant, et s'en servir ferait fusionner deux biens.
+    expect(parsed?.reference).toBe('874');
+  });
+
+  it('reconnait aussi la forme a barres', () => {
+    const parsed = parseListingUrl(
+      'https://www.etudedesvosges.fr/fr/propriete/location/appartement/antibes/872****3838',
+    );
+    expect(parsed?.reference).toBe('872');
+    expect(parsed?.citySlug).toBe('antibes');
+  });
+
+  it('laisse passer une reference en clair, et prend la forme ancienne', () => {
+    expect(
+      parseListingUrl('https://x.fr/fr/propriete/location+appartement+nice+studio+8188166')
+        ?.reference,
+    ).toBe('8188166');
+  });
+
+  /**
+   * DEUX ANNONCES MASQUEES DE MEME PREFIXE NE DOIVENT PAS DEVENIR LA MEME.
+   *
+   * C'est le prix du masque : la clé n'est plus unique. On garde ce qu'on a,
+   * et on ne pretend pas le contraire — deux biens differents qui partagent
+   * leurs quatre premiers chiffres se rejoindront, ce que l'on assume
+   * explicement plutot que de les perdre tous les deux.
+   */
+  it('assume la collision plutot que de perdre les deux annonces', () => {
+    const a = parseListingUrl('https://x.fr/fr/propriete/location+appartement+nice+a+874****1111');
+    const b = parseListingUrl('https://x.fr/fr/propriete/location+appartement+nice+b+874****2222');
+    // Meme cle : c'est le prix du masque, et il est assume.
+    expect(a?.reference).toBe(b?.reference);
+  });
+});
