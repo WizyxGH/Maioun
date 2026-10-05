@@ -18,6 +18,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readTestimonials, renderTestimonials } from './src/testimonials.js';
 import { fillSite, siteInfo } from './src/site.js';
+import { readFacts, structuredData } from './src/structured-data.js';
+import { renderLlmsTxt } from './src/llms-txt.js';
 
 const page = (name: string): string => fileURLToPath(new URL(name, import.meta.url));
 
@@ -74,14 +76,10 @@ function siteAddresses(): Plugin {
  * absente (page construite seule) : le dernier nombre connu.
  */
 function sourceCount(): Plugin {
-  let label = '130';
-  try {
-    const table = readFileSync(page('../frontend/src/sources.generated.ts'), 'utf8');
-    const count = (table.match(/^ {2}'?[a-z0-9-]+'?: \{/gm) ?? []).length;
-    if (count > 0) label = String(Math.floor(count / 10) * 10);
-  } catch {
-    // Page construite hors du dépôt : on garde le dernier nombre connu.
-  }
+  const exact = readSourceCount();
+  // ARRONDI À LA DIZAINÉ INFÉRIEURE : « plus de 130 » reste vrai d'une source
+  // à l'autre, « 137 » serait faux demain.
+  const label = exact === null ? '130' : String(Math.floor(exact / 10) * 10);
   return {
     name: 'maioun-sources',
     transformIndexHtml: {
@@ -91,9 +89,77 @@ function sourceCount(): Plugin {
   };
 }
 
+/**
+ * LE NOMBRE DE SOURCES, lu de la table que l'application engendre.
+ *
+ * Lu UNE FOIS et partagé par les trois usages — le texte de la page, le
+ * balisage JSON-LD et `llms.txt`. Le lire à chaque endroit serait trois
+ * lectures du même fichier et trois endroits à corriger le jour où la table
+ * change de forme.
+ *
+ * `null` si la table est absente ou illisible : au balisage et au fichier, on
+ * n'écrit alors RIEN. Une donnée absente se laisse combler par le lecteur ;
+ * un chiffre faux, non.
+ */
+function readSourceCount(): number | null {
+  try {
+    const table = readFileSync(page('../frontend/src/sources.generated.ts'), 'utf8');
+    const count = (table.match(/^ {2}'?[a-z0-9-]+'?: \{/gm) ?? []).length;
+    return count > 0 ? count : null;
+  } catch {
+    // Page construite hors du dépôt : on ne connaît pas le nombre.
+    return null;
+  }
+}
+
+/**
+ * LE BALISAGE, ET LE FICHIER QUE LISION UN SEUL LLM.
+ *
+ * Les deux sont ASSEMBLÉS À LA CONSTRUCTION, depuis la page elle-même : les
+ * questions et leurs réponses sont lues dans le HTML, jamais recopiées. Deux
+ * textes qui en décrivent le même contenu finissent toujours par diverger, et
+ * c'est alors le LLM qui répond à partir du mauvais.
+ */
+function forLlm(): Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'maioun-llm',
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        const facts = readFacts(html, readSourceCount());
+        if (facts === null || !html.includes('<!-- JSON-LD -->')) return html;
+        const json = structuredData(facts, siteInfo());
+        if (json === null) return html;
+        return html.replace(
+          '<!-- JSON-LD -->',
+          `<script type="application/ld+json">\n${json}\n    </script>`,
+        );
+      },
+    },
+    // `writeBundle` ET NON `closeBundle` : les HTML sont écrits APRÈS
+    // `closeBundle` sous Rolldown, et le lire plus tôt échoue sur un fichier
+    // qui n'existe pas encore. C'est aussi le moment qu'utilise le greffon 404
+    // de l'application, pour la même raison.
+    writeBundle(options) {
+      // LE TEXTE DE `index.html` EST RELU À LA FIN, APRÈS LE BALISAGE : c'est
+      // lui qui porte les questions, une fois la page complète. Le lire avant
+      // aurait produit un fichier sans une seule question.
+      const dir = options.dir ?? outDir;
+      const html = readFileSync(join(dir, 'index.html'), 'utf8');
+      const facts = readFacts(html, readSourceCount());
+      if (facts === null) return;
+      writeFileSync(join(dir, 'llms.txt'), renderLlmsTxt(facts, siteInfo()), 'utf8');
+    },
+  };
+}
+
 export default defineConfig({
   base: process.env['BASE_PATH'] ?? '/',
-  plugins: [tailwindcss(), siteAddresses(), sourceCount(), testimonials()],
+  plugins: [tailwindcss(), siteAddresses(), sourceCount(), testimonials(), forLlm()],
   build: {
     sourcemap: false,
     /**

@@ -28,4 +28,27 @@
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
+
+  <!-- LES PAGES LÉGALES SONT PUBLIÉES ET ACCESSIBLES, et ne pas les y mettre
+    était une omission plutôt qu'une décision : un service accessible au
+    public sans mentions légales est en infraction, et une adresse que rien
+    n'indexe est une adresse que rien ne trouve. Les écrans de l'application,
+    eux, restent absents — ils sont derrière une connexion et interdits aux
+    robots, comme dit plus haut. -->
+
+  <url>
+    <loc>%SITE_URL%mentions-legales.html</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>%SITE_URL%confidentialite.html</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>%SITE_URL%conditions.html</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
 </urlset>
