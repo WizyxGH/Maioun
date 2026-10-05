@@ -57,10 +57,11 @@ import {
  * premiers chiffres — comme clé de rapprochement.
  */
 const LISTING_URL_PATTERNS = [
-  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{2,4}\*+\d{2,4})\/?$/i,
-  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{6,})\/?$/i,
-  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\/([^/+]+)\/([^/+]+)\/(?:[^/]+\/)?(\d{2,4}\*+\d{2,4})\/?$/i,
-  /^https?:\/\/(?:www\.)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\/([^/+]+)\/([^/+]+)\/(?:[^/]+\/)?(\d{6,})\/?$/i,
+  // « À PLUS » — les segments sont joints par des `+`, le dernier est la
+  // référence, précédée d'un slug libre.
+  /^(?:https?:\/\/(?:www\.)?)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\+([^+]+)\+([^+]+)\+(?:.*\+)?(\d{6,}|\d{2,4}\*+\d{2,4})\/?$/i,
+  // « À BARRES » — même chose, séparateur `/`, un slug de plus possible.
+  /^(?:https?:\/\/(?:www\.)?)?[a-z0-9.-]+\/fr\/propriete\/(location|vente)\/([^/+]+)\/([^/+]+)\/(?:[^/]+\/)?(\d{6,}|\d{2,4}\*+\d{2,4})\/?$/i,
 ];
 
 /** La clé AVANT le masque — les chiffres qui la précèdent, rien de plus. */
