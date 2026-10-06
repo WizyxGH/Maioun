@@ -18,6 +18,13 @@ describe('resolvePortalUrl', () => {
     expect(r?.url.hostname).toBe('www.seloger.com');
   });
 
+  it('reconnaît une fiche PAP et en tire la référence', () => {
+    const r = resolvePortalUrl('https://www.pap.fr/annonces/appartement-nice-06000-r465502066');
+    expect(r?.portal.id).toBe('pap');
+    expect(r?.canonical).toBe(true);
+    expect(referenceFromUrl(r!.url.href)).toBe('pap:465502066');
+  });
+
   it('ignore un lien hors portail', () => {
     expect(resolvePortalUrl('https://exemple.fr/aide')).toBeNull();
   });

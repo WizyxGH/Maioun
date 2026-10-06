@@ -64,6 +64,13 @@ const PORTALS: readonly Portal[] = [
     host: /(^|\.)bienici\.com$/i,
     reference: (url) => /\/annonce\/([a-z0-9-]+)/i.exec(url.pathname)?.[1] ?? null,
   },
+  {
+    // PAP ferme sa collecte par un défi Cloudflare ; ses alertes e-mail sont
+    // la voie conforme. Fiche « /annonces/appartement-nice-06000-r465502066 ».
+    id: 'pap',
+    host: /(^|\.)pap\.fr$/i,
+    reference: (url) => /-r(\d{6,})\/?$/.exec(url.pathname)?.[1] ?? null,
+  },
 ];
 
 /** Sous-domaines de tracking : l'href y pointe, la vraie URL est ailleurs. */
