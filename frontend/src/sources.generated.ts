@@ -2166,6 +2166,16 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     alsoKnownAs: [],
     publishesOwnListings: false,
   },
+  'street-immobilier': {
+    name: 'Street Immobilier',
+    domain: 'street-immobilier.com',
+    kind: 'localAgency',
+    logo: 'https://street-immobilier.com/elements/img/logo.png',
+    paidContact: false,
+    address: null,
+    alsoKnownAs: [],
+    publishesOwnListings: false,
+  },
   studapart: {
     name: 'Studapart',
     domain: 'studapart.com',
