@@ -1175,13 +1175,18 @@ async function listSources(db: Client): Promise<unknown> {
    * simplement pas répondu. Deux faits suffisent à trancher — comment s'est
    * terminé le dernier passage, et combien d'annonces il a rapportées.
    */
-  const last = await db.execute(`
+  // Sur trente jours, pas sur tout le journal : un parcours complet par
+  // affichage de l'écran coûtait des dizaines de milliers de lignes lues.
+  const last = await db.execute({
+    sql: `
     SELECT source_id, stop_reason, listings_found, started_at FROM (
       SELECT source_id, stop_reason, listings_found, started_at,
              ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY started_at DESC) AS rang
-        FROM collection_runs
+        FROM collection_runs WHERE started_at >= ?
     ) WHERE rang = 1
-  `);
+  `,
+    args: [new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()],
+  });
   const lastBySource = new Map(last.rows.map((row) => [String(row['source_id']), row]));
 
   /** Le stock vivant : c'est lui qui distingue l'agence en panne de l'agence vide. */

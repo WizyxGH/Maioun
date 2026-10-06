@@ -1506,6 +1506,13 @@ function AppView(): React.JSX.Element {
       savedSearches.map((saved) => fetchListingIds(saved.criteria).catch(() => null)),
     ).then((reponses) => {
       if (annule) return;
+      // AUCUNE RECHERCHE N'A RÉPONDU : l'union ne sait rien. On retombe sur le
+      // compte du compte plutôt que d'afficher « 0+ », qui ne veut rien dire.
+      if (reponses.every((reponse) => reponse === null)) {
+        setUnionIds(null);
+        setUnionTronquee(false);
+        return;
+      }
       const fusion = new Set<string>();
       let tronquee = false;
       for (const reponse of reponses) {

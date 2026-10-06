@@ -423,7 +423,7 @@ export function HomePanel({
               value={criteriaCount}
               Icon={Search}
               onClick={onOpenSearch}
-              {...(criteriaCountApproximatif ? { suffixe: '+' } : {})}
+              {...(criteriaCountApproximatif && criteriaCount > 0 ? { suffixe: '+' } : {})}
             />
             <StatTile
               label="à contacter"

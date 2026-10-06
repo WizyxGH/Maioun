@@ -9,13 +9,14 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createRepository,
   migrate,
   openDatabase,
   reportSourceHealth,
   silentLogger,
+  OBSERVATION_INTERVAL_MS,
   SOURCE_HEALTH_SETTING,
   type Database,
   type Repository,
@@ -77,6 +78,7 @@ describe('sourceObservations : ce que la surveillance lit en base', () => {
     const [observation] = await repository.sourceObservations(
       new Date(NOW - 3 * DAY).toISOString(),
       3,
+      new Date(NOW - 14 * DAY).toISOString(),
     );
     expect(observation?.sourceId).toBe('rentumo');
     expect(observation?.activeCount).toBe(12);
@@ -115,10 +117,50 @@ describe('sourceObservations : ce que la surveillance lit en base', () => {
     const [observation] = await repository.sourceObservations(
       new Date(NOW - 3 * DAY).toISOString(),
       3,
+      new Date(NOW - 14 * DAY).toISOString(),
     );
     const phone = observation?.fields.get('phone');
     expect(phone?.older).toEqual({ total: 10, filled: 10 });
     expect(phone?.recent).toEqual({ total: 6, filled: 0 });
+  });
+});
+
+/**
+ * LES OBSERVATIONS COÛTENT PLUS DE CENT MILLE LIGNES LUES : elles se bornent à
+ * une fenêtre de dates, et ne se relisent que toutes les six heures.
+ */
+describe('les observations, économes en lectures', () => {
+  let repository: Repository;
+
+  beforeEach(async () => {
+    const db = openDatabase({ url: ':memory:' });
+    await migrate(db, MIGRATIONS, silentLogger);
+    repository = createRepository(db);
+  });
+
+  it('ne lit pas les passages hors de la fenêtre', async () => {
+    await run(repository, 'rentumo', NOW - 30 * DAY, 40);
+    await run(repository, 'rentumo', NOW - 1 * DAY, 2);
+    const observations = await repository.sourceObservations(
+      new Date(NOW - 3 * DAY).toISOString(),
+      3,
+      new Date(NOW - 14 * DAY).toISOString(),
+    );
+    const rentumo = observations.find((one) => one.sourceId === 'rentumo');
+    expect(
+      rentumo?.newByDay.get(new Date(NOW - 30 * DAY).toISOString().slice(0, 10)),
+    ).toBeUndefined();
+    expect(rentumo?.newByDay.get(new Date(NOW - 1 * DAY).toISOString().slice(0, 10))).toBe(2);
+  });
+
+  it('ne relit les observations qu’une fois toutes les six heures', async () => {
+    const espion = vi.spyOn(repository, 'sourceObservations');
+    const sans = { transitions: [], lifecycleSkips: [], logger: silentLogger };
+    await reportSourceHealth({ ...sans, repository, nowMs: NOW });
+    await reportSourceHealth({ ...sans, repository, nowMs: NOW + OBSERVATION_INTERVAL_MS - 1 });
+    expect(espion).toHaveBeenCalledTimes(1);
+    await reportSourceHealth({ ...sans, repository, nowMs: NOW + OBSERVATION_INTERVAL_MS });
+    expect(espion).toHaveBeenCalledTimes(2);
   });
 });
 

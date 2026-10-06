@@ -150,6 +150,14 @@ describe('la tuile des critères', () => {
    * qu'on sache pourquoi le chiffre était faux, ce qu'on ne sait pas toujours :
    * un refus réseau produit le même signal qu'un dépassement.
    */
+  // « 0+ » ne dit rien : un plancher à zéro n'apprend pas qu'il y a quelque chose.
+  it('n’écrit jamais « 0+ »', async () => {
+    render(<Accueil criteriaCount={0} criteriaCountApproximatif />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '0 dans vos critères' })).toBeDefined(),
+    );
+  });
+
   it('ajoute « + » quand le compte est un plancher', async () => {
     render(<Accueil criteriaCount={500} criteriaCountApproximatif />);
     await waitFor(() =>

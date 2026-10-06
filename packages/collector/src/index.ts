@@ -68,6 +68,7 @@ export {
   parseReported,
   reportSourceHealth,
   SOURCE_HEALTH_SETTING,
+  OBSERVATION_INTERVAL_MS,
   type SourceAlert,
   type SourceAlertKind,
 } from './notify/source-health.js';

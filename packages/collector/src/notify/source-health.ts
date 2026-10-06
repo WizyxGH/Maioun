@@ -396,6 +396,38 @@ export interface SourceHealthDeps {
   readonly extraAlerts?: readonly SourceAlert[];
 }
 
+/** Réglage où l'on retient la dernière lecture des observations. */
+export const SOURCE_OBSERVED_SETTING = 'sourceHealthObservedAt';
+
+/**
+ * Les observations ne se relisent pas à chaque passage : toutes les six heures.
+ *
+ * Elles parcourent le journal des passages et toutes les occurrences — plus de
+ * cent mille lignes —, soixante-douze fois par jour : le premier poste de
+ * lectures chez Turso, dont le quota mensuel était aux trois quarts le 7 du
+ * mois (2026-10-07). Or elles jugent des silences de plusieurs jours et des
+ * champs disparus sur trois jours : six heures de retard n'y changent rien.
+ * Les transitions du passage, elles, restent lues à chaque fois.
+ */
+export const OBSERVATION_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+async function observationsDues(
+  repository: SourceHealthDeps['repository'],
+  nowMs: number,
+): Promise<readonly SourceObservation[]> {
+  const derniere = Date.parse((await repository.readSetting(SOURCE_OBSERVED_SETTING)) ?? '');
+  if (Number.isFinite(derniere) && nowMs - derniere < OBSERVATION_INTERVAL_MS) return [];
+  const day = 24 * 60 * 60 * 1000;
+  const observations = await repository.sourceObservations(
+    new Date(nowMs - FIELD_RECENT_DAYS * day).toISOString(),
+    BROKEN_PASSES,
+    // La fenêtre la plus longue qu'un détecteur regarde, et un jour de marge.
+    new Date(nowMs - (SILENCE_DAYS + RATE_DAYS + 1) * day).toISOString(),
+  );
+  await repository.writeSetting(SOURCE_OBSERVED_SETTING, new Date(nowMs).toISOString());
+  return observations;
+}
+
 /**
  * Détecte, dédoublonne, journalise et prévient. NE LÈVE JAMAIS : une
  * surveillance en panne ne doit pas faire échouer une collecte réussie.
@@ -405,8 +437,7 @@ export interface SourceHealthDeps {
 export async function reportSourceHealth(deps: SourceHealthDeps): Promise<readonly SourceAlert[]> {
   const { repository, logger, nowMs } = deps;
   try {
-    const recentSince = new Date(nowMs - FIELD_RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const observations = await repository.sourceObservations(recentSince, BROKEN_PASSES);
+    const observations = await observationsDues(repository, nowMs);
     const alerts = [
       ...detectSourceAlerts({
         transitions: deps.transitions,

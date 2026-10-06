@@ -499,6 +499,8 @@ export interface Repository {
   readonly sourceObservations: (
     recentSince: string,
     passes: number,
+    /** Les passages lus commencent ici : le journal entier coûtait trop cher. */
+    runsSince: string,
   ) => Promise<readonly SourceObservation[]>;
 
   /**
@@ -1916,14 +1918,15 @@ export function createRepository(db: Database): Repository {
       return Number(result.rows[0]?.['n'] ?? 0);
     },
 
-    async sourceObservations(recentSince, passes) {
+    async sourceObservations(recentSince, passes, runsSince) {
       const [daily, reasons, fields] = await db.batch(
         [
           {
             sql: `SELECT source_id AS src, substr(started_at, 1, 10) AS day,
                          SUM(listings_new) AS n
-                    FROM collection_runs GROUP BY src, day ORDER BY day`,
-            args: [],
+                    FROM collection_runs WHERE started_at >= ?
+                   GROUP BY src, day ORDER BY day`,
+            args: [runsSince],
           },
           {
             // Les N derniers passages de CHAQUE source. Sans la numérotation
@@ -1934,9 +1937,9 @@ export function createRepository(db: Database): Repository {
                            ROW_NUMBER() OVER (
                              PARTITION BY source_id ORDER BY started_at DESC
                            ) AS rang
-                      FROM collection_runs
+                      FROM collection_runs WHERE started_at >= ?
                   ) WHERE rang <= ? ORDER BY src, started_at`,
-            args: [passes],
+            args: [runsSince, passes],
           },
           {
             // Les annonces ÉTEINTES comptent dans la référence : ce qu'une
