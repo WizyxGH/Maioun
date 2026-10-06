@@ -13,7 +13,7 @@ compatibility_date = "2026-01-01"
 [vars]
 # L'origine autorisée à appeler l'API. Un « * » serait refusé par les
 # navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
-ALLOWED_ORIGIN = "https://wizyxgh.github.io"
+ALLOWED_ORIGIN = "https://maioun.wizyx.me"
 
 # --- Base de SECOURS, quand Turso refuse de lire ----------------------------
 #
@@ -74,7 +74,7 @@ ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 # JavaScript autorisée » l'adresse EXACTE du site (schéma et hôte, sans chemin
 # ni barre finale) :
 #
-#   https://wizyxgh.github.io
+#   https://maioun.wizyx.me
 #
 # Aucun « URI de redirection » n'est nécessaire : le jeton est rendu dans la
 # page, sans redirection (voir `google-auth.ts`).
@@ -93,7 +93,7 @@ GOOGLE_CLIENT_ID = "216576095460-dlreje0qvoggaueah8eg44dk4c00gtsq.apps.googleuse
 # envoyés vers la racine, ils déposeraient les gens sur le pitch, sans le jeton
 # que l'application attend dans son adresse. Depuis que la présentation occupe
 # la racine, l'application vit sous `/app/`.
-SITE_URL = "https://wizyxgh.github.io/Maioun/app/"
+SITE_URL = "https://maioun.wizyx.me/app/"
 #
 # ELLE SUIT LE NOM DU DÉPÔT, et c'est la seule valeur de ce fichier dans ce cas :
 # le Worker se déploie d'une machine, sans le contexte de GitHub qui permettrait
