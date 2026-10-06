@@ -95,7 +95,8 @@ async function positionsApres(n: number): Promise<{ lat: number | null; adr: str
   }));
 }
 
-describe('les positions par défaut d’une source, au regroupement', () => {
+// Une collecte entière par test, migrations comprises : plus de 5 s sur la CI.
+describe('les positions par défaut d’une source, au regroupement', { timeout: 30_000 }, () => {
   it('sortent de la carte et de l’adresse affichée', async () => {
     const fiches = await positionsApres(8);
     expect(fiches).toHaveLength(8);
