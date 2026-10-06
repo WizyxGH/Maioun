@@ -15,6 +15,10 @@ describe('ce que le relais accepte de joindre', () => {
     // Le cas pour lequel il existe : cet hôte NE FAIT PAS de TLS.
     expect(relayable('http://www.beptransaction.com/bep/docs/1-salon.jpg')).toBe(true);
     expect(relayable('http://beptransaction.com/bep/docs/1.jpg')).toBe(true);
+    // Repimmo, et Rentola qui pointe sur ses photos : http seulement.
+    expect(
+      relayable('http://www.repimmo.com/upload/global/photos/b2368/maison_media_1_2.jpg'),
+    ).toBe(true);
     // Et en HTTPS si l'hôte y venait un jour.
     expect(relayable('https://www.beptransaction.com/bep/docs/1.jpg')).toBe(true);
   });

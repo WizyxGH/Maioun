@@ -30,6 +30,10 @@ const ALLOWED_HOSTS = new Set([
   // Le bulletin lui-même : les URL relatives du HTML s'y résolvent, et il ne
   // répond pas davantage en https (vérifié le 2026-09-04).
   'abonnes.beplogement.com',
+  // Repimmo ne sert ses photos qu'en http : celles de ses annonces, et celles
+  // que Rentola recopie en pointant chez lui (vérifié le 2026-10-06).
+  'www.repimmo.com',
+  'repimmo.com',
 ]);
 
 /** Ce qu'on accepte de renvoyer. Une page HTML n'est pas une photo. */
