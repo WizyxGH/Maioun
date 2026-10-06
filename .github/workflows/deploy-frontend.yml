@@ -45,6 +45,18 @@ jobs:
       - name: Installer les dépendances
         run: pnpm install --frozen-lockfile
 
+      # `enablement: true` ne marche pas ici : le jeton du workflow peut
+      # DÉPLOYER sur Pages mais pas CRÉER le site (« Resource not accessible by
+      # integration »). L'activation reste donc une action une fois pour toutes,
+      # dans Settings → Pages → Source « GitHub Actions ».
+      #
+      # L'ADRESSE DU SITE VIENT D'ICI, ET DE NULLE PART AILLEURS. Pages la
+      # connaît : `<propriétaire>.github.io/<dépôt>` par défaut, le domaine
+      # personnalisé dès qu'il est déclaré (Settings → Pages → Custom domain).
+      # Changer de domaine ne demande donc aucune modification du code.
+      - id: pages
+        uses: actions/configure-pages@v5
+
       - name: Construire l'application
         run: pnpm --filter @maioun/frontend run build
         env:
@@ -53,7 +65,9 @@ jobs:
           # la liste d'un clic, sans compte. Deux publics, deux poids — celui
           # qui découvre le projet n'a pas à télécharger React et Leaflet pour
           # lire trois paragraphes.
-          BASE_PATH: /${{ github.event.repository.name }}/app/
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/app/
+          # Les métadonnées de partage de l'application citent la page d'accueil.
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
           VITE_API_URL: ${{ vars.API_URL }}
           # Clé PUBLIQUE du serveur de push : elle doit entrer dans le bundle,
           # sans quoi le navigateur ne peut pas s'abonner. Ce n'est pas un
@@ -73,12 +87,6 @@ jobs:
           fi
           echo "Aucun secret détecté dans le bundle."
 
-      # `enablement: true` ne marche pas ici : le jeton du workflow peut
-      # DÉPLOYER sur Pages mais pas CRÉER le site (« Resource not accessible by
-      # integration »). L'activation reste donc une action une fois pour toutes,
-      # dans Settings → Pages → Source « GitHub Actions ».
-      - uses: actions/configure-pages@v5
-
       # LA PAGE DE PRÉSENTATION N'ÉTAIT PUBLIÉE NULLE PART. Elle existait,
       # soignée, avec son tarif et ses garanties — et le déploiement ne montait
       # que `frontend/dist`. Personne ne pouvait l'atteindre, et ses liens
@@ -86,7 +94,8 @@ jobs:
       - name: Construire la page de présentation
         run: pnpm --filter @maioun/landing run build
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
 
       # LA RACINE D'ABORD, L'APPLICATION DEDANS. On assemble les deux sorties
       # dans un seul dossier : la présentation à la racine, l'application sous
@@ -106,7 +115,7 @@ jobs:
           # Celui de l'application, rangé sous `app/`, n'est jamais lu — et sans
           # celui-ci, chaque rafraîchissement et chaque lien d'alerte tombait
           # sur la 404 générique de GitHub (relevé le 2026-09-10).
-          node scripts/root-404.mjs site "/${{ github.event.repository.name }}/"
+          node scripts/root-404.mjs site "${{ steps.pages.outputs.base_path }}/"
           test -f site/404.html || { echo "::error::404.html racine absent"; exit 1; }
           find site -maxdepth 2 -name '*.html'
 

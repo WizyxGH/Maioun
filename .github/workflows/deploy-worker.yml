@@ -30,6 +30,8 @@ on:
 
 permissions:
   contents: read
+  # Lire l'adresse publique du site, domaine personnalisé compris.
+  pages: read
 
 # Un seul déploiement à la fois, et c'est le dernier qui compte : deux
 # poussées rapprochées ne doivent pas publier dans le désordre.
@@ -62,8 +64,22 @@ jobs:
       - name: Vérifier les types
         run: pnpm run typecheck
 
+      # L'ADRESSE DU SITE, TELLE QUE PAGES LA PUBLIE : l'origine que l'API
+      # accepte et la base des liens de mot de passe. `wrangler.toml` garde les
+      # mêmes valeurs pour un déploiement fait à la main ; la CI vérifie qu'il
+      # ne s'en écarte pas.
       - name: Déployer le Worker
-        run: npx wrangler deploy
+        run: |
+          url=$(gh api "repos/${{ github.repository }}/pages" --jq .html_url)
+          case "$url" in
+            https://*) ;;
+            *) echo "::error::adresse Pages illisible ($url)"; exit 1 ;;
+          esac
+          url="${url%/}/"
+          origin=$(printf '%s' "$url" | sed -E 's#^(https://[^/]+).*#\1#')
+          echo "Site : ${url}app/ — origine autorisée : $origin"
+          npx wrangler deploy --var "SITE_URL:${url}app/" --var "ALLOWED_ORIGIN:$origin"
         working-directory: packages/worker
         env:
+          GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

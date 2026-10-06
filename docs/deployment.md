@@ -359,6 +359,23 @@ mais pas créer le site. `deploy-frontend.yml` publie ensuite à chaque push.
 Tant que le site n'est relié à aucune API, il affiche un écran de connexion —
 jamais de données fictives.
 
+**Un domaine à soi.** L'adresse du site n'est écrite nulle part dans le code :
+les workflows la lisent sur Pages (`configure-pages`, `gh api …/pages`). Pour
+passer à `maioun.example.org` :
+
+1. chez le registraire, un enregistrement `CNAME` `maioun` → `<vous>.github.io` ;
+2. **Settings → Pages → Custom domain** : `maioun.example.org`, puis « Enforce
+   HTTPS » quand le certificat est prêt ;
+3. dans `packages/worker/wrangler.toml`, `SITE_URL` et `ALLOWED_ORIGIN` sur la
+   nouvelle adresse (seules valeurs recopiées, pour un déploiement à la main —
+   la CI rougit si elles s'écartent de Pages) ;
+4. dans la console Google, ajouter l'origine aux « origines JavaScript
+   autorisées » ;
+5. relancer « Déploiement du frontend » et « Déploiement de l'API ».
+
+Le site change d'origine : session, abonnement aux notifications et réglages
+du navigateur sont à refaire une fois.
+
 ### 3. Collecte planifiée — GitHub Actions
 
 **Settings → Secrets and variables → Actions** :

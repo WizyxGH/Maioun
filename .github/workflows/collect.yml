@@ -53,6 +53,9 @@ concurrency:
 
 permissions:
   contents: read
+  # Lire l'adresse publique du site (domaine personnalisé compris), pour les
+  # liens des alertes. Lecture seule.
+  pages: read
 
 jobs:
   # LE QUOTA ÉPUISÉ, AUCUN RÉVEIL NE PEUT ABOUTIR avant la remise à zéro du
@@ -117,6 +120,21 @@ jobs:
       - name: Construire les paquets
         run: pnpm -r --filter "./packages/*" run build
 
+      # L'ADRESSE DES LIENS D'ALERTE, TELLE QUE PAGES LA PUBLIE. Le domaine
+      # personnalisé se déclare dans Settings → Pages ; on le relit ici plutôt
+      # que de le recopier. Réponse illisible : rien n'est posé, et la collecte
+      # retombe sur `<propriétaire>.github.io/<dépôt>/app/`.
+      - id: site
+        name: Adresse publique du site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(gh api "repos/${{ github.repository }}/pages" --jq .html_url 2>/dev/null || true)
+          case "$url" in
+            https://*) echo "url=${url%/}/app/" >> "$GITHUB_OUTPUT"; echo "Liens des alertes : ${url%/}/app/" ;;
+            *) echo "::warning::adresse Pages illisible, liens déduits du dépôt" ;;
+          esac
+
       - name: Lancer la collecte (migrations incluses)
         run: |
           ARGS=""
@@ -139,10 +157,10 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-          # PAS DE SITE_URL ICI : l'adresse des liens d'alerte se déduit de
-          # GITHUB_REPOSITORY, que GitHub fournit à jour après un renommage. La
-          # variable qu'on passait gardait l'ancien nom, et tous les liens sont
-          # partis vers une page morte le 2026-09-10.
+          # SITE_URL LUE SUR PAGES, JAMAIS RECOPIÉE. La variable qu'on passait
+          # gardait l'ancien nom du dépôt, et tous les liens sont partis vers une
+          # page morte le 2026-09-10. Vide, la collecte la déduit du dépôt.
+          SITE_URL: ${{ steps.site.outputs.url }}
 
           # LE RELAIS DE PHOTOS, pour les notifications (§11). BEP publie ses
           # cliches en http ; un service worker ne charge pas une image http, et

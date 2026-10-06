@@ -22,6 +22,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Comparer `wrangler.toml` à l'adresse que Pages publie.
+  pages: read
 
 jobs:
   verify:
@@ -75,18 +77,23 @@ jobs:
       # d'une machine, hors de GitHub. Au renommage du 2026-09-10, son
       # `SITE_URL` a gardé l'ancien nom et les liens de mot de passe sont partis
       # vers une page morte, sans que rien ne le signale. Désormais, la CI rougit.
+      #
+      # L'ADRESSE SE COMPARE À CELLE QUE PAGES PUBLIE, domaine personnalisé
+      # compris : c'est elle qui fait foi, pas le nom du dépôt.
       - name: Cohérence du Worker avec le dépôt
         env:
-          REPO_NAME: ${{ github.event.repository.name }}
+          GH_TOKEN: ${{ github.token }}
           REPO_ID: ${{ github.repository_id }}
         run: |
           toml=packages/worker/wrangler.toml
           site=$(sed -n 's/^SITE_URL *= *"\(.*\)"/\1/p' "$toml")
+          allowed=$(sed -n 's/^ALLOWED_ORIGIN *= *"\(.*\)"/\1/p' "$toml")
           id=$(sed -n 's/^GITHUB_REPOSITORY_ID *= *"\(.*\)"/\1/p' "$toml")
-          case "$site" in
-            */"$REPO_NAME"/app/) ;;
-            *) echo "::error file=$toml::SITE_URL ($site) ne porte pas le nom du dépôt ($REPO_NAME)"; exit 1 ;;
-          esac
+          url=$(gh api "repos/${{ github.repository }}/pages" --jq .html_url)
+          attendu="${url%/}/app/"
+          origine=$(printf '%s' "$url" | sed -E 's#^(https?://[^/]+).*#\1#')
+          [ "$site" = "$attendu" ] || { echo "::error file=$toml::SITE_URL ($site) n'est pas l'adresse publiée par Pages ($attendu)"; exit 1; }
+          [ "$allowed" = "$origine" ] || { echo "::error file=$toml::ALLOWED_ORIGIN ($allowed) n'est pas l'origine du site ($origine)"; exit 1; }
           [ "$id" = "$REPO_ID" ] || { echo "::error file=$toml::GITHUB_REPOSITORY_ID ($id) n'est pas celui du dépôt ($REPO_ID)"; exit 1; }
           echo "Worker cohérent : $site, dépôt n° $id"
 

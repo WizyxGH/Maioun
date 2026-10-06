@@ -54,10 +54,16 @@ export function siteInfo(env: NodeJS.ProcessEnv = process.env): SiteInfo {
     );
   }
   const server = env['GITHUB_SERVER_URL']?.trim() || 'https://github.com';
+  // L'adresse que Pages déclare, domaine personnalisé compris : le déploiement
+  // la lit et la passe ici. À défaut, celle que Pages donne par défaut.
+  const declared = env['SITE_URL']?.trim();
   return {
     // GitHub Pages publie `<propriétaire>.github.io/<nom>/`, en minuscules :
     // c'est un nom d'hôte.
-    siteUrl: `https://${owner.toLowerCase()}.github.io/${name}/`,
+    siteUrl:
+      declared !== undefined && declared !== ''
+        ? `${declared.replace(/\/+$/, '')}/`
+        : `https://${owner.toLowerCase()}.github.io/${name}/`,
     repoUrl: `${server}/${owner}/${name}`,
   };
 }

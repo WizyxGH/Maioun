@@ -36,7 +36,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['packages/**/*.test.ts', 'tests/**/*.test.ts'],
+    // `landing/src` : la page de présentation a ses tests, qu'aucune suite ne
+    // lançait.
+    include: ['packages/**/*.test.ts', 'tests/**/*.test.ts', 'landing/src/**/*.test.ts'],
     // `.claude/**` : une copie de travail d'agent y est un clone du dépôt. Les
     // motifs ci-dessus ne l'atteignent pas aujourd'hui, mais un `**/` ajouté à
     // l'un d'eux y ferait tourner la suite en double, sur un code d'ailleurs.
