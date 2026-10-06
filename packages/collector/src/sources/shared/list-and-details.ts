@@ -46,7 +46,17 @@ export interface ListAndDetailsOptions {
   readonly parseDetail: (html: string, listing: RawListing) => RawDraft | null;
   /** Fiches lues au plus par passage. */
   readonly maxDetails: number;
+  /**
+   * La page suivante d'une liste PAGINÉE, telle que la page la publie ; `null`
+   * à la dernière. Absente : chaque adresse de `listUrls` est une liste entière.
+   */
+  readonly nextPage?: (body: string, url: string) => string | null;
+  /** Pages lues au plus par liste paginée : au-delà, c'est une boucle. */
+  readonly maxListPages?: number;
 }
+
+/** Plafond par défaut des pages d'une liste paginée. */
+const PAGES_DE_LISTE_MAX = 15;
 
 /**
  * Le plus grand des deux totaux annoncés, `null` s'ils le sont tous les deux.
@@ -75,48 +85,104 @@ function shortOf(announced: number | null, collected: number): string | null {
   return shortCoverageWarning(announced, collected);
 }
 
+/** Ce que la lecture des listes a rassemblé, avant les fiches. */
+interface ListesLues {
+  readonly stubs: Map<string, RawListing>;
+  readonly warnings: string[];
+  requestCount: number;
+  pagesFetched: number;
+  unchanged: number;
+  saidEmpty: number;
+  listesEnEchec: number;
+  /** Ce que les pages de liste disent publier, au plus. */
+  announced: number | null;
+  /** La source a refusé ou freiné : on s'arrête là. */
+  refus: 'rateLimited' | 'blocked' | null;
+}
+
+/**
+ * Lit une page de liste dans `lues` ; rend l'adresse de la suivante, ou `null`.
+ *
+ * UNE LISTE PAGINÉE SE LIT EN ENTIER, sans revalidation : une première page
+ * « inchangée » ne dit rien des suivantes, et ne pas les lire ferait passer
+ * leurs annonces pour retirées.
+ */
+async function lirePage(
+  context: ScrapeContext,
+  options: ListAndDetailsOptions,
+  url: string,
+  lues: ListesLues,
+): Promise<string | null> {
+  const paginee = options.nextPage !== undefined;
+  const readTotal =
+    options.announcedTotal ?? ((body: string): number | null => announcedTotal(body));
+  try {
+    const response = await context.fetch(url, paginee ? { conditional: false } : {});
+    lues.requestCount += 1;
+    if (response.notModified) {
+      lues.unchanged += 1;
+      return null;
+    }
+    lues.pagesFetched += 1;
+    const found = options.parseList(response.body, url);
+    lues.announced = larger(lues.announced, readTotal(response.body, url));
+    for (const stub of found) {
+      if (!lues.stubs.has(stub.sourceRef)) lues.stubs.set(stub.sourceRef, stub);
+    }
+    if (found.length === 0 && options.isEmptyList?.(response.body) === true) lues.saidEmpty += 1;
+    // Une page vide clôt la liste, même si elle renvoie plus loin.
+    return found.length > 0 ? (options.nextPage?.(response.body, url) ?? null) : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    lues.warnings.push(`Échec de la liste ${url} : ${message}`);
+    context.log('list.failed', { url, error: message });
+    lues.listesEnEchec += 1;
+    if (message.includes('429')) lues.refus = 'rateLimited';
+    else if (message.includes('refusé')) lues.refus = 'blocked';
+    return null;
+  }
+}
+
+/** Toutes les listes, et leurs pages suivantes quand la source en publie. */
+async function lireLesListes(
+  context: ScrapeContext,
+  options: ListAndDetailsOptions,
+): Promise<ListesLues> {
+  const lues: ListesLues = {
+    stubs: new Map(),
+    warnings: [],
+    requestCount: 0,
+    pagesFetched: 0,
+    unchanged: 0,
+    saidEmpty: 0,
+    listesEnEchec: 0,
+    announced: null,
+    refus: null,
+  };
+  const maxPages =
+    options.nextPage !== undefined ? (options.maxListPages ?? PAGES_DE_LISTE_MAX) : 1;
+  for (const listUrl of options.listUrls) {
+    const vues = new Set<string>();
+    let url: string | null = listUrl;
+    while (url !== null && !vues.has(url) && vues.size < maxPages) {
+      vues.add(url);
+      url = await lirePage(context, options, url, lues);
+      if (lues.refus !== null) return lues;
+    }
+  }
+  return lues;
+}
+
 export async function runListAndDetails(
   context: ScrapeContext,
   options: ListAndDetailsOptions,
 ): Promise<ScrapeResult> {
   const { sourceId } = options;
-  const warnings: string[] = [];
-  let requestCount = 0;
-  let pagesFetched = 0;
-  const stubs = new Map<string, RawListing>();
-  let unchanged = 0;
-  let saidEmpty = 0;
-  let listesEnEchec = 0;
-  /** Ce que les pages de liste disent publier, au plus. */
-  let announced: number | null = null;
-  const readTotal =
-    options.announcedTotal ?? ((body: string): number | null => announcedTotal(body));
-
-  for (const url of options.listUrls) {
-    try {
-      const response = await context.fetch(url);
-      requestCount += 1;
-      if (response.notModified) {
-        unchanged += 1;
-        continue;
-      }
-      pagesFetched += 1;
-      const found = options.parseList(response.body, url);
-      announced = larger(announced, readTotal(response.body, url));
-      for (const stub of found) {
-        if (!stubs.has(stub.sourceRef)) stubs.set(stub.sourceRef, stub);
-      }
-      if (found.length === 0 && options.isEmptyList?.(response.body) === true) saidEmpty += 1;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      warnings.push(`Échec de la liste ${url} : ${message}`);
-      context.log('list.failed', { url, error: message });
-      listesEnEchec += 1;
-      if (message.includes('429') || message.includes('refusé')) {
-        const stopReason = message.includes('429') ? 'rateLimited' : 'blocked';
-        return { sourceId, listings: [], requestCount, pagesFetched, stopReason, warnings };
-      }
-    }
+  const lues = await lireLesListes(context, options);
+  const { stubs, warnings, unchanged, saidEmpty, listesEnEchec, announced } = lues;
+  let { requestCount, pagesFetched } = lues;
+  if (lues.refus !== null) {
+    return { sourceId, listings: [], requestCount, pagesFetched, stopReason: lues.refus, warnings };
   }
 
   if (unchanged === options.listUrls.length) {

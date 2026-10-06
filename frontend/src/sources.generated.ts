@@ -2006,6 +2006,16 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     alsoKnownAs: [],
     publishesOwnListings: false,
   },
+  repimmo: {
+    name: 'Repimmo',
+    domain: 'repimmo.com',
+    kind: 'portal',
+    logo: null,
+    paidContact: false,
+    address: null,
+    alsoKnownAs: [],
+    publishesOwnListings: false,
+  },
   'resid-immo': {
     name: 'Resid’Immo',
     domain: 'residimmo.fr',

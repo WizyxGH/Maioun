@@ -101,7 +101,8 @@ describe('ALL_SCRAPERS', () => {
       const filtre = segments.find((part) => TYPES.has(part.toLowerCase()));
       expect(filtre, `${source} : ${url}`).toBeUndefined();
     }
-  });
+    // Lit l'index de chaque source sur disque : plus de 5 s quand la suite tourne en entier.
+  }, 30_000);
 
   /**
    * LE LOGO EST CELUI DE L'AGENCE : sur son site, ou sur le CDN de la

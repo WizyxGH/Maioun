@@ -241,4 +241,71 @@ describe('couverture annoncée par le site', () => {
     const result = await runListAndDetails(ctx, { ...parRefs, announcedTotal: () => 4 });
     expect(result.warnings.some((one) => one.startsWith(SHORT_COVERAGE_WARNING))).toBe(true);
   });
+
+  /**
+   * UNE LISTE PAGINÉE SE LIT EN ENTIER. Repimmo range ses quatre-vingt-neuf
+   * locations niçoises sur neuf pages ; n'en lire qu'une ferait passer les
+   * quatre-vingts autres pour retirées.
+   */
+  describe('liste paginée', () => {
+    const page = (n: number): string => `${LIST}?page=${n}`;
+    const paginee = {
+      ...options,
+      // La page publie un lien vers la suivante, sauf la dernière.
+      parseList: (body: string) => options.parseList(body.replace(/^>.*$/m, '')),
+      nextPage: (body: string) => /^>(.*)$/m.exec(body)?.[1] ?? null,
+    };
+
+    it('suit les pages que le site publie, jusqu’à la dernière', async () => {
+      const { ctx, seen } = context({
+        [LIST]: `a\n>${page(2)}`,
+        [page(2)]: `b\n>${page(3)}`,
+        [page(3)]: 'c',
+      });
+      const result = await runListAndDetails(ctx, { ...paginee, maxDetails: 0 });
+      expect(seen.slice(0, 3)).toEqual([LIST, page(2), page(3)]);
+      expect(result.listings).toEqual([]);
+      expect(result.stopReason).toBe('completed');
+    });
+
+    it('ne revalide pas les pages : un 304 sur la première ne dit rien des suivantes', async () => {
+      const inits: unknown[] = [];
+      const { ctx } = context({ [LIST]: 'a' });
+      const fetch = ctx.fetch;
+      await runListAndDetails(
+        {
+          ...ctx,
+          fetch: (url, init) => {
+            inits.push(init);
+            return fetch(url, init);
+          },
+        },
+        { ...paginee, maxDetails: 0 },
+      );
+      expect(inits[0]).toEqual({ conditional: false });
+    });
+
+    it('ne boucle pas sur une page qui renvoie à elle-même, et respecte le plafond', async () => {
+      const boucle = context({ [LIST]: `a\n>${LIST}` });
+      await runListAndDetails(boucle.ctx, { ...paginee, maxDetails: 0 });
+      expect(boucle.seen).toEqual([LIST]);
+
+      const sansFin = context(
+        Object.fromEntries(
+          Array.from({ length: 10 }, (_, n) => [
+            n === 0 ? LIST : page(n + 1),
+            `r${n}\n>${page(n + 2)}`,
+          ]),
+        ),
+      );
+      await runListAndDetails(sansFin.ctx, { ...paginee, maxDetails: 0, maxListPages: 4 });
+      expect(sansFin.seen).toHaveLength(4);
+    });
+
+    it('s’arrête à une page vide, même si elle renvoie plus loin', async () => {
+      const { ctx, seen } = context({ [LIST]: `a\n>${page(2)}`, [page(2)]: `>${page(3)}` });
+      await runListAndDetails(ctx, { ...paginee, maxDetails: 0 });
+      expect(seen).toEqual([LIST, page(2)]);
+    });
+  });
 });
