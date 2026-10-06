@@ -53,6 +53,7 @@ export function openDatabase(options: DatabaseOptions): Database {
       ? { authToken: options.authToken }
       : {}),
   });
+  if (isRemote) return avecReprise(client);
   // WAL : lectures et écritures simultanées sans blocage — le serveur local
   // peut servir l'interface PENDANT qu'une collecte écrit (sinon, risque de
   // « database is locked »). Fichier local uniquement ; best-effort.
@@ -128,4 +129,65 @@ export function openDatabaseFromEnv(env: NodeJS.ProcessEnv = process.env): Datab
   return target.kind === 'turso'
     ? openDatabase({ url: target.url, authToken: env['TURSO_AUTH_TOKEN'] })
     : openDatabase({ url: target.url });
+}
+
+/**
+ * Une coupure de transport : la requête n'a pas obtenu de réponse de la base.
+ * libsql la rend telle quelle (`TypeError: fetch failed`) ou l'enveloppe.
+ */
+function coupureDeTransport(error: unknown): boolean {
+  for (let courant = error, profondeur = 0; profondeur < 4; profondeur += 1) {
+    if (!(courant instanceof Error)) return false;
+    if (courant.message.includes('fetch failed')) return true;
+    courant = courant.cause;
+  }
+  return false;
+}
+
+/** Une instruction qui ne fait que lire : la rejouer ne change rien en base. */
+function seulementLecture(statement: unknown): boolean {
+  const sql = typeof statement === 'string' ? statement : (statement as { sql?: unknown }).sql;
+  return typeof sql === 'string' && /^\s*SELECT\b/i.test(sql);
+}
+
+/**
+ * Une LECTURE coupée en route est retentée une fois.
+ *
+ * LA PREMIÈRE REQUÊTE APRÈS UN LONG CALCUL TOMBAIT, À CHAQUE PASSAGE. Le
+ * dédoublonnage occupe le processus une demi-minute sans parler à la base ;
+ * la connexion gardée ouverte est fermée de l'autre côté entre-temps, et la
+ * requête suivante part dessus : « fetch failed ». Quinze passages de suite le
+ * 2026-10-06, toujours sur la lecture des baisses de loyer — aucune baisse
+ * n'était donc plus signalée —, et une collecte complète perdue la veille sur
+ * la lecture qui précède l'écriture des occurrences. La requête d'après, sur
+ * une connexion neuve, passait.
+ *
+ * LES ÉCRITURES NE SONT PAS REJOUÉES : rien ne dit qu'une écriture coupée n'a
+ * pas été appliquée, et l'historique des loyers la compterait deux fois.
+ */
+export function avecReprise(client: Client): Client {
+  const rejouer = async <T>(lecture: boolean, appel: () => Promise<T>): Promise<T> => {
+    try {
+      return await appel();
+    } catch (error) {
+      if (!lecture || !coupureDeTransport(error)) throw error;
+      return appel();
+    }
+  };
+  return new Proxy(client, {
+    get(cible, nom, recepteur) {
+      if (nom === 'execute') {
+        return (...args: Parameters<Client['execute']>) =>
+          rejouer(seulementLecture(args[0]), () => cible.execute(...args));
+      }
+      if (nom === 'batch') {
+        return (...args: Parameters<Client['batch']>) =>
+          rejouer(args[1] === 'read', () => cible.batch(...args));
+      }
+      const valeur: unknown = Reflect.get(cible, nom, recepteur);
+      return typeof valeur === 'function'
+        ? (valeur as (...args: unknown[]) => unknown).bind(cible)
+        : valeur;
+    },
+  });
 }

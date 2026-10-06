@@ -8,7 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { databaseTarget } from './client.js';
+import type { Client } from '@libsql/client';
+import { avecReprise, databaseTarget } from './client.js';
 
 describe('databaseTarget', () => {
   it('vise Turso dès que son adresse est fournie', () => {
@@ -85,5 +86,67 @@ describe('databaseTarget', () => {
         expect(target.kind).toBe('turso');
       }
     });
+  });
+});
+
+/**
+ * La connexion fermée pendant le dédoublonnage faisait tomber la lecture des
+ * baisses de loyer à chaque passage : une lecture coupée est retentée, une
+ * écriture jamais.
+ */
+describe('avecReprise', () => {
+  /** Un client dont le premier appel est coupé en route. */
+  function coupeUneFois(): { client: Client; appels: () => number } {
+    let appels = 0;
+    const repond = (): Promise<unknown> => {
+      appels += 1;
+      return appels === 1
+        ? Promise.reject(new TypeError('fetch failed'))
+        : Promise.resolve({ rows: [] });
+    };
+    const client = { execute: repond, batch: repond, closed: false } as unknown as Client;
+    return { client, appels: () => appels };
+  }
+
+  it('retente une lecture coupée, une fois', async () => {
+    const { client, appels } = coupeUneFois();
+    await expect(avecReprise(client).execute({ sql: 'SELECT 1', args: [] })).resolves.toEqual({
+      rows: [],
+    });
+    expect(appels()).toBe(2);
+  });
+
+  it('retente un lot déclaré en lecture', async () => {
+    const { client, appels } = coupeUneFois();
+    await avecReprise(client).batch(['SELECT 1'], 'read');
+    expect(appels()).toBe(2);
+  });
+
+  it('ne rejoue jamais une écriture : elle a peut-être été appliquée', async () => {
+    const { client, appels } = coupeUneFois();
+    await expect(avecReprise(client).execute('INSERT INTO t VALUES (1)')).rejects.toThrow(
+      'fetch failed',
+    );
+    await expect(avecReprise(coupeUneFois().client).batch(['SELECT 1'], 'write')).rejects.toThrow(
+      'fetch failed',
+    );
+    expect(appels()).toBe(1);
+  });
+
+  it('laisse passer une erreur SQL : la rejouer donnerait la même', async () => {
+    let appels = 0;
+    const client = {
+      execute: () => {
+        appels += 1;
+        return Promise.reject(new Error('SQLITE_ERROR: no such column'));
+      },
+    } as unknown as Client;
+    await expect(avecReprise(client).execute('SELECT x')).rejects.toThrow('no such column');
+    expect(appels).toBe(1);
+  });
+
+  it('laisse le reste du client intact', () => {
+    const { client } = coupeUneFois();
+    expect(avecReprise(client).closed).toBe(false);
   });
 });
