@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Agency } from './icons.js';
 import { SOURCES } from '../sources.generated.js';
 import { agencySourceId } from '../agency-coverage.js';
+import { relayedPhoto } from '../photos.js';
 
 /**
  * Sites dont `/favicon.ico` n'est PAS le leur et qui ne déclarent aucune autre
@@ -126,7 +127,10 @@ function adresseDuLogo(source: {
   // ne servent rien à /favicon.ico : elles pointaient vers une image
   // inexistante, et l'écran retombait sur l'icône neutre alors que leur logo
   // est public, à l'adresse que leur site déclare lui-même.
-  return source.logo ?? `https://${source.domain}/favicon.ico`;
+  const logo = source.logo ?? `https://${source.domain}/favicon.ico`;
+  // Une icône en http serait bloquée sur le site, qui est en https : elle
+  // passe par le relais, comme les photos.
+  return logo.startsWith('http://') ? (relayedPhoto(logo) ?? null) : logo;
 }
 
 /** Le logo d'une agence, quand la source qui la collecte est nommable. */

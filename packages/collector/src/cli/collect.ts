@@ -342,7 +342,30 @@ async function notifyOne(deps: {
     return report.notifiedIds;
   };
 
-  if (preferences.newListings) {
+  interface NotificationDispatchEnv {
+    readonly repository: Repository;
+    readonly common: {
+      readonly repository: Repository;
+      readonly config: VapidConfig;
+      readonly siteUrl: string;
+      readonly logger: Logger;
+      readonly userId: string;
+    };
+    readonly userId: string;
+    readonly criteria: SearchCriteria;
+    readonly sourceFilter: ReturnType<typeof parseNotificationSources>;
+    readonly preferences: ReturnType<typeof parseNotificationPreferences>;
+    readonly alsoByEmail: (
+      listings: readonly NotifiableListing[],
+      heading: string,
+    ) => Promise<readonly string[]>;
+  }
+
+  async function notifyNewFamily(env: NotificationDispatchEnv): Promise<boolean> {
+    const { repository, common, userId, criteria, sourceFilter, preferences, alsoByEmail } = env;
+    if (!preferences.newListings) return false;
+    let sent = false;
+
     // Une alerte e-mail qui décrit le même bien qu'une source directe est tue :
     // la source directe porte un lien vers la vraie fiche, souvent un
     // téléphone, et les honoraires. Les deux fiches restent visibles sur le
@@ -358,7 +381,7 @@ async function notifyOne(deps: {
     const parties = new Set([...report.notifiedIds, ...mailed]);
     const tues = echoes.filter((echo) => parties.has(echo.of)).map((echo) => echo.id);
     await repository.markNotified(userId, [...parties, ...tues]);
-    if (report.sent > 0) sentAnything = true;
+    if (report.sent > 0) sent = true;
 
     // DES CANDIDATURES QUI ROUVRENT, sur une annonce déjà signalée : elle
     // revenait dans la liste sans un mot. Les réouvertures d'abord, puis les
@@ -371,7 +394,7 @@ async function notifyOne(deps: {
     );
     const reopenMailed = await alsoByEmail(reopened, alertHeading('reopened', reopened.length));
     await repository.markReopenNotified(userId, [...reopenReport.notifiedIds, ...reopenMailed]);
-    if (reopenReport.sent > 0) sentAnything = true;
+    if (reopenReport.sent > 0) sent = true;
     await repository.noteClosedApplications(userId);
 
     /**
@@ -380,10 +403,6 @@ async function notifyOne(deps: {
      * elle qui mesure la durée de publication — donc elle ne comptait pas
      * comme neuve. Or c'est souvent le logement qu'on croyait perdu qui
      * revient : une visite annulée, un dossier qui tombe.
-     *
-     * Relevé du 2026-09-23, le jour de la mise en service de la détection :
-     * 183 retours en quelques heures, 88 fiches actives concernées. Ce n'est
-     * pas un phénomène marginal.
      */
     const revenues = preferences.reappeared
       ? await repository.reappearedListings(userId, criteria, sourceFilter)
@@ -398,32 +417,32 @@ async function notifyOne(deps: {
       [...retourReport.notifiedIds, ...retourMailed],
       new Date(systemClock.now()).toISOString(),
     );
-    if (retourReport.sent > 0) sentAnything = true;
+    if (retourReport.sent > 0) sent = true;
+
+    return sent;
   }
 
-  // CE QUI A CHANGÉ SUR UNE ANNONCE : baisse de loyer, puis le reste.
-  //
-  // UN SEUL INTERRUPTEUR POUR LES DEUX. Les deux canaux sont de même nature — une
-  // annonce a changé — et se déclenchaient sur la même passe : il fallait
-  // maintenir deux réglages pour une seule question. Qui veut savoir qu'une
-  // annonce a baissé veut savoir qu'elle a changé.
-  if (preferences.listingChanges) {
-    const dropped = await repository.priceDroppedListings(userId, criteria, sourceFilter);
-    const dropReport = await sendListingAlerts(
-      { ...common, listings: dropped },
-      priceDropContentFor,
-    );
-    const dropMailed = await alsoByEmail(dropped, alertHeading('priceDrop', dropped.length));
-    await repository.markPriceDropNotified(
-      userId,
-      [...dropReport.notifiedIds, ...dropMailed],
-      new Date(systemClock.now()).toISOString(),
-    );
-    if (dropReport.sent > 0) sentAnything = true;
-  }
+  async function notifyChangesFamily(env: NotificationDispatchEnv): Promise<boolean> {
+    const { repository, common, userId, criteria, sourceFilter, preferences, alsoByEmail } = env;
+    let sent = false;
 
-  // Puis le reste des modifications (disponibilité, surface, conditions...).
-  {
+    // CE QUI A CHANGÉ SUR UNE ANNONCE : baisse de loyer, puis le reste.
+    if (preferences.listingChanges) {
+      const dropped = await repository.priceDroppedListings(userId, criteria, sourceFilter);
+      const dropReport = await sendListingAlerts(
+        { ...common, listings: dropped },
+        priceDropContentFor,
+      );
+      const dropMailed = await alsoByEmail(dropped, alertHeading('priceDrop', dropped.length));
+      await repository.markPriceDropNotified(
+        userId,
+        [...dropReport.notifiedIds, ...dropMailed],
+        new Date(systemClock.now()).toISOString(),
+      );
+      if (dropReport.sent > 0) sent = true;
+    }
+
+    // Puis le reste des modifications (disponibilité, surface, conditions...).
     const updated = await repository.updatedListings(userId, criteria, sourceFilter);
     const updateReport = await sendListingAlerts(
       { ...common, listings: updated },
@@ -435,50 +454,67 @@ async function notifyOne(deps: {
       [...updateReport.notifiedIds, ...updateMailed],
       new Date(systemClock.now()).toISOString(),
     );
-    if (updateReport.sent > 0) sentAnything = true;
+    if (updateReport.sent > 0) sent = true;
+
+    return sent;
   }
 
-  // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé. Éteint par défaut :
-  // c'est un élargissement de la recherche, pas un canal de plus.
-  //
-  // L'ÉLARGISSEMENT PORTE SUR LES QUANTITÉS, PAS SUR LES EXCLUSIONS : loyer,
-  // surface, trajet, pièces et date ont chacun leur marge (`NEAR_MATCH_MARGINS`).
-  // Ce canal ne passait pas les préférences : il proposait donc des colocations
-  // et des locations étudiantes que la liste écarte — on sonnait pour ce qu'on
-  // n'affiche pas.
-  if (preferences.nearMatches) {
-    const near = await repository.nearMatches(
-      userId,
-      nearMatchCriteria(criteria),
-      criteria,
-      sourceFilter,
-    );
-    const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
-      nearMatchContentFor(listing as NearMatch, url),
-    );
-    const mailed = await alsoByEmail(near, alertHeading('nearMatch', near.length));
-    await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
-    if (report.sent > 0) sentAnything = true;
+  async function notifyFavoritesFamily(env: NotificationDispatchEnv): Promise<boolean> {
+    const { repository, common, userId, criteria, sourceFilter, preferences, alsoByEmail } = env;
+    let sent = false;
+
+    // JUSTE AU-DESSUS DES CRITÈRES, si ce compte l'a demandé.
+    if (preferences.nearMatches) {
+      const near = await repository.nearMatches(
+        userId,
+        nearMatchCriteria(criteria),
+        criteria,
+        sourceFilter,
+      );
+      const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
+        nearMatchContentFor(listing as NearMatch, url),
+      );
+      const mailed = await alsoByEmail(near, alertHeading('nearMatch', near.length));
+      await repository.markNotified(userId, [...report.notifiedIds, ...mailed]);
+      if (report.sent > 0) sent = true;
+    }
+
+    // UN FAVORI QUI DISPARAÎT.
+    if (preferences.favoriteGone) {
+      const gone = await repository.goneFavorites(userId);
+      const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
+      const mailed = await alsoByEmail(gone, alertHeading('favoriteGone', gone.length));
+      await repository.markGoneNotified(userId, [...report.notifiedIds, ...mailed]);
+      if (report.sent > 0) sent = true;
+    }
+
+    // UN FAVORI JAMAIS CONTACTÉ.
+    if (preferences.applicationReminders) {
+      const stale = await repository.staleFavorites(userId, APPLICATION_REMINDER_HOURS);
+      const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
+      const mailed = await alsoByEmail(stale, alertHeading('reminder', stale.length));
+      await repository.markReminded(userId, [...report.notifiedIds, ...mailed]);
+      if (report.sent > 0) sent = true;
+    }
+
+    return sent;
   }
 
-  // UN FAVORI QUI DISPARAÎT. Il quittait la liste sans un mot : on continuait
-  // d'attendre une réponse pour un bien déjà loué.
-  if (preferences.favoriteGone) {
-    const gone = await repository.goneFavorites(userId);
-    const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
-    const mailed = await alsoByEmail(gone, alertHeading('favoriteGone', gone.length));
-    await repository.markGoneNotified(userId, [...report.notifiedIds, ...mailed]);
-    if (report.sent > 0) sentAnything = true;
-  }
+  const env: NotificationDispatchEnv = {
+    repository,
+    common,
+    userId,
+    criteria,
+    sourceFilter,
+    preferences,
+    alsoByEmail,
+  };
 
-  // UN FAVORI JAMAIS CONTACTÉ. Le marché ne patiente pas : mis de côté lundi,
-  // oublié jusqu'à jeudi, c'est une occasion manquée faute d'un rappel.
-  if (preferences.applicationReminders) {
-    const stale = await repository.staleFavorites(userId, APPLICATION_REMINDER_HOURS);
-    const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
-    const mailed = await alsoByEmail(stale, alertHeading('reminder', stale.length));
-    await repository.markReminded(userId, [...report.notifiedIds, ...mailed]);
-    if (report.sent > 0) sentAnything = true;
+  const sentNew = await notifyNewFamily(env);
+  const sentChanges = await notifyChangesFamily(env);
+  const sentFavorites = await notifyFavoritesFamily(env);
+  if (sentNew || sentChanges || sentFavorites) {
+    sentAnything = true;
   }
 
   /**

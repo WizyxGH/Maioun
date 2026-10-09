@@ -120,7 +120,9 @@ describe('ALL_SCRAPERS', () => {
     for (const d of descriptors) {
       if (d.logo === undefined || d.domain === undefined) continue;
       const hote = new URL(d.logo).hostname.replace(/^www\./, '');
-      if (!CDN_DE_PLATEFORME.has(hote)) expect(hote, d.id).toBe(d.domain);
+      // Un sous-domaine du site reste le site : Repimmo sert son logo depuis `www.`.
+      const surSonSite = hote === d.domain || hote.endsWith(`.${d.domain}`);
+      if (!CDN_DE_PLATEFORME.has(hote)) expect(surSonSite, `${d.id} : ${hote}`).toBe(true);
       expect(vus.get(d.logo), `${d.id} partage son logo`).toBeUndefined();
       vus.set(d.logo, d.id);
     }

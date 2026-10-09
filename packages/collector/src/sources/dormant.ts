@@ -385,6 +385,21 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     probe: { kind: 'sitemap', url: 'https://capgest.com/sitemap.xml', minMatches: 1 },
   },
   {
+    id: 'casa-immobilier',
+    name: 'Casa Immobilier',
+    origin: 'https://casa-immo.fr',
+    reason: 'noVolume',
+    checkedOn: '2026-10-09',
+    refusal: 'agence de vente : 31 biens au sitemap, aucune location, menu « à vendre » seul',
+    wakesIf: 'sa page d’accueil lie une rubrique de location',
+    probe: {
+      kind: 'page',
+      url: 'https://casa-immo.fr/',
+      pattern: /casa-immo\.fr\/[^"]*(?:a-louer|location)/i,
+      minMatches: 1,
+    },
+  },
+  {
     id: 'meta-immobilier',
     name: 'Meta Immobilier',
     origin: 'https://meta-immobilier.com',

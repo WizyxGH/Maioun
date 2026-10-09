@@ -516,6 +516,59 @@ function criteriaExtras(
 }
 
 /**
+ * Les restrictions qui ne sont pas des filtres rapides, en puces retirables.
+ *
+ * Hors du composant : AppView est au plafond de complexité.
+ */
+function buildOtherRestrictions(params: {
+  readonly search: string;
+  readonly sourceFilter: SourceSelection;
+  readonly favoritesOnly: boolean;
+  readonly showArchived: boolean;
+  readonly hideUncertain: boolean;
+  readonly newOnly: boolean;
+  readonly compatibleProfileOnly: boolean;
+  readonly criteria: FilterConfig | null;
+  readonly onClearSearch: () => void;
+  readonly onResetSources: () => void;
+  readonly onDisableFavoritesOnly: () => void;
+  readonly onDisableShowArchived: () => void;
+  readonly onDisableHideUncertain: () => void;
+  readonly onDisableNewOnly: () => void;
+  readonly onDisableCompatibleProfile: () => void;
+  readonly onRelaxCriterion: (patch: Partial<FilterConfig>) => void;
+}): ExtraChip[] {
+  const otherRestrictions: ExtraChip[] = [];
+  if (params.search.trim() !== '') {
+    otherRestrictions.push({
+      label: `« ${params.search.trim()} »`,
+      onRemove: params.onClearSearch,
+    });
+  }
+  if (restrictsSources(params.sourceFilter)) {
+    otherRestrictions.push({
+      label: describeSourceSelection(params.sourceFilter),
+      onRemove: params.onResetSources,
+    });
+  }
+  otherRestrictions.push(
+    ...activeToggleChips([
+      ['Favoris uniquement', params.favoritesOnly, params.onDisableFavoritesOnly],
+      ['Annonces archivées', params.showArchived, params.onDisableShowArchived],
+      ['Sans les annonces à vérifier', params.hideUncertain, params.onDisableHideUncertain],
+      ['Pas encore vues', params.newOnly, params.onDisableNewOnly],
+      [
+        'Profil compatible uniquement',
+        params.compatibleProfileOnly,
+        params.onDisableCompatibleProfile,
+      ],
+    ]),
+  );
+  otherRestrictions.push(...criteriaExtras(params.criteria, params.onRelaxCriterion));
+  return otherRestrictions;
+}
+
+/**
  * L'adresse de l'écran courant, telle que la barre basse la compare à ses
  * destinations.
  *
@@ -905,6 +958,77 @@ function avecPrioriteDuProfil(
   });
 }
 
+/**
+ * Les sous-écrans des PARAMÈTRES.
+ *
+ * Sortis d'AppView pour respecter le seuil de complexité ESLint : six branches
+ * qui font toutes la même chose — une coquille, un panneau, un retour vers la
+ * liste des réglages.
+ */
+function renderSettingsView({
+  view,
+  shell,
+  onNavigate,
+  onSignedOut,
+  onBack,
+}: {
+  readonly view: View;
+  readonly shell: Omit<React.ComponentProps<typeof Shell>, 'children'>;
+  readonly onNavigate: (key: string) => void;
+  readonly onSignedOut: () => void;
+  readonly onBack: () => void;
+}): React.JSX.Element | null {
+  if (view === 'profile') {
+    return (
+      <Shell {...shell}>
+        <h1 className="mb-4 text-xl font-bold">Paramètres</h1>
+        <SettingsLinks onNavigate={onNavigate} onSignedOut={onSignedOut} />
+      </Shell>
+    );
+  }
+  if (view === 'access') {
+    return (
+      <Shell {...shell}>
+        <BackToSettings onBack={onBack} />
+        <AccessPanel />
+      </Shell>
+    );
+  }
+  if (view === 'notifications') {
+    return (
+      <Shell {...shell}>
+        <NotificationSettingsPanel onBack={onBack} />
+      </Shell>
+    );
+  }
+  if (view === 'plan') {
+    return (
+      <Shell {...shell}>
+        <PlanPanel onBack={onBack} />
+      </Shell>
+    );
+  }
+  if (view === 'theme') {
+    return (
+      <Shell {...shell}>
+        <ThemePanel onBack={onBack} />
+      </Shell>
+    );
+  }
+  return null;
+}
+
+function currentSelectedTargets(route: Route): {
+  selectedId: string | null;
+  selectedSourceId: string | null;
+} {
+  const { view, id } = route;
+  return {
+    selectedId: view === 'detail' ? (id ?? null) : null,
+    selectedSourceId: view === 'source' || view === 'agency' ? (id ?? null) : null,
+  };
+}
+
 function AppView(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
@@ -939,8 +1063,7 @@ function AppView(): React.JSX.Element {
   // Ce que l'écran courant regarde : l'adresse le porte, on n'en garde pas de
   // copie. Une seconde source de vérité se serait désynchronisée au premier
   // retour arrière.
-  const selectedId = view === 'detail' ? (route.id ?? null) : null;
-  const selectedSourceId = view === 'source' || view === 'agency' ? (route.id ?? null) : null;
+  const { selectedId, selectedSourceId } = currentSelectedTargets(route);
 
   /**
    * Les écrans qui regardent quelque chose. `setView('detail')` doit alors
@@ -2355,72 +2478,6 @@ function AppView(): React.JSX.Element {
     onBottomSelect: selectBottomTab,
   };
 
-  /**
-   * Les sous-écrans des PARAMÈTRES, sortis de `secondaryView`.
-   *
-   * Celle-ci passait le seuil de complexité toléré : vingt branches, dont
-   * six qui font toutes la même chose — une coquille, un panneau, un retour
-   * vers la liste des réglages. Les réunir dit ce qu'elles ont en commun.
-   */
-  const settingsView = (): React.JSX.Element | null => {
-    // PARAMÈTRES : rien que des chemins. Le profil locataire et les pièces du
-    // dossier occupaient tout le premier écran — huit champs et une liste de
-    // fichiers pour deux réglages qu'on touche une fois. Ils ont maintenant
-    // leur page, comme les autres.
-    if (view === 'profile') {
-      return (
-        <Shell {...shell}>
-          <h1 className="mb-4 text-xl font-bold">Paramètres</h1>
-          {/* L'INTERRUPTEUR DES ALERTES VIVAIT ICI, seul de son espèce au
-              milieu de liens. Il est passé derrière « Notifications », qui porte
-              aussi le détail par famille d'alertes.
-
-              `navigate` et non `setView` : certaines vues doivent CHARGER leurs
-              données avant d'apparaître (les sources, notamment). */}
-          <SettingsLinks
-            onNavigate={(key) => navigate(key as View)}
-            onSignedOut={() => {
-              // La session n'existe plus : `currentUser` à `null` ramène
-              // l'écran de connexion.
-              setCurrentUser(null);
-              replace({ view: 'home' });
-            }}
-          />
-        </Shell>
-      );
-    }
-    if (view === 'access') {
-      return (
-        <Shell {...shell}>
-          <BackToSettings onBack={() => back({ view: 'profile' })} />
-          <AccessPanel />
-        </Shell>
-      );
-    }
-    if (view === 'notifications') {
-      return (
-        <Shell {...shell}>
-          <NotificationSettingsPanel onBack={() => back({ view: 'profile' })} />
-        </Shell>
-      );
-    }
-    if (view === 'plan') {
-      return (
-        <Shell {...shell}>
-          <PlanPanel onBack={() => back({ view: 'profile' })} />
-        </Shell>
-      );
-    }
-    if (view === 'theme') {
-      return (
-        <Shell {...shell}>
-          <ThemePanel onBack={() => back({ view: 'profile' })} />
-        </Shell>
-      );
-    }
-    return null;
-  };
-
   // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
   // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
   const secondaryView = (): React.JSX.Element | null => {
@@ -2488,7 +2545,17 @@ function AppView(): React.JSX.Element {
       );
     }
 
-    const settings = settingsView();
+    const settings = renderSettingsView({
+      view,
+      shell,
+      onNavigate: (key) => navigate(key as View),
+      onSignedOut: () => {
+        // La session n'existe plus : currentUser à null ramène l'écran de connexion.
+        setCurrentUser(null);
+        replace({ view: 'home' });
+      },
+      onBack: () => back({ view: 'profile' }),
+    });
     if (settings !== null) return settings;
 
     if (view === 'agencies') {
@@ -2711,32 +2778,24 @@ function AppView(): React.JSX.Element {
    * — elle annonçait « Sauf … » d'après les sources chargées du moment, y
    * compris quand le filtre voulait dire l'inverse.
    */
-  const otherRestrictions: ExtraChip[] = [];
-  if (search.trim() !== '') {
-    otherRestrictions.push({ label: `« ${search.trim()} »`, onRemove: () => setSearch('') });
-  }
-  if (restrictsSources(sourceFilter)) {
-    otherRestrictions.push({
-      label: describeSourceSelection(sourceFilter),
-      onRemove: () => setSourceFilter(ALL_SOURCES),
-    });
-  }
-  otherRestrictions.push(
-    ...activeToggleChips([
-      ['Favoris uniquement', favoritesOnly, () => setFavoritesOnly(false)],
-      ['Annonces archivées', showArchived, () => setShowArchived(false)],
-      ['Sans les annonces à vérifier', hideUncertain, () => setHideUncertain(false)],
-      ['Pas encore vues', newOnly, () => setNewOnly(false)],
-      [
-        'Profil compatible uniquement',
-        compatibleProfileOnly,
-        () => setCompatibleProfileOnly(false),
-      ],
-    ]),
-  );
-
-  const criteriaRestrictions = criteriaExtras(criteria, (patch) => void relaxCriterion(patch));
-  otherRestrictions.push(...criteriaRestrictions);
+  const otherRestrictions = buildOtherRestrictions({
+    search,
+    sourceFilter,
+    favoritesOnly,
+    showArchived,
+    hideUncertain,
+    newOnly,
+    compatibleProfileOnly,
+    criteria,
+    onClearSearch: () => setSearch(''),
+    onResetSources: () => setSourceFilter(ALL_SOURCES),
+    onDisableFavoritesOnly: () => setFavoritesOnly(false),
+    onDisableShowArchived: () => setShowArchived(false),
+    onDisableHideUncertain: () => setHideUncertain(false),
+    onDisableNewOnly: () => setNewOnly(false),
+    onDisableCompatibleProfile: () => setCompatibleProfileOnly(false),
+    onRelaxCriterion: (patch) => void relaxCriterion(patch),
+  });
 
   /** Tout ce qui filtre DANS LE NAVIGATEUR : filtres rapides, recherche,
    * sources, bascules. Les CRITÈRES, eux, sont au serveur — voir

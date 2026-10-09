@@ -87,16 +87,16 @@ qui évite les « à revoir dans quelques semaines » que personne ne revoit.
 
 Les refus de principe, eux, ne bougeront pas :
 
-| Source                         | Pourquoi                                                                                                    |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **Leboncoin**                  | `robots.txt` interdit la recherche et l'API, et l'écrit en toutes lettres en anglais. Fermé.                |
-| **SeLoger**                    | Recherche et fiches fermées. Ses annonces nous parviennent par **alerte e-mail**, que l'utilisateur reçoit. |
-| **PAP**, **Entreparticuliers** | Anti-bot dès l'accueil. Recontrôlées, plus fermées qu'avant.                                                |
-| **Nexity**                     | HTTP 403 dès le `robots.txt` pour un client identifié.                                                      |
-| **Guy Hoquet**, **Nestenn**    | Recherche entièrement en JavaScript, ou fiches interdites : aucun résultat dans le HTML servi.              |
-| **Facebook**, **Nextdoor**     | `robots.txt` fermé, et mur de connexion.                                                                    |
-| **Trovit**, **Superimmo**      | Agrégateurs : rien d'exclusif, et les annonces elles-mêmes sont interdites.                                 |
-| **Lokaviz** (CROUS)            | Recherche et fiches fermées.                                                                                |
+| Source                         | Pourquoi                                                                                                                                                                                                                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Leboncoin**                  | `robots.txt` interdit la recherche et l'API, et l'écrit en toutes lettres en anglais. Fermé.                                                                                                                                                                                          |
+| **SeLoger**                    | Recherche et fiches fermées. Ses annonces nous parviennent par **alerte e-mail**, que l'utilisateur reçoit.                                                                                                                                                                           |
+| **PAP**, **Entreparticuliers** | Anti-bot dès l'accueil (DataDome/Cloudflare bloquant les serveurs cloud, contrairement aux agrégateurs commerciaux comme Jinka qui financent des fermes de proxies résidentiels rotatifs). **Ses annonces nous parviennent sans blocage par alerte e-mail (`sources/email-alerts`)**. |
+| **Nexity**                     | HTTP 403 dès le `robots.txt` pour un client identifié.                                                                                                                                                                                                                                |
+| **Guy Hoquet**, **Nestenn**    | Recherche entièrement en JavaScript, ou fiches interdites : aucun résultat dans le HTML servi.                                                                                                                                                                                        |
+| **Facebook**, **Nextdoor**     | `robots.txt` fermé, et mur de connexion.                                                                                                                                                                                                                                              |
+| **Trovit**, **Superimmo**      | Agrégateurs : rien d'exclusif, et les annonces elles-mêmes sont interdites.                                                                                                                                                                                                           |
+| **Lokaviz** (CROUS)            | Recherche et fiches fermées.                                                                                                                                                                                                                                                          |
 
 Trois familles reviennent régulièrement et sont hors sujet, non hors la loi :
 la **nuitée** (HousingAnywhere, Roomlala, Cohebergement — un loyer à la nuit
@@ -107,7 +107,7 @@ Le volume nul dans le périmètre suffit pour le reste.
 ## Le contact payant
 
 `paidContact` marque les sources qui **facturent la mise en relation** —
-LocService, Rentumo, Appartager, 123Loger (34 €). Ce n'est pas un jugement :
+LocService, Rentumo, Rentola, Appartager, 123Loger (34 €). Ce n'est pas un jugement :
 l'annonce reste consultable, et c'est pour cela qu'on la collecte. Mais
 découvrir le péage après avoir ouvert la fiche est une déception qu'un mot
 évite, et l'écran le dit avant le clic.

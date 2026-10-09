@@ -150,3 +150,14 @@ describe('sourceLogoUrl', () => {
     expect(sourceLogoUrl('source-qui-n-existe-pas')).toBeNull();
   });
 });
+
+/**
+ * LE SITE EST EN HTTPS : une icône en http y serait bloquée. Repimmo ne sert la
+ * sienne qu'en http — elle passe par le relais, ou ne s'affiche pas.
+ */
+describe('un logo en http', () => {
+  it('n’est jamais rendu tel quel', () => {
+    const url = sourceLogoUrl('repimmo');
+    expect(url === null || !url.startsWith('http://')).toBe(true);
+  });
+});

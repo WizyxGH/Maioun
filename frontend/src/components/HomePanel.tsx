@@ -241,6 +241,126 @@ function noFreshMessage(nowMs: number, seenAtMs: number, recentCount: number): s
   return `Aucune nouveauté depuis votre dernière visite (${ilYA}).`;
 }
 
+function HomeChoresSection({
+  toCall,
+  awaitingReply,
+  favoritesUntouched,
+  profileComplete,
+  onOpenSearch,
+  onOpenExchanges,
+  onOpenFavorites,
+  onOpenProfile,
+}: {
+  readonly toCall: readonly ListingView[];
+  readonly awaitingReply: readonly ListingView[];
+  readonly favoritesUntouched: readonly ListingView[];
+  readonly profileComplete: boolean;
+  readonly onOpenSearch: () => void;
+  readonly onOpenExchanges: () => void;
+  readonly onOpenFavorites: () => void;
+  readonly onOpenProfile: () => void;
+}): React.JSX.Element | null {
+  const hasChores =
+    toCall.length > 0 ||
+    awaitingReply.length > 0 ||
+    favoritesUntouched.length > 0 ||
+    !profileComplete;
+
+  if (!hasChores) return null;
+
+  return (
+    <section>
+      <h2 className="mb-2 text-lg font-bold">À faire</h2>
+      <ul className="flex flex-col gap-2">
+        {toCall.length > 0 && (
+          <li>
+            <ChoreRow
+              Icon={PhoneCall}
+              iconClassName="text-hot"
+              className="border-hot"
+              title={`${toCall.length} annonce${toCall.length > 1 ? 's' : ''} à contacter`}
+              description="Priorité haute, jamais appelées."
+              onClick={onOpenSearch}
+            />
+          </li>
+        )}
+        {awaitingReply.length > 0 && (
+          <li>
+            <ChoreRow
+              Icon={Bell}
+              title={`${awaitingReply.length} réponse${awaitingReply.length > 1 ? 's' : ''} en attente`}
+              description="Contactées, sans réponse enregistrée."
+              onClick={onOpenExchanges}
+            />
+          </li>
+        )}
+        {favoritesUntouched.length > 0 && (
+          <li>
+            <ChoreRow
+              Icon={Heart}
+              title={`${favoritesUntouched.length} favori${favoritesUntouched.length > 1 ? 's' : ''} sans suite`}
+              description="Retenus, mais pas encore contactés."
+              onClick={onOpenFavorites}
+            />
+          </li>
+        )}
+        {!profileComplete && (
+          <li>
+            <ChoreRow
+              Icon={TriangleAlert}
+              iconClassName="text-medium"
+              title="Compléter le profil locataire"
+              description="Sans lui, aucun message de contact ne peut être préparé."
+              onClick={onOpenProfile}
+            />
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
+function HomeSavedSearchesSection({
+  savedSearches,
+  onOpenSavedSearches,
+  onApplySearch,
+}: {
+  readonly savedSearches: readonly SavedSearch[];
+  readonly onOpenSavedSearches: () => void;
+  readonly onApplySearch: (search: SavedSearch) => void;
+}): React.JSX.Element {
+  return (
+    <section>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h2 className="text-lg font-bold">Recherches enregistrées</h2>
+        <Button variant="link" size="inline" onClick={onOpenSavedSearches} className="text-sm">
+          {savedSearches.length > 0 ? 'Toutes' : 'En enregistrer une'}
+        </Button>
+      </div>
+      {savedSearches.length === 0 ? (
+        <Card className="text-muted-foreground text-[0.92rem]">
+          Aucune pour l’instant. Réglez vos critères dans la recherche, puis «&nbsp;Enregistrer
+          cette recherche&nbsp;» — vous la rappellerez d’un geste.
+        </Card>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {savedSearches.slice(0, 3).map((search) => (
+            <li key={search.id}>
+              <ChoreRow
+                Icon={Bookmark}
+                title={search.name}
+                description={<SearchSummary search={search} className="text-[0.82rem]" />}
+                onClick={() => onApplySearch(search)}
+                truncate
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function HomePanel({
   listings,
   criteriaCount,
@@ -306,12 +426,6 @@ export function HomePanel({
   const favoritesUntouched = favorites.filter((listing) => listing.tracking === 'new');
   const ailing = sources.filter((source) => source.health !== 'healthy');
 
-  const hasChores =
-    toCall.length > 0 ||
-    awaitingReply.length > 0 ||
-    favoritesUntouched.length > 0 ||
-    !profileComplete;
-
   return (
     <div className="flex flex-col gap-6">
       {/* 1. CE QUI A BOUGÉ. En tête parce que c'est périssable : une annonce
@@ -342,59 +456,16 @@ export function HomePanel({
       </section>
 
       {/* 2. CE QUI ATTEND UN GESTE. Un logement se prend en appelant. */}
-      {hasChores && (
-        <section>
-          <h2 className="mb-2 text-lg font-bold">À faire</h2>
-          <ul className="flex flex-col gap-2">
-            {toCall.length > 0 && (
-              <li>
-                <ChoreRow
-                  Icon={PhoneCall}
-                  iconClassName="text-hot"
-                  className="border-hot"
-                  title={`${toCall.length} annonce${toCall.length > 1 ? 's' : ''} à contacter`}
-                  description="Priorité haute, jamais appelées."
-                  onClick={onOpenSearch}
-                />
-              </li>
-            )}
-            {awaitingReply.length > 0 && (
-              <li>
-                <ChoreRow
-                  Icon={Bell}
-                  title={`${awaitingReply.length} réponse${awaitingReply.length > 1 ? 's' : ''} en attente`}
-                  description="Contactées, sans réponse enregistrée."
-                  // VERS LE REGISTRE, et non vers la recherche : la question
-                  // qu'on se pose ici est « laquelle attend depuis le plus
-                  // longtemps ? », et la liste des annonces n'y répond pas.
-                  onClick={onOpenExchanges}
-                />
-              </li>
-            )}
-            {favoritesUntouched.length > 0 && (
-              <li>
-                <ChoreRow
-                  Icon={Heart}
-                  title={`${favoritesUntouched.length} favori${favoritesUntouched.length > 1 ? 's' : ''} sans suite`}
-                  description="Retenus, mais pas encore contactés."
-                  onClick={onOpenFavorites}
-                />
-              </li>
-            )}
-            {!profileComplete && (
-              <li>
-                <ChoreRow
-                  Icon={TriangleAlert}
-                  iconClassName="text-medium"
-                  title="Compléter le profil locataire"
-                  description="Sans lui, aucun message de contact ne peut être préparé."
-                  onClick={onOpenProfile}
-                />
-              </li>
-            )}
-          </ul>
-        </section>
-      )}
+      <HomeChoresSection
+        toCall={toCall}
+        awaitingReply={awaitingReply}
+        favoritesUntouched={favoritesUntouched}
+        profileComplete={profileComplete}
+        onOpenSearch={onOpenSearch}
+        onOpenExchanges={onOpenExchanges}
+        onOpenFavorites={onOpenFavorites}
+        onOpenProfile={onOpenProfile}
+      />
 
       {/* 3. DE QUOI REPARTIR. */}
       <section>
@@ -455,34 +526,11 @@ export function HomePanel({
         )}
       </section>
 
-      <section>
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-bold">Recherches enregistrées</h2>
-          <Button variant="link" size="inline" onClick={onOpenSavedSearches} className="text-sm">
-            {savedSearches.length > 0 ? 'Toutes' : 'En enregistrer une'}
-          </Button>
-        </div>
-        {savedSearches.length === 0 ? (
-          <Card className="text-muted-foreground text-[0.92rem]">
-            Aucune pour l’instant. Réglez vos critères dans la recherche, puis «&nbsp;Enregistrer
-            cette recherche&nbsp;» — vous la rappellerez d’un geste.
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {savedSearches.slice(0, 3).map((search) => (
-              <li key={search.id}>
-                <ChoreRow
-                  Icon={Bookmark}
-                  title={search.name}
-                  description={<SearchSummary search={search} className="text-[0.82rem]" />}
-                  onClick={() => onApplySearch(search)}
-                  truncate
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <HomeSavedSearchesSection
+        savedSearches={savedSearches}
+        onOpenSavedSearches={onOpenSavedSearches}
+        onApplySearch={onApplySearch}
+      />
 
       {/* LE REPÈRE DU MARCHÉ, ET D'OÙ IL VIENT. Sans lui, « 700 € pour 25 m² »
         ne se juge que par comparaison avec les autres annonces du site — donc

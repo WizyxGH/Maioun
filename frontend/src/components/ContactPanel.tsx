@@ -147,25 +147,14 @@ function SourceRow({
   );
 }
 
-function ContactDetails({
+function ContactInfoList({
   listing,
-  hasAnyContact,
-  onCalled,
-  onWritten,
   onOpenSource,
-  subject,
-  message,
 }: {
   readonly listing: ListingView;
-  readonly hasAnyContact: boolean;
-  readonly onCalled: () => void;
-  readonly onWritten: () => void;
   readonly onOpenSource?: (sourceId: string) => void;
-  readonly subject?: string;
-  readonly message?: string;
 }): React.JSX.Element {
-  const { name, agencyName, phone, email, formUrl, reference, providedBy } = listing.contact;
-  const autresTelephones = listing.contact.otherPhones ?? [];
+  const { name, agencyName, email, formUrl, reference, providedBy } = listing.contact;
   const courriels = [email, ...(listing.contact.otherEmails ?? [])].filter(
     (valeur): valeur is string => valeur !== null && valeur.trim() !== '',
   );
@@ -179,117 +168,134 @@ function ContactDetails({
   // Le formulaire mène souvent à l'annonce elle-même : la ligne « Source »
   // ci-dessous porte alors déjà ce lien, et la répéter n'apprend rien (§15).
   const formIsSource = formUrl !== null && occurrences.some((o) => o.sourceUrl === formUrl);
-  const paidSources = paidContactSources(occurrences);
+
+  return (
+    <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
+      {name !== null && (
+        <>
+          <dt className="text-muted-foreground">Interlocuteur</dt>
+          <dd>{name}</dd>
+        </>
+      )}
+      {agencyName !== null && (
+        <>
+          <dt className="text-muted-foreground">Agence</dt>
+          <dd className="flex min-w-0 items-center gap-2">
+            {/* LE LOGO ICI AUSSI : c'est le même repère que dans l'annuaire et
+              sur la carte de liste, et on reconnaît son agence avant d'avoir
+              lu son nom. Il ne s'affiche que s'il est vraiment le sien —
+              `AgencyLogo` se tait pour un relais. */}
+            <AgencyLogo name={agencyName} className="size-5 shrink-0" />
+            {/* Le nom mène à SA PAGE ICI : ses coordonnées, l'état de sa
+              collecte, et toutes ses annonces actives — ce qu'on veut avant
+              d'appeler.
+
+              Il ouvrait auparavant la page d'ACCUEIL de l'agence, ce qui
+              trompait deux fois : on croyait retomber sur l'annonce, et on
+              arrivait sur un site à parcourir. Le lien vers l'annonce
+              d'origine existe, une ligne plus bas, sous « Source ». */}
+            {openSource === null ? (
+              agencyName
+            ) : (
+              <Button
+                type="button"
+                variant="link"
+                size="inline"
+                onClick={openSource}
+                className="font-normal"
+                title={`Voir ${agencyName} et ses annonces`}
+              >
+                {agencyName}
+              </Button>
+            )}
+          </dd>
+        </>
+      )}
+      {/* La référence de l'agence : c'est elle qu'on cite au téléphone pour
+        désigner le bien. */}
+      {reference !== null && reference.trim() !== '' && (
+        <>
+          <dt className="text-muted-foreground">Réf. agence</dt>
+          <dd data-testid="agency-reference">{reference}</dd>
+        </>
+      )}
+      {/* L'ADRESSE, EN CLAIR. Elle n'apparaissait nulle part : seul le
+        bouton « Ouvrir l'e-mail » la portait, caché derrière un lien
+        `mailto:` qui ouvre un logiciel de courrier que tout le monde n'a
+        pas. Le bouton est retiré ; l'adresse, elle, se lit et se copie. */}
+      {/* Toutes les adresses publiées, une par ligne : celle du conseiller
+        répond souvent plus vite que la boîte générale de l'agence. */}
+      {courriels.length > 0 && (
+        <>
+          <dt className="text-muted-foreground">{courriels.length > 1 ? 'E-mails' : 'E-mail'}</dt>
+          <dd data-testid="agency-email" className="break-all">
+            {courriels.map((courriel) => (
+              <span key={courriel} className="block select-all">
+                {courriel}
+              </span>
+            ))}
+          </dd>
+        </>
+      )}
+      {formUrl !== null && !formIsSource && (
+        <>
+          <dt className="text-muted-foreground">Formulaire</dt>
+          <dd>
+            <a
+              // Même précaution : l'adresse du formulaire vient de l'agence.
+              href={safeHref(formUrl) ?? undefined}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary underline"
+            >
+              Ouvrir sur le site
+            </a>
+          </dd>
+        </>
+      )}
+
+      {/* §38 : d'où vient l'annonce, avec le lien d'origine. Cette section
+        vivait seule en bas de fiche, entre le statut et la description ;
+        c'est pourtant une coordonnée comme les autres — le canal par lequel
+        on joint le bien. */}
+      {occurrences.length > 0 && (
+        <>
+          <dt className="text-muted-foreground">{occurrences.length > 1 ? 'Sources' : 'Source'}</dt>
+          <dd data-testid="listing-sources">
+            {occurrences.map((occurrence) => (
+              <span key={occurrence.id} className="block">
+                <SourceRow
+                  occurrence={occurrence}
+                  price={listing.price.value}
+                  area={listing.area.value}
+                />
+              </span>
+            ))}
+          </dd>
+        </>
+      )}
+    </dl>
+  );
+}
+
+function ContactActionButtons({
+  contact,
+  onCalled,
+  onWritten,
+  subject,
+  message,
+}: {
+  readonly contact: ListingView['contact'];
+  readonly onCalled: () => void;
+  readonly onWritten: () => void;
+  readonly subject?: string;
+  readonly message?: string;
+}): React.JSX.Element {
+  const { phone, email } = contact;
+  const autresTelephones = contact.otherPhones ?? [];
+
   return (
     <>
-      <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
-        {name !== null && (
-          <>
-            <dt className="text-muted-foreground">Interlocuteur</dt>
-            <dd>{name}</dd>
-          </>
-        )}
-        {agencyName !== null && (
-          <>
-            <dt className="text-muted-foreground">Agence</dt>
-            <dd className="flex min-w-0 items-center gap-2">
-              {/* LE LOGO ICI AUSSI : c'est le même repère que dans l'annuaire et
-                sur la carte de liste, et on reconnaît son agence avant d'avoir
-                lu son nom. Il ne s'affiche que s'il est vraiment le sien —
-                `AgencyLogo` se tait pour un relais. */}
-              <AgencyLogo name={agencyName} className="size-5 shrink-0" />
-              {/* Le nom mène à SA PAGE ICI : ses coordonnées, l'état de sa
-                collecte, et toutes ses annonces actives — ce qu'on veut avant
-                d'appeler.
-
-                Il ouvrait auparavant la page d'ACCUEIL de l'agence, ce qui
-                trompait deux fois : on croyait retomber sur l'annonce, et on
-                arrivait sur un site à parcourir. Le lien vers l'annonce
-                d'origine existe, une ligne plus bas, sous « Source ». */}
-              {openSource === null ? (
-                agencyName
-              ) : (
-                <Button
-                  type="button"
-                  variant="link"
-                  size="inline"
-                  onClick={openSource}
-                  className="font-normal"
-                  title={`Voir ${agencyName} et ses annonces`}
-                >
-                  {agencyName}
-                </Button>
-              )}
-            </dd>
-          </>
-        )}
-        {/* La référence de l'agence : c'est elle qu'on cite au téléphone pour
-          désigner le bien. */}
-        {reference !== null && reference.trim() !== '' && (
-          <>
-            <dt className="text-muted-foreground">Réf. agence</dt>
-            <dd data-testid="agency-reference">{reference}</dd>
-          </>
-        )}
-        {/* L'ADRESSE, EN CLAIR. Elle n'apparaissait nulle part : seul le
-          bouton « Ouvrir l'e-mail » la portait, caché derrière un lien
-          `mailto:` qui ouvre un logiciel de courrier que tout le monde n'a
-          pas. Le bouton est retiré ; l'adresse, elle, se lit et se copie. */}
-        {/* Toutes les adresses publiées, une par ligne : celle du conseiller
-          répond souvent plus vite que la boîte générale de l'agence. */}
-        {courriels.length > 0 && (
-          <>
-            <dt className="text-muted-foreground">{courriels.length > 1 ? 'E-mails' : 'E-mail'}</dt>
-            <dd data-testid="agency-email" className="break-all">
-              {courriels.map((courriel) => (
-                <span key={courriel} className="block select-all">
-                  {courriel}
-                </span>
-              ))}
-            </dd>
-          </>
-        )}
-        {formUrl !== null && !formIsSource && (
-          <>
-            <dt className="text-muted-foreground">Formulaire</dt>
-            <dd>
-              <a
-                // Même précaution : l'adresse du formulaire vient de l'agence.
-                href={safeHref(formUrl) ?? undefined}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-primary underline"
-              >
-                Ouvrir sur le site
-              </a>
-            </dd>
-          </>
-        )}
-
-        {/* §38 : d'où vient l'annonce, avec le lien d'origine. Cette section
-          vivait seule en bas de fiche, entre le statut et la description ;
-          c'est pourtant une coordonnée comme les autres — le canal par lequel
-          on joint le bien. */}
-        {occurrences.length > 0 && (
-          <>
-            <dt className="text-muted-foreground">
-              {occurrences.length > 1 ? 'Sources' : 'Source'}
-            </dt>
-            <dd data-testid="listing-sources">
-              {occurrences.map((occurrence) => (
-                <span key={occurrence.id} className="block">
-                  <SourceRow
-                    occurrence={occurrence}
-                    price={listing.price.value}
-                    area={listing.area.value}
-                  />
-                </span>
-              ))}
-            </dd>
-          </>
-        )}
-      </dl>
-
       {/* APPELER, EN UN GESTE. Le numéro n'était qu'un lien dans une liste de
         définitions : sur téléphone, il fallait viser dix caractères au milieu
         d'un tableau. Or l'appel est LE geste qui fait obtenir une visite sur ce
@@ -359,6 +365,38 @@ function ContactDetails({
           </a>
         </div>
       )}
+    </>
+  );
+}
+
+function ContactDetails({
+  listing,
+  hasAnyContact,
+  onCalled,
+  onWritten,
+  onOpenSource,
+  subject,
+  message,
+}: {
+  readonly listing: ListingView;
+  readonly hasAnyContact: boolean;
+  readonly onCalled: () => void;
+  readonly onWritten: () => void;
+  readonly onOpenSource?: (sourceId: string) => void;
+  readonly subject?: string;
+  readonly message?: string;
+}): React.JSX.Element {
+  const paidSources = paidContactSources(listing.occurrences);
+  return (
+    <>
+      <ContactInfoList listing={listing} onOpenSource={onOpenSource} />
+      <ContactActionButtons
+        contact={listing.contact}
+        onCalled={onCalled}
+        onWritten={onWritten}
+        subject={subject}
+        message={message}
+      />
 
       {/* Le péage, dit avant le clic (§17). Remplace le message générique
         ci-dessous : ici l'absence de coordonnées n'est pas un manque de la

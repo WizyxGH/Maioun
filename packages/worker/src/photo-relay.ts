@@ -34,6 +34,8 @@ const ALLOWED_HOSTS = new Set([
   // que Rentola recopie en pointant chez lui (vérifié le 2026-10-06).
   'www.repimmo.com',
   'repimmo.com',
+  // Son site mobile, qui seul publie une icône carrée.
+  'm.repimmo.com',
 ]);
 
 /** Ce qu'on accepte de renvoyer. Une page HTML n'est pas une photo. */

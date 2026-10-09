@@ -2010,7 +2010,7 @@ export const SOURCES: Readonly<Record<string, SourceInfo>> = {
     name: 'Repimmo',
     domain: 'repimmo.com',
     kind: 'portal',
-    logo: null,
+    logo: 'http://m.repimmo.com/images/apple-touch-icon.png',
     paidContact: false,
     address: null,
     alsoKnownAs: [],

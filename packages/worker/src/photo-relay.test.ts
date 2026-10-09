@@ -19,6 +19,7 @@ describe('ce que le relais accepte de joindre', () => {
     expect(
       relayable('http://www.repimmo.com/upload/global/photos/b2368/maison_media_1_2.jpg'),
     ).toBe(true);
+    expect(relayable('http://m.repimmo.com/images/apple-touch-icon.png')).toBe(true);
     // Et en HTTPS si l'hôte y venait un jour.
     expect(relayable('https://www.beptransaction.com/bep/docs/1.jpg')).toBe(true);
   });

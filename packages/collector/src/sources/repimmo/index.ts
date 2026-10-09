@@ -24,6 +24,11 @@ export const REPIMMO_DESCRIPTOR: SourceDescriptor = {
   id: 'repimmo',
   name: 'Repimmo',
   domain: 'repimmo.com',
+  // Le bandeau du site : ses icônes (favicon, apple-touch-icon, mobile
+  // compris) répondent 200 mais VIDES (vérifié le 2026-10-09), d'où l'icône
+  // neutre. En http seulement, comme ses photos — le relais du Worker la sert
+  // en https.
+  logo: 'http://www.repimmo.com/images/annonces-immobilieres-gratuites.png',
   kind: 'portal',
   publishesOwnListings: false,
   method: 'html',

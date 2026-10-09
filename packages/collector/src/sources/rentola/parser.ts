@@ -18,6 +18,35 @@ interface JsonLdListItem {
   item?: JsonLdRealEstate;
 }
 
+interface JsonLdItemOffered {
+  '@type'?: string;
+  address?: {
+    streetAddress?: string;
+    addressCountry?: string;
+    addressLocality?: string;
+    postalCode?: string;
+  };
+  geo?: {
+    latitude?: number;
+    longitude?: number;
+  };
+  floorSize?: {
+    value?: number;
+    unitCode?: string;
+  };
+  numberOfBedrooms?: {
+    value?: number;
+  };
+}
+
+interface JsonLdOffers {
+  '@type'?: string;
+  price?: number;
+  priceCurrency?: string;
+  validFrom?: string;
+  itemOffered?: JsonLdItemOffered;
+}
+
 interface JsonLdRealEstate {
   '@type'?: string;
   name?: string;
@@ -25,32 +54,7 @@ interface JsonLdRealEstate {
   description?: string;
   datePosted?: string;
   image?: string | readonly string[];
-  offers?: {
-    '@type'?: string;
-    price?: number;
-    priceCurrency?: string;
-    validFrom?: string;
-    itemOffered?: {
-      '@type'?: string;
-      address?: {
-        streetAddress?: string;
-        addressCountry?: string;
-        addressLocality?: string;
-        postalCode?: string;
-      };
-      geo?: {
-        latitude?: number;
-        longitude?: number;
-      };
-      floorSize?: {
-        value?: number;
-        unitCode?: string;
-      };
-      numberOfBedrooms?: {
-        value?: number;
-      };
-    };
-  };
+  offers?: JsonLdOffers;
 }
 
 export function listingReference(href: string): string | null {
@@ -64,6 +68,52 @@ function extractPostalCode(text?: string): string | undefined {
   return match?.[1];
 }
 
+function isFurnishedText(description?: string, title?: string): boolean {
+  const pattern = /meubl[ée]|\bfurnished\b/i;
+  return Boolean((description && pattern.test(description)) || (title && pattern.test(title)));
+}
+
+function extractImages(image: string | readonly string[] | undefined): string[] {
+  if (!image) return [];
+  // LE MÊME GARDE QUE LE REPLI HTML : filtrer logos et cartes
+  return keepPhotos(Array.isArray(image) ? image : [image]);
+}
+
+/**
+ * UNE VILLE GÉOCODÉE N'EST PAS UNE ADRESSE. Rentola publie « Nice, Maritime
+ * Alps, France », « 06000 Nice, France » ou « Nice-Ville, Parvis de la Gare »
+ * avec le point que son géocodeur en tire : sans voie nommée, on ne garde ni
+ * l'adresse ni la position.
+ */
+function extractLocation(address?: JsonLdItemOffered['address'], geo?: JsonLdItemOffered['geo']) {
+  const street = address?.streetAddress ? cleanText(address.streetAddress) : undefined;
+  const postalCode = address?.postalCode ?? extractPostalCode(street);
+  const city = address?.addressLocality ? cleanText(address.addressLocality) : 'Nice';
+  const placee = street !== undefined && namesAStreet(street);
+
+  return {
+    ...(placee ? { addressText: street } : {}),
+    cityText: city,
+    ...(postalCode ? { postalCodeText: postalCode } : {}),
+    ...(placee && geo?.latitude !== undefined ? { latitude: geo.latitude } : {}),
+    ...(placee && geo?.longitude !== undefined ? { longitude: geo.longitude } : {}),
+  };
+}
+
+function extractOfferDetails(offers?: JsonLdOffers) {
+  const itemOffered = offers?.itemOffered;
+  const floorSize = itemOffered?.floorSize;
+  const bedrooms = itemOffered?.numberOfBedrooms?.value;
+  return {
+    ...(offers?.price !== undefined ? { priceText: `${offers.price} € / mois` } : {}),
+    ...(floorSize?.value !== undefined ? { areaText: `${floorSize.value} m²` } : {}),
+    ...(bedrooms !== undefined
+      ? { roomsText: `${bedrooms} ${bedrooms > 1 ? 'chambres' : 'chambre'}` }
+      : {}),
+    propertyTypeText: itemOffered?.['@type'] === 'House' ? 'Maison' : 'Appartement',
+  };
+}
+
 function listingFromJsonLd(item: JsonLdRealEstate, fallbackUrl: string): RawListing | null {
   const url = item.url ?? fallbackUrl;
   const reference = listingReference(url);
@@ -71,56 +121,23 @@ function listingFromJsonLd(item: JsonLdRealEstate, fallbackUrl: string): RawList
 
   const offers = item.offers;
   const itemOffered = offers?.itemOffered;
-  const address = itemOffered?.address;
-  const geo = itemOffered?.geo;
-  const floorSize = itemOffered?.floorSize;
-  const bedrooms = itemOffered?.numberOfBedrooms?.value;
-
-  // LE MÊME GARDE QUE LE REPLI HTML. Ce chemin reprenait toutes les URL telles
-  // quelles : une annonce dont la source publie un JSON-LD passait ses logos et
-  // ses images « pas de bien » en photos du logement. Deux chemins, une seule
-  // règle — sinon elle n'est appliquée qu'à moitié, sans que rien le dise.
-  const images = keepPhotos(Array.isArray(item.image) ? item.image : [item.image]);
-
+  const images = extractImages(item.image);
   const rawTitle = item.name ? cleanText(item.name) : undefined;
-  const street = address?.streetAddress ? cleanText(address.streetAddress) : undefined;
-  const postalCode = address?.postalCode ?? extractPostalCode(street);
-  const city = address?.addressLocality ? cleanText(address.addressLocality) : 'Nice';
-  /**
-   * UNE VILLE GÉOCODÉE N'EST PAS UNE ADRESSE. Rentola publie « Nice, Maritime
-   * Alps, France », « 06000 Nice, France » ou « Nice-Ville, Parvis de la Gare »
-   * avec le point que son géocodeur en tire : 118 logements au même point du
-   * centre-ville, 22 à la gare (relevé du 2026-10-05). Afficher l'un ou
-   * l'autre plaçait une punaise et un temps de trajet faux. Sans voie nommée,
-   * on ne garde ni l'adresse ni la position.
-   */
-  const placee = street !== undefined && namesAStreet(street);
-
-  const isFurnished =
-    (item.description && /meubl[ée]|\bfurnished\b/i.test(item.description)) ||
-    (rawTitle && /meubl[ée]|\bfurnished\b/i.test(rawTitle));
+  const isFurnished = isFurnishedText(item.description, rawTitle);
+  const location = extractLocation(itemOffered?.address, itemOffered?.geo);
+  const offerDetails = extractOfferDetails(offers);
+  const publishedAt = offers?.validFrom ?? item.datePosted;
 
   return {
     sourceRef: reference,
     sourceUrl: url.replace(/[?#].*$/, ''),
     ...(rawTitle ? { title: rawTitle } : {}),
     ...(item.description ? { description: cleanText(item.description) } : {}),
-    ...(offers?.price !== undefined ? { priceText: `${offers.price} € / mois` } : {}),
-    ...(floorSize?.value !== undefined ? { areaText: `${floorSize.value} m²` } : {}),
-    ...(bedrooms !== undefined
-      ? { roomsText: `${bedrooms} ${bedrooms > 1 ? 'chambres' : 'chambre'}` }
-      : {}),
-    propertyTypeText: itemOffered?.['@type'] === 'House' ? 'Maison' : 'Appartement',
+    ...offerDetails,
     furnishedText: isFurnished ? 'Meublé' : undefined,
-    ...(placee ? { addressText: street } : {}),
-    cityText: city,
-    ...(postalCode ? { postalCodeText: postalCode } : {}),
-    ...(placee && geo?.latitude !== undefined ? { latitude: geo.latitude } : {}),
-    ...(placee && geo?.longitude !== undefined ? { longitude: geo.longitude } : {}),
+    ...location,
     ...(images.length > 0 ? { imageUrls: images } : {}),
-    ...(offers?.validFrom || item.datePosted
-      ? { publishedAt: offers?.validFrom ?? item.datePosted }
-      : {}),
+    ...(publishedAt ? { publishedAt } : {}),
     extra: {
       reference,
       aggregator: 'rentola',
@@ -220,35 +237,42 @@ function safeUrl(href: string, pageUrl: string): string | null {
   }
 }
 
+function extractJsonLdListings(html: string): RawListing[] {
+  const results: RawListing[] = [];
+  const jsonLdMatches = html.matchAll(
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  );
+  for (const match of jsonLdMatches) {
+    const rawJson = match[1];
+    if (!rawJson) continue;
+    try {
+      const data = JSON.parse(rawJson);
+      if (data['@type'] !== 'SearchResultsPage' && !data.mainEntity?.itemListElement) {
+        continue;
+      }
+      const items: JsonLdListItem[] = data.mainEntity?.itemListElement ?? [];
+      for (const entry of items) {
+        const item = entry.item ?? (entry as unknown as JsonLdRealEstate);
+        const url = entry.url ?? item.url;
+        if (!url) continue;
+        const listing = listingFromJsonLd(item, url);
+        if (listing) results.push(listing);
+      }
+    } catch {
+      // Ignorer les blocs JSON invalides
+    }
+  }
+  return results;
+}
+
 export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const listings = new Map<string, RawListing>();
   const warnings: string[] = [];
 
   // 1. Essai d'extraction via JSON-LD (SearchPage)
-  const jsonLdMatches = [
-    ...html.matchAll(
-      /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
-    ),
-  ];
-  for (const match of jsonLdMatches) {
-    try {
-      const rawJson = match[1];
-      if (!rawJson) continue;
-      const data = JSON.parse(rawJson);
-      if (data['@type'] === 'SearchResultsPage' || data.mainEntity?.itemListElement) {
-        const items: JsonLdListItem[] = data.mainEntity?.itemListElement ?? [];
-        for (const entry of items) {
-          const item = entry.item ?? (entry as unknown as JsonLdRealEstate);
-          const url = entry.url ?? item.url;
-          if (!url) continue;
-          const listing = listingFromJsonLd(item, url);
-          if (listing && !listings.has(listing.sourceRef)) {
-            listings.set(listing.sourceRef, listing);
-          }
-        }
-      }
-    } catch {
-      // Ignorer les blocs JSON invalides
+  for (const listing of extractJsonLdListings(html)) {
+    if (!listings.has(listing.sourceRef)) {
+      listings.set(listing.sourceRef, listing);
     }
   }
 

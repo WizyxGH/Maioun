@@ -27,9 +27,9 @@ import { parseListPage } from './parser.js';
 
 const ORIGIN = 'https://www.lesiteimmo.com';
 /** Les deux recherches qui portent l'inventaire niçois. */
-const SEARCHES = ['/louer/appartement/nice-06000', '/louer/maison/nice-06000'];
+const SEARCHES = ['/louer/appartement/nice-06', '/louer/maison/nice-06'];
 const PER_PAGE = 25;
-const MAX_PAGES_PER_SEARCH = 6;
+const MAX_PAGES_PER_SEARCH = 14;
 
 const PERIMETER_NAMES = PERIMETER_COMMUNES.map((commune) =>
   comparable(commune.slug.replace(/-/g, ' ')),
