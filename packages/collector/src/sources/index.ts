@@ -87,6 +87,7 @@ import { libertyAgencyScraper } from './liberty-agency/index.js';
 import { maisonQuatreScraper } from './maison-quatre/index.js';
 import { murtaScraper } from './murta/index.js';
 import { belgraviaScraper } from './belgravia/index.js';
+import { beliyzScraper } from './beliyz/index.js';
 import { deVitaScraper } from './de-vita/index.js';
 import { coteVillageScraper } from './cote-village/index.js';
 import { lbImmobilierScraper } from './lb-immobilier/index.js';
@@ -325,6 +326,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   maisonQuatreScraper,
   murtaScraper,
   belgraviaScraper,
+  beliyzScraper,
   deVitaScraper,
   coteVillageScraper,
   lbImmobilierScraper,
