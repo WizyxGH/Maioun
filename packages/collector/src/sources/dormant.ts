@@ -459,6 +459,23 @@ export const DORMANT_CANDIDATES: readonly DormantCandidate[] = [
     wakesIf: 'sa page France rend des annonces du périmètre',
     probe: { kind: 'page', url: 'https://coliving.com/france/nice' },
   },
+  {
+    id: 'rez-de-chaussee',
+    name: 'REZ-DE-CHAUSSEE.COM',
+    origin: 'https://rez-de-chaussee.com',
+    reason: 'noVolume',
+    checkedOn: '2026-10-26',
+    refusal:
+      'agence spécialisée rez-de-chaussée (Paris/Lyon) : 149 biens dont 11 locations (bureaux/locaux pros), zéro annonce sur le périmètre niçois',
+    wakesIf: 'son sitemap publie des biens dans les communes cibles (Nice et environs)',
+    probe: {
+      kind: 'sitemap',
+      url: 'https://rez-de-chaussee.com/sitemap-0.xml',
+      pattern:
+        /\/biens\/[^"]*(?:nice|cagnes|villefranche|beaulieu|saint-laurent|06000|06100|06200|06300)/i,
+      minMatches: 1,
+    },
+  },
 ];
 
 /** Ce qu'une requête a rendu. Volontairement minimal : c'est tout ce qui sert. */
