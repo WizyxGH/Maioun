@@ -1550,7 +1550,8 @@ export function createRepository(db: Database): Repository {
       // perdrait le suivi porté par la fiche absorbée (voir `inheritUserState`).
       const [existing, predecessors] = await Promise.all([
         db.execute({
-          sql: `SELECT id, content_hash FROM listings WHERE id IN (${ids.map(() => '?').join(',')})`,
+          sql: `SELECT id, content_hash, last_seen_at FROM listings
+                WHERE id IN (${ids.map(() => '?').join(',')})`,
           args: ids,
         }),
         previousGroups(db, listings),
@@ -1558,9 +1559,13 @@ export function createRepository(db: Database): Repository {
       const known = new Map(
         existing.rows.map((row) => [String(row['id']), String(row['content_hash'])]),
       );
+      const seenBefore = new Map(
+        existing.rows.map((row) => [String(row['id']), String(row['last_seen_at'] ?? '')]),
+      );
 
       const statements: Statement[] = [];
-      const touches: string[] = [];
+      // Fiches inchangées dont la date de dernière vue AVANCE, par date.
+      const touches = new Map<string, string[]>();
       let inserted = 0;
       let updated = 0;
       let unchanged = 0;
@@ -1570,7 +1575,13 @@ export function createRepository(db: Database): Repository {
         const previous = known.get(listing.id);
         if (previous === hash) {
           unchanged += 1;
-          touches.push(listing.id);
+          const before = seenBefore.get(listing.id) ?? '';
+          if (listing.lastSeenAt > before) {
+            touches.set(listing.lastSeenAt, [
+              ...(touches.get(listing.lastSeenAt) ?? []),
+              listing.id,
+            ]);
+          }
           continue;
         }
         if (previous === undefined) inserted += 1;
@@ -1678,14 +1689,17 @@ export function createRepository(db: Database): Repository {
       // ensuite « vue pour la dernière fois » vingt jours trop tôt — au moment
       // précis où cette date décide si l'on se déplace.
       //
-      // Une seule requête pour tout le lot, comme pour les occurrences, et
-      // jamais en arrière : un passage plus ancien ne rajeunit pas une fiche.
-      if (touches.length > 0) {
-        const seenAt = listings[0]?.lastSeenAt ?? new Date().toISOString();
+      // CHAQUE FICHE PREND SA PROPRE DATE, et seulement si elle avance. La date
+      // de la PREMIÈRE fiche du lot était recopiée sur toutes : une annonce
+      // dont la source n'avait pas tourné se disait « vue à l'instant », et
+      // chaque passage réécrivait les quelque 3 700 fiches inchangées — le
+      // premier poste d'écritures chez Turso (relevé du 2026-10-07). Une requête
+      // par date distincte, une ou deux par passage ; jamais en arrière.
+      for (const [seenAt, fiches] of touches) {
         statements.push({
           sql: `UPDATE listings SET last_seen_at = ?
-                WHERE id IN (${touches.map(() => '?').join(',')}) AND last_seen_at < ?`,
-          args: [seenAt, ...touches, seenAt],
+                WHERE id IN (${fiches.map(() => '?').join(',')}) AND last_seen_at < ?`,
+          args: [seenAt, ...fiches, seenAt],
         });
       }
 
@@ -1705,12 +1719,20 @@ export function createRepository(db: Database): Repository {
       // On épargne toutefois celles qui portent une décision d'un compte
       // (favori, archivage, suivi) — mieux vaut une ligne morte qu'un choix
       // effacé (§14).
-      const orphans = await db.execute(`
+      //
+      // SEULEMENT QUAND UNE OCCURRENCE A CHANGÉ DE FICHE : c'est la seule façon
+      // d'en rendre une orpheline. Sans fusion, le balayage relisait toutes les
+      // fiches pour ne rien trouver, à chaque passage ; le prochain passage qui
+      // fusionne rattrape un reste éventuel.
+      const orphans =
+        predecessors.size === 0
+          ? null
+          : await db.execute(`
         DELETE FROM listings
         WHERE ${ORPHAN_PREDICATE}
           AND id NOT IN (${DECIDED_LISTINGS})
       `);
-      const removed = orphans.rowsAffected ?? 0;
+      const removed = orphans?.rowsAffected ?? 0;
 
       return { inserted, updated, unchanged, ...(removed > 0 ? { removed } : {}) };
     },
@@ -1866,19 +1888,26 @@ export function createRepository(db: Database): Repository {
     async expireByAge(sourceId, thresholds) {
       // `last_seen_at` est la dernière fois que la source l'a MENTIONNÉE : pour
       // une annonce annoncée une seule fois, c'est sa date de parution.
+      //
+      // UNE DATE LIMITE, PAS UN CALCUL PAR LIGNE. `julianday(last_seen_at)`
+      // obligeait SQLite à lire toutes les occurrences de la source, éteintes
+      // comprises, à chaque passage ; comparée à une borne, la colonne se lit
+      // dans `idx_occurrences_vivantes` et seules les périmées sont visitées.
+      // Le terme `lifecycle != 'inactive'` est celui de l'index partiel.
+      const avant = (days: number): string =>
+        new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
       const moved = await db.batch(
         [
           {
             sql: `UPDATE occurrences SET lifecycle = 'possiblyInactive'
-                  WHERE source_id = ? AND lifecycle = 'active'
-                    AND julianday('now') - julianday(last_seen_at) >= ?`,
-            args: [sourceId, thresholds.possiblyInactiveAfterDays],
+                  WHERE source_id = ? AND lifecycle != 'inactive' AND last_seen_at <= ?
+                    AND lifecycle = 'active'`,
+            args: [sourceId, avant(thresholds.possiblyInactiveAfterDays)],
           },
           {
             sql: `UPDATE occurrences SET lifecycle = 'inactive'
-                  WHERE source_id = ? AND lifecycle != 'inactive'
-                    AND julianday('now') - julianday(last_seen_at) >= ?`,
-            args: [sourceId, thresholds.inactiveAfterDays],
+                  WHERE source_id = ? AND lifecycle != 'inactive' AND last_seen_at <= ?`,
+            args: [sourceId, avant(thresholds.inactiveAfterDays)],
           },
         ],
         'write',
@@ -2324,11 +2353,14 @@ export function createRepository(db: Database): Repository {
       // `lifecycle` courant, ces deux requêtes réaffirmaient à chaque passage
       // un statut déjà acquis, et leur `rowsAffected` ne distinguait plus une
       // transition d'une répétition.
+      // `lifecycle != 'inactive'`, même redondant, est le terme de l'index
+      // partiel : sans lui les éteintes de la source étaient relues aussi.
       const moved = await db.batch(
         [
           {
             sql: `UPDATE occurrences SET lifecycle = 'possiblyInactive'
-                  WHERE source_id = ? AND missing_runs >= ? AND missing_runs < ?
+                  WHERE source_id = ? AND lifecycle != 'inactive'
+                    AND missing_runs >= ? AND missing_runs < ?
                     AND lifecycle = 'active'`,
             args: [sourceId, thresholds.possiblyInactiveAfter, thresholds.inactiveAfter],
           },
@@ -3303,7 +3335,16 @@ const EVENT_DAYS = 90;
  */
 const DAILY_STAT_MAX_AGE_MS = 60 * 60 * 1000;
 
-const ORPHAN_PREDICATE = 'id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)';
+/**
+ * Une fiche qu'aucune occurrence ne désigne plus.
+ *
+ * CORRÉLÉE, ET NON `id NOT IN (SELECT group_id FROM occurrences)` : cette forme
+ * matérialisait TOUTES les occurrences à chaque appel — une fois par fusion
+ * dans `inheritUserState`, soit six mille lignes lues pour en supprimer une.
+ * Ici chaque fiche candidate coûte une entrée de `idx_occurrences_group`.
+ */
+const ORPHAN_PREDICATE =
+  'NOT EXISTS (SELECT 1 FROM occurrences WHERE occurrences.group_id = listings.id)';
 
 /** Les fiches sur lesquelles un compte, quel qu'il soit, a décidé quelque chose. */
 const DECIDED_LISTINGS = `SELECT listing_id FROM listing_user_state

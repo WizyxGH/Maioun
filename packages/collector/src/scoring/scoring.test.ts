@@ -355,6 +355,16 @@ describe('scoreOpportunity (§17)', () => {
     expect(deduced.reasons.some((reason) => reason.code === 'freshness.firstSeen')).toBe(true);
   });
 
+  it('garde le même score d’une heure à l’autre dans un même palier (§30)', () => {
+    // Le score entre dans l'empreinte enregistrée : un libellé à la minute
+    // (« Découverte il y a 3 h » puis « 4 h ») réécrivait ~1 300 scores par passage.
+    const listing = makeAggregated({ publishedAt: null, firstSeenAt: minutesBefore(8 * 60) });
+    const at = (hoursLater: number) =>
+      JSON.stringify(scoreOpportunity(listing, { nowMs: TEST_NOW + hoursLater * 3_600_000 }));
+    expect(at(1)).toBe(at(0));
+    expect(at(0)).toContain('Découverte aujourd’hui (date de publication non fournie)');
+  });
+
   it('valorise une baisse de loyer récente (§17)', () => {
     const base = makeAggregated({ publishedAt: minutesBefore(120) });
     const dropped = scoreOpportunity(base, { nowMs: TEST_NOW, priceDropped: true });

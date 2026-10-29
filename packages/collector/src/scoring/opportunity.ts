@@ -12,7 +12,7 @@
  */
 
 import type { AggregatedListing, ExplainedScore, ScoreReason } from '@maioun/shared';
-import { clampScore, formatElapsed } from '@maioun/shared';
+import { clampScore } from '@maioun/shared';
 
 /** Paliers de fraîcheur, en minutes, et points associés. */
 const FRESHNESS_TIERS: readonly { maxMinutes: number; points: number; label: string }[] = [
@@ -80,12 +80,17 @@ export function scoreOpportunity(
     const points = tier?.points ?? 0;
     const adjusted = age.basis === 'published' ? points : Math.round(points * FIRST_SEEN_WEIGHT);
     total += adjusted;
+    // LE LIBELLÉ SUIT LE PALIER, PAS LA MINUTE. Il entre dans l'empreinte du
+    // score enregistré (`saveUserScores`) : « Découverte il y a 3 h » devenu
+    // « il y a 4 h » réécrivait ~1 300 scores à chaque passage pour un texte
+    // que la carte recalcule de toute façon à l'affichage depuis `firstSeenAt`.
+    const tierLabel = tier?.label ?? 'Publiée il y a plus d’une semaine';
     reasons.push({
       code: `freshness.${age.basis}`,
       label:
         age.basis === 'published'
-          ? (tier?.label ?? 'Publiée il y a plus d’une semaine')
-          : `Découverte ${formatElapsed(age.minutes)} (date de publication non fournie)`,
+          ? tierLabel
+          : `${tierLabel.replace(/^Publiée/, 'Découverte')} (date de publication non fournie)`,
       delta: adjusted,
     });
     if (age.basis === 'firstSeen') unknownSignals.push('date de publication exacte');

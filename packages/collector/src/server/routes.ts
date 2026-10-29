@@ -784,13 +784,18 @@ export function buildListQuery(url: URL, filters?: LiveFilters, anonymous = fals
  * renvoyait les mêmes 3,8 Mo — analysés puis réémis par un Worker qui ne
  * dispose que de dix millisecondes de processeur.
  *
- * Trois agrégats suffisent à savoir si quoi que ce soit a changé : combien de
- * fiches, la plus récente modification d'annonce, et la plus récente
- * modification d'état pour CE compte. Un favori posé change la troisième.
+ * Quatre repères suffisent à savoir si quoi que ce soit a changé : la plus
+ * récente modification d'annonce, le dernier regroupement (qui seul supprime
+ * des fiches), et les plus récentes modifications d'état et de score de CE
+ * compte. Un favori posé change la troisième.
  *
- * Cette requête remplace le `COUNT(*)` qu'on faisait déjà : à contenu
- * inchangé, on passe donc de deux interrogations dont une lourde à une seule
- * légère.
+ * AUCUN NE BALAIE LA LISTE. L'empreinte comptait et datait les fiches FILTRÉES :
+ * un parcours de toute la table, plus deux jointures par fiche, que le site
+ * redemande toutes les minutes par onglet ouvert — cinq mille lignes lues pour
+ * répondre « rien n'a changé », 1 440 fois par jour. Chaque repère est
+ * désormais UNE entrée d'index. Ils valent pour toutes les fiches et non pour
+ * les seules filtrées : une modification hors du filtre fait renvoyer la liste
+ * pour rien, jamais l'inverse.
  */
 /**
  * Change à chaque évolution de la FORME de la réponse : une copie gardée par le
@@ -802,19 +807,17 @@ async function listSignature(
   db: Client,
   query: ListQuery,
   userId: string,
-): Promise<{ etag: string; total: number }> {
+): Promise<{ etag: string }> {
   // Le score du compte compte aussi : la collecte le réécrit quand les critères
   // changent, sans toucher ni à la fiche ni à l'état.
   const result = await db.execute({
-    sql: `SELECT COUNT(*) AS n,
-                 MAX(listings.updated_at) AS listing_at,
-                 MAX(us.updated_at) AS state_at,
-                 MAX(sc.updated_at) AS score_at
-          FROM listings ${USER_STATE_JOIN} ${query.filter}`,
-    args: [userId, userId, ...query.filterArgs],
+    sql: `SELECT (SELECT MAX(updated_at) FROM listings) AS listing_at,
+                 (SELECT last_at FROM regroup_state WHERE id = 1) AS regroup_at,
+                 (SELECT MAX(updated_at) FROM listing_user_state WHERE user_id = ?) AS state_at,
+                 (SELECT MAX(updated_at) FROM listing_user_score WHERE user_id = ?) AS score_at`,
+    args: [userId, userId],
   });
   const row = (result.rows[0] ?? {}) as Record<string, unknown>;
-  const total = Number(row['n'] ?? 0);
   /**
    * LE COMPTE ET SES FILTRES FONT PARTIE DE L'EMPREINTE. Le navigateur range la
    * réponse sous son adresse seule : sans le compte, une autre session sur le
@@ -824,7 +827,7 @@ async function listSignature(
   const parts = [
     LIST_FORMAT,
     userId,
-    total,
+    String(row['regroup_at'] ?? ''),
     String(row['listing_at'] ?? ''),
     String(row['state_at'] ?? ''),
     String(row['score_at'] ?? ''),
@@ -839,7 +842,7 @@ async function listSignature(
     .slice(0, 16)
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
-  return { etag: `W/"${hex}"`, total };
+  return { etag: `W/"${hex}"` };
 }
 
 /** `If-None-Match` désigne-t-il cette version ? Comparaison faible, liste permise. */
@@ -849,18 +852,34 @@ export function etagMatches(header: string | null, etag: string): boolean {
   return header.split(',').some((tag) => tag.trim() === '*' || bare(tag) === bare(etag));
 }
 
-/** Le corps de la réponse, assemblé sans passer par des objets. */
-async function listListingsJson(
-  db: Client,
-  query: ListQuery,
-  userId: string,
-  total: number,
-): Promise<string> {
+/**
+ * Le corps de la réponse, assemblé sans passer par des objets.
+ *
+ * LE TOTAL VIENT AVEC LA PAGE (`COUNT(*) OVER ()`) : le tri parcourt déjà
+ * toutes les fiches filtrées, un `COUNT(*)` à part les relisait une seconde
+ * fois. Une page vide n'en porte pas — seul cas où l'on compte à part.
+ */
+async function listListingsJson(db: Client, query: ListQuery, userId: string): Promise<string> {
   const result = await db.execute({
-    sql: `SELECT ${listColumnsSql(userId)} FROM listings ${USER_STATE_JOIN} ${query.filter}
+    sql: `SELECT ${listColumnsSql(userId)}, COUNT(*) OVER () AS list_total
+          FROM listings ${USER_STATE_JOIN} ${query.filter}
           ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`,
     args: [userId, userId, ...query.filterArgs, query.limit, query.offset],
   });
+  const first = result.rows[0] as Record<string, unknown> | undefined;
+  const total =
+    first !== undefined
+      ? Number(first['list_total'] ?? 0)
+      : query.offset === 0
+        ? 0
+        : Number(
+            (
+              await db.execute({
+                sql: `SELECT COUNT(*) AS n FROM listings ${USER_STATE_JOIN} ${query.filter}`,
+                args: [userId, userId, ...query.filterArgs],
+              })
+            ).rows[0]?.['n'] ?? 0,
+          );
   const items = result.rows.map((row) => listItemJson(row as Record<string, unknown>));
   return `{"listings":[${items.join(',')}],"total":${total},"limit":${query.limit},"offset":${query.offset}}`;
 }
@@ -1175,15 +1194,20 @@ async function listSources(db: Client): Promise<unknown> {
    * simplement pas répondu. Deux faits suffisent à trancher — comment s'est
    * terminé le dernier passage, et combien d'annonces il a rapportées.
    */
-  // Sur trente jours, pas sur tout le journal : un parcours complet par
-  // affichage de l'écran coûtait des dizaines de milliers de lignes lues.
+  // LE DERNIER PASSAGE DE CHAQUE SOURCE, ET LUI SEUL : une entrée de
+  // `idx_runs_source` par source. La fenêtre de trente jours lisait encore
+  // TOUS les passages du mois — 85 sources par cycle, 66 cycles par jour, plus
+  // de cent mille lignes à chaque ouverture du site. Le `+` interdit à SQLite
+  // de repartir par `idx_runs_started`, c'est-à-dire par tout le mois.
   const last = await db.execute({
     sql: `
-    SELECT source_id, stop_reason, listings_found, started_at FROM (
-      SELECT source_id, stop_reason, listings_found, started_at,
-             ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY started_at DESC) AS rang
-        FROM collection_runs WHERE started_at >= ?
-    ) WHERE rang = 1
+    SELECT r.source_id, r.stop_reason, r.listings_found, r.started_at
+      FROM source_state AS s
+      JOIN collection_runs AS r ON r.id = (
+        SELECT c.id FROM collection_runs AS c
+         WHERE c.source_id = s.source_id AND +c.started_at >= ?
+         ORDER BY c.started_at DESC LIMIT 1
+      )
   `,
     args: [new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()],
   });
@@ -1650,7 +1674,7 @@ async function handleListingsRoute(
     if (shared === null) return json({ error: 'Critères illisibles' }, cors, 400);
     const filters = anonymous ? shared : await liveFilters(db, userId);
     const query = buildListQuery(url, filters, anonymous);
-    const { etag, total } = await listSignature(db, query, userId);
+    const { etag } = await listSignature(db, query, userId);
 
     // REQUÊTE CONDITIONNELLE. Le navigateur renvoie l'empreinte qu'il détient ;
     // si rien n'a bougé, on répond 304 sans corps et il ressert sa copie. Le
@@ -1662,7 +1686,7 @@ async function handleListingsRoute(
       });
     }
 
-    const body = await listListingsJson(db, query, userId, total);
+    const body = await listListingsJson(db, query, userId);
     return new Response(body, {
       status: 200,
       headers: {

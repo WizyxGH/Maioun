@@ -81,4 +81,30 @@ describe('la date d’observation d’une fiche inchangée', () => {
     await repository.saveListings([fiche(HIER)]);
     expect(await vueLe(db)).toBe(AUJOURDHUI);
   });
+
+  it('prend SA date, pas celle de la première fiche du lot', async () => {
+    // La date de la première fiche était recopiée sur toutes les inchangées :
+    // une annonce dont la source n'avait pas tourné se disait « vue à
+    // l'instant », et chaque passage réécrivait toutes les fiches.
+    await repository.upsertOccurrences([makeOccurrence({ id: 'orpi:2', sourceId: 'orpi' })]);
+    const autre = (lastSeenAt: string): ScoredListing =>
+      scoreListing(
+        makeAggregated({
+          id: 'orpi:2',
+          lastSeenAt,
+          occurrences: [makeOccurrence({ id: 'orpi:2', sourceId: 'orpi' })],
+        }),
+        {
+          criteria: MVP_CRITERIA,
+          nowMs: Date.now(),
+          referencePricePerSqm: 20,
+          referencePoints: [],
+        },
+      );
+    await repository.saveListings([fiche(HIER), autre(HIER)]);
+    await repository.saveListings([fiche(AUJOURDHUI), autre(HIER)]);
+    const vue = await db.execute("SELECT last_seen_at FROM listings WHERE id = 'orpi:2'");
+    expect(vue.rows[0]?.['last_seen_at']).toBe(HIER);
+    expect(await vueLe(db)).toBe(AUJOURDHUI);
+  });
 });
